@@ -1725,7 +1725,8 @@
   }
 
   // Allow parent page to load document data (when embedded as iframe in a living doc)
-  window.loadDocumentData = function(json) {
+  // Supports both direct function call and postMessage
+  function applyDocumentData(json) {
     state.title = json.title || '';
     state.subtitle = json.subtitle || '';
     state.brand = json.brand || 'LD';
@@ -1740,7 +1741,15 @@
     state.originDoc = { filename: 'current-document.json', title: json.title || 'Current Document' };
     state.previewTab = 'visual';
     renderTopBar(); renderLeft(); renderRight();
-  };
+  }
+  window.loadDocumentData = applyDocumentData;
+
+  // Listen for postMessage from parent (reliable cross-iframe communication)
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'load-document' && event.data.doc) {
+      applyDocumentData(event.data.doc);
+    }
+  });
 
   init();
 })();

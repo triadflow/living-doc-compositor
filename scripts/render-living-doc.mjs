@@ -670,6 +670,8 @@ const html = `<!doctype html>
         cta.classList.remove('show');
         ctaDismissed = true;
         compOverlay.classList.add('open');
+        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
+        compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
       });
       document.getElementById('cta-dismiss')?.addEventListener('click', () => {
         cta.classList.remove('show');
@@ -681,19 +683,9 @@ const html = `<!doctype html>
         cta.classList.remove('show');
         ctaDismissed = true;
         compOverlay.classList.add('open');
-        // Pass the current document data to the compositor iframe
+        // Pass the current document data to the compositor iframe via postMessage
         const docData = JSON.parse(document.getElementById('doc-meta').textContent);
-        function tryLoad() {
-          try {
-            const win = compIframe.contentWindow;
-            if (win && win.loadDocumentData) {
-              win.loadDocumentData(docData);
-            } else {
-              setTimeout(tryLoad, 100);
-            }
-          } catch (e) { setTimeout(tryLoad, 100); }
-        }
-        tryLoad();
+        compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
       });
 
       // Auto-open compositor if document has no sections
