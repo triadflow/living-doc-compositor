@@ -7,6 +7,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+function decodeEntities(s) {
+  return s.replace(/&mdash;/g, '\u2014').replace(/&ndash;/g, '\u2013')
+    .replace(/&rarr;/g, '\u2192').replace(/&larr;/g, '\u2190')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+}
+
 const htmlPath = process.argv[2];
 const doRender = process.argv.includes('--render');
 
@@ -17,11 +24,11 @@ const jsonPath = htmlPath.replace(/\.html$/, '.json');
 
 // Extract title
 const titleMatch = html.match(/<h1>([^<]+)/);
-const title = titleMatch ? titleMatch[1].trim() : path.basename(htmlPath, '.html');
+const title = titleMatch ? decodeEntities(titleMatch[1].trim()) : path.basename(htmlPath, '.html');
 
 // Extract subtitle
 const subMatch = html.match(/<p class="subtitle"[^>]*>([^<]+)/);
-const subtitle = subMatch ? subMatch[1].trim() : '';
+const subtitle = subMatch ? decodeEntities(subMatch[1].trim()) : '';
 
 // Extract sections and blocks
 const sections = [];
@@ -29,7 +36,7 @@ let currentSection = null;
 for (const line of html.split('\n')) {
   const secMatch = line.match(/class="section-label"[^>]*>([^<]+)/);
   if (secMatch) {
-    currentSection = { name: secMatch[1].trim(), blocks: [] };
+    currentSection = { name: decodeEntities(secMatch[1].trim()), blocks: [] };
     sections.push(currentSection);
   }
   const blockMatch = line.match(/class="block (\S+)" data-block-id="([^"]+)"/);
@@ -62,7 +69,7 @@ for (const [id, content] of Object.entries(blockContent)) {
   // Name from h3 (strip status span)
   const h3Match = content.match(/<h3>([\s\S]*?)<\/h3>/);
   if (h3Match) {
-    names[id] = h3Match[1].replace(/<span[^>]*>.*?<\/span>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    names[id] = decodeEntities(h3Match[1].replace(/<span[^>]*>.*?<\/span>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
   }
 
   // All paragraphs as notes
@@ -71,14 +78,14 @@ for (const [id, content] of Object.entries(blockContent)) {
   let pm;
   while ((pm = pRegex.exec(content)) !== null) {
     const text = pm[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-    if (text.length > 5) notesList.push(text);
+    if (text.length > 5) notesList.push(decodeEntities(text));
   }
 
   // Tickets div
   const ticketMatch = content.match(/<div class="tickets">([\s\S]*?)<\/div>/);
   if (ticketMatch) {
     const ticketText = ticketMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-    if (ticketText.length > 3) notesList.push('Tickets: ' + ticketText);
+    if (ticketText.length > 3) notesList.push('Tickets: ' + decodeEntities(ticketText));
   }
 
   notes[id] = notesList;
