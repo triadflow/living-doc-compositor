@@ -1,0 +1,1749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Compositor</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --ink: #1a2332; --muted: #64748b;
+    --line: #e2e8f0; --accent: #2563eb; --accent-light: #dbeafe;
+    --positive-bg: #ecfdf5; --positive-ink: #166534;
+    --warning-bg: #fffbeb; --warning-ink: #92400e;
+    --negative-bg: #fef2f2; --negative-ink: #991b1b;
+    --neutral-bg: #f1f5f9; --neutral-ink: #475569;
+    --radius: 12px; --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; cursor: pointer; }
+
+  /* ── Layout ── */
+  .top-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px; background: var(--card);
+    border-bottom: 1px solid var(--line); height: 56px;
+  }
+  .top-bar .logo {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;
+  }
+  .top-bar h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+  .top-bar .tagline { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+  .top-bar .spacer { flex: 1; }
+  .top-action {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .top-action:hover { border-color: var(--accent); color: var(--accent); }
+  .top-action-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .top-action-primary:hover { opacity: 0.9; color: #fff; }
+  .top-bar .lang-switch { display: flex; gap: 2px; margin-left: 8px; }
+  .top-bar .lang-btn {
+    padding: 4px 8px; border-radius: 6px; border: none;
+    font-size: 10.5px; font-weight: 600; cursor: pointer; letter-spacing: 0.02em;
+  }
+  .app { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 56px); }
+  .panel { overflow-y: auto; padding: 24px; }
+  .panel-left {
+    background: var(--card); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .panel-right { background: var(--bg); }
+  .panel-header { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .panel-header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .panel-header .logo {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0;
+  }
+
+  /* ── Form fields ── */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .field input, .field textarea {
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 14px; background: var(--bg); color: var(--ink);
+    outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 56px; }
+
+  /* ── Convergence type picker ── */
+  .section-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); padding: 8px 0 4px;
+  }
+  .ct-list { display: flex; flex-direction: column; gap: 6px; }
+  .ct-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .ct-item:hover { border-color: var(--accent); }
+  .ct-item.selected { border-color: var(--accent); background: var(--accent-light); }
+  .ct-item .ct-icon {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--neutral-bg);
+    display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0;
+  }
+  .ct-item.selected .ct-icon { background: var(--accent); color: #fff; }
+  .ct-item .ct-info { flex: 1; min-width: 0; }
+  .ct-item .ct-name { font-size: 13.5px; font-weight: 600; }
+  .ct-item .ct-sources { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ct-item .ct-projection {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 2px 8px; border-radius: 999px; background: var(--neutral-bg); color: var(--neutral-ink);
+  }
+  .ct-icon { position: relative; }
+  .ct-icon .ct-tooltip {
+    display: none; position: fixed; z-index: 9999;
+    width: 280px; padding: 12px 14px; border-radius: 10px;
+    background: var(--ink); color: #e2e8f0; border: none;
+    font-size: 12.5px; line-height: 1.55; font-weight: 400;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    pointer-events: none;
+  }
+  .ct-icon .ct-tooltip.visible { display: block; }
+
+  /* ── Selected sections ── */
+  .selected-sections { display: flex; flex-direction: column; gap: 6px; }
+  .sel-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: 8px; background: var(--bg);
+    border: 1px solid var(--line); font-size: 13px;
+  }
+  .sel-item .sel-handle { cursor: grab; color: var(--muted); font-size: 16px; touch-action: none; }
+  .sel-item.dragging { opacity: 0.4; }
+  .sel-item.drag-over { border-color: var(--accent); background: var(--accent-light); }
+  .sel-item .sel-name { flex: 1; font-weight: 600; }
+  .sel-item .sel-type { font-size: 11px; color: var(--muted); }
+  .sel-item .sel-remove {
+    width: 24px; height: 24px; border: none; background: none;
+    color: var(--muted); font-size: 16px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  }
+  .sel-item .sel-remove:hover { background: var(--negative-bg); color: var(--negative-ink); }
+  .sel-title-input {
+    flex: 1; border: none; background: none; font: inherit; font-weight: 600;
+    font-size: 13px; outline: none; color: var(--ink); min-width: 0;
+  }
+
+  /* ── Actions ── */
+  .actions { display: flex; gap: 8px; padding-top: 8px; }
+  .btn {
+    flex: 1; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line);
+    font-weight: 600; font-size: 13px; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary { background: var(--card); color: var(--ink); }
+  .btn-secondary:hover { border-color: var(--accent); }
+
+  /* ── Preview ── */
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; background: var(--card); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .preview-header h2 { font-size: 15px; font-weight: 700; }
+  .preview-tabs { display: flex; gap: 4px; }
+  .preview-tab {
+    padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); font-size: 12.5px; font-weight: 600; color: var(--muted);
+  }
+  .preview-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .preview-content { padding: 24px; }
+  .preview-iframe { width: 100%; border: none; border-radius: var(--radius); background: #fff; min-height: calc(100vh - 80px); }
+  .json-preview {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; max-height: calc(100vh - 120px); overflow: auto;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 60vh; color: var(--muted); text-align: center; gap: 12px;
+  }
+  .empty-state svg { opacity: 0.3; }
+  .empty-state p { font-size: 15px; max-width: 320px; }
+
+  /* ── Load modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal {
+    background: var(--card); border-radius: 16px; padding: 24px; width: 480px;
+    max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .modal h2 { font-size: 17px; margin-bottom: 16px; }
+  .modal .field { margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* ── Guide overlay ── */
+  .guide-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .guide-overlay.open { opacity: 1; pointer-events: all; }
+  .guide-panel {
+    width: 90vw; max-width: 780px; max-height: 88vh;
+    background: var(--bg); border-radius: 16px; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+    padding: 36px 40px 48px;
+  }
+  .guide-close {
+    position: sticky; top: 0; float: right;
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--muted); font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 1;
+  }
+  .guide-close:hover { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-ink); }
+
+  /* ── Action bar ── */
+  .action-bar { display: flex; gap: 6px; }
+  .action-bar .btn { flex: none; }
+  .btn-icon {
+    width: 36px; height: 36px; padding: 0; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--muted); display: flex; align-items: center; justify-content: center;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Help ── */
+  .help-toggle {
+    display: flex; align-items: center; gap: 6px; padding: 8px 0 4px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .help-toggle svg { transition: transform 0.15s; }
+  .help-toggle.open svg { transform: rotate(90deg); }
+  .help-content {
+    display: none; padding: 14px 16px; border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-size: 13px; line-height: 1.6; color: var(--muted);
+  }
+  .help-content.open { display: block; }
+  .help-content h4 { margin: 0 0 6px; font-size: 13px; color: var(--ink); font-weight: 700; }
+  .help-content p { margin: 0 0 10px; }
+  .help-content p:last-child { margin-bottom: 0; }
+  .help-content code {
+    font-size: 12px; padding: 1px 5px; border-radius: 4px;
+    background: var(--card); border: 1px solid var(--line);
+  }
+  .help-section { margin-bottom: 14px; }
+  .help-section:last-child { margin-bottom: 0; }
+
+  /* ── Library ── */
+  .lib-list { display: flex; flex-direction: column; gap: 6px; }
+  .lib-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; transition: all 0.15s;
+  }
+  .lib-item:hover { border-color: var(--accent); }
+  .lib-item .lib-icon {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--neutral-bg);
+    display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0;
+  }
+  .lib-item .lib-info { flex: 1; min-width: 0; }
+  .lib-item .lib-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lib-item .lib-meta { font-size: 11px; color: var(--muted); }
+  .lib-item .lib-sections {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    background: var(--neutral-bg); color: var(--neutral-ink);
+  }
+
+  @media (max-width: 800px) {
+    .top-bar h1 { font-size: 14px; }
+    .top-bar .tagline { display: none; }
+    .app { grid-template-columns: 1fr; height: calc(100vh - 56px); }
+    .panel-right { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar" id="top-bar"></div>
+<div class="app" id="app">
+  <div class="panel panel-left" id="left-panel"></div>
+  <div class="panel panel-right" id="right-panel"></div>
+</div>
+<div class="guide-overlay" id="guide-overlay">
+  <div class="guide-panel" id="guide-panel"></div>
+</div>
+
+<script>
+(() => {
+  /* ── i18n ── */
+  const LOCALES = {
+    en: {
+      appTitle: 'Living Doc Compositor',
+      tagline: 'Squeeze the intel out of that token',
+      docTitle: 'Document Title',
+      docSubtitle: 'Subtitle',
+      brandMark: 'Brand Mark (2 chars)',
+      objective: 'Objective',
+      objectivePlaceholder: 'What is this document driving toward?',
+      successCondition: 'Success Condition',
+      successConditionPlaceholder: 'When is this objective met?',
+      convergenceTypes: 'Convergence Types',
+      docSections: 'Document Sections',
+      library: 'Library',
+      load: 'Load',
+      export: 'Export',
+      guide: 'Guide',
+      newDoc: 'New document',
+      preview: 'Preview',
+      visual: 'Visual',
+      json: 'JSON',
+      itemBlueprint: 'Item blueprint — each entry will have:',
+      populatedBy: 'Populated by sync skill',
+      noSections: 'No sections yet. Pick convergence types from the left.',
+      loadTitle: 'Load Living Doc JSON',
+      pasteJson: 'Paste JSON or pick a file',
+      loadFromFile: 'Or load from file',
+      cancel: 'Cancel',
+      apply: 'Load',
+      invalidJson: 'Invalid JSON',
+      exportedTo: 'downloaded. Move it to your docs/ folder so the library and renderer can find it:',
+      shareTool: 'Share tool',
+      shareToolHint: 'Download a clean version of the compositor without any document data — safe to share with anyone.',
+      newDocHint: 'Clear everything and start a fresh living doc from scratch.',
+      loadHint: 'Load an existing living doc JSON file to view or edit its structure.',
+      exportHint: 'Download the current document as a JSON file — the data format that the renderer and sync skills consume.',
+      htmlHint: 'Generate a self-contained HTML page with the living doc content and the full compositor embedded. This is the file you share with team members.',
+      guideHint: 'Open the full guide — explains the concept, convergence types, workflow, and how to create your own.',
+      sections: 'sections',
+      items: 'items',
+      more: 'more',
+      noneYet: 'None yet',
+      text: 'text',
+      list: 'list',
+      // Guide - intro
+      guideIntroTitle: 'What is this?',
+      guideIntro1: 'Your work lives in many places. Designs in Figma. Code in repos. Tickets in GitHub. Workflows in CI. Decisions in conversations. To understand the real state of anything, you have to visit all of them and piece it together yourself.',
+      guideIntro2: 'A living doc brings those pieces into one page. Not as a copy \u2014 as a structured view that stays connected to the sources. When the code changes, the doc reflects it. When a probe fails, you see it. When a ticket closes, the status updates.',
+      guideIntro3: 'The compositor lets you define what goes on that page. You pick which types of information converge \u2014 designs + code + specs, or components + build status, or probes + APIs + automation. Each combination is a convergence type. The rest follows automatically.',
+      guideGrowTitle: 'Living docs grow',
+      guideGrow1: 'You don\u2019t design the full structure upfront. You start with one or two convergence types that match what you\u2019re working on. Then, as you work, new patterns appear.',
+      guideGrow2: 'Maybe you started tracking components and their build status. Then you realized you also need to know if the implementation matches the design \u2014 so you add an alignment section. Later, you set up deployment probes and add a verification section. Each addition is one click in the compositor or one line in the JSON.',
+      guideGrow3: 'The structure evolves with the work, not ahead of it. Existing data stays intact when you add new sections. The living doc becomes more complete over time, not more complex \u2014 because each section is a self-contained convergence type with a known shape.',
+      // Guide - getting started
+      guideStartTitle: 'Getting Started',
+      guideStart1: 'This compositor is a single HTML file. No install, no build step, no server required.',
+      guideStartFile: 'Open directly as a file',
+      guideStartFileBody: 'Double-click living-doc-compositor.html or open it in your browser. You can compose, preview, and export JSON immediately. The library won\u2019t load because browsers block local file fetching, but everything else works.',
+      guideStartServe: 'Serve with the library',
+      guideStartServeBody: 'To load existing documents from the library, serve the docs folder with any static server. From the project root:',
+      guideStartServeCmd: 'cd docs && python3 -m http.server 8111',
+      guideStartServeThen: 'Then open http://localhost:8111/living-doc-compositor.html \u2014 the library discovers all .json files in the folder automatically.',
+      guideStartRender: 'Render a document',
+      guideStartRenderBody: 'After exporting or syncing a JSON file, generate the HTML:',
+      guideStartRenderCmd: 'node scripts/render-living-doc.mjs docs/my-doc.json',
+      guideStartRenderResult: 'Produces docs/my-doc.html \u2014 a self-contained page with sidebar navigation, section icons, and scroll tracking. No runtime dependencies.',
+      guideStartShare: 'Share the tool',
+      guideStartShareBody: 'Click "Share tool" in the header to download a clean version without any document data. Safe to send to anyone \u2014 they get the full compositor with the guide, ready to create their own living doc.',
+      guideIntroTransition: 'Below is how it works under the hood.',
+      // Guide - make your own
+      guideMakeTitle: 'Make Your Own',
+      guideMakeIntro: 'None of the existing convergence types fit your domain? You can define a new one. A convergence type is just the answer to one question: what things keep showing up together?',
+      guideMakeStep1title: 'Notice the pattern',
+      guideMakeStep1body: 'You keep checking the same three or four things together. Terraform modules and AWS resources. Test suites and coverage reports. API contracts and client implementations. That repeated grouping is your convergence.',
+      guideMakeStep2title: 'Name the sources',
+      guideMakeStep2body: 'Each thing in that grouping is an entity type. List them: "Terraform module + AWS resource + deployment workflow." These are the sources that produce your convergence.',
+      guideMakeStep3title: 'Identify the borrowed property',
+      guideMakeStep3body: 'What status do you care about when you look at this grouping? Deployed vs drifted? Covered vs uncovered? That status is not stored \u2014 it is derived from the sources. Pick the derivation: worst-of, count, any-match.',
+      guideMakeStep4title: 'Check against existing types',
+      guideMakeStep4body: 'Before creating a new type, compare with what exists. Is yours really a new combination of sources, or an instance of an existing type with different scope boundaries?',
+      guideMakeStep5title: 'Add it to the registry',
+      guideMakeStep5body: 'One JSON entry in living-doc-registry.json. Name, icon, sources, status set, projection. No code changes. The compositor and renderer pick it up immediately.',
+      guideMakeOr: 'Or use the advisor skill \u2014 it helps you discover the type through dialog, checks for overlap, and writes the registry entry.',
+      // Guide - concept
+      guideConcept: 'The Concept',
+      guideConceptBody: 'A living doc is a subgraph view \u2014 a navigable projection of entities and their relationships. Higher-order abstractions compress the search space for both humans and LLMs: the type tells you what\u2019s inside, how things relate, and where to look when something\u2019s wrong. Every token spent is on reasoning, not on parsing structure.',
+      guideFundamentals: 'Three Fundamentals',
+      entity: 'Entity',
+      entityDesc: 'Has identity, has its own properties. A Figma page, a ticket, a code file, an API endpoint.',
+      edge: 'Edge',
+      edgeDesc: 'A typed relationship between entities. Implements, specifies, tests, deploys.',
+      scope: 'Scope',
+      scopeDesc: 'A named convergence of entities. Has no properties of its own \u2014 borrows them from its sources.',
+      guideCtTitle: 'Convergence Types',
+      guideCtBody: 'Each type is a specific combination of source entities. The combination is the type. Different sources produce a different type. The visual projection (card grid or edge table) follows automatically.',
+      guideConstraints: 'Key Constraints',
+      constraint1title: 'The view is fixed per entity type.',
+      constraint1body: 'If you know the entity, you know how to render it. There is no card-vs-table choice.',
+      constraint2title: 'A scope is not flexible.',
+      constraint2body: 'It is exactly the set of entities that define it. Different sources produce a different scope type.',
+      constraint3title: 'Properties are always borrowed.',
+      constraint3body: 'A scope\u2019s status is derived from the entities inside it. The scope stores nothing of its own except a name and a derivation rule.',
+      constraint4title: 'Aggregates are derived, not authored.',
+      constraint4body: 'Status summaries, gap counts, stat grids compute themselves from the scopes and entities.',
+      guideWorkflow: 'Workflow',
+      step1title: 'Compose',
+      step1body: 'Select convergence types in the left panel. Set title and section names. This defines the structure \u2014 no data yet.',
+      step2title: 'Export',
+      step2body: 'Download the JSON scaffold. This is the empty structure definition that a sync skill will populate.',
+      step3title: 'Populate',
+      step3body: 'The sync skill receives the scaffold, looks at each section\u2019s convergence type, and discovers the actual entities to fill in the data arrays.',
+      step4title: 'Render',
+      step4body: 'render-living-doc.mjs doc.json \u2014 one universal renderer, any living doc.',
+      guideInference: 'Why This Matters for Inference',
+      guideInferenceBody: 'Higher-order abstractions compress the search space. When an LLM sees a convergence type, it immediately knows: what entities are inside, how they relate, what status means, and where to look when something\u2019s wrong. Every token is spent on reasoning about the domain, not on understanding the document format. The typed structure eliminates an entire class of ambiguity at inference time.',
+      guideSkills: 'How It Stays Alive',
+      guideSkillsBody: 'Two skills and a renderer. No domain-specific sync skills, no scheduled jobs.',
+      skillBootstrap: 'The bootstrap. Connects a session to the living docs for the current repo. Shows what exists, what\u2019s stale, and lets the LLM update sections as a natural part of working. The document is self-describing \u2014 the skill just opens the door.',
+      skillAdvisor: 'The thinking partner. Helps discover which convergence types fit a domain through dialog. Shows existing types as examples, identifies new patterns, checks for overlap, and writes the registry entry.',
+      skillRenderer: 'One command, any document. Reads the JSON, resolves convergence types from the registry, produces the HTML with sidebar, icons, and scroll tracking.',
+    },
+    nl: {
+      appTitle: 'Living Doc Compositor',
+      tagline: 'Pers de kennis uit die token',
+      docTitle: 'Documenttitel',
+      docSubtitle: 'Ondertitel',
+      brandMark: 'Merk (2 tekens)',
+      objective: 'Doelstelling',
+      objectivePlaceholder: 'Waar stuurt dit document op aan?',
+      successCondition: 'Succesconditie',
+      successConditionPlaceholder: 'Wanneer is dit doel bereikt?',
+      convergenceTypes: 'Convergentietypes',
+      docSections: 'Documentsecties',
+      library: 'Bibliotheek',
+      load: 'Laden',
+      export: 'Exporteren',
+      guide: 'Handleiding',
+      newDoc: 'Nieuw document',
+      preview: 'Voorbeeld',
+      visual: 'Visueel',
+      json: 'JSON',
+      itemBlueprint: 'Item-blauwdruk — elk item bevat:',
+      populatedBy: 'Ingevuld door sync skill',
+      noSections: 'Nog geen secties. Kies convergentietypes links.',
+      loadTitle: 'Living Doc JSON laden',
+      pasteJson: 'Plak JSON of kies een bestand',
+      loadFromFile: 'Of laad vanuit bestand',
+      cancel: 'Annuleren',
+      apply: 'Laden',
+      invalidJson: 'Ongeldige JSON',
+      exportedTo: 'gedownload. Verplaats het naar je docs/ map zodat de bibliotheek en renderer het kunnen vinden:',
+      shareTool: 'Deel tool',
+      shareToolHint: 'Download een schone versie van de compositor zonder documentdata — veilig om met iedereen te delen.',
+      newDocHint: 'Alles wissen en een nieuw living doc vanaf nul beginnen.',
+      loadHint: 'Laad een bestaand living doc JSON-bestand om de structuur te bekijken of bewerken.',
+      exportHint: 'Download het huidige document als JSON — het dataformaat dat de renderer en sync skills gebruiken.',
+      htmlHint: 'Genereer een zelfstandige HTML-pagina met de living doc inhoud en de volledige compositor ingebouwd. Dit is het bestand dat je deelt met teamleden.',
+      guideHint: 'Open de volledige handleiding — legt het concept, convergentietypes, werkwijze en hoe je je eigen versie maakt uit.',
+      sections: 'secties',
+      items: 'items',
+      more: 'meer',
+      noneYet: 'Nog niet beschikbaar',
+      text: 'tekst',
+      list: 'lijst',
+      guideIntroTitle: 'Wat is dit?',
+      guideIntro1: 'Je werk leeft op veel plekken. Ontwerpen in Figma. Code in repo\u2019s. Tickets in GitHub. Workflows in CI. Beslissingen in gesprekken. Om de echte status van iets te begrijpen, moet je ze allemaal bezoeken en zelf samenvoegen.',
+      guideIntro2: 'Een living doc brengt die stukken samen op \u00e9\u00e9n pagina. Niet als kopie \u2014 als een gestructureerde weergave die verbonden blijft met de bronnen. Als de code verandert, zie je het. Als een probe faalt, zie je het. Als een ticket sluit, wordt de status bijgewerkt.',
+      guideIntro3: 'De compositor laat je bepalen wat er op die pagina komt. Je kiest welke soorten informatie samenkomen \u2014 ontwerpen + code + specs, of componenten + bouwstatus, of probes + API\u2019s + automatisering. Elke combinatie is een convergentietype. De rest volgt automatisch.',
+      guideGrowTitle: 'Living docs groeien mee',
+      guideGrow1: 'Je ontwerpt de volledige structuur niet vooraf. Je begint met een of twee convergentietypes die passen bij waar je aan werkt. Terwijl je werkt, verschijnen nieuwe patronen.',
+      guideGrow2: 'Misschien begon je met het bijhouden van componenten en hun bouwstatus. Toen realiseerde je dat je ook moet weten of de implementatie overeenkomt met het ontwerp \u2014 dus voeg je een alignment-sectie toe. Later stel je deployment probes in en voeg je een verificatie-sectie toe. Elke toevoeging is \u00e9\u00e9n klik in de compositor of \u00e9\u00e9n regel in de JSON.',
+      guideGrow3: 'De structuur evolueert met het werk, niet erv\u00f3\u00f3r. Bestaande data blijft intact als je nieuwe secties toevoegt. Het living doc wordt completer over tijd, niet complexer \u2014 omdat elke sectie een op zichzelf staand convergentietype is met een bekende vorm.',
+      guideStartTitle: 'Aan de slag',
+      guideStart1: 'Deze compositor is \u00e9\u00e9n HTML-bestand. Geen installatie, geen build, geen server nodig.',
+      guideStartFile: 'Direct openen als bestand',
+      guideStartFileBody: 'Dubbelklik op living-doc-compositor.html of open het in je browser. Je kunt direct componeren, bekijken en JSON exporteren. De bibliotheek laadt niet omdat browsers lokale bestanden blokkeren, maar de rest werkt.',
+      guideStartServe: 'Serveer met de bibliotheek',
+      guideStartServeBody: 'Om bestaande documenten uit de bibliotheek te laden, serveer de docs-map met een simpele server. Vanuit de projectroot:',
+      guideStartServeCmd: 'cd docs && python3 -m http.server 8111',
+      guideStartServeThen: 'Open dan http://localhost:8111/living-doc-compositor.html \u2014 de bibliotheek vindt automatisch alle .json-bestanden in de map.',
+      guideStartRender: 'Render een document',
+      guideStartRenderBody: 'Na het exporteren of syncen van een JSON-bestand, genereer de HTML:',
+      guideStartRenderCmd: 'node scripts/render-living-doc.mjs docs/my-doc.json',
+      guideStartRenderResult: 'Produceert docs/my-doc.html \u2014 een zelfstandige pagina met zijbalknavigatie, sectie-iconen en scroll-tracking. Geen runtime-afhankelijkheden.',
+      guideStartShare: 'Deel de tool',
+      guideStartShareBody: 'Klik op "Deel tool" in de header om een schone versie te downloaden zonder documentdata. Veilig om aan iedereen te sturen \u2014 ze krijgen de volledige compositor met de handleiding, klaar om hun eigen living doc te maken.',
+      guideIntroTransition: 'Hieronder staat hoe het onder de motorkap werkt.',
+      guideMakeTitle: 'Maak je eigen',
+      guideMakeIntro: 'Past geen van de bestaande convergentietypes bij jouw domein? Je kunt een nieuw type defini\u00ebren. Een convergentietype is het antwoord op \u00e9\u00e9n vraag: welke dingen blijven steeds samen opduiken?',
+      guideMakeStep1title: 'Herken het patroon',
+      guideMakeStep1body: 'Je controleert steeds dezelfde drie of vier dingen samen. Terraform-modules en AWS-resources. Testsuites en dekkingsrapporten. API-contracten en client-implementaties. Die herhaalde groepering is jouw convergentie.',
+      guideMakeStep2title: 'Benoem de bronnen',
+      guideMakeStep2body: 'Elk ding in die groepering is een entiteitstype. Lijst ze: "Terraform-module + AWS-resource + deployment-workflow." Dit zijn de bronnen die jouw convergentie produceren.',
+      guideMakeStep3title: 'Identificeer de geleende eigenschap',
+      guideMakeStep3body: 'Welke status interesseert je als je naar deze groepering kijkt? Gedeployed vs gedrift? Gedekt vs niet-gedekt? Die status wordt niet opgeslagen \u2014 hij wordt afgeleid van de bronnen.',
+      guideMakeStep4title: 'Vergelijk met bestaande types',
+      guideMakeStep4body: 'Vergelijk voordat je een nieuw type maakt met wat er al bestaat. Is het echt een nieuwe combinatie van bronnen, of een instantie van een bestaand type met andere scopegrenzen?',
+      guideMakeStep5title: 'Voeg toe aan het register',
+      guideMakeStep5body: 'E\u00e9n JSON-vermelding in living-doc-registry.json. Naam, icoon, bronnen, statusset, projectie. Geen codewijzigingen. De compositor en renderer pakken het direct op.',
+      guideMakeOr: 'Of gebruik de advisor skill \u2014 die helpt je het type te ontdekken via dialoog, controleert op overlap, en schrijft de registervermelding.',
+      guideConcept: 'Het Concept',
+      guideConceptBody: 'Een living doc is een subgraaf-weergave \u2014 een navigeerbare projectie van entiteiten en hun relaties. Hogere-orde abstracties comprimeren de zoekruimte voor zowel mensen als LLM\u2019s: het type vertelt je wat erin zit, hoe dingen zich verhouden, en waar je moet kijken als er iets mis is.',
+      guideFundamentals: 'Drie Grondbeginselen',
+      entity: 'Entiteit',
+      entityDesc: 'Heeft identiteit, heeft eigen eigenschappen. Een Figma-pagina, een ticket, een codebestand, een API-endpoint.',
+      edge: 'Relatie',
+      edgeDesc: 'Een getypeerde verbinding tussen entiteiten. Implementeert, specificeert, test, deployt.',
+      scope: 'Scope',
+      scopeDesc: 'Een benoemde convergentie van entiteiten. Heeft geen eigen eigenschappen \u2014 leent ze van zijn bronnen.',
+      guideCtTitle: 'Convergentietypes',
+      guideCtBody: 'Elk type is een specifieke combinatie van bron-entiteiten. De combinatie is het type. Andere bronnen produceren een ander type. De visuele projectie (kaartgrid of randtabel) volgt automatisch.',
+      guideConstraints: 'Kernbeperkingen',
+      constraint1title: 'De weergave staat vast per entiteitstype.',
+      constraint1body: 'Als je de entiteit kent, weet je hoe je die rendert. Er is geen kaart-vs-tabel keuze.',
+      constraint2title: 'Een scope is niet flexibel.',
+      constraint2body: 'Het is precies de verzameling entiteiten die het defini\u00ebren. Andere bronnen produceren een ander scope-type.',
+      constraint3title: 'Eigenschappen worden altijd geleend.',
+      constraint3body: 'De status van een scope is afgeleid van de entiteiten erin. De scope slaat niets op behalve een naam en een afleidingsregel.',
+      constraint4title: 'Aggregaten worden afgeleid, niet opgesteld.',
+      constraint4body: 'Statusoverzichten, gap-tellingen en stat-grids berekenen zichzelf uit de scopes en entiteiten.',
+      guideWorkflow: 'Werkwijze',
+      step1title: 'Componeren',
+      step1body: 'Selecteer convergentietypes in het linkerpaneel. Stel titel en sectienamen in. Dit definieert de structuur \u2014 nog geen data.',
+      step2title: 'Exporteren',
+      step2body: 'Download het JSON-skelet. Dit is de lege structuurdefinitie die een sync skill zal vullen.',
+      step3title: 'Vullen',
+      step3body: 'De sync skill ontvangt het skelet, kijkt naar het convergentietype van elke sectie, en vindt de juiste entiteiten om de data-arrays te vullen.',
+      step4title: 'Renderen',
+      step4body: 'render-living-doc.mjs doc.json \u2014 \u00e9\u00e9n universele renderer, elk living doc.',
+      guideInference: 'Waarom Dit Belangrijk Is voor Inferentie',
+      guideInferenceBody: 'Hogere-orde abstracties comprimeren de zoekruimte. Wanneer een LLM een convergentietype ziet, weet het direct: welke entiteiten erin zitten, hoe ze zich verhouden, wat status betekent, en waar te kijken als iets mis is. Elke token wordt besteed aan redeneren over het domein, niet aan het begrijpen van het documentformaat.',
+      guideSkills: 'Hoe Het Levend Blijft',
+      guideSkillsBody: 'Twee skills en een renderer. Geen domein-specifieke sync skills, geen geplande taken.',
+      skillBootstrap: 'De bootstrap. Verbindt een sessie met de living docs voor de huidige repo. Toont wat er is, wat verouderd is, en laat de LLM secties bijwerken als natuurlijk onderdeel van het werk. Het document beschrijft zichzelf \u2014 de skill opent alleen de deur.',
+      skillAdvisor: 'De denkpartner. Helpt ontdekken welke convergentietypes bij een domein passen via dialoog. Toont bestaande types als voorbeelden, identificeert nieuwe patronen, controleert op overlap, en schrijft de registervermelding.',
+      skillRenderer: 'E\u00e9n commando, elk document. Leest de JSON, lost convergentietypes op uit het register, produceert de HTML met zijbalk, iconen en scroll-tracking.',
+    },
+    id: {
+      appTitle: 'Living Doc Compositor',
+      tagline: 'Peras kecerdasan dari setiap token',
+      docTitle: 'Judul Dokumen',
+      docSubtitle: 'Subjudul',
+      brandMark: 'Merek (2 karakter)',
+      objective: 'Tujuan',
+      objectivePlaceholder: 'Apa yang ingin dicapai dokumen ini?',
+      successCondition: 'Kondisi Sukses',
+      successConditionPlaceholder: 'Kapan tujuan ini tercapai?',
+      convergenceTypes: 'Tipe Konvergensi',
+      docSections: 'Seksi Dokumen',
+      library: 'Pustaka',
+      load: 'Muat',
+      export: 'Ekspor',
+      guide: 'Panduan',
+      newDoc: 'Dokumen baru',
+      preview: 'Pratinjau',
+      visual: 'Visual',
+      json: 'JSON',
+      itemBlueprint: 'Cetak biru item \u2014 setiap entri akan memiliki:',
+      populatedBy: 'Diisi oleh sync skill',
+      noSections: 'Belum ada seksi. Pilih tipe konvergensi di panel kiri.',
+      loadTitle: 'Muat Living Doc JSON',
+      pasteJson: 'Tempel JSON atau pilih file',
+      loadFromFile: 'Atau muat dari file',
+      cancel: 'Batal',
+      apply: 'Muat',
+      invalidJson: 'JSON tidak valid',
+      exportedTo: 'terunduh. Pindahkan ke folder docs/ agar pustaka dan renderer dapat menemukannya:',
+      shareTool: 'Bagikan alat',
+      shareToolHint: 'Unduh versi bersih compositor tanpa data dokumen — aman untuk dibagikan ke siapa saja.',
+      newDocHint: 'Hapus semua dan mulai living doc baru dari awal.',
+      loadHint: 'Muat file JSON living doc yang ada untuk melihat atau mengedit strukturnya.',
+      exportHint: 'Unduh dokumen saat ini sebagai file JSON — format data yang digunakan renderer dan sync skill.',
+      htmlHint: 'Hasilkan halaman HTML mandiri dengan konten living doc dan compositor lengkap tertanam. Ini file yang Anda bagikan ke anggota tim.',
+      guideHint: 'Buka panduan lengkap — menjelaskan konsep, tipe konvergensi, alur kerja, dan cara membuat versi sendiri.',
+      sections: 'seksi',
+      items: 'item',
+      more: 'lagi',
+      noneYet: 'Belum tersedia',
+      text: 'teks',
+      list: 'daftar',
+      guideIntroTitle: 'Apa ini?',
+      guideIntro1: 'Pekerjaan Anda tersebar di banyak tempat. Desain di Figma. Kode di repo. Tiket di GitHub. Workflow di CI. Keputusan di percakapan. Untuk memahami keadaan sebenarnya, Anda harus mengunjungi semuanya dan menyatukannya sendiri.',
+      guideIntro2: 'Living doc menyatukan potongan-potongan itu dalam satu halaman. Bukan sebagai salinan \u2014 sebagai tampilan terstruktur yang tetap terhubung ke sumbernya. Saat kode berubah, doc mencerminkannya. Saat probe gagal, Anda melihatnya. Saat tiket ditutup, status diperbarui.',
+      guideIntro3: 'Compositor memungkinkan Anda menentukan apa yang ada di halaman itu. Anda memilih jenis informasi yang menyatu \u2014 desain + kode + spesifikasi, atau komponen + status build, atau probe + API + otomatisasi. Setiap kombinasi adalah tipe konvergensi. Sisanya mengikuti secara otomatis.',
+      guideGrowTitle: 'Living doc tumbuh',
+      guideGrow1: 'Anda tidak merancang seluruh struktur di awal. Anda mulai dengan satu atau dua tipe konvergensi yang sesuai dengan apa yang sedang Anda kerjakan. Kemudian, saat bekerja, pola baru muncul.',
+      guideGrow2: 'Mungkin Anda mulai melacak komponen dan status build-nya. Lalu Anda menyadari perlu tahu apakah implementasi sesuai desain \u2014 jadi Anda menambahkan seksi alignment. Kemudian, Anda menyiapkan deployment probe dan menambahkan seksi verifikasi. Setiap penambahan adalah satu klik di compositor atau satu baris di JSON.',
+      guideGrow3: 'Struktur berevolusi bersama pekerjaan, bukan mendahuluinya. Data yang ada tetap utuh saat Anda menambahkan seksi baru. Living doc menjadi lebih lengkap seiring waktu, bukan lebih rumit \u2014 karena setiap seksi adalah tipe konvergensi mandiri dengan bentuk yang diketahui.',
+      guideStartTitle: 'Memulai',
+      guideStart1: 'Compositor ini adalah satu file HTML. Tanpa instalasi, tanpa build, tanpa server.',
+      guideStartFile: 'Buka langsung sebagai file',
+      guideStartFileBody: 'Klik dua kali living-doc-compositor.html atau buka di browser. Anda bisa langsung mengomposisi, melihat pratinjau, dan mengekspor JSON. Pustaka tidak akan dimuat karena browser memblokir akses file lokal, tapi yang lain berfungsi.',
+      guideStartServe: 'Sajikan dengan pustaka',
+      guideStartServeBody: 'Untuk memuat dokumen yang ada dari pustaka, sajikan folder docs dengan server statis apa pun. Dari root proyek:',
+      guideStartServeCmd: 'cd docs && python3 -m http.server 8111',
+      guideStartServeThen: 'Lalu buka http://localhost:8111/living-doc-compositor.html \u2014 pustaka menemukan semua file .json di folder secara otomatis.',
+      guideStartRender: 'Render dokumen',
+      guideStartRenderBody: 'Setelah mengekspor atau menyinkronkan file JSON, hasilkan HTML:',
+      guideStartRenderCmd: 'node scripts/render-living-doc.mjs docs/my-doc.json',
+      guideStartRenderResult: 'Menghasilkan docs/my-doc.html \u2014 halaman mandiri dengan navigasi sidebar, ikon seksi, dan pelacakan scroll. Tanpa dependensi runtime.',
+      guideStartShare: 'Bagikan alat',
+      guideStartShareBody: 'Klik "Bagikan alat" di header untuk mengunduh versi bersih tanpa data dokumen. Aman dikirim ke siapa saja \u2014 mereka mendapat compositor lengkap dengan panduan, siap membuat living doc sendiri.',
+      guideIntroTransition: 'Di bawah ini cara kerjanya secara teknis.',
+      guideMakeTitle: 'Buat Sendiri',
+      guideMakeIntro: 'Tidak ada tipe konvergensi yang cocok dengan domain Anda? Anda bisa mendefinisikan yang baru. Tipe konvergensi adalah jawaban dari satu pertanyaan: hal-hal apa yang terus muncul bersamaan?',
+      guideMakeStep1title: 'Kenali polanya',
+      guideMakeStep1body: 'Anda terus memeriksa tiga atau empat hal yang sama secara bersamaan. Modul Terraform dan sumber daya AWS. Suite pengujian dan laporan cakupan. Kontrak API dan implementasi klien. Pengelompokan berulang itu adalah konvergensi Anda.',
+      guideMakeStep2title: 'Sebutkan sumbernya',
+      guideMakeStep2body: 'Setiap hal dalam pengelompokan itu adalah tipe entitas. Daftarkan: "Modul Terraform + sumber daya AWS + workflow deployment." Ini adalah sumber yang menghasilkan konvergensi Anda.',
+      guideMakeStep3title: 'Identifikasi properti yang dipinjam',
+      guideMakeStep3body: 'Status apa yang Anda pedulikan saat melihat pengelompokan ini? Terdeploy vs drift? Tercakup vs tidak tercakup? Status itu tidak disimpan \u2014 diturunkan dari sumbernya.',
+      guideMakeStep4title: 'Bandingkan dengan tipe yang ada',
+      guideMakeStep4body: 'Sebelum membuat tipe baru, bandingkan dengan yang sudah ada. Apakah ini benar-benar kombinasi sumber baru, atau instance dari tipe yang ada dengan batas lingkup berbeda?',
+      guideMakeStep5title: 'Tambahkan ke registri',
+      guideMakeStep5body: 'Satu entri JSON di living-doc-registry.json. Nama, ikon, sumber, set status, proyeksi. Tanpa perubahan kode. Compositor dan renderer langsung mengambilnya.',
+      guideMakeOr: 'Atau gunakan advisor skill \u2014 membantu Anda menemukan tipe melalui dialog, memeriksa overlap, dan menulis entri registri.',
+      guideConcept: 'Konsep',
+      guideConceptBody: 'Living doc adalah tampilan subgraf \u2014 proyeksi navigasi dari entitas dan relasinya. Abstraksi tingkat tinggi memampatkan ruang pencarian untuk manusia dan LLM: tipe memberi tahu apa yang ada di dalam, bagaimana hal-hal berhubungan, dan di mana harus mencari saat ada masalah.',
+      guideFundamentals: 'Tiga Dasar',
+      entity: 'Entitas',
+      entityDesc: 'Memiliki identitas, memiliki properti sendiri. Halaman Figma, tiket, file kode, endpoint API.',
+      edge: 'Relasi',
+      edgeDesc: 'Hubungan bertipe antara entitas. Mengimplementasi, menspesifikasi, menguji, mendeploy.',
+      scope: 'Lingkup',
+      scopeDesc: 'Konvergensi bernama dari entitas. Tidak memiliki properti sendiri \u2014 meminjam dari sumbernya.',
+      guideCtTitle: 'Tipe Konvergensi',
+      guideCtBody: 'Setiap tipe adalah kombinasi spesifik dari entitas sumber. Kombinasi itulah tipenya. Sumber berbeda menghasilkan tipe berbeda. Proyeksi visual (grid kartu atau tabel relasi) mengikuti secara otomatis.',
+      guideConstraints: 'Batasan Utama',
+      constraint1title: 'Tampilan tetap per tipe entitas.',
+      constraint1body: 'Jika Anda tahu entitasnya, Anda tahu cara merendernya. Tidak ada pilihan kartu-vs-tabel.',
+      constraint2title: 'Lingkup tidak fleksibel.',
+      constraint2body: 'Lingkup adalah persis kumpulan entitas yang mendefinisikannya. Sumber berbeda menghasilkan tipe lingkup berbeda.',
+      constraint3title: 'Properti selalu dipinjam.',
+      constraint3body: 'Status lingkup diturunkan dari entitas di dalamnya. Lingkup tidak menyimpan apa pun selain nama dan aturan turunan.',
+      constraint4title: 'Agregat diturunkan, bukan dibuat.',
+      constraint4body: 'Ringkasan status, hitungan gap, dan grid statistik menghitung dirinya sendiri dari lingkup dan entitas.',
+      guideWorkflow: 'Alur Kerja',
+      step1title: 'Komposisi',
+      step1body: 'Pilih tipe konvergensi di panel kiri. Atur judul dan nama seksi. Ini mendefinisikan struktur \u2014 belum ada data.',
+      step2title: 'Ekspor',
+      step2body: 'Unduh kerangka JSON. Ini adalah definisi struktur kosong yang akan diisi oleh sync skill.',
+      step3title: 'Pengisian',
+      step3body: 'Sync skill menerima kerangka, melihat tipe konvergensi setiap seksi, dan menemukan entitas aktual untuk mengisi array data.',
+      step4title: 'Render',
+      step4body: 'render-living-doc.mjs doc.json \u2014 satu renderer universal, semua living doc.',
+      guideInference: 'Mengapa Ini Penting untuk Inferensi',
+      guideInferenceBody: 'Abstraksi tingkat tinggi memampatkan ruang pencarian. Saat LLM melihat tipe konvergensi, ia langsung tahu: entitas apa di dalamnya, bagaimana hubungannya, apa arti status, dan di mana mencari saat ada masalah. Setiap token digunakan untuk penalaran tentang domain, bukan untuk memahami format dokumen.',
+      guideSkills: 'Bagaimana Tetap Hidup',
+      guideSkillsBody: 'Dua skill dan satu renderer. Tanpa sync skill khusus domain, tanpa tugas terjadwal.',
+      skillBootstrap: 'Bootstrap. Menghubungkan sesi ke living doc untuk repo saat ini. Menunjukkan apa yang ada, apa yang basi, dan membiarkan LLM memperbarui seksi sebagai bagian alami dari pekerjaan. Dokumen mendeskripsikan dirinya sendiri \u2014 skill hanya membuka pintunya.',
+      skillAdvisor: 'Mitra berpikir. Membantu menemukan tipe konvergensi yang cocok untuk domain melalui dialog. Menunjukkan tipe yang ada sebagai contoh, mengidentifikasi pola baru, memeriksa overlap, dan menulis entri registri.',
+      skillRenderer: 'Satu perintah, dokumen apa pun. Membaca JSON, menyelesaikan tipe konvergensi dari registri, menghasilkan HTML dengan sidebar, ikon, dan pelacakan scroll.',
+    },
+  };
+
+  let locale = (() => {
+    const lang = (navigator.language || 'en').toLowerCase();
+    if (lang.startsWith('nl')) return 'nl';
+    if (lang.startsWith('id') || lang.startsWith('ms')) return 'id';
+    return 'en';
+  })();
+  function t(key) { return LOCALES[locale]?.[key] ?? LOCALES.en[key] ?? key; }
+
+  /* ── Auto-save ── */
+  const STORAGE_KEY = 'living-doc-compositor-state';
+
+  function autoSave() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        title: state.title,
+        subtitle: state.subtitle,
+        brand: state.brand,
+        objective: state.objective,
+        successCondition: state.successCondition,
+        sections: state.sections,
+        locale,
+      }));
+    } catch {}
+  }
+
+  function autoLoad() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return false;
+      const s = JSON.parse(saved);
+      if (s.title || (s.sections && s.sections.length > 0)) {
+        state.title = s.title || '';
+        state.subtitle = s.subtitle || '';
+        state.brand = s.brand || 'LD';
+        state.objective = s.objective || '';
+        state.successCondition = s.successCondition || '';
+        state.sections = s.sections || [];
+        if (s.locale && LOCALES[s.locale]) locale = s.locale;
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  /* ── Embedded registry (loaded inline for standalone use) ── */
+  let REGISTRY = null;
+  let library = []; // discovered JSON docs in the same folder
+  let state = {
+    title: '',
+    subtitle: '',
+    brand: 'LD',
+    objective: '',
+    successCondition: '',
+    sections: [],
+    previewTab: 'visual',
+    showLoadModal: false,
+    originDoc: null, // { filename, title } — the document that brought the user here
+  };
+
+  /* ── Registry loading ── */
+  async function loadRegistry() {
+    // Try loading from sibling path first, then from embedded
+    for (const url of ['../scripts/living-doc-registry.json', './living-doc-registry.json']) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) { REGISTRY = await res.json(); return; }
+      } catch {}
+    }
+    // Fallback: embedded minimal registry
+    REGISTRY = EMBEDDED_REGISTRY;
+  }
+
+  const EMBEDDED_REGISTRY = {
+    convergenceTypes: {
+      'design-code-spec-flow': {
+        name: 'Design\u2013Code\u2013Spec Flow',
+        tooltip: 'A named product surface where Figma designs, code implementations, UX specs, and interaction surfaces converge. The flow has no properties of its own \u2014 its status is borrowed from the entities that produce it.',
+        icon: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-5l-4 4 4-9v5l4-4-4 9z"/>',
+        projection: 'card-grid',
+        sources: [
+          { key: 'pageIds', entityType: 'figma-page', label: 'Pages' },
+          { key: 'codeRefs', entityType: 'code-file', label: 'Code refs' },
+          { key: 'specRefIds', entityType: 'ux-spec', label: 'UX spec refs' },
+          { key: 'interactionSurfaceIds', entityType: 'interaction-surface', label: 'Interactions' },
+        ],
+      },
+      'component-status': {
+        name: 'Component Status',
+        tooltip: 'A system component with a build status. The simplest convergence type \u2014 tracks whether a piece of the system is built, partial, or missing. Sources are code paths and free-text observations.',
+        icon: '<path d="M3 13.5h2v5H3zm4-3h2v8H7zm4-4h2v12h-2zm4-3h2v15h-2z"/>',
+        projection: 'card-grid',
+        sources: [{ key: 'codePaths', entityType: 'code-file', label: 'Code' }],
+      },
+      'design-implementation-alignment': {
+        name: 'Design\u2013Implementation Alignment',
+        tooltip: 'An edge table showing the relationship between design artifacts and code implementations. Each row maps a Figma node to a code file, with a status on the edge (implemented, partial, drift).',
+        icon: '<path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>',
+        projection: 'edge-table',
+        sources: [
+          { key: 'figmaNodeId', entityType: 'figma-node', label: 'Figma' },
+          { key: 'localPath', entityType: 'code-file', label: 'Code' },
+        ],
+      },
+      'verification': {
+        name: 'Deployment Verification',
+        tooltip: 'A probe that proves a deployed surface works. Sources are the pages and interactions being verified, the automation that runs the check, and the API endpoints being tested. Status is borrowed from coverage results.',
+        icon: '<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>',
+        projection: 'card-grid',
+        sources: [
+          { key: 'pageIds', entityType: 'figma-page', label: 'Pages' },
+          { key: 'automationPaths', entityType: 'workflow', label: 'Automation' },
+          { key: 'apiRefs', entityType: 'api-endpoint', label: 'APIs' },
+        ],
+      },
+      'operation': {
+        name: 'Mediated Operation',
+        tooltip: 'A workflow mediated by an operator on behalf of a tester or stakeholder. Sources are the underlying automation workflows and the inputs they require. The operator translates a brief into the right workflow sequence.',
+        icon: '<path d="M7 2v2h1v4.17L4.41 12H4v8h16v-8h-.41L16 8.17V4h1V2H7zm5 15a3 3 0 110-6 3 3 0 010 6zm2-10.83V4H10v2.17l1 1V4.5h2v2.67l1-1z"/>',
+        projection: 'card-grid',
+        sources: [
+          { key: 'workflowPaths', entityType: 'workflow', label: 'Workflows' },
+          { key: 'requestInputs', entityType: 'api-endpoint', label: 'Inputs' },
+        ],
+      },
+      'stack-depth': {
+        name: 'Stack-Depth Integration',
+        tooltip: 'An integration seam showing how deep a feature reaches through the stack \u2014 from Figma design, through screen components, hooks, services, down to contracts. Status is borrowed from the actual wiring depth.',
+        icon: '<path d="M16 9h4l-7 11V13H9l7-11v7z"/>',
+        projection: 'card-grid',
+        sources: [
+          { key: 'figmaNodeIds', entityType: 'figma-node', label: 'Figma' },
+          { key: 'screenPaths', entityType: 'code-file', label: 'Screens' },
+          { key: 'hookPaths', entityType: 'code-file', label: 'Hooks' },
+          { key: 'servicePaths', entityType: 'code-file', label: 'Services' },
+        ],
+      },
+      'behavior-fidelity': {
+        name: 'Behavior Fidelity',
+        tooltip: 'An interaction surface where expected behavior and actual behavior are compared. Sources are the Figma designs, the code that implements the interaction, and the documented current vs expected behavior. Status ranges from wired to visual-only to unwired.',
+        icon: '<path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zM12 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>',
+        projection: 'card-grid',
+        sources: [
+          { key: 'figmaNodeIds', entityType: 'figma-node', label: 'Figma' },
+          { key: 'codePaths', entityType: 'code-file', label: 'Code' },
+        ],
+      },
+    },
+  };
+
+  /* ── Helpers ── */
+  function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+  function slugify(s) { return (s || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+  /* ── Render top bar ── */
+  const isEmbedded = window.parent !== window;
+
+  function renderTopBar() {
+    document.getElementById('top-bar').innerHTML = `
+      ${isEmbedded ? `<button class="top-action" id="top-back" style="margin-right:4px">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        Back to document
+      </button>` : ''}
+      <div class="logo">LD</div>
+      <h1>${esc(t('appTitle'))}</h1>
+      <span class="tagline">${esc(t('tagline'))}</span>
+      <span class="spacer"></span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="top-action" id="top-new" title="${esc(t('newDocHint'))}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          ${esc(t('newDoc'))}
+        </button>
+        <button class="top-action" id="top-load" title="${esc(t('loadHint'))}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+          ${esc(t('load'))}
+        </button>
+        <button class="top-action" id="top-export" title="${esc(t('exportHint'))}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          JSON
+        </button>
+        <button class="top-action top-action-primary" id="top-html" title="${esc(t('htmlHint'))}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          HTML
+        </button>
+        <button class="top-action" id="top-share" title="${esc(t('shareToolHint'))}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+          ${esc(t('shareTool'))}
+        </button>
+        <button class="top-action" id="top-guide" title="${esc(t('guideHint'))}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+        </button>
+      </div>
+      <div class="lang-switch">
+        ${Object.keys(LOCALES).map(l => `<button class="lang-btn" style="background:${l === locale ? 'var(--accent)' : 'transparent'};color:${l === locale ? '#fff' : 'var(--muted)'}" data-locale="${l}">${l.toUpperCase()}</button>`).join('')}
+      </div>`;
+
+    document.getElementById('top-back')?.addEventListener('click', () => {
+      if (window.parent !== window) {
+        window.parent.document.getElementById('comp-overlay')?.classList.remove('open');
+      }
+    });
+    document.querySelectorAll('[data-locale]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        locale = btn.dataset.locale;
+        renderTopBar(); renderLeft(); renderRight();
+      });
+    });
+    document.getElementById('top-new')?.addEventListener('click', () => {
+      state.title = ''; state.subtitle = ''; state.brand = 'LD';
+      state.objective = ''; state.successCondition = '';
+      state.sections = []; state.previewTab = 'visual';
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      renderTopBar(); renderLeft(); renderRight();
+    });
+    document.getElementById('top-load')?.addEventListener('click', () => {
+      state.showLoadModal = true; renderLoadModal();
+    });
+    document.getElementById('top-export')?.addEventListener('click', exportJson);
+    document.getElementById('top-html')?.addEventListener('click', generateHtml);
+    document.getElementById('top-share')?.addEventListener('click', () => {
+      // Save current state, generate with empty doc, restore
+      const saved = { ...state, sections: [...state.sections] };
+      state.title = 'Living Doc Compositor';
+      state.subtitle = 'Squeeze the intel out of that token';
+      state.objective = '';
+      state.successCondition = '';
+      state.brand = 'LD';
+      state.sections = [];
+      generateHtml();
+      Object.assign(state, saved);
+      state.sections = saved.sections;
+    });
+    document.getElementById('top-guide')?.addEventListener('click', openGuide);
+  }
+
+  /* ── Render left panel ── */
+  function renderLeft() {
+    const ct = REGISTRY.convergenceTypes;
+    const types = Object.entries(ct);
+
+    document.getElementById('left-panel').innerHTML = `
+
+      <div class="field">
+        <label>${esc(t('docTitle'))}</label>
+        <input type="text" id="doc-title" value="${esc(state.title)}" placeholder="My Living Doc" />
+      </div>
+      <div class="field">
+        <label>${esc(t('docSubtitle'))}</label>
+        <textarea id="doc-subtitle" placeholder="One-line description...">${esc(state.subtitle)}</textarea>
+      </div>
+      <div class="field">
+        <label>${esc(t('brandMark'))}</label>
+        <input type="text" id="doc-brand" value="${esc(state.brand)}" maxlength="4" style="width:80px" />
+      </div>
+
+      <div class="field">
+        <label>${esc(t('objective'))}</label>
+        <textarea id="doc-objective" placeholder="${esc(t('objectivePlaceholder'))}">${esc(state.objective)}</textarea>
+      </div>
+      <div class="field">
+        <label>${esc(t('successCondition'))}</label>
+        <input type="text" id="doc-success" value="${esc(state.successCondition)}" placeholder="${esc(t('successConditionPlaceholder'))}" />
+      </div>
+
+      <div class="section-title">${esc(t('convergenceTypes'))}</div>
+      <div class="ct-list">
+        ${types.map(([id, def]) => {
+          const selected = state.sections.some(s => s.convergenceType === id);
+          const sourceLabels = (def.sources || []).map(s => s.label).join(', ');
+          return `
+            <div class="ct-item${selected ? ' selected' : ''}" data-ct-id="${esc(id)}">
+              <div class="ct-icon" ${def.tooltip ? `data-tooltip="${esc(def.tooltip)}"` : ''}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">${def.icon || ''}</svg>
+                <div class="ct-tooltip"></div>
+              </div>
+              <div class="ct-info">
+                <div class="ct-name">${esc(def.name)}</div>
+                <div class="ct-sources">${esc(sourceLabels)}</div>
+              </div>
+              <span class="ct-projection">${esc(def.projection)}</span>
+            </div>`;
+        }).join('')}
+      </div>
+
+      ${state.sections.length > 0 ? `
+      <div class="section-title">${esc(t('docSections'))} (${state.sections.length})</div>
+      <div class="selected-sections">
+        ${state.sections.map((s, i) => `
+          <div class="sel-item" data-idx="${i}" draggable="true">
+            <span class="sel-handle">\u2261</span>
+            <input class="sel-title-input" data-idx="${i}" value="${esc(s.title)}" />
+            <span class="sel-type">${esc(ct[s.convergenceType]?.projection || '')}</span>
+            <button class="sel-remove" data-idx="${i}">\u00d7</button>
+          </div>`).join('')}
+      </div>` : ''}
+
+      ${state.originDoc ? `
+      <div class="section-title">Current document</div>
+      <div class="lib-list">
+        <div class="lib-item" id="origin-doc" style="border-color:var(--accent);background:color-mix(in srgb, var(--accent) 4%, var(--card))">
+          <div class="lib-icon" style="background:var(--accent);color:#fff">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/>
+            </svg>
+          </div>
+          <div class="lib-info">
+            <div class="lib-name">${esc(state.originDoc.title)}</div>
+            <div class="lib-meta">${esc(state.originDoc.filename)}</div>
+          </div>
+        </div>
+      </div>` : ''}
+
+      ${library.length > 0 ? `
+      <div class="section-title">${esc(t('library'))} (${library.length})</div>
+      <div class="lib-list">
+        ${library.map((item, i) => `
+          <div class="lib-item" data-lib-idx="${i}">
+            <div class="lib-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z"/>
+              </svg>
+            </div>
+            <div class="lib-info">
+              <div class="lib-name">${esc(item.title)}</div>
+              <div class="lib-meta">${esc(item.filename)}${item.updated ? ` \u00b7 ${esc(item.updated)}` : ''}</div>
+            </div>
+            ${item.sectionCount > 0 ? `<span class="lib-sections">${item.sectionCount} ${esc(t('sections'))}</span>` : ''}
+          </div>`).join('')}
+      </div>` : ''}
+
+    `;
+
+    // Events
+    document.getElementById('doc-title').addEventListener('input', (e) => { state.title = e.target.value; renderRight(); });
+    document.getElementById('doc-subtitle').addEventListener('input', (e) => { state.subtitle = e.target.value; renderRight(); });
+    document.getElementById('doc-brand').addEventListener('input', (e) => { state.brand = e.target.value; renderRight(); });
+    document.getElementById('doc-objective').addEventListener('input', (e) => { state.objective = e.target.value; renderRight(); });
+    document.getElementById('doc-success').addEventListener('input', (e) => { state.successCondition = e.target.value; renderRight(); });
+
+    document.querySelectorAll('.ct-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.ctId;
+        const existing = state.sections.findIndex(s => s.convergenceType === id);
+        if (existing >= 0) {
+          state.sections.splice(existing, 1);
+        } else {
+          if (state.previewTab === 'help') state.previewTab = 'visual';
+          state.sections.push({
+            id: `sec-${slugify(ct[id].name)}`,
+            title: ct[id].name,
+            convergenceType: id,
+            data: [],
+          });
+        }
+        renderLeft();
+        renderRight();
+      });
+    });
+
+    document.querySelectorAll('.sel-title-input').forEach(el => {
+      el.addEventListener('input', (e) => {
+        const idx = parseInt(e.target.dataset.idx);
+        state.sections[idx].title = e.target.value;
+        state.sections[idx].id = `sec-${slugify(e.target.value)}`;
+        renderRight();
+      });
+    });
+
+    document.querySelectorAll('.sel-remove').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.sections.splice(parseInt(el.dataset.idx), 1);
+        renderLeft();
+        renderRight();
+      });
+    });
+
+    // Drag-and-drop reorder
+    let dragIdx = null;
+    document.querySelectorAll('.sel-item[draggable]').forEach(el => {
+      el.addEventListener('dragstart', (e) => {
+        dragIdx = parseInt(el.dataset.idx);
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging');
+        document.querySelectorAll('.sel-item.drag-over').forEach(d => d.classList.remove('drag-over'));
+        dragIdx = null;
+      });
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+      el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+      });
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const dropIdx = parseInt(el.dataset.idx);
+        if (dragIdx !== null && dragIdx !== dropIdx) {
+          const [moved] = state.sections.splice(dragIdx, 1);
+          state.sections.splice(dropIdx, 0, moved);
+          renderLeft();
+          renderRight();
+        }
+      });
+    });
+
+    // Tooltip positioning on icon hover
+    document.querySelectorAll('.ct-icon[data-tooltip]').forEach(icon => {
+      const tip = icon.querySelector('.ct-tooltip');
+      icon.addEventListener('mouseenter', () => {
+        tip.textContent = icon.dataset.tooltip;
+        tip.classList.add('visible');
+        const rect = icon.getBoundingClientRect();
+        let left = rect.right + 12;
+        let top = rect.top + rect.height / 2 - 60;
+        if (left + 292 > window.innerWidth) left = rect.left - 292;
+        if (top < 8) top = 8;
+        if (top + 150 > window.innerHeight) top = window.innerHeight - 150;
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+      });
+      icon.addEventListener('mouseleave', () => {
+        tip.classList.remove('visible');
+      });
+    });
+
+    document.getElementById('origin-doc')?.addEventListener('click', () => {
+      if (state.originDoc) {
+        const item = library.find(l => l.filename === state.originDoc.filename);
+        if (item) loadFromLibrary(item);
+      }
+    });
+
+    document.querySelectorAll('.lib-item[data-lib-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        loadFromLibrary(library[parseInt(el.dataset.libIdx)]);
+      });
+    });
+
+  }
+
+  /* ── Render right panel ── */
+  function renderRight() {
+    autoSave();
+    const panel = document.getElementById('right-panel');
+
+    const json = buildJson();
+
+    panel.innerHTML = `
+      <div class="preview-header">
+        <h2>${esc(t('preview'))}</h2>
+        <div class="preview-tabs">
+          <button class="preview-tab${state.previewTab === 'visual' ? ' active' : ''}" data-tab="visual">${esc(t('visual'))}</button>
+          <button class="preview-tab${state.previewTab === 'json' ? ' active' : ''}" data-tab="json">${esc(t('json'))}</button>
+        </div>
+      </div>
+      <div class="preview-content">
+        ${state.previewTab === 'json'
+          ? `<pre class="json-preview">${esc(JSON.stringify(json, null, 2))}</pre>`
+          : renderVisualPreview(json)
+        }
+      </div>`;
+
+    panel.querySelectorAll('.preview-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        state.previewTab = tab.dataset.tab;
+        renderRight();
+      });
+    });
+  }
+
+  /* ── Help view ── */
+  function renderHelp() {
+    const ct = REGISTRY?.convergenceTypes ?? {};
+    const types = Object.entries(ct);
+    const stepCard = (n, title, body) => `
+      <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0">${n}</div>
+        <div><strong>${esc(title)}</strong><br /><span style="color:var(--muted)">${body}</span></div>
+      </div>`;
+    const constraint = (title, body) => `
+      <div style="padding:12px 16px;border-radius:10px;border-left:3px solid var(--accent);background:var(--card)">
+        <strong>${esc(title)}</strong>
+        <span style="color:var(--muted)"> ${esc(body)}</span>
+      </div>`;
+
+    return `
+      <div style="max-width:740px;font-size:14.5px;line-height:1.7;color:var(--ink)">
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em">${esc(t('guideIntroTitle'))}</h2>
+          <p style="color:var(--ink);margin:0 0 12px;font-size:15px">${esc(t('guideIntro1'))}</p>
+          <p style="color:var(--ink);margin:0 0 12px;font-size:15px">${esc(t('guideIntro2'))}</p>
+          <p style="color:var(--ink);margin:0 0 12px;font-size:15px">${esc(t('guideIntro3'))}</p>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 12px">${esc(t('guideMakeTitle'))}</h2>
+          <p style="color:var(--ink);margin:0 0 16px">${esc(t('guideMakeIntro'))}</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${[1,2,3,4,5].map(n => `
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)">
+                <div style="width:28px;height:28px;border-radius:50%;background:var(--neutral-bg);color:var(--neutral-ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0">${n}</div>
+                <div><strong>${esc(t('guideMakeStep' + n + 'title'))}</strong><br /><span style="color:var(--muted)">${esc(t('guideMakeStep' + n + 'body'))}</span></div>
+              </div>`).join('')}
+          </div>
+          <div style="margin-top:14px;padding:14px 16px;border-radius:10px;background:color-mix(in srgb, var(--accent) 8%, var(--card));border:1px solid color-mix(in srgb, var(--accent) 25%, var(--line))">
+            <span style="font-size:13.5px;color:var(--ink)">${esc(t('guideMakeOr'))}</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 12px">${esc(t('guideGrowTitle'))}</h2>
+          <p style="color:var(--ink);margin:0 0 12px;font-size:15px">${esc(t('guideGrow1'))}</p>
+          <p style="color:var(--ink);margin:0 0 12px;font-size:15px">${esc(t('guideGrow2'))}</p>
+          <p style="color:var(--ink);margin:0;font-size:15px">${esc(t('guideGrow3'))}</p>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 12px">${esc(t('guideStartTitle'))}</h2>
+          <p style="color:var(--ink);margin:0 0 16px">${esc(t('guideStart1'))}</p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${esc(t('guideStartFile'))}</div>
+              <p style="margin:0;font-size:13.5px;color:var(--muted)">${esc(t('guideStartFileBody'))}</p>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${esc(t('guideStartServe'))}</div>
+              <p style="margin:0 0 10px;font-size:13.5px;color:var(--muted)">${esc(t('guideStartServeBody'))}</p>
+              <pre style="margin:0 0 10px;padding:10px 14px;border-radius:8px;background:var(--ink);color:#e2e8f0;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto">${esc(t('guideStartServeCmd'))}</pre>
+              <p style="margin:0;font-size:13px;color:var(--muted)">${esc(t('guideStartServeThen'))}</p>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${esc(t('guideStartRender'))}</div>
+              <p style="margin:0 0 10px;font-size:13.5px;color:var(--muted)">${esc(t('guideStartRenderBody'))}</p>
+              <pre style="margin:0 0 10px;padding:10px 14px;border-radius:8px;background:var(--ink);color:#e2e8f0;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto">${esc(t('guideStartRenderCmd'))}</pre>
+              <p style="margin:0;font-size:13px;color:var(--muted)">${esc(t('guideStartRenderResult'))}</p>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${esc(t('guideStartShare'))}</div>
+              <p style="margin:0;font-size:13.5px;color:var(--muted)">${esc(t('guideStartShareBody'))}</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:24px;padding-top:24px;border-top:1px solid var(--line)">
+          <p style="color:var(--muted);margin:0;font-size:13px;font-style:italic">${esc(t('guideIntroTransition'))}</p>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:22px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">${esc(t('guideConcept'))}</h2>
+          <p style="color:var(--muted);margin:0 0 16px">${esc(t('guideConceptBody'))}</p>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 16px">${esc(t('guideFundamentals'))}</h2>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:6px">${esc(t('entity'))}</div>
+              <p style="margin:0;font-size:13px;color:var(--muted)">${esc(t('entityDesc'))}</p>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:6px">${esc(t('edge'))}</div>
+              <p style="margin:0;font-size:13px;color:var(--muted)">${esc(t('edgeDesc'))}</p>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:6px">${esc(t('scope'))}</div>
+              <p style="margin:0;font-size:13px;color:var(--muted)">${esc(t('scopeDesc'))}</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">${esc(t('guideCtTitle'))}</h2>
+          <p style="color:var(--muted);margin:0 0 16px">${esc(t('guideCtBody'))}</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${types.map(([id, def]) => {
+              const sourceLabels = (def.sources || []).map(s => s.label).join(' + ');
+              return `
+                <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start">
+                  <div style="width:36px;height:36px;border-radius:8px;background:var(--neutral-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">${def.icon || ''}</svg>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:700;margin-bottom:2px">${esc(def.name)}</div>
+                    <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px">${esc(sourceLabels)}</div>
+                    ${def.tooltip ? `<div style="font-size:13px;color:var(--muted);line-height:1.55">${esc(def.tooltip)}</div>` : ''}
+                  </div>
+                  <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;padding:3px 10px;border-radius:999px;background:var(--neutral-bg);color:var(--neutral-ink);white-space:nowrap;flex-shrink:0">${esc(def.projection)}</span>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">${esc(t('guideConstraints'))}</h2>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${constraint(t('constraint1title'), t('constraint1body'))}
+            ${constraint(t('constraint2title'), t('constraint2body'))}
+            ${constraint(t('constraint3title'), t('constraint3body'))}
+            ${constraint(t('constraint4title'), t('constraint4body'))}
+          </div>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">${esc(t('guideWorkflow'))}</h2>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${stepCard(1, t('step1title'), esc(t('step1body')))}
+            ${stepCard(2, t('step2title'), esc(t('step2body')))}
+            ${stepCard(3, t('step3title'), esc(t('step3body')))}
+            ${stepCard(4, t('step4title'), `<code style="font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)">render-living-doc.mjs doc.json</code> \u2014 ${esc(t('step4body'))}`)}
+          </div>
+        </div>
+
+        <div style="margin-bottom:40px">
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">${esc(t('guideInference'))}</h2>
+          <p style="color:var(--muted);margin:0">${esc(t('guideInferenceBody'))}</p>
+        </div>
+
+        <div>
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">${esc(t('guideSkills'))}</h2>
+          <p style="color:var(--muted);margin:0 0 12px">${esc(t('guideSkillsBody'))}</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="padding:12px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)">
+              <div style="font-weight:700;font-size:13px"><code style="font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)">/living-doc</code></div>
+              <div style="font-size:13px;color:var(--muted);margin-top:4px">${esc(t('skillBootstrap'))}</div>
+            </div>
+            <div style="padding:12px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)">
+              <div style="font-weight:700;font-size:13px"><code style="font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)">/convergence-advisor</code></div>
+              <div style="font-size:13px;color:var(--muted);margin-top:4px">${esc(t('skillAdvisor'))}</div>
+            </div>
+            <div style="padding:12px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)">
+              <div style="font-weight:700;font-size:13px"><code style="font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)">render-living-doc.mjs</code></div>
+              <div style="font-size:13px;color:var(--muted);margin-top:4px">${esc(t('skillRenderer'))}</div>
+            </div>
+          </div>
+        </div>
+
+      </div>`;
+  }
+
+  /* ── Visual preview (lightweight inline preview) ── */
+  function renderVisualPreview(json) {
+    const ct = REGISTRY.convergenceTypes;
+    const sections = json.sections || [];
+
+    const statusTones = { built: '#166534', implemented: '#166534', ready: '#166534', wired: '#166534', real: '#166534', 'real-backend': '#166534', 'ground-truth': '#166534', partial: '#92400e', 'hook-service-contract': '#92400e', 'visual-only': '#92400e', 'state-unwired': '#92400e', 'mock-api': '#92400e', drift: '#991b1b', 'not-built': '#64748b', 'not-started': '#64748b', planned: '#64748b', blocked: '#991b1b', gap: '#991b1b', 'screen-local': '#991b1b', 'navigation-unwired': '#991b1b', deprecated: '#991b1b', 'legacy-only': '#991b1b' };
+
+    function statusDot(status) {
+      const color = statusTones[status] || '#64748b';
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}11;color:${color};font-size:11px;font-weight:600">${esc(status.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' '))}</span>`;
+    }
+
+    const sectionHtml = sections.map(s => {
+      const def = ct[s.convergenceType];
+      if (!def) return '';
+      const icon = def.icon ? `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#64748b;flex-shrink:0">${def.icon}</svg>` : '';
+      const sourceChips = (def.sources || []).map(src =>
+        `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11.5px;font-weight:600">${esc(src.label)}</span>`
+      ).join(' ');
+      const projLabel = def.projection === 'edge-table' ? 'Edge Table' : 'Card Grid';
+      const items = s.data || [];
+      const hasData = items.length > 0;
+
+      // Stats bar if section has stats
+      const statsHtml = (s.stats || []).length > 0
+        ? `<div style="display:grid;grid-template-columns:repeat(${Math.min(s.stats.length, 4)},1fr);gap:8px;margin-top:12px">
+            ${s.stats.map(st => `<div style="background:#f5f7fa;border-radius:8px;padding:10px 12px">
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#64748b">${esc(st.label)}</div>
+              <div style="font-size:24px;font-weight:700;margin-top:2px">${esc(String(st.value))}</div>
+            </div>`).join('')}
+          </div>`
+        : '';
+
+      // Data preview
+      let dataHtml = '';
+      if (hasData) {
+        // Count statuses
+        const statusCounts = {};
+        for (const item of items) {
+          const st = item.status || item.codeStatus || item.depth || 'unknown';
+          statusCounts[st] = (statusCounts[st] || 0) + 1;
+        }
+        const statusBar = Object.entries(statusCounts).map(([st, count]) =>
+          `${statusDot(st)} <span style="font-size:11px;color:#64748b">\u00d7${count}</span>`
+        ).join(' ');
+
+        const itemList = items.slice(0, 6).map(item =>
+          `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+            <span style="font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name || item.figmaName || item.id || '—')}</span>
+            ${item.status ? statusDot(item.status) : ''}
+            ${item.codeStatus ? statusDot(item.codeStatus) : ''}
+          </div>`
+        ).join('');
+
+        dataHtml = `
+          <div style="margin-top:14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <span style="font-size:13px;font-weight:700">${items.length} ${esc(t('items'))}</span>
+              <span style="flex:1"></span>
+              ${statusBar}
+            </div>
+            ${itemList}
+            ${items.length > 6 ? `<div style="padding:6px 0;color:#64748b;font-size:12px">+ ${items.length - 6} ${esc(t('more'))}</div>` : ''}
+          </div>`;
+      } else {
+        // Show the source skeleton — what fields this type expects
+        const sources = (def.sources || []).filter(src => src.label);
+        const statusFields = (def.statusFields || []);
+        const textFields = (def.textFields || []);
+        const detailsFields = (def.detailsFields || []);
+
+        const skeletonRows = [
+          ...sources.map(src => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+              <span style="font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0">${esc(src.label)}</span>
+              <div style="flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e2e8f0 30%,transparent 30%);opacity:0.6"></div>
+              <span style="font-size:10px;color:#94a3b8;font-style:italic">${esc(src.entityType || 'text')}</span>
+            </div>`),
+          ...statusFields.map(sf => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+              <span style="font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0">Status</span>
+              <div style="display:flex;gap:4px">
+                ${(REGISTRY?.statusSets?.[sf.statusSet]?.values || []).slice(0, 4).map(v => {
+                  const t = REGISTRY?.statusSets?.[sf.statusSet]?.tones?.[v] || 'neutral';
+                  const colors = { positive: '#166534', warning: '#92400e', negative: '#991b1b', neutral: '#64748b' };
+                  return `<span style="font-size:10px;padding:2px 7px;border-radius:999px;background:${colors[t]}11;color:${colors[t]};font-weight:600">${esc(v)}</span>`;
+                }).join('')}
+              </div>
+            </div>`),
+          ...textFields.map(tf => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+              <span style="font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0">${esc(tf.label)}</span>
+              <div style="flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e2e8f0 60%,transparent 60%);opacity:0.4"></div>
+              <span style="font-size:10px;color:#94a3b8;font-style:italic">text</span>
+            </div>`),
+          ...detailsFields.map(df => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+              <span style="font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0">${esc(df.label)}</span>
+              <div style="flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e2e8f0 40%,transparent 40%);opacity:0.3"></div>
+              <span style="font-size:10px;color:#94a3b8;font-style:italic">list</span>
+            </div>`),
+        ].join('');
+
+        dataHtml = `
+          <div style="margin-top:14px;border:1px dashed #e2e8f0;border-radius:10px;background:#fafbfc;padding:16px">
+            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#94a3b8;margin-bottom:10px">${esc(t('itemBlueprint'))}</div>
+            ${skeletonRows}
+            <div style="margin-top:10px;font-size:11.5px;color:#94a3b8;text-align:center">${esc(t('populatedBy'))}</div>
+          </div>`;
+      }
+
+      return `
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            ${icon}
+            <span style="font-size:16px;font-weight:700">${esc(s.title)}</span>
+            <span style="margin-left:auto;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;padding:3px 10px;border-radius:999px;background:#f1f5f9;color:#475569">${esc(projLabel)}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${sourceChips}
+          </div>
+          ${statsHtml}
+          ${dataHtml}
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="max-width:800px">
+        <div style="padding:20px 0 24px">
+          <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em">${esc(json.title || 'Untitled Living Doc')}</div>
+          ${json.subtitle ? `<div style="color:#64748b;margin-top:6px;font-size:14px">${esc(json.subtitle)}</div>` : ''}
+        </div>
+        ${json.objective ? `
+        <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #2563eb;border-radius:12px;padding:16px 20px;margin-bottom:16px">
+          <div style="font-size:13.5px"><strong>${esc(t('objective'))}</strong> ${esc(json.objective)}</div>
+          ${json.successCondition ? `<div style="font-size:13px;color:#64748b;margin-top:6px"><strong>${esc(t('successCondition'))}</strong> ${esc(json.successCondition)}</div>` : ''}
+        </div>` : ''}
+        ${sections.length === 0 ? `<div style="color:#64748b;padding:40px;text-align:center">${esc(t('noSections'))}</div>` : sectionHtml}
+      </div>`;
+  }
+
+  /* ── Build JSON ── */
+  function buildJson() {
+    const now = new Date().toISOString();
+    const json = {
+      title: state.title || 'Untitled Living Doc',
+      subtitle: state.subtitle || '',
+      brand: state.brand || 'LD',
+      updated: now,
+      ...(state.objective ? { objective: state.objective } : {}),
+      ...(state.successCondition ? { successCondition: state.successCondition } : {}),
+      pills: [`Updated ${now.slice(0, 10)}`],
+      callouts: [],
+      sections: state.sections.map(s => ({
+        id: s.id,
+        title: s.title,
+        convergenceType: s.convergenceType,
+        data: s.data || [],
+      })),
+    };
+    return json;
+  }
+
+  /* ── Export ── */
+  function exportJson() {
+    const json = buildJson();
+    const filename = `${slugify(state.title || 'living-doc')}.json`;
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showExportHint(filename);
+  }
+
+  function showExportHint(filename) {
+    let hint = document.getElementById('export-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'export-hint';
+      hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:3000;background:var(--ink);color:#e2e8f0;padding:14px 20px;border-radius:12px;font-size:13px;line-height:1.5;max-width:480px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:flex;gap:12px;align-items:flex-start';
+      document.body.appendChild(hint);
+    }
+    hint.innerHTML = `
+      <div style="flex:1">
+        <strong>${esc(filename)}</strong> ${esc(t('exportedTo'))}
+        <pre style="margin:8px 0 0;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,0.1);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto">mv ~/Downloads/${esc(filename)} docs/</pre>
+      </div>
+      <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0;line-height:1">\u00d7</button>`;
+    clearTimeout(hint._timer);
+    hint._timer = setTimeout(() => hint.remove(), 12000);
+  }
+
+  /* ── Generate HTML ── */
+  function generateHtml() {
+    const json = buildJson();
+    const reg = REGISTRY;
+    const compositorSrc = document.documentElement.outerHTML;
+
+    function escH(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function toTitle(v) { return String(v ?? '').split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' '); }
+    function bdg(label, tone) { return '<span class="badge badge-' + tone + '">' + escH(label) + '</span>'; }
+    function getTone(setName, val) { return reg.statusSets?.[setName]?.tones?.[val] ?? 'neutral'; }
+    function getLabel(setName, val) { return reg.statusSets?.[setName]?.labels?.[val] ?? toTitle(val); }
+
+    function renderCard(item, ctDef) {
+      const badges = (ctDef.statusFields || []).filter(sf => item[sf.key]).map(sf => bdg(getLabel(sf.statusSet, item[sf.key]), getTone(sf.statusSet, item[sf.key]))).join(' ');
+      const sources = (ctDef.sources || []).filter(src => src.entityType && item[src.key]?.length > 0).map(src =>
+        '<div class="flow-meta"><strong>' + escH(src.label) + '</strong> ' + item[src.key].map(v => '<code>' + escH(v) + '</code>').join(' ') + '</div>'
+      ).join('');
+      const texts = (ctDef.textFields || []).filter(tf => item[tf.key]).map(tf => '<p class="code-refs"><strong>' + escH(tf.label) + '</strong> ' + escH(item[tf.key]) + '</p>').join('');
+      const notes = item.notes?.length > 0 ? '<ul class="notes">' + item.notes.map(n => '<li>' + escH(n) + '</li>').join('') + '</ul>' : '';
+      return '<article class="flow-card"' + (item.id ? ' id="' + escH(item.id) + '"' : '') + '><header class="flow-card-header"><div><h3>' + escH(item.name) + '</h3></div><div class="badge-row">' + badges + '</div></header>' + sources + notes + texts + '</article>';
+    }
+
+    function renderEdgeTable(items, ctDef) {
+      const headers = (ctDef.columnHeaders || []).map(h => '<th>' + escH(h) + '</th>').join('');
+      const rows = items.map(item => {
+        const a = ctDef.sourceA, b = ctDef.sourceB;
+        return '<tr><td>' + escH(item[a.displayKey] || item[a.key]) + '<br/><code>' + escH(item[a.key]) + '</code></td><td>' + (item[b.key] ? '<code>' + escH(item[b.key]) + '</code>' : 'None yet') + '</td><td>' + (ctDef.edgeStatus ? bdg(toTitle(item[ctDef.edgeStatus.key]), getTone(ctDef.edgeStatus.statusSet, item[ctDef.edgeStatus.key])) : '') + '</td><td>' + (item[ctDef.edgeNotes?.key] || []).map(n => escH(n)).join('<br/>') + '</td></tr>';
+      }).join('');
+      return '<table class="full-table"><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    const sections = json.sections || [];
+    const sidebarH = sections.map(s => { const ct = reg.convergenceTypes[s.convergenceType]; if (!ct) return ''; return '<a href="#' + escH(s.id) + '" class="nav-icon" data-target="' + escH(s.id) + '" aria-label="' + escH(s.title) + '"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">' + (ct.icon||'') + '</svg><span class="nav-tooltip">' + escH(s.title) + '</span></a>'; }).join('');
+
+    const sectionsH = sections.map(s => {
+      const ct = reg.convergenceTypes[s.convergenceType]; if (!ct) return '';
+      const icon = ct.icon ? '<svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">' + ct.icon + '</svg>' : '';
+      const callout = s.callout ? '<section class="callout">' + s.callout.map(p => '<p>' + escH(p) + '</p>').join('') + '</section>' : '';
+      const stats = s.stats ? '<div class="summary-grid">' + s.stats.map(st => '<article class="stat-card"><h3>' + escH(st.label) + '</h3><div class="value">' + escH(String(st.value)) + '</div></article>').join('') + '</div>' : '';
+      const items = s.data || [];
+      let content = '';
+      if (ct.projection === 'card-grid') content = '<div class="flows-grid">' + items.map(item => renderCard(item, ct)).join('') + '</div>';
+      else if (ct.projection === 'edge-table') content = renderEdgeTable(items, ct);
+      return '<section class="section' + (ct.projection === 'edge-table' ? ' table-card' : '') + '" id="' + escH(s.id) + '"><h2>' + icon + ' ' + escH(s.title) + '</h2>' + callout + stats + content + '</section>';
+    }).join('');
+
+    const metaJ = JSON.stringify(json, null, 2).replace(/<\/script/gi, '<\\/script');
+    const compSafe = compositorSrc.replace(/"/g, '&quot;');
+
+    const fullHtml = '<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>' + escH(json.title) + '</title><style>:root{color-scheme:light;--bg:#f5f7fa;--card:#fff;--ink:#1a2332;--muted:#64748b;--line:#e2e8f0;--positive-bg:#ecfdf5;--positive-ink:#166534;--warning-bg:#fffbeb;--warning-ink:#92400e;--negative-bg:#fef2f2;--negative-ink:#991b1b;--neutral-bg:#f1f5f9;--neutral-ink:#475569;--accent:#2563eb;--sidebar:56px;--max:1120px;--radius:12px;--shadow-sm:0 1px 2px rgba(0,0,0,.04)}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.88em;background:var(--neutral-bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px}.sidebar{position:fixed;top:0;left:0;width:var(--sidebar);height:100vh;background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:100;overflow-y:auto}.sidebar .brand{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-bottom:12px;flex-shrink:0}.nav-icon{position:relative;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:background .15s,color .15s;text-decoration:none;flex-shrink:0}.nav-icon:hover{background:var(--neutral-bg);color:var(--ink);text-decoration:none}.nav-icon.active{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}.nav-tooltip{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}.nav-icon:hover .nav-tooltip{opacity:1}.comp-toggle{margin-top:auto;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:all .15s;flex-shrink:0}.comp-toggle:hover{background:var(--neutral-bg);color:var(--ink)}.comp-overlay{position:fixed;inset:0;z-index:200;background:#fff;display:none}.comp-overlay.open{display:block}.comp-overlay iframe{width:100%;height:100%;border:none}.comp-close{position:fixed;top:12px;right:16px;z-index:300;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:20px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.1)}.comp-close.open{display:flex}.comp-close:hover{background:var(--negative-bg);color:var(--negative-ink)}.content{margin-left:var(--sidebar)}.wrap{max-width:var(--max);margin:0 auto;padding:36px 32px 64px}header.page-header{padding:0 0 28px}h1{margin:0 0 8px;font-size:28px;line-height:1.25;letter-spacing:-.025em;font-weight:700}.subtitle{margin:0 0 20px;color:var(--muted);max-width:880px;font-size:15px;line-height:1.6}.pill-row,.badge-row,.meta-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow-sm);color:var(--muted);font-size:12.5px;font-weight:500}.section{margin-top:48px;padding-top:36px;border-top:1px solid var(--line)}.section:first-of-type{border-top:none;padding-top:0}.section h2{margin:0 0 20px;font-size:19px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}.section-icon{color:var(--muted);flex-shrink:0}.callout{margin-top:20px;padding:16px 20px;border-radius:var(--radius);border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-sm)}.callout p{margin:0 0 8px;line-height:1.55}.callout p:last-child{margin-bottom:0}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:20px}.stat-card,.flow-card,.table-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm)}.stat-card{padding:20px}.stat-card h3{margin:0;font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}.stat-card .value{margin-top:6px;font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.1}.flows-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.flow-card-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}h3{margin:0;font-size:15px;font-weight:650}.notes{margin:10px 0 0 18px;padding:0;color:var(--muted);font-size:14px;line-height:1.5}.notes li{margin-bottom:4px}.badge{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}.badge-positive{background:var(--positive-bg);color:var(--positive-ink)}.badge-warning{background:var(--warning-bg);color:var(--warning-ink)}.badge-negative{background:var(--negative-bg);color:var(--negative-ink)}.badge-neutral{background:var(--neutral-bg);color:var(--neutral-ink)}.full-table{width:100%;border-collapse:collapse;margin-top:14px}.full-table th,.full-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13.5px}.full-table th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}.full-table thead th{border-bottom:2px solid var(--line);padding-bottom:10px}.flow-meta{margin-top:14px;color:var(--muted);font-size:13.5px;line-height:1.65}.code-refs{margin-top:10px;color:var(--muted);font-size:13.5px;line-height:1.55}.table-card{padding:24px}.footnote{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}@media(max-width:720px){.sidebar,.comp-overlay,.comp-close{display:none}.content{margin-left:0}.wrap{padding:20px 16px 48px}.summary-grid{grid-template-columns:1fr}h1{font-size:24px}}</style></head><body>' +
+    '<script type="application/json" id="doc-meta">' + metaJ + '<\/script>' +
+    '<nav class="sidebar"><div class="brand">' + escH(json.brand || 'LD') + '</div>' + sidebarH + '<div class="comp-toggle" id="comp-toggle" title="Open compositor"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div></nav>' +
+    '<div class="comp-overlay" id="comp-overlay"><iframe id="comp-iframe" srcdoc="' + compSafe + '"></iframe></div><button class="comp-close" id="comp-close">&times;</button>' +
+    '<div class="content"><div class="wrap"><header class="page-header"><h1>' + escH(json.title) + '</h1>' + (json.subtitle ? '<p class="subtitle">' + escH(json.subtitle) + '</p>' : '') + (json.pills ? '<div class="pill-row">' + json.pills.map(p => '<span class="pill">' + escH(p) + '</span>').join('') + '</div>' : '') + '</header>' +
+    (json.objective ? '<section class="callout" style="border-left:3px solid var(--accent)"><p><strong>Objective</strong> ' + escH(json.objective) + '</p>' + (json.successCondition ? '<p style="color:var(--muted)"><strong>Success condition</strong> ' + escH(json.successCondition) + '</p>' : '') + '</section>' : '') +
+    sectionsH +
+    (json.source ? '<p class="footnote">Source: ' + escH(json.source) + '</p>' : '') +
+    '</div></div>' +
+    '<script>(()=>{const i=document.querySelectorAll(".nav-icon[data-target]");const s=[...i].map(icon=>({icon,el:document.getElementById(icon.dataset.target)})).filter(s=>s.el);let a=null;const act=icon=>{if(a===icon)return;if(a)a.classList.remove("active");icon.classList.add("active");a=icon};const o=new IntersectionObserver(e=>{for(const en of e)if(en.isIntersecting){const m=s.find(s=>s.el===en.target);if(m)act(m.icon)}},{rootMargin:"-20% 0px -60% 0px"});for(const{el}of s)o.observe(el);if(s.length>0)act(s[0].icon)})();<\/script>' +
+    '<script>(()=>{const ov=document.getElementById("comp-overlay");const cl=document.getElementById("comp-close");const tg=document.getElementById("comp-toggle");tg.addEventListener("click",()=>{ov.classList.add("open");cl.classList.add("open")});cl.addEventListener("click",()=>{ov.classList.remove("open");cl.classList.remove("open")})})();<\/script>' +
+    '</body></html>';
+
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = slugify(state.title || 'living-doc') + '-' + ts + '.html';
+    a.click();
+    URL.revokeObjectURL(url);
+    showExportHint(a.download);
+  }
+
+  /* ── Load modal ── */
+  function renderLoadModal() {
+    if (!state.showLoadModal) {
+      document.getElementById('load-modal')?.remove();
+      return;
+    }
+    let overlay = document.getElementById('load-modal');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'load-modal';
+      document.body.appendChild(overlay);
+    }
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h2>${esc(t('loadTitle'))}</h2>
+        <div class="field">
+          <label>${esc(t('pasteJson'))}</label>
+          <textarea id="load-json-text" rows="8" placeholder='{"title": "...", "sections": [...]}'></textarea>
+        </div>
+        <div class="field">
+          <label>${esc(t('loadFromFile'))}</label>
+          <input type="file" id="load-json-file" accept=".json" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="load-cancel">${esc(t('cancel'))}</button>
+          <button class="btn btn-primary" id="load-apply">${esc(t('apply'))}</button>
+        </div>
+      </div>`;
+
+    document.getElementById('load-cancel').addEventListener('click', () => {
+      state.showLoadModal = false; renderLoadModal();
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { state.showLoadModal = false; renderLoadModal(); }
+    });
+    document.getElementById('load-json-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { document.getElementById('load-json-text').value = reader.result; };
+      reader.readAsText(file);
+    });
+    document.getElementById('load-apply').addEventListener('click', () => {
+      try {
+        const json = JSON.parse(document.getElementById('load-json-text').value);
+        state.title = json.title || '';
+        state.subtitle = json.subtitle || '';
+        state.brand = json.brand || 'LD';
+        state.objective = json.objective || '';
+        state.successCondition = json.successCondition || '';
+        state.sections = (json.sections || []).map(s => ({
+          id: s.id || `sec-${slugify(s.title)}`,
+          title: s.title || '',
+          convergenceType: s.convergenceType || '',
+          data: s.data || [],
+        }));
+        state.showLoadModal = false;
+        renderLoadModal();
+        renderLeft();
+        renderRight();
+      } catch (err) {
+        alert(t('invalidJson') + ': ' + err.message);
+      }
+    });
+  }
+
+  /* ── Library discovery ── */
+  // Known doc filenames — the compositor scans these on load.
+  // When served from a file server, fetch each and check if it's a valid universal doc JSON.
+  const KNOWN_DOC_FILES = [
+    'figma-mobile-universal.json',
+    'figma-mobile-living-doc.json',
+  ];
+
+  async function discoverLibrary() {
+    library = [];
+    // Try fetching a directory listing (works with some dev servers)
+    try {
+      const res = await fetch('./');
+      if (res.ok) {
+        const html = await res.text();
+        const matches = html.match(/href="([^"]+\.json)"/g) || [];
+        const files = matches.map(m => m.replace(/href="|"/g, '')).filter(f => !f.startsWith('.') && f !== 'living-doc-registry.json');
+        for (const file of files) {
+          await tryLoadLibraryItem(file);
+        }
+        if (library.length > 0) return;
+      }
+    } catch {}
+    // Fallback: try known filenames
+    for (const file of KNOWN_DOC_FILES) {
+      await tryLoadLibraryItem(file);
+    }
+  }
+
+  async function tryLoadLibraryItem(filename) {
+    try {
+      const res = await fetch(`./${filename}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      // Must have sections array to be a universal doc, or title to be any living doc
+      if (json.sections || json.title) {
+        library.push({
+          filename,
+          title: json.title || filename,
+          updated: json.updated || null,
+          sectionCount: (json.sections || []).length,
+          brand: json.brand || null,
+          json,
+        });
+      }
+    } catch {}
+  }
+
+  function loadFromLibrary(item) {
+    const json = item.json;
+    state.title = json.title || '';
+    state.subtitle = json.subtitle || '';
+    state.brand = json.brand || 'LD';
+    state.objective = json.objective || '';
+    state.successCondition = json.successCondition || '';
+    state.originDoc = { filename: item.filename, title: item.title };
+    state.sections = (json.sections || []).map(s => ({
+      id: s.id || `sec-${slugify(s.title)}`,
+      title: s.title || '',
+      convergenceType: s.convergenceType || '',
+      data: s.data || [],
+    }));
+    renderLeft();
+    renderRight();
+  }
+
+  /* ── Guide overlay ── */
+  function openGuide() {
+    const overlay = document.getElementById('guide-overlay');
+    const panel = document.getElementById('guide-panel');
+    panel.innerHTML = `<button class="guide-close" id="guide-close">\u00d7</button>` + renderHelp();
+    overlay.classList.add('open');
+    document.getElementById('guide-close').addEventListener('click', closeGuide);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeGuide(); });
+  }
+  function closeGuide() {
+    document.getElementById('guide-overlay').classList.remove('open');
+  }
+
+  /* ── Init ── */
+  async function init() {
+    await loadRegistry();
+    await discoverLibrary();
+    // When embedded in a living doc iframe, skip auto-load — parent will call loadDocumentData
+    const restored = isEmbedded ? false : autoLoad();
+    if (restored && state.sections.length > 0) state.previewTab = 'visual';
+    // Detect if we arrived from a living doc via the pencil link
+    const ref = document.referrer;
+    if (ref && ref.includes('.html') && !ref.includes('compositor')) {
+      const refFile = ref.split('/').pop().replace('.html', '.json');
+      const fromLib = library.find(l => l.filename === refFile);
+      if (fromLib && !restored) {
+        loadFromLibrary(fromLib);
+        return; // loadFromLibrary calls render
+      } else if (fromLib) {
+        state.originDoc = { filename: fromLib.filename, title: fromLib.title };
+      }
+    }
+    renderTopBar();
+    renderLeft();
+    renderRight();
+  }
+
+  // Allow parent page to load document data (when embedded as iframe in a living doc)
+  window.loadDocumentData = function(json) {
+    state.title = json.title || '';
+    state.subtitle = json.subtitle || '';
+    state.brand = json.brand || 'LD';
+    state.objective = json.objective || '';
+    state.successCondition = json.successCondition || '';
+    state.sections = (json.sections || []).map(s => ({
+      id: s.id || `sec-${slugify(s.title)}`,
+      title: s.title || '',
+      convergenceType: s.convergenceType || '',
+      data: s.data || [],
+    }));
+    state.originDoc = { filename: 'current-document.json', title: json.title || 'Current Document' };
+    state.previewTab = 'visual';
+    renderTopBar(); renderLeft(); renderRight();
+  };
+
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2079 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Living Doc Compositor</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa; --card: #ffffff; --ink: #1a2332; --muted: #64748b;
+        --line: #e2e8f0;
+        --positive-bg: #ecfdf5; --positive-ink: #166534;
+        --warning-bg: #fffbeb; --warning-ink: #92400e;
+        --negative-bg: #fef2f2; --negative-ink: #991b1b;
+        --neutral-bg: #f1f5f9; --neutral-ink: #475569;
+        --accent: #2563eb; --sidebar: 56px; --max: 1120px; --radius: 12px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+      body {
+        margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+        font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.88em; background: var(--neutral-bg);
+        border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+      }
+      .sidebar {
+        position: fixed; top: 0; left: 0; width: var(--sidebar); height: 100vh;
+        background: var(--card); border-right: 1px solid var(--line);
+        display: flex; flex-direction: column; align-items: center;
+        padding: 16px 0; gap: 2px; z-index: 100;
+        overflow-y: auto; overflow-x: hidden;
+      }
+      .sidebar .brand {
+        width: 32px; height: 32px; border-radius: 8px;
+        background: var(--accent); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 14px; margin-bottom: 12px; flex-shrink: 0;
+      }
+      .nav-icon {
+        position: relative; width: 40px; height: 40px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--muted); transition: background 0.15s, color 0.15s;
+        text-decoration: none; flex-shrink: 0;
+      }
+      .nav-icon:hover { background: var(--neutral-bg); color: var(--ink); text-decoration: none; }
+      .nav-icon.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+      .nav-tooltip {
+        position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+        background: var(--ink); color: #fff; font-size: 12px; font-weight: 600;
+        padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+        pointer-events: none; opacity: 0; transition: opacity 0.15s;
+      }
+      .nav-icon:hover .nav-tooltip { opacity: 1; }
+      .content { margin-left: var(--sidebar); }
+      .wrap { max-width: var(--max); margin: 0 auto; padding: 36px 32px 64px; }
+      header.page-header { padding: 0 0 28px; }
+      h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; letter-spacing: -0.025em; font-weight: 700; }
+      .subtitle { margin: 0 0 20px; color: var(--muted); max-width: 880px; font-size: 15px; line-height: 1.6; }
+      .pill-row, .badge-row, .meta-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .meta-row { color: var(--muted); font-size: 13px; gap: 12px; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 12px; border-radius: 999px;
+        background: var(--card); border: 1px solid var(--line);
+        box-shadow: var(--shadow-sm); color: var(--muted); font-size: 12.5px; font-weight: 500;
+      }
+      .section { margin-top: 48px; padding-top: 36px; border-top: 1px solid var(--line); }
+      .section:first-of-type { border-top: none; padding-top: 0; }
+      .section h2 {
+        margin: 0 0 20px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
+        display: flex; align-items: center; gap: 10px;
+      }
+      .section-icon { color: var(--muted); flex-shrink: 0; }
+      .callout {
+        margin-top: 20px; padding: 16px 20px; border-radius: var(--radius);
+        border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .callout p { margin: 0 0 8px; line-height: 1.55; }
+      .callout p:last-child { margin-bottom: 0; }
+      .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 20px; }
+      .stat-card, .flow-card, .page-card, .table-card {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm);
+      }
+      .stat-card { padding: 20px; }
+      .stat-card h3 { margin: 0; font-size: 12.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+      .stat-card .value { margin-top: 6px; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+      .flows-grid, .pages-grid, .integration-grid, .interaction-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+      .flow-card-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+      h3 { margin: 0; font-size: 15px; font-weight: 650; }
+      .notes { margin: 10px 0 0 18px; padding: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+      .notes li { margin-bottom: 4px; }
+      .badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 3px 10px; border-radius: 999px; font-size: 11.5px;
+        font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+      }
+      .badge-positive { background: var(--positive-bg); color: var(--positive-ink); }
+      .badge-warning { background: var(--warning-bg); color: var(--warning-ink); }
+      .badge-negative { background: var(--negative-bg); color: var(--negative-ink); }
+      .badge-neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+      .full-table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+      .full-table th, .full-table td {
+        padding: 10px 12px; border-bottom: 1px solid var(--line);
+        text-align: left; vertical-align: top; font-size: 13.5px;
+      }
+      .full-table th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+      .full-table thead th { border-bottom: 2px solid var(--line); padding-bottom: 10px; }
+      .flow-meta { margin-top: 14px; color: var(--muted); font-size: 13.5px; line-height: 1.65; }
+      .flow-meta div { margin-bottom: 2px; }
+      .flow-meta div:last-child { margin-bottom: 0; }
+      .code-refs { margin-top: 10px; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+      .details-block {
+        margin-top: 14px; padding: 12px 14px;
+        border: 1px dashed color-mix(in srgb, var(--line) 70%, transparent);
+        border-radius: 10px; background: var(--bg);
+      }
+      .details-block summary { cursor: pointer; font-weight: 600; font-size: 13.5px; color: var(--muted); }
+      .table-card { padding: 24px; }
+      .table-card h2 { margin: 0 0 4px; }
+      .footnote { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+      @media (max-width: 980px) {
+        .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .flows-grid, .pages-grid { grid-template-columns: 1fr; }
+      }
+      /* ── Compositor overlay ── */
+      .comp-toggle {
+        margin-top: auto; width: 40px; height: 40px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--muted); cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+      }
+      .comp-toggle:hover { background: var(--neutral-bg); color: var(--ink); }
+      @keyframes comp-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+        50% { box-shadow: 0 0 12px 4px rgba(37,99,235,0.35); }
+      }
+      .comp-toggle.glow {
+        animation: comp-glow 1.5s ease-in-out 3;
+        color: var(--accent);
+      }
+      .comp-cta {
+        position: fixed; left: calc(var(--sidebar) + 12px); bottom: 20px; z-index: 150;
+        background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+        padding: 16px 20px; max-width: 280px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        opacity: 0; transform: translateY(10px);
+        transition: opacity 0.3s, transform 0.3s;
+        pointer-events: none;
+      }
+      .comp-cta.show { opacity: 1; transform: translateY(0); pointer-events: all; }
+      .comp-cta-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+      .comp-cta-body { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
+      .comp-cta-actions { display: flex; gap: 8px; }
+      .comp-cta-btn {
+        padding: 7px 14px; border-radius: 8px; border: none;
+        font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      }
+      .comp-cta-primary { background: var(--accent); color: #fff; }
+      .comp-cta-primary:hover { opacity: 0.9; }
+      .comp-cta-dismiss { background: transparent; color: var(--muted); }
+      .comp-cta-dismiss:hover { color: var(--ink); }
+      .comp-overlay {
+        position: fixed; inset: 0; z-index: 200;
+        background: #fff;
+        display: none;
+      }
+      .comp-overlay.open { display: block; }
+      .comp-overlay iframe {
+        width: 100%; height: 100%; border: none;
+      }
+      .comp-close {
+        position: fixed; top: 12px; right: 16px; z-index: 300;
+        width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line);
+        background: var(--card); color: var(--muted); font-size: 20px;
+        display: none; align-items: center; justify-content: center; cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .comp-close.open { display: flex; }
+      .comp-close:hover { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-ink); }
+      @media (max-width: 720px) {
+        .sidebar { display: none; }
+        .comp-panel { display: none; }
+        .content { margin-left: 0; }
+        .wrap { padding: 20px 16px 48px; }
+        .summary-grid { grid-template-columns: 1fr; }
+        h1 { font-size: 24px; }
+      }
+    </style>
+  </head>
+  <body>
+    <script type="application/json" id="doc-meta">{
+  "title": "Living Doc Compositor",
+  "subtitle": "Squeeze the intel out of that token",
+  "brand": "LD",
+  "updated": "2026-04-12",
+  "sections": []
+}</script>
+
+    <nav class="sidebar" aria-label="Section navigation">
+      <div class="brand">LD</div>
+      
+      <div class="comp-toggle" id="comp-toggle" title="Open compositor">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+    </nav>
+
+    <div class="comp-overlay" id="comp-overlay">
+      <iframe id="comp-iframe" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; /&gt;
+&lt;title&gt;Living Doc Compositor&lt;/title&gt;
+&lt;style&gt;
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --ink: #1a2332; --muted: #64748b;
+    --line: #e2e8f0; --accent: #2563eb; --accent-light: #dbeafe;
+    --positive-bg: #ecfdf5; --positive-ink: #166534;
+    --warning-bg: #fffbeb; --warning-ink: #92400e;
+    --negative-bg: #fef2f2; --negative-ink: #991b1b;
+    --neutral-bg: #f1f5f9; --neutral-ink: #475569;
+    --radius: 12px; --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; cursor: pointer; }
+
+  /* ── Layout ── */
+  .top-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px; background: var(--card);
+    border-bottom: 1px solid var(--line); height: 56px;
+  }
+  .top-bar .logo {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;
+  }
+  .top-bar h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+  .top-bar .tagline { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+  .top-bar .spacer { flex: 1; }
+  .top-action {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .top-action:hover { border-color: var(--accent); color: var(--accent); }
+  .top-action-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .top-action-primary:hover { opacity: 0.9; color: #fff; }
+  .top-bar .lang-switch { display: flex; gap: 2px; margin-left: 8px; }
+  .top-bar .lang-btn {
+    padding: 4px 8px; border-radius: 6px; border: none;
+    font-size: 10.5px; font-weight: 600; cursor: pointer; letter-spacing: 0.02em;
+  }
+  .app { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 56px); }
+  .panel { overflow-y: auto; padding: 24px; }
+  .panel-left {
+    background: var(--card); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .panel-right { background: var(--bg); }
+  .panel-header { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .panel-header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .panel-header .logo {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0;
+  }
+
+  /* ── Form fields ── */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .field input, .field textarea {
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 14px; background: var(--bg); color: var(--ink);
+    outline: none; transition: border-color 0.15s;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 56px; }
+
+  /* ── Convergence type picker ── */
+  .section-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); padding: 8px 0 4px;
+  }
+  .ct-list { display: flex; flex-direction: column; gap: 6px; }
+  .ct-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .ct-item:hover { border-color: var(--accent); }
+  .ct-item.selected { border-color: var(--accent); background: var(--accent-light); }
+  .ct-item .ct-icon {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--neutral-bg);
+    display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0;
+  }
+  .ct-item.selected .ct-icon { background: var(--accent); color: #fff; }
+  .ct-item .ct-info { flex: 1; min-width: 0; }
+  .ct-item .ct-name { font-size: 13.5px; font-weight: 600; }
+  .ct-item .ct-sources { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ct-item .ct-projection {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 2px 8px; border-radius: 999px; background: var(--neutral-bg); color: var(--neutral-ink);
+  }
+  .ct-icon { position: relative; }
+  .ct-icon .ct-tooltip {
+    display: none; position: fixed; z-index: 9999;
+    width: 280px; padding: 12px 14px; border-radius: 10px;
+    background: var(--ink); color: #e2e8f0; border: none;
+    font-size: 12.5px; line-height: 1.55; font-weight: 400;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    pointer-events: none;
+  }
+  .ct-icon .ct-tooltip.visible { display: block; }
+
+  /* ── Selected sections ── */
+  .selected-sections { display: flex; flex-direction: column; gap: 6px; }
+  .sel-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: 8px; background: var(--bg);
+    border: 1px solid var(--line); font-size: 13px;
+  }
+  .sel-item .sel-handle { cursor: grab; color: var(--muted); font-size: 16px; touch-action: none; }
+  .sel-item.dragging { opacity: 0.4; }
+  .sel-item.drag-over { border-color: var(--accent); background: var(--accent-light); }
+  .sel-item .sel-name { flex: 1; font-weight: 600; }
+  .sel-item .sel-type { font-size: 11px; color: var(--muted); }
+  .sel-item .sel-remove {
+    width: 24px; height: 24px; border: none; background: none;
+    color: var(--muted); font-size: 16px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  }
+  .sel-item .sel-remove:hover { background: var(--negative-bg); color: var(--negative-ink); }
+  .sel-title-input {
+    flex: 1; border: none; background: none; font: inherit; font-weight: 600;
+    font-size: 13px; outline: none; color: var(--ink); min-width: 0;
+  }
+
+  /* ── Actions ── */
+  .actions { display: flex; gap: 8px; padding-top: 8px; }
+  .btn {
+    flex: 1; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line);
+    font-weight: 600; font-size: 13px; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary { background: var(--card); color: var(--ink); }
+  .btn-secondary:hover { border-color: var(--accent); }
+
+  /* ── Preview ── */
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; background: var(--card); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .preview-header h2 { font-size: 15px; font-weight: 700; }
+  .preview-tabs { display: flex; gap: 4px; }
+  .preview-tab {
+    padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); font-size: 12.5px; font-weight: 600; color: var(--muted);
+  }
+  .preview-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .preview-content { padding: 24px; }
+  .preview-iframe { width: 100%; border: none; border-radius: var(--radius); background: #fff; min-height: calc(100vh - 80px); }
+  .json-preview {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; max-height: calc(100vh - 120px); overflow: auto;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 60vh; color: var(--muted); text-align: center; gap: 12px;
+  }
+  .empty-state svg { opacity: 0.3; }
+  .empty-state p { font-size: 15px; max-width: 320px; }
+
+  /* ── Load modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal {
+    background: var(--card); border-radius: 16px; padding: 24px; width: 480px;
+    max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .modal h2 { font-size: 17px; margin-bottom: 16px; }
+  .modal .field { margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* ── Guide overlay ── */
+  .guide-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .guide-overlay.open { opacity: 1; pointer-events: all; }
+  .guide-panel {
+    width: 90vw; max-width: 780px; max-height: 88vh;
+    background: var(--bg); border-radius: 16px; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+    padding: 36px 40px 48px;
+  }
+  .guide-close {
+    position: sticky; top: 0; float: right;
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--muted); font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 1;
+  }
+  .guide-close:hover { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-ink); }
+
+  /* ── Action bar ── */
+  .action-bar { display: flex; gap: 6px; }
+  .action-bar .btn { flex: none; }
+  .btn-icon {
+    width: 36px; height: 36px; padding: 0; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--muted); display: flex; align-items: center; justify-content: center;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Help ── */
+  .help-toggle {
+    display: flex; align-items: center; gap: 6px; padding: 8px 0 4px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .help-toggle svg { transition: transform 0.15s; }
+  .help-toggle.open svg { transform: rotate(90deg); }
+  .help-content {
+    display: none; padding: 14px 16px; border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-size: 13px; line-height: 1.6; color: var(--muted);
+  }
+  .help-content.open { display: block; }
+  .help-content h4 { margin: 0 0 6px; font-size: 13px; color: var(--ink); font-weight: 700; }
+  .help-content p { margin: 0 0 10px; }
+  .help-content p:last-child { margin-bottom: 0; }
+  .help-content code {
+    font-size: 12px; padding: 1px 5px; border-radius: 4px;
+    background: var(--card); border: 1px solid var(--line);
+  }
+  .help-section { margin-bottom: 14px; }
+  .help-section:last-child { margin-bottom: 0; }
+
+  /* ── Library ── */
+  .lib-list { display: flex; flex-direction: column; gap: 6px; }
+  .lib-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; transition: all 0.15s;
+  }
+  .lib-item:hover { border-color: var(--accent); }
+  .lib-item .lib-icon {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--neutral-bg);
+    display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0;
+  }
+  .lib-item .lib-info { flex: 1; min-width: 0; }
+  .lib-item .lib-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lib-item .lib-meta { font-size: 11px; color: var(--muted); }
+  .lib-item .lib-sections {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    background: var(--neutral-bg); color: var(--neutral-ink);
+  }
+
+  @media (max-width: 800px) {
+    .top-bar h1 { font-size: 14px; }
+    .top-bar .tagline { display: none; }
+    .app { grid-template-columns: 1fr; height: calc(100vh - 56px); }
+    .panel-right { display: none; }
+  }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;div class=&quot;top-bar&quot; id=&quot;top-bar&quot;&gt;&lt;/div&gt;
+&lt;div class=&quot;app&quot; id=&quot;app&quot;&gt;
+  &lt;div class=&quot;panel panel-left&quot; id=&quot;left-panel&quot;&gt;&lt;/div&gt;
+  &lt;div class=&quot;panel panel-right&quot; id=&quot;right-panel&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class=&quot;guide-overlay&quot; id=&quot;guide-overlay&quot;&gt;
+  &lt;div class=&quot;guide-panel&quot; id=&quot;guide-panel&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+(() =&gt; {
+  /* ── i18n ── */
+  const LOCALES = {
+    en: {
+      appTitle: &#39;Living Doc Compositor&#39;,
+      tagline: &#39;Squeeze the intel out of that token&#39;,
+      docTitle: &#39;Document Title&#39;,
+      docSubtitle: &#39;Subtitle&#39;,
+      brandMark: &#39;Brand Mark (2 chars)&#39;,
+      objective: &#39;Objective&#39;,
+      objectivePlaceholder: &#39;What is this document driving toward?&#39;,
+      successCondition: &#39;Success Condition&#39;,
+      successConditionPlaceholder: &#39;When is this objective met?&#39;,
+      convergenceTypes: &#39;Convergence Types&#39;,
+      docSections: &#39;Document Sections&#39;,
+      library: &#39;Library&#39;,
+      load: &#39;Load&#39;,
+      export: &#39;Export&#39;,
+      guide: &#39;Guide&#39;,
+      newDoc: &#39;New document&#39;,
+      preview: &#39;Preview&#39;,
+      visual: &#39;Visual&#39;,
+      json: &#39;JSON&#39;,
+      itemBlueprint: &#39;Item blueprint — each entry will have:&#39;,
+      populatedBy: &#39;Populated by sync skill&#39;,
+      noSections: &#39;No sections yet. Pick convergence types from the left.&#39;,
+      loadTitle: &#39;Load Living Doc JSON&#39;,
+      pasteJson: &#39;Paste JSON or pick a file&#39;,
+      loadFromFile: &#39;Or load from file&#39;,
+      cancel: &#39;Cancel&#39;,
+      apply: &#39;Load&#39;,
+      invalidJson: &#39;Invalid JSON&#39;,
+      exportedTo: &#39;downloaded. Move it to your docs/ folder so the library and renderer can find it:&#39;,
+      shareTool: &#39;Share tool&#39;,
+      shareToolHint: &#39;Download a clean version of the compositor without any document data — safe to share with anyone.&#39;,
+      sections: &#39;sections&#39;,
+      items: &#39;items&#39;,
+      more: &#39;more&#39;,
+      noneYet: &#39;None yet&#39;,
+      text: &#39;text&#39;,
+      list: &#39;list&#39;,
+      // Guide - intro
+      guideIntroTitle: &#39;What is this?&#39;,
+      guideIntro1: &#39;Your work lives in many places. Designs in Figma. Code in repos. Tickets in GitHub. Workflows in CI. Decisions in conversations. To understand the real state of anything, you have to visit all of them and piece it together yourself.&#39;,
+      guideIntro2: &#39;A living doc brings those pieces into one page. Not as a copy \u2014 as a structured view that stays connected to the sources. When the code changes, the doc reflects it. When a probe fails, you see it. When a ticket closes, the status updates.&#39;,
+      guideIntro3: &#39;The compositor lets you define what goes on that page. You pick which types of information converge \u2014 designs + code + specs, or components + build status, or probes + APIs + automation. Each combination is a convergence type. The rest follows automatically.&#39;,
+      guideGrowTitle: &#39;Living docs grow&#39;,
+      guideGrow1: &#39;You don\u2019t design the full structure upfront. You start with one or two convergence types that match what you\u2019re working on. Then, as you work, new patterns appear.&#39;,
+      guideGrow2: &#39;Maybe you started tracking components and their build status. Then you realized you also need to know if the implementation matches the design \u2014 so you add an alignment section. Later, you set up deployment probes and add a verification section. Each addition is one click in the compositor or one line in the JSON.&#39;,
+      guideGrow3: &#39;The structure evolves with the work, not ahead of it. Existing data stays intact when you add new sections. The living doc becomes more complete over time, not more complex \u2014 because each section is a self-contained convergence type with a known shape.&#39;,
+      // Guide - getting started
+      guideStartTitle: &#39;Getting Started&#39;,
+      guideStart1: &#39;This compositor is a single HTML file. No install, no build step, no server required.&#39;,
+      guideStartFile: &#39;Open directly as a file&#39;,
+      guideStartFileBody: &#39;Double-click living-doc-compositor.html or open it in your browser. You can compose, preview, and export JSON immediately. The library won\u2019t load because browsers block local file fetching, but everything else works.&#39;,
+      guideStartServe: &#39;Serve with the library&#39;,
+      guideStartServeBody: &#39;To load existing documents from the library, serve the docs folder with any static server. From the project root:&#39;,
+      guideStartServeCmd: &#39;cd docs &amp;&amp; python3 -m http.server 8111&#39;,
+      guideStartServeThen: &#39;Then open http://localhost:8111/living-doc-compositor.html \u2014 the library discovers all .json files in the folder automatically.&#39;,
+      guideStartRender: &#39;Render a document&#39;,
+      guideStartRenderBody: &#39;After exporting or syncing a JSON file, generate the HTML:&#39;,
+      guideStartRenderCmd: &#39;node scripts/render-living-doc.mjs docs/my-doc.json&#39;,
+      guideStartRenderResult: &#39;Produces docs/my-doc.html \u2014 a self-contained page with sidebar navigation, section icons, and scroll tracking. No runtime dependencies.&#39;,
+      guideStartShare: &#39;Share the tool&#39;,
+      guideStartShareBody: &#39;Click &quot;Share tool&quot; in the header to download a clean version without any document data. Safe to send to anyone \u2014 they get the full compositor with the guide, ready to create their own living doc.&#39;,
+      guideIntroTransition: &#39;Below is how it works under the hood.&#39;,
+      // Guide - make your own
+      guideMakeTitle: &#39;Make Your Own&#39;,
+      guideMakeIntro: &#39;None of the existing convergence types fit your domain? You can define a new one. A convergence type is just the answer to one question: what things keep showing up together?&#39;,
+      guideMakeStep1title: &#39;Notice the pattern&#39;,
+      guideMakeStep1body: &#39;You keep checking the same three or four things together. Terraform modules and AWS resources. Test suites and coverage reports. API contracts and client implementations. That repeated grouping is your convergence.&#39;,
+      guideMakeStep2title: &#39;Name the sources&#39;,
+      guideMakeStep2body: &#39;Each thing in that grouping is an entity type. List them: &quot;Terraform module + AWS resource + deployment workflow.&quot; These are the sources that produce your convergence.&#39;,
+      guideMakeStep3title: &#39;Identify the borrowed property&#39;,
+      guideMakeStep3body: &#39;What status do you care about when you look at this grouping? Deployed vs drifted? Covered vs uncovered? That status is not stored \u2014 it is derived from the sources. Pick the derivation: worst-of, count, any-match.&#39;,
+      guideMakeStep4title: &#39;Check against existing types&#39;,
+      guideMakeStep4body: &#39;Before creating a new type, compare with what exists. Is yours really a new combination of sources, or an instance of an existing type with different scope boundaries?&#39;,
+      guideMakeStep5title: &#39;Add it to the registry&#39;,
+      guideMakeStep5body: &#39;One JSON entry in living-doc-registry.json. Name, icon, sources, status set, projection. No code changes. The compositor and renderer pick it up immediately.&#39;,
+      guideMakeOr: &#39;Or use the advisor skill \u2014 it helps you discover the type through dialog, checks for overlap, and writes the registry entry.&#39;,
+      // Guide - concept
+      guideConcept: &#39;The Concept&#39;,
+      guideConceptBody: &#39;A living doc is a subgraph view \u2014 a navigable projection of entities and their relationships. Higher-order abstractions compress the search space for both humans and LLMs: the type tells you what\u2019s inside, how things relate, and where to look when something\u2019s wrong. Every token spent is on reasoning, not on parsing structure.&#39;,
+      guideFundamentals: &#39;Three Fundamentals&#39;,
+      entity: &#39;Entity&#39;,
+      entityDesc: &#39;Has identity, has its own properties. A Figma page, a ticket, a code file, an API endpoint.&#39;,
+      edge: &#39;Edge&#39;,
+      edgeDesc: &#39;A typed relationship between entities. Implements, specifies, tests, deploys.&#39;,
+      scope: &#39;Scope&#39;,
+      scopeDesc: &#39;A named convergence of entities. Has no properties of its own \u2014 borrows them from its sources.&#39;,
+      guideCtTitle: &#39;Convergence Types&#39;,
+      guideCtBody: &#39;Each type is a specific combination of source entities. The combination is the type. Different sources produce a different type. The visual projection (card grid or edge table) follows automatically.&#39;,
+      guideConstraints: &#39;Key Constraints&#39;,
+      constraint1title: &#39;The view is fixed per entity type.&#39;,
+      constraint1body: &#39;If you know the entity, you know how to render it. There is no card-vs-table choice.&#39;,
+      constraint2title: &#39;A scope is not flexible.&#39;,
+      constraint2body: &#39;It is exactly the set of entities that define it. Different sources produce a different scope type.&#39;,
+      constraint3title: &#39;Properties are always borrowed.&#39;,
+      constraint3body: &#39;A scope\u2019s status is derived from the entities inside it. The scope stores nothing of its own except a name and a derivation rule.&#39;,
+      constraint4title: &#39;Aggregates are derived, not authored.&#39;,
+      constraint4body: &#39;Status summaries, gap counts, stat grids compute themselves from the scopes and entities.&#39;,
+      guideWorkflow: &#39;Workflow&#39;,
+      step1title: &#39;Compose&#39;,
+      step1body: &#39;Select convergence types in the left panel. Set title and section names. This defines the structure \u2014 no data yet.&#39;,
+      step2title: &#39;Export&#39;,
+      step2body: &#39;Download the JSON scaffold. This is the empty structure definition that a sync skill will populate.&#39;,
+      step3title: &#39;Populate&#39;,
+      step3body: &#39;The sync skill receives the scaffold, looks at each section\u2019s convergence type, and discovers the actual entities to fill in the data arrays.&#39;,
+      step4title: &#39;Render&#39;,
+      step4body: &#39;render-living-doc.mjs doc.json \u2014 one universal renderer, any living doc.&#39;,
+      guideInference: &#39;Why This Matters for Inference&#39;,
+      guideInferenceBody: &#39;Higher-order abstractions compress the search space. When an LLM sees a convergence type, it immediately knows: what entities are inside, how they relate, what status means, and where to look when something\u2019s wrong. Every token is spent on reasoning about the domain, not on understanding the document format. The typed structure eliminates an entire class of ambiguity at inference time.&#39;,
+      guideSkills: &#39;How It Stays Alive&#39;,
+      guideSkillsBody: &#39;Two skills and a renderer. No domain-specific sync skills, no scheduled jobs.&#39;,
+      skillBootstrap: &#39;The bootstrap. Connects a session to the living docs for the current repo. Shows what exists, what\u2019s stale, and lets the LLM update sections as a natural part of working. The document is self-describing \u2014 the skill just opens the door.&#39;,
+      skillAdvisor: &#39;The thinking partner. Helps discover which convergence types fit a domain through dialog. Shows existing types as examples, identifies new patterns, checks for overlap, and writes the registry entry.&#39;,
+      skillRenderer: &#39;One command, any document. Reads the JSON, resolves convergence types from the registry, produces the HTML with sidebar, icons, and scroll tracking.&#39;,
+    },
+    nl: {
+      appTitle: &#39;Living Doc Compositor&#39;,
+      tagline: &#39;Pers de kennis uit die token&#39;,
+      docTitle: &#39;Documenttitel&#39;,
+      docSubtitle: &#39;Ondertitel&#39;,
+      brandMark: &#39;Merk (2 tekens)&#39;,
+      objective: &#39;Doelstelling&#39;,
+      objectivePlaceholder: &#39;Waar stuurt dit document op aan?&#39;,
+      successCondition: &#39;Succesconditie&#39;,
+      successConditionPlaceholder: &#39;Wanneer is dit doel bereikt?&#39;,
+      convergenceTypes: &#39;Convergentietypes&#39;,
+      docSections: &#39;Documentsecties&#39;,
+      library: &#39;Bibliotheek&#39;,
+      load: &#39;Laden&#39;,
+      export: &#39;Exporteren&#39;,
+      guide: &#39;Handleiding&#39;,
+      newDoc: &#39;Nieuw document&#39;,
+      preview: &#39;Voorbeeld&#39;,
+      visual: &#39;Visueel&#39;,
+      json: &#39;JSON&#39;,
+      itemBlueprint: &#39;Item-blauwdruk — elk item bevat:&#39;,
+      populatedBy: &#39;Ingevuld door sync skill&#39;,
+      noSections: &#39;Nog geen secties. Kies convergentietypes links.&#39;,
+      loadTitle: &#39;Living Doc JSON laden&#39;,
+      pasteJson: &#39;Plak JSON of kies een bestand&#39;,
+      loadFromFile: &#39;Of laad vanuit bestand&#39;,
+      cancel: &#39;Annuleren&#39;,
+      apply: &#39;Laden&#39;,
+      invalidJson: &#39;Ongeldige JSON&#39;,
+      exportedTo: &#39;gedownload. Verplaats het naar je docs/ map zodat de bibliotheek en renderer het kunnen vinden:&#39;,
+      shareTool: &#39;Deel tool&#39;,
+      shareToolHint: &#39;Download een schone versie van de compositor zonder documentdata — veilig om met iedereen te delen.&#39;,
+      sections: &#39;secties&#39;,
+      items: &#39;items&#39;,
+      more: &#39;meer&#39;,
+      noneYet: &#39;Nog niet beschikbaar&#39;,
+      text: &#39;tekst&#39;,
+      list: &#39;lijst&#39;,
+      guideIntroTitle: &#39;Wat is dit?&#39;,
+      guideIntro1: &#39;Je werk leeft op veel plekken. Ontwerpen in Figma. Code in repo\u2019s. Tickets in GitHub. Workflows in CI. Beslissingen in gesprekken. Om de echte status van iets te begrijpen, moet je ze allemaal bezoeken en zelf samenvoegen.&#39;,
+      guideIntro2: &#39;Een living doc brengt die stukken samen op \u00e9\u00e9n pagina. Niet als kopie \u2014 als een gestructureerde weergave die verbonden blijft met de bronnen. Als de code verandert, zie je het. Als een probe faalt, zie je het. Als een ticket sluit, wordt de status bijgewerkt.&#39;,
+      guideIntro3: &#39;De compositor laat je bepalen wat er op die pagina komt. Je kiest welke soorten informatie samenkomen \u2014 ontwerpen + code + specs, of componenten + bouwstatus, of probes + API\u2019s + automatisering. Elke combinatie is een convergentietype. De rest volgt automatisch.&#39;,
+      guideGrowTitle: &#39;Living docs groeien mee&#39;,
+      guideGrow1: &#39;Je ontwerpt de volledige structuur niet vooraf. Je begint met een of twee convergentietypes die passen bij waar je aan werkt. Terwijl je werkt, verschijnen nieuwe patronen.&#39;,
+      guideGrow2: &#39;Misschien begon je met het bijhouden van componenten en hun bouwstatus. Toen realiseerde je dat je ook moet weten of de implementatie overeenkomt met het ontwerp \u2014 dus voeg je een alignment-sectie toe. Later stel je deployment probes in en voeg je een verificatie-sectie toe. Elke toevoeging is \u00e9\u00e9n klik in de compositor of \u00e9\u00e9n regel in de JSON.&#39;,
+      guideGrow3: &#39;De structuur evolueert met het werk, niet erv\u00f3\u00f3r. Bestaande data blijft intact als je nieuwe secties toevoegt. Het living doc wordt completer over tijd, niet complexer \u2014 omdat elke sectie een op zichzelf staand convergentietype is met een bekende vorm.&#39;,
+      guideStartTitle: &#39;Aan de slag&#39;,
+      guideStart1: &#39;Deze compositor is \u00e9\u00e9n HTML-bestand. Geen installatie, geen build, geen server nodig.&#39;,
+      guideStartFile: &#39;Direct openen als bestand&#39;,
+      guideStartFileBody: &#39;Dubbelklik op living-doc-compositor.html of open het in je browser. Je kunt direct componeren, bekijken en JSON exporteren. De bibliotheek laadt niet omdat browsers lokale bestanden blokkeren, maar de rest werkt.&#39;,
+      guideStartServe: &#39;Serveer met de bibliotheek&#39;,
+      guideStartServeBody: &#39;Om bestaande documenten uit de bibliotheek te laden, serveer de docs-map met een simpele server. Vanuit de projectroot:&#39;,
+      guideStartServeCmd: &#39;cd docs &amp;&amp; python3 -m http.server 8111&#39;,
+      guideStartServeThen: &#39;Open dan http://localhost:8111/living-doc-compositor.html \u2014 de bibliotheek vindt automatisch alle .json-bestanden in de map.&#39;,
+      guideStartRender: &#39;Render een document&#39;,
+      guideStartRenderBody: &#39;Na het exporteren of syncen van een JSON-bestand, genereer de HTML:&#39;,
+      guideStartRenderCmd: &#39;node scripts/render-living-doc.mjs docs/my-doc.json&#39;,
+      guideStartRenderResult: &#39;Produceert docs/my-doc.html \u2014 een zelfstandige pagina met zijbalknavigatie, sectie-iconen en scroll-tracking. Geen runtime-afhankelijkheden.&#39;,
+      guideStartShare: &#39;Deel de tool&#39;,
+      guideStartShareBody: &#39;Klik op &quot;Deel tool&quot; in de header om een schone versie te downloaden zonder documentdata. Veilig om aan iedereen te sturen \u2014 ze krijgen de volledige compositor met de handleiding, klaar om hun eigen living doc te maken.&#39;,
+      guideIntroTransition: &#39;Hieronder staat hoe het onder de motorkap werkt.&#39;,
+      guideMakeTitle: &#39;Maak je eigen&#39;,
+      guideMakeIntro: &#39;Past geen van de bestaande convergentietypes bij jouw domein? Je kunt een nieuw type defini\u00ebren. Een convergentietype is het antwoord op \u00e9\u00e9n vraag: welke dingen blijven steeds samen opduiken?&#39;,
+      guideMakeStep1title: &#39;Herken het patroon&#39;,
+      guideMakeStep1body: &#39;Je controleert steeds dezelfde drie of vier dingen samen. Terraform-modules en AWS-resources. Testsuites en dekkingsrapporten. API-contracten en client-implementaties. Die herhaalde groepering is jouw convergentie.&#39;,
+      guideMakeStep2title: &#39;Benoem de bronnen&#39;,
+      guideMakeStep2body: &#39;Elk ding in die groepering is een entiteitstype. Lijst ze: &quot;Terraform-module + AWS-resource + deployment-workflow.&quot; Dit zijn de bronnen die jouw convergentie produceren.&#39;,
+      guideMakeStep3title: &#39;Identificeer de geleende eigenschap&#39;,
+      guideMakeStep3body: &#39;Welke status interesseert je als je naar deze groepering kijkt? Gedeployed vs gedrift? Gedekt vs niet-gedekt? Die status wordt niet opgeslagen \u2014 hij wordt afgeleid van de bronnen.&#39;,
+      guideMakeStep4title: &#39;Vergelijk met bestaande types&#39;,
+      guideMakeStep4body: &#39;Vergelijk voordat je een nieuw type maakt met wat er al bestaat. Is het echt een nieuwe combinatie van bronnen, of een instantie van een bestaand type met andere scopegrenzen?&#39;,
+      guideMakeStep5title: &#39;Voeg toe aan het register&#39;,
+      guideMakeStep5body: &#39;E\u00e9n JSON-vermelding in living-doc-registry.json. Naam, icoon, bronnen, statusset, projectie. Geen codewijzigingen. De compositor en renderer pakken het direct op.&#39;,
+      guideMakeOr: &#39;Of gebruik de advisor skill \u2014 die helpt je het type te ontdekken via dialoog, controleert op overlap, en schrijft de registervermelding.&#39;,
+      guideConcept: &#39;Het Concept&#39;,
+      guideConceptBody: &#39;Een living doc is een subgraaf-weergave \u2014 een navigeerbare projectie van entiteiten en hun relaties. Hogere-orde abstracties comprimeren de zoekruimte voor zowel mensen als LLM\u2019s: het type vertelt je wat erin zit, hoe dingen zich verhouden, en waar je moet kijken als er iets mis is.&#39;,
+      guideFundamentals: &#39;Drie Grondbeginselen&#39;,
+      entity: &#39;Entiteit&#39;,
+      entityDesc: &#39;Heeft identiteit, heeft eigen eigenschappen. Een Figma-pagina, een ticket, een codebestand, een API-endpoint.&#39;,
+      edge: &#39;Relatie&#39;,
+      edgeDesc: &#39;Een getypeerde verbinding tussen entiteiten. Implementeert, specificeert, test, deployt.&#39;,
+      scope: &#39;Scope&#39;,
+      scopeDesc: &#39;Een benoemde convergentie van entiteiten. Heeft geen eigen eigenschappen \u2014 leent ze van zijn bronnen.&#39;,
+      guideCtTitle: &#39;Convergentietypes&#39;,
+      guideCtBody: &#39;Elk type is een specifieke combinatie van bron-entiteiten. De combinatie is het type. Andere bronnen produceren een ander type. De visuele projectie (kaartgrid of randtabel) volgt automatisch.&#39;,
+      guideConstraints: &#39;Kernbeperkingen&#39;,
+      constraint1title: &#39;De weergave staat vast per entiteitstype.&#39;,
+      constraint1body: &#39;Als je de entiteit kent, weet je hoe je die rendert. Er is geen kaart-vs-tabel keuze.&#39;,
+      constraint2title: &#39;Een scope is niet flexibel.&#39;,
+      constraint2body: &#39;Het is precies de verzameling entiteiten die het defini\u00ebren. Andere bronnen produceren een ander scope-type.&#39;,
+      constraint3title: &#39;Eigenschappen worden altijd geleend.&#39;,
+      constraint3body: &#39;De status van een scope is afgeleid van de entiteiten erin. De scope slaat niets op behalve een naam en een afleidingsregel.&#39;,
+      constraint4title: &#39;Aggregaten worden afgeleid, niet opgesteld.&#39;,
+      constraint4body: &#39;Statusoverzichten, gap-tellingen en stat-grids berekenen zichzelf uit de scopes en entiteiten.&#39;,
+      guideWorkflow: &#39;Werkwijze&#39;,
+      step1title: &#39;Componeren&#39;,
+      step1body: &#39;Selecteer convergentietypes in het linkerpaneel. Stel titel en sectienamen in. Dit definieert de structuur \u2014 nog geen data.&#39;,
+      step2title: &#39;Exporteren&#39;,
+      step2body: &#39;Download het JSON-skelet. Dit is de lege structuurdefinitie die een sync skill zal vullen.&#39;,
+      step3title: &#39;Vullen&#39;,
+      step3body: &#39;De sync skill ontvangt het skelet, kijkt naar het convergentietype van elke sectie, en vindt de juiste entiteiten om de data-arrays te vullen.&#39;,
+      step4title: &#39;Renderen&#39;,
+      step4body: &#39;render-living-doc.mjs doc.json \u2014 \u00e9\u00e9n universele renderer, elk living doc.&#39;,
+      guideInference: &#39;Waarom Dit Belangrijk Is voor Inferentie&#39;,
+      guideInferenceBody: &#39;Hogere-orde abstracties comprimeren de zoekruimte. Wanneer een LLM een convergentietype ziet, weet het direct: welke entiteiten erin zitten, hoe ze zich verhouden, wat status betekent, en waar te kijken als iets mis is. Elke token wordt besteed aan redeneren over het domein, niet aan het begrijpen van het documentformaat.&#39;,
+      guideSkills: &#39;Hoe Het Levend Blijft&#39;,
+      guideSkillsBody: &#39;Twee skills en een renderer. Geen domein-specifieke sync skills, geen geplande taken.&#39;,
+      skillBootstrap: &#39;De bootstrap. Verbindt een sessie met de living docs voor de huidige repo. Toont wat er is, wat verouderd is, en laat de LLM secties bijwerken als natuurlijk onderdeel van het werk. Het document beschrijft zichzelf \u2014 de skill opent alleen de deur.&#39;,
+      skillAdvisor: &#39;De denkpartner. Helpt ontdekken welke convergentietypes bij een domein passen via dialoog. Toont bestaande types als voorbeelden, identificeert nieuwe patronen, controleert op overlap, en schrijft de registervermelding.&#39;,
+      skillRenderer: &#39;E\u00e9n commando, elk document. Leest de JSON, lost convergentietypes op uit het register, produceert de HTML met zijbalk, iconen en scroll-tracking.&#39;,
+    },
+    id: {
+      appTitle: &#39;Living Doc Compositor&#39;,
+      tagline: &#39;Peras kecerdasan dari setiap token&#39;,
+      docTitle: &#39;Judul Dokumen&#39;,
+      docSubtitle: &#39;Subjudul&#39;,
+      brandMark: &#39;Merek (2 karakter)&#39;,
+      objective: &#39;Tujuan&#39;,
+      objectivePlaceholder: &#39;Apa yang ingin dicapai dokumen ini?&#39;,
+      successCondition: &#39;Kondisi Sukses&#39;,
+      successConditionPlaceholder: &#39;Kapan tujuan ini tercapai?&#39;,
+      convergenceTypes: &#39;Tipe Konvergensi&#39;,
+      docSections: &#39;Seksi Dokumen&#39;,
+      library: &#39;Pustaka&#39;,
+      load: &#39;Muat&#39;,
+      export: &#39;Ekspor&#39;,
+      guide: &#39;Panduan&#39;,
+      newDoc: &#39;Dokumen baru&#39;,
+      preview: &#39;Pratinjau&#39;,
+      visual: &#39;Visual&#39;,
+      json: &#39;JSON&#39;,
+      itemBlueprint: &#39;Cetak biru item \u2014 setiap entri akan memiliki:&#39;,
+      populatedBy: &#39;Diisi oleh sync skill&#39;,
+      noSections: &#39;Belum ada seksi. Pilih tipe konvergensi di panel kiri.&#39;,
+      loadTitle: &#39;Muat Living Doc JSON&#39;,
+      pasteJson: &#39;Tempel JSON atau pilih file&#39;,
+      loadFromFile: &#39;Atau muat dari file&#39;,
+      cancel: &#39;Batal&#39;,
+      apply: &#39;Muat&#39;,
+      invalidJson: &#39;JSON tidak valid&#39;,
+      exportedTo: &#39;terunduh. Pindahkan ke folder docs/ agar pustaka dan renderer dapat menemukannya:&#39;,
+      shareTool: &#39;Bagikan alat&#39;,
+      shareToolHint: &#39;Unduh versi bersih compositor tanpa data dokumen — aman untuk dibagikan ke siapa saja.&#39;,
+      sections: &#39;seksi&#39;,
+      items: &#39;item&#39;,
+      more: &#39;lagi&#39;,
+      noneYet: &#39;Belum tersedia&#39;,
+      text: &#39;teks&#39;,
+      list: &#39;daftar&#39;,
+      guideIntroTitle: &#39;Apa ini?&#39;,
+      guideIntro1: &#39;Pekerjaan Anda tersebar di banyak tempat. Desain di Figma. Kode di repo. Tiket di GitHub. Workflow di CI. Keputusan di percakapan. Untuk memahami keadaan sebenarnya, Anda harus mengunjungi semuanya dan menyatukannya sendiri.&#39;,
+      guideIntro2: &#39;Living doc menyatukan potongan-potongan itu dalam satu halaman. Bukan sebagai salinan \u2014 sebagai tampilan terstruktur yang tetap terhubung ke sumbernya. Saat kode berubah, doc mencerminkannya. Saat probe gagal, Anda melihatnya. Saat tiket ditutup, status diperbarui.&#39;,
+      guideIntro3: &#39;Compositor memungkinkan Anda menentukan apa yang ada di halaman itu. Anda memilih jenis informasi yang menyatu \u2014 desain + kode + spesifikasi, atau komponen + status build, atau probe + API + otomatisasi. Setiap kombinasi adalah tipe konvergensi. Sisanya mengikuti secara otomatis.&#39;,
+      guideGrowTitle: &#39;Living doc tumbuh&#39;,
+      guideGrow1: &#39;Anda tidak merancang seluruh struktur di awal. Anda mulai dengan satu atau dua tipe konvergensi yang sesuai dengan apa yang sedang Anda kerjakan. Kemudian, saat bekerja, pola baru muncul.&#39;,
+      guideGrow2: &#39;Mungkin Anda mulai melacak komponen dan status build-nya. Lalu Anda menyadari perlu tahu apakah implementasi sesuai desain \u2014 jadi Anda menambahkan seksi alignment. Kemudian, Anda menyiapkan deployment probe dan menambahkan seksi verifikasi. Setiap penambahan adalah satu klik di compositor atau satu baris di JSON.&#39;,
+      guideGrow3: &#39;Struktur berevolusi bersama pekerjaan, bukan mendahuluinya. Data yang ada tetap utuh saat Anda menambahkan seksi baru. Living doc menjadi lebih lengkap seiring waktu, bukan lebih rumit \u2014 karena setiap seksi adalah tipe konvergensi mandiri dengan bentuk yang diketahui.&#39;,
+      guideStartTitle: &#39;Memulai&#39;,
+      guideStart1: &#39;Compositor ini adalah satu file HTML. Tanpa instalasi, tanpa build, tanpa server.&#39;,
+      guideStartFile: &#39;Buka langsung sebagai file&#39;,
+      guideStartFileBody: &#39;Klik dua kali living-doc-compositor.html atau buka di browser. Anda bisa langsung mengomposisi, melihat pratinjau, dan mengekspor JSON. Pustaka tidak akan dimuat karena browser memblokir akses file lokal, tapi yang lain berfungsi.&#39;,
+      guideStartServe: &#39;Sajikan dengan pustaka&#39;,
+      guideStartServeBody: &#39;Untuk memuat dokumen yang ada dari pustaka, sajikan folder docs dengan server statis apa pun. Dari root proyek:&#39;,
+      guideStartServeCmd: &#39;cd docs &amp;&amp; python3 -m http.server 8111&#39;,
+      guideStartServeThen: &#39;Lalu buka http://localhost:8111/living-doc-compositor.html \u2014 pustaka menemukan semua file .json di folder secara otomatis.&#39;,
+      guideStartRender: &#39;Render dokumen&#39;,
+      guideStartRenderBody: &#39;Setelah mengekspor atau menyinkronkan file JSON, hasilkan HTML:&#39;,
+      guideStartRenderCmd: &#39;node scripts/render-living-doc.mjs docs/my-doc.json&#39;,
+      guideStartRenderResult: &#39;Menghasilkan docs/my-doc.html \u2014 halaman mandiri dengan navigasi sidebar, ikon seksi, dan pelacakan scroll. Tanpa dependensi runtime.&#39;,
+      guideStartShare: &#39;Bagikan alat&#39;,
+      guideStartShareBody: &#39;Klik &quot;Bagikan alat&quot; di header untuk mengunduh versi bersih tanpa data dokumen. Aman dikirim ke siapa saja \u2014 mereka mendapat compositor lengkap dengan panduan, siap membuat living doc sendiri.&#39;,
+      guideIntroTransition: &#39;Di bawah ini cara kerjanya secara teknis.&#39;,
+      guideMakeTitle: &#39;Buat Sendiri&#39;,
+      guideMakeIntro: &#39;Tidak ada tipe konvergensi yang cocok dengan domain Anda? Anda bisa mendefinisikan yang baru. Tipe konvergensi adalah jawaban dari satu pertanyaan: hal-hal apa yang terus muncul bersamaan?&#39;,
+      guideMakeStep1title: &#39;Kenali polanya&#39;,
+      guideMakeStep1body: &#39;Anda terus memeriksa tiga atau empat hal yang sama secara bersamaan. Modul Terraform dan sumber daya AWS. Suite pengujian dan laporan cakupan. Kontrak API dan implementasi klien. Pengelompokan berulang itu adalah konvergensi Anda.&#39;,
+      guideMakeStep2title: &#39;Sebutkan sumbernya&#39;,
+      guideMakeStep2body: &#39;Setiap hal dalam pengelompokan itu adalah tipe entitas. Daftarkan: &quot;Modul Terraform + sumber daya AWS + workflow deployment.&quot; Ini adalah sumber yang menghasilkan konvergensi Anda.&#39;,
+      guideMakeStep3title: &#39;Identifikasi properti yang dipinjam&#39;,
+      guideMakeStep3body: &#39;Status apa yang Anda pedulikan saat melihat pengelompokan ini? Terdeploy vs drift? Tercakup vs tidak tercakup? Status itu tidak disimpan \u2014 diturunkan dari sumbernya.&#39;,
+      guideMakeStep4title: &#39;Bandingkan dengan tipe yang ada&#39;,
+      guideMakeStep4body: &#39;Sebelum membuat tipe baru, bandingkan dengan yang sudah ada. Apakah ini benar-benar kombinasi sumber baru, atau instance dari tipe yang ada dengan batas lingkup berbeda?&#39;,
+      guideMakeStep5title: &#39;Tambahkan ke registri&#39;,
+      guideMakeStep5body: &#39;Satu entri JSON di living-doc-registry.json. Nama, ikon, sumber, set status, proyeksi. Tanpa perubahan kode. Compositor dan renderer langsung mengambilnya.&#39;,
+      guideMakeOr: &#39;Atau gunakan advisor skill \u2014 membantu Anda menemukan tipe melalui dialog, memeriksa overlap, dan menulis entri registri.&#39;,
+      guideConcept: &#39;Konsep&#39;,
+      guideConceptBody: &#39;Living doc adalah tampilan subgraf \u2014 proyeksi navigasi dari entitas dan relasinya. Abstraksi tingkat tinggi memampatkan ruang pencarian untuk manusia dan LLM: tipe memberi tahu apa yang ada di dalam, bagaimana hal-hal berhubungan, dan di mana harus mencari saat ada masalah.&#39;,
+      guideFundamentals: &#39;Tiga Dasar&#39;,
+      entity: &#39;Entitas&#39;,
+      entityDesc: &#39;Memiliki identitas, memiliki properti sendiri. Halaman Figma, tiket, file kode, endpoint API.&#39;,
+      edge: &#39;Relasi&#39;,
+      edgeDesc: &#39;Hubungan bertipe antara entitas. Mengimplementasi, menspesifikasi, menguji, mendeploy.&#39;,
+      scope: &#39;Lingkup&#39;,
+      scopeDesc: &#39;Konvergensi bernama dari entitas. Tidak memiliki properti sendiri \u2014 meminjam dari sumbernya.&#39;,
+      guideCtTitle: &#39;Tipe Konvergensi&#39;,
+      guideCtBody: &#39;Setiap tipe adalah kombinasi spesifik dari entitas sumber. Kombinasi itulah tipenya. Sumber berbeda menghasilkan tipe berbeda. Proyeksi visual (grid kartu atau tabel relasi) mengikuti secara otomatis.&#39;,
+      guideConstraints: &#39;Batasan Utama&#39;,
+      constraint1title: &#39;Tampilan tetap per tipe entitas.&#39;,
+      constraint1body: &#39;Jika Anda tahu entitasnya, Anda tahu cara merendernya. Tidak ada pilihan kartu-vs-tabel.&#39;,
+      constraint2title: &#39;Lingkup tidak fleksibel.&#39;,
+      constraint2body: &#39;Lingkup adalah persis kumpulan entitas yang mendefinisikannya. Sumber berbeda menghasilkan tipe lingkup berbeda.&#39;,
+      constraint3title: &#39;Properti selalu dipinjam.&#39;,
+      constraint3body: &#39;Status lingkup diturunkan dari entitas di dalamnya. Lingkup tidak menyimpan apa pun selain nama dan aturan turunan.&#39;,
+      constraint4title: &#39;Agregat diturunkan, bukan dibuat.&#39;,
+      constraint4body: &#39;Ringkasan status, hitungan gap, dan grid statistik menghitung dirinya sendiri dari lingkup dan entitas.&#39;,
+      guideWorkflow: &#39;Alur Kerja&#39;,
+      step1title: &#39;Komposisi&#39;,
+      step1body: &#39;Pilih tipe konvergensi di panel kiri. Atur judul dan nama seksi. Ini mendefinisikan struktur \u2014 belum ada data.&#39;,
+      step2title: &#39;Ekspor&#39;,
+      step2body: &#39;Unduh kerangka JSON. Ini adalah definisi struktur kosong yang akan diisi oleh sync skill.&#39;,
+      step3title: &#39;Pengisian&#39;,
+      step3body: &#39;Sync skill menerima kerangka, melihat tipe konvergensi setiap seksi, dan menemukan entitas aktual untuk mengisi array data.&#39;,
+      step4title: &#39;Render&#39;,
+      step4body: &#39;render-living-doc.mjs doc.json \u2014 satu renderer universal, semua living doc.&#39;,
+      guideInference: &#39;Mengapa Ini Penting untuk Inferensi&#39;,
+      guideInferenceBody: &#39;Abstraksi tingkat tinggi memampatkan ruang pencarian. Saat LLM melihat tipe konvergensi, ia langsung tahu: entitas apa di dalamnya, bagaimana hubungannya, apa arti status, dan di mana mencari saat ada masalah. Setiap token digunakan untuk penalaran tentang domain, bukan untuk memahami format dokumen.&#39;,
+      guideSkills: &#39;Bagaimana Tetap Hidup&#39;,
+      guideSkillsBody: &#39;Dua skill dan satu renderer. Tanpa sync skill khusus domain, tanpa tugas terjadwal.&#39;,
+      skillBootstrap: &#39;Bootstrap. Menghubungkan sesi ke living doc untuk repo saat ini. Menunjukkan apa yang ada, apa yang basi, dan membiarkan LLM memperbarui seksi sebagai bagian alami dari pekerjaan. Dokumen mendeskripsikan dirinya sendiri \u2014 skill hanya membuka pintunya.&#39;,
+      skillAdvisor: &#39;Mitra berpikir. Membantu menemukan tipe konvergensi yang cocok untuk domain melalui dialog. Menunjukkan tipe yang ada sebagai contoh, mengidentifikasi pola baru, memeriksa overlap, dan menulis entri registri.&#39;,
+      skillRenderer: &#39;Satu perintah, dokumen apa pun. Membaca JSON, menyelesaikan tipe konvergensi dari registri, menghasilkan HTML dengan sidebar, ikon, dan pelacakan scroll.&#39;,
+    },
+  };
+
+  let locale = (() =&gt; {
+    const lang = (navigator.language || &#39;en&#39;).toLowerCase();
+    if (lang.startsWith(&#39;nl&#39;)) return &#39;nl&#39;;
+    if (lang.startsWith(&#39;id&#39;) || lang.startsWith(&#39;ms&#39;)) return &#39;id&#39;;
+    return &#39;en&#39;;
+  })();
+  function t(key) { return LOCALES[locale]?.[key] ?? LOCALES.en[key] ?? key; }
+
+  /* ── Auto-save ── */
+  const STORAGE_KEY = &#39;living-doc-compositor-state&#39;;
+
+  function autoSave() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        title: state.title,
+        subtitle: state.subtitle,
+        brand: state.brand,
+        objective: state.objective,
+        successCondition: state.successCondition,
+        sections: state.sections,
+        locale,
+      }));
+    } catch {}
+  }
+
+  function autoLoad() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return false;
+      const s = JSON.parse(saved);
+      if (s.title || (s.sections &amp;&amp; s.sections.length &gt; 0)) {
+        state.title = s.title || &#39;&#39;;
+        state.subtitle = s.subtitle || &#39;&#39;;
+        state.brand = s.brand || &#39;LD&#39;;
+        state.objective = s.objective || &#39;&#39;;
+        state.successCondition = s.successCondition || &#39;&#39;;
+        state.sections = s.sections || [];
+        if (s.locale &amp;&amp; LOCALES[s.locale]) locale = s.locale;
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  /* ── Embedded registry (loaded inline for standalone use) ── */
+  let REGISTRY = null;
+  let library = []; // discovered JSON docs in the same folder
+  let state = {
+    title: &#39;&#39;,
+    subtitle: &#39;&#39;,
+    brand: &#39;LD&#39;,
+    objective: &#39;&#39;,
+    successCondition: &#39;&#39;,
+    sections: [],
+    previewTab: &#39;visual&#39;,
+    showLoadModal: false,
+    originDoc: null, // { filename, title } — the document that brought the user here
+  };
+
+  /* ── Registry loading ── */
+  async function loadRegistry() {
+    // Try loading from sibling path first, then from embedded
+    for (const url of [&#39;../scripts/living-doc-registry.json&#39;, &#39;./living-doc-registry.json&#39;]) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) { REGISTRY = await res.json(); return; }
+      } catch {}
+    }
+    // Fallback: embedded minimal registry
+    REGISTRY = EMBEDDED_REGISTRY;
+  }
+
+  const EMBEDDED_REGISTRY = {
+    convergenceTypes: {
+      &#39;design-code-spec-flow&#39;: {
+        name: &#39;Design\u2013Code\u2013Spec Flow&#39;,
+        tooltip: &#39;A named product surface where Figma designs, code implementations, UX specs, and interaction surfaces converge. The flow has no properties of its own \u2014 its status is borrowed from the entities that produce it.&#39;,
+        icon: &#39;&lt;path d=&quot;M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-5l-4 4 4-9v5l4-4-4 9z&quot;/&gt;&#39;,
+        projection: &#39;card-grid&#39;,
+        sources: [
+          { key: &#39;pageIds&#39;, entityType: &#39;figma-page&#39;, label: &#39;Pages&#39; },
+          { key: &#39;codeRefs&#39;, entityType: &#39;code-file&#39;, label: &#39;Code refs&#39; },
+          { key: &#39;specRefIds&#39;, entityType: &#39;ux-spec&#39;, label: &#39;UX spec refs&#39; },
+          { key: &#39;interactionSurfaceIds&#39;, entityType: &#39;interaction-surface&#39;, label: &#39;Interactions&#39; },
+        ],
+      },
+      &#39;component-status&#39;: {
+        name: &#39;Component Status&#39;,
+        tooltip: &#39;A system component with a build status. The simplest convergence type \u2014 tracks whether a piece of the system is built, partial, or missing. Sources are code paths and free-text observations.&#39;,
+        icon: &#39;&lt;path d=&quot;M3 13.5h2v5H3zm4-3h2v8H7zm4-4h2v12h-2zm4-3h2v15h-2z&quot;/&gt;&#39;,
+        projection: &#39;card-grid&#39;,
+        sources: [{ key: &#39;codePaths&#39;, entityType: &#39;code-file&#39;, label: &#39;Code&#39; }],
+      },
+      &#39;design-implementation-alignment&#39;: {
+        name: &#39;Design\u2013Implementation Alignment&#39;,
+        tooltip: &#39;An edge table showing the relationship between design artifacts and code implementations. Each row maps a Figma node to a code file, with a status on the edge (implemented, partial, drift).&#39;,
+        icon: &#39;&lt;path d=&quot;M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z&quot;/&gt;&#39;,
+        projection: &#39;edge-table&#39;,
+        sources: [
+          { key: &#39;figmaNodeId&#39;, entityType: &#39;figma-node&#39;, label: &#39;Figma&#39; },
+          { key: &#39;localPath&#39;, entityType: &#39;code-file&#39;, label: &#39;Code&#39; },
+        ],
+      },
+      &#39;verification&#39;: {
+        name: &#39;Deployment Verification&#39;,
+        tooltip: &#39;A probe that proves a deployed surface works. Sources are the pages and interactions being verified, the automation that runs the check, and the API endpoints being tested. Status is borrowed from coverage results.&#39;,
+        icon: &#39;&lt;path d=&quot;M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z&quot;/&gt;&#39;,
+        projection: &#39;card-grid&#39;,
+        sources: [
+          { key: &#39;pageIds&#39;, entityType: &#39;figma-page&#39;, label: &#39;Pages&#39; },
+          { key: &#39;automationPaths&#39;, entityType: &#39;workflow&#39;, label: &#39;Automation&#39; },
+          { key: &#39;apiRefs&#39;, entityType: &#39;api-endpoint&#39;, label: &#39;APIs&#39; },
+        ],
+      },
+      &#39;operation&#39;: {
+        name: &#39;Mediated Operation&#39;,
+        tooltip: &#39;A workflow mediated by an operator on behalf of a tester or stakeholder. Sources are the underlying automation workflows and the inputs they require. The operator translates a brief into the right workflow sequence.&#39;,
+        icon: &#39;&lt;path d=&quot;M7 2v2h1v4.17L4.41 12H4v8h16v-8h-.41L16 8.17V4h1V2H7zm5 15a3 3 0 110-6 3 3 0 010 6zm2-10.83V4H10v2.17l1 1V4.5h2v2.67l1-1z&quot;/&gt;&#39;,
+        projection: &#39;card-grid&#39;,
+        sources: [
+          { key: &#39;workflowPaths&#39;, entityType: &#39;workflow&#39;, label: &#39;Workflows&#39; },
+          { key: &#39;requestInputs&#39;, entityType: &#39;api-endpoint&#39;, label: &#39;Inputs&#39; },
+        ],
+      },
+      &#39;stack-depth&#39;: {
+        name: &#39;Stack-Depth Integration&#39;,
+        tooltip: &#39;An integration seam showing how deep a feature reaches through the stack \u2014 from Figma design, through screen components, hooks, services, down to contracts. Status is borrowed from the actual wiring depth.&#39;,
+        icon: &#39;&lt;path d=&quot;M16 9h4l-7 11V13H9l7-11v7z&quot;/&gt;&#39;,
+        projection: &#39;card-grid&#39;,
+        sources: [
+          { key: &#39;figmaNodeIds&#39;, entityType: &#39;figma-node&#39;, label: &#39;Figma&#39; },
+          { key: &#39;screenPaths&#39;, entityType: &#39;code-file&#39;, label: &#39;Screens&#39; },
+          { key: &#39;hookPaths&#39;, entityType: &#39;code-file&#39;, label: &#39;Hooks&#39; },
+          { key: &#39;servicePaths&#39;, entityType: &#39;code-file&#39;, label: &#39;Services&#39; },
+        ],
+      },
+      &#39;behavior-fidelity&#39;: {
+        name: &#39;Behavior Fidelity&#39;,
+        tooltip: &#39;An interaction surface where expected behavior and actual behavior are compared. Sources are the Figma designs, the code that implements the interaction, and the documented current vs expected behavior. Status ranges from wired to visual-only to unwired.&#39;,
+        icon: &#39;&lt;path d=&quot;M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V5h10v14zM12 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z&quot;/&gt;&#39;,
+        projection: &#39;card-grid&#39;,
+        sources: [
+          { key: &#39;figmaNodeIds&#39;, entityType: &#39;figma-node&#39;, label: &#39;Figma&#39; },
+          { key: &#39;codePaths&#39;, entityType: &#39;code-file&#39;, label: &#39;Code&#39; },
+        ],
+      },
+    },
+  };
+
+  /* ── Helpers ── */
+  function esc(s) { const d = document.createElement(&#39;div&#39;); d.textContent = s ?? &#39;&#39;; return d.innerHTML; }
+  function slugify(s) { return (s || &#39;section&#39;).toLowerCase().replace(/[^a-z0-9]+/g, &#39;-&#39;).replace(/^-|-$/g, &#39;&#39;); }
+
+  /* ── Render top bar ── */
+  const isEmbedded = window.parent !== window;
+
+  function renderTopBar() {
+    document.getElementById(&#39;top-bar&#39;).innerHTML = `
+      ${isEmbedded ? `&lt;button class=&quot;top-action&quot; id=&quot;top-back&quot; style=&quot;margin-right:4px&quot;&gt;
+        &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z&quot;/&gt;&lt;/svg&gt;
+        Back to document
+      &lt;/button&gt;` : &#39;&#39;}
+      &lt;div class=&quot;logo&quot;&gt;LD&lt;/div&gt;
+      &lt;h1&gt;${esc(t(&#39;appTitle&#39;))}&lt;/h1&gt;
+      &lt;span class=&quot;tagline&quot;&gt;${esc(t(&#39;tagline&#39;))}&lt;/span&gt;
+      &lt;span class=&quot;spacer&quot;&gt;&lt;/span&gt;
+      &lt;div style=&quot;display:flex;gap:6px;align-items:center&quot;&gt;
+        &lt;button class=&quot;top-action&quot; id=&quot;top-new&quot; title=&quot;${esc(t(&#39;newDoc&#39;))}&quot;&gt;
+          &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z&quot;/&gt;&lt;/svg&gt;
+          ${esc(t(&#39;newDoc&#39;))}
+        &lt;/button&gt;
+        &lt;button class=&quot;top-action&quot; id=&quot;top-load&quot; title=&quot;${esc(t(&#39;load&#39;))}&quot;&gt;
+          &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z&quot;/&gt;&lt;/svg&gt;
+          ${esc(t(&#39;load&#39;))}
+        &lt;/button&gt;
+        &lt;button class=&quot;top-action&quot; id=&quot;top-export&quot; title=&quot;${esc(t(&#39;export&#39;))}&quot;&gt;
+          &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z&quot;/&gt;&lt;/svg&gt;
+          JSON
+        &lt;/button&gt;
+        &lt;button class=&quot;top-action top-action-primary&quot; id=&quot;top-html&quot; title=&quot;Generate HTML&quot;&gt;
+          &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z&quot;/&gt;&lt;/svg&gt;
+          HTML
+        &lt;/button&gt;
+        &lt;button class=&quot;top-action&quot; id=&quot;top-share&quot; title=&quot;${esc(t(&#39;shareToolHint&#39;))}&quot;&gt;
+          &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z&quot;/&gt;&lt;/svg&gt;
+          ${esc(t(&#39;shareTool&#39;))}
+        &lt;/button&gt;
+        &lt;button class=&quot;top-action&quot; id=&quot;top-guide&quot; title=&quot;${esc(t(&#39;guide&#39;))}&quot;&gt;
+          &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z&quot;/&gt;&lt;/svg&gt;
+        &lt;/button&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;lang-switch&quot;&gt;
+        ${Object.keys(LOCALES).map(l =&gt; `&lt;button class=&quot;lang-btn&quot; style=&quot;background:${l === locale ? &#39;var(--accent)&#39; : &#39;transparent&#39;};color:${l === locale ? &#39;#fff&#39; : &#39;var(--muted)&#39;}&quot; data-locale=&quot;${l}&quot;&gt;${l.toUpperCase()}&lt;/button&gt;`).join(&#39;&#39;)}
+      &lt;/div&gt;`;
+
+    document.getElementById(&#39;top-back&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
+      if (window.parent !== window) {
+        window.parent.document.getElementById(&#39;comp-overlay&#39;)?.classList.remove(&#39;open&#39;);
+      }
+    });
+    document.querySelectorAll(&#39;[data-locale]&#39;).forEach(btn =&gt; {
+      btn.addEventListener(&#39;click&#39;, () =&gt; {
+        locale = btn.dataset.locale;
+        renderTopBar(); renderLeft(); renderRight();
+      });
+    });
+    document.getElementById(&#39;top-new&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
+      state.title = &#39;&#39;; state.subtitle = &#39;&#39;; state.brand = &#39;LD&#39;;
+      state.objective = &#39;&#39;; state.successCondition = &#39;&#39;;
+      state.sections = []; state.previewTab = &#39;visual&#39;;
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      renderTopBar(); renderLeft(); renderRight();
+    });
+    document.getElementById(&#39;top-load&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
+      state.showLoadModal = true; renderLoadModal();
+    });
+    document.getElementById(&#39;top-export&#39;)?.addEventListener(&#39;click&#39;, exportJson);
+    document.getElementById(&#39;top-html&#39;)?.addEventListener(&#39;click&#39;, generateHtml);
+    document.getElementById(&#39;top-share&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
+      // Save current state, generate with empty doc, restore
+      const saved = { ...state, sections: [...state.sections] };
+      state.title = &#39;Living Doc Compositor&#39;;
+      state.subtitle = &#39;Squeeze the intel out of that token&#39;;
+      state.objective = &#39;&#39;;
+      state.successCondition = &#39;&#39;;
+      state.brand = &#39;LD&#39;;
+      state.sections = [];
+      generateHtml();
+      Object.assign(state, saved);
+      state.sections = saved.sections;
+    });
+    document.getElementById(&#39;top-guide&#39;)?.addEventListener(&#39;click&#39;, openGuide);
+  }
+
+  /* ── Render left panel ── */
+  function renderLeft() {
+    const ct = REGISTRY.convergenceTypes;
+    const types = Object.entries(ct);
+
+    document.getElementById(&#39;left-panel&#39;).innerHTML = `
+
+      &lt;div class=&quot;field&quot;&gt;
+        &lt;label&gt;${esc(t(&#39;docTitle&#39;))}&lt;/label&gt;
+        &lt;input type=&quot;text&quot; id=&quot;doc-title&quot; value=&quot;${esc(state.title)}&quot; placeholder=&quot;My Living Doc&quot; /&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;field&quot;&gt;
+        &lt;label&gt;${esc(t(&#39;docSubtitle&#39;))}&lt;/label&gt;
+        &lt;textarea id=&quot;doc-subtitle&quot; placeholder=&quot;One-line description...&quot;&gt;${esc(state.subtitle)}&lt;/textarea&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;field&quot;&gt;
+        &lt;label&gt;${esc(t(&#39;brandMark&#39;))}&lt;/label&gt;
+        &lt;input type=&quot;text&quot; id=&quot;doc-brand&quot; value=&quot;${esc(state.brand)}&quot; maxlength=&quot;4&quot; style=&quot;width:80px&quot; /&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;field&quot;&gt;
+        &lt;label&gt;${esc(t(&#39;objective&#39;))}&lt;/label&gt;
+        &lt;textarea id=&quot;doc-objective&quot; placeholder=&quot;${esc(t(&#39;objectivePlaceholder&#39;))}&quot;&gt;${esc(state.objective)}&lt;/textarea&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;field&quot;&gt;
+        &lt;label&gt;${esc(t(&#39;successCondition&#39;))}&lt;/label&gt;
+        &lt;input type=&quot;text&quot; id=&quot;doc-success&quot; value=&quot;${esc(state.successCondition)}&quot; placeholder=&quot;${esc(t(&#39;successConditionPlaceholder&#39;))}&quot; /&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;section-title&quot;&gt;${esc(t(&#39;convergenceTypes&#39;))}&lt;/div&gt;
+      &lt;div class=&quot;ct-list&quot;&gt;
+        ${types.map(([id, def]) =&gt; {
+          const selected = state.sections.some(s =&gt; s.convergenceType === id);
+          const sourceLabels = (def.sources || []).map(s =&gt; s.label).join(&#39;, &#39;);
+          return `
+            &lt;div class=&quot;ct-item${selected ? &#39; selected&#39; : &#39;&#39;}&quot; data-ct-id=&quot;${esc(id)}&quot;&gt;
+              &lt;div class=&quot;ct-icon&quot; ${def.tooltip ? `data-tooltip=&quot;${esc(def.tooltip)}&quot;` : &#39;&#39;}&gt;
+                &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot; fill=&quot;currentColor&quot;&gt;${def.icon || &#39;&#39;}&lt;/svg&gt;
+                &lt;div class=&quot;ct-tooltip&quot;&gt;&lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;ct-info&quot;&gt;
+                &lt;div class=&quot;ct-name&quot;&gt;${esc(def.name)}&lt;/div&gt;
+                &lt;div class=&quot;ct-sources&quot;&gt;${esc(sourceLabels)}&lt;/div&gt;
+              &lt;/div&gt;
+              &lt;span class=&quot;ct-projection&quot;&gt;${esc(def.projection)}&lt;/span&gt;
+            &lt;/div&gt;`;
+        }).join(&#39;&#39;)}
+      &lt;/div&gt;
+
+      ${state.sections.length &gt; 0 ? `
+      &lt;div class=&quot;section-title&quot;&gt;${esc(t(&#39;docSections&#39;))} (${state.sections.length})&lt;/div&gt;
+      &lt;div class=&quot;selected-sections&quot;&gt;
+        ${state.sections.map((s, i) =&gt; `
+          &lt;div class=&quot;sel-item&quot; data-idx=&quot;${i}&quot; draggable=&quot;true&quot;&gt;
+            &lt;span class=&quot;sel-handle&quot;&gt;\u2261&lt;/span&gt;
+            &lt;input class=&quot;sel-title-input&quot; data-idx=&quot;${i}&quot; value=&quot;${esc(s.title)}&quot; /&gt;
+            &lt;span class=&quot;sel-type&quot;&gt;${esc(ct[s.convergenceType]?.projection || &#39;&#39;)}&lt;/span&gt;
+            &lt;button class=&quot;sel-remove&quot; data-idx=&quot;${i}&quot;&gt;\u00d7&lt;/button&gt;
+          &lt;/div&gt;`).join(&#39;&#39;)}
+      &lt;/div&gt;` : &#39;&#39;}
+
+      ${state.originDoc ? `
+      &lt;div class=&quot;section-title&quot;&gt;Current document&lt;/div&gt;
+      &lt;div class=&quot;lib-list&quot;&gt;
+        &lt;div class=&quot;lib-item&quot; id=&quot;origin-doc&quot; style=&quot;border-color:var(--accent);background:color-mix(in srgb, var(--accent) 4%, var(--card))&quot;&gt;
+          &lt;div class=&quot;lib-icon&quot; style=&quot;background:var(--accent);color:#fff&quot;&gt;
+            &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;
+              &lt;path d=&quot;M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z&quot;/&gt;
+            &lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;lib-info&quot;&gt;
+            &lt;div class=&quot;lib-name&quot;&gt;${esc(state.originDoc.title)}&lt;/div&gt;
+            &lt;div class=&quot;lib-meta&quot;&gt;${esc(state.originDoc.filename)}&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;` : &#39;&#39;}
+
+      ${library.length &gt; 0 ? `
+      &lt;div class=&quot;section-title&quot;&gt;${esc(t(&#39;library&#39;))} (${library.length})&lt;/div&gt;
+      &lt;div class=&quot;lib-list&quot;&gt;
+        ${library.map((item, i) =&gt; `
+          &lt;div class=&quot;lib-item&quot; data-lib-idx=&quot;${i}&quot;&gt;
+            &lt;div class=&quot;lib-icon&quot;&gt;
+              &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot;&gt;
+                &lt;path d=&quot;M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM6 20V4h5v7h7v9H6z&quot;/&gt;
+              &lt;/svg&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;lib-info&quot;&gt;
+              &lt;div class=&quot;lib-name&quot;&gt;${esc(item.title)}&lt;/div&gt;
+              &lt;div class=&quot;lib-meta&quot;&gt;${esc(item.filename)}${item.updated ? ` \u00b7 ${esc(item.updated)}` : &#39;&#39;}&lt;/div&gt;
+            &lt;/div&gt;
+            ${item.sectionCount &gt; 0 ? `&lt;span class=&quot;lib-sections&quot;&gt;${item.sectionCount} ${esc(t(&#39;sections&#39;))}&lt;/span&gt;` : &#39;&#39;}
+          &lt;/div&gt;`).join(&#39;&#39;)}
+      &lt;/div&gt;` : &#39;&#39;}
+
+    `;
+
+    // Events
+    document.getElementById(&#39;doc-title&#39;).addEventListener(&#39;input&#39;, (e) =&gt; { state.title = e.target.value; renderRight(); });
+    document.getElementById(&#39;doc-subtitle&#39;).addEventListener(&#39;input&#39;, (e) =&gt; { state.subtitle = e.target.value; renderRight(); });
+    document.getElementById(&#39;doc-brand&#39;).addEventListener(&#39;input&#39;, (e) =&gt; { state.brand = e.target.value; renderRight(); });
+    document.getElementById(&#39;doc-objective&#39;).addEventListener(&#39;input&#39;, (e) =&gt; { state.objective = e.target.value; renderRight(); });
+    document.getElementById(&#39;doc-success&#39;).addEventListener(&#39;input&#39;, (e) =&gt; { state.successCondition = e.target.value; renderRight(); });
+
+    document.querySelectorAll(&#39;.ct-item&#39;).forEach(el =&gt; {
+      el.addEventListener(&#39;click&#39;, () =&gt; {
+        const id = el.dataset.ctId;
+        const existing = state.sections.findIndex(s =&gt; s.convergenceType === id);
+        if (existing &gt;= 0) {
+          state.sections.splice(existing, 1);
+        } else {
+          if (state.previewTab === &#39;help&#39;) state.previewTab = &#39;visual&#39;;
+          state.sections.push({
+            id: `sec-${slugify(ct[id].name)}`,
+            title: ct[id].name,
+            convergenceType: id,
+            data: [],
+          });
+        }
+        renderLeft();
+        renderRight();
+      });
+    });
+
+    document.querySelectorAll(&#39;.sel-title-input&#39;).forEach(el =&gt; {
+      el.addEventListener(&#39;input&#39;, (e) =&gt; {
+        const idx = parseInt(e.target.dataset.idx);
+        state.sections[idx].title = e.target.value;
+        state.sections[idx].id = `sec-${slugify(e.target.value)}`;
+        renderRight();
+      });
+    });
+
+    document.querySelectorAll(&#39;.sel-remove&#39;).forEach(el =&gt; {
+      el.addEventListener(&#39;click&#39;, (e) =&gt; {
+        e.stopPropagation();
+        state.sections.splice(parseInt(el.dataset.idx), 1);
+        renderLeft();
+        renderRight();
+      });
+    });
+
+    // Drag-and-drop reorder
+    let dragIdx = null;
+    document.querySelectorAll(&#39;.sel-item[draggable]&#39;).forEach(el =&gt; {
+      el.addEventListener(&#39;dragstart&#39;, (e) =&gt; {
+        dragIdx = parseInt(el.dataset.idx);
+        el.classList.add(&#39;dragging&#39;);
+        e.dataTransfer.effectAllowed = &#39;move&#39;;
+      });
+      el.addEventListener(&#39;dragend&#39;, () =&gt; {
+        el.classList.remove(&#39;dragging&#39;);
+        document.querySelectorAll(&#39;.sel-item.drag-over&#39;).forEach(d =&gt; d.classList.remove(&#39;drag-over&#39;));
+        dragIdx = null;
+      });
+      el.addEventListener(&#39;dragover&#39;, (e) =&gt; {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = &#39;move&#39;;
+        el.classList.add(&#39;drag-over&#39;);
+      });
+      el.addEventListener(&#39;dragleave&#39;, () =&gt; {
+        el.classList.remove(&#39;drag-over&#39;);
+      });
+      el.addEventListener(&#39;drop&#39;, (e) =&gt; {
+        e.preventDefault();
+        el.classList.remove(&#39;drag-over&#39;);
+        const dropIdx = parseInt(el.dataset.idx);
+        if (dragIdx !== null &amp;&amp; dragIdx !== dropIdx) {
+          const [moved] = state.sections.splice(dragIdx, 1);
+          state.sections.splice(dropIdx, 0, moved);
+          renderLeft();
+          renderRight();
+        }
+      });
+    });
+
+    // Tooltip positioning on icon hover
+    document.querySelectorAll(&#39;.ct-icon[data-tooltip]&#39;).forEach(icon =&gt; {
+      const tip = icon.querySelector(&#39;.ct-tooltip&#39;);
+      icon.addEventListener(&#39;mouseenter&#39;, () =&gt; {
+        tip.textContent = icon.dataset.tooltip;
+        tip.classList.add(&#39;visible&#39;);
+        const rect = icon.getBoundingClientRect();
+        let left = rect.right + 12;
+        let top = rect.top + rect.height / 2 - 60;
+        if (left + 292 &gt; window.innerWidth) left = rect.left - 292;
+        if (top &lt; 8) top = 8;
+        if (top + 150 &gt; window.innerHeight) top = window.innerHeight - 150;
+        tip.style.left = left + &#39;px&#39;;
+        tip.style.top = top + &#39;px&#39;;
+      });
+      icon.addEventListener(&#39;mouseleave&#39;, () =&gt; {
+        tip.classList.remove(&#39;visible&#39;);
+      });
+    });
+
+    document.getElementById(&#39;origin-doc&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
+      if (state.originDoc) {
+        const item = library.find(l =&gt; l.filename === state.originDoc.filename);
+        if (item) loadFromLibrary(item);
+      }
+    });
+
+    document.querySelectorAll(&#39;.lib-item[data-lib-idx]&#39;).forEach(el =&gt; {
+      el.addEventListener(&#39;click&#39;, () =&gt; {
+        loadFromLibrary(library[parseInt(el.dataset.libIdx)]);
+      });
+    });
+
+  }
+
+  /* ── Render right panel ── */
+  function renderRight() {
+    autoSave();
+    const panel = document.getElementById(&#39;right-panel&#39;);
+
+    const json = buildJson();
+
+    panel.innerHTML = `
+      &lt;div class=&quot;preview-header&quot;&gt;
+        &lt;h2&gt;${esc(t(&#39;preview&#39;))}&lt;/h2&gt;
+        &lt;div class=&quot;preview-tabs&quot;&gt;
+          &lt;button class=&quot;preview-tab${state.previewTab === &#39;visual&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-tab=&quot;visual&quot;&gt;${esc(t(&#39;visual&#39;))}&lt;/button&gt;
+          &lt;button class=&quot;preview-tab${state.previewTab === &#39;json&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-tab=&quot;json&quot;&gt;${esc(t(&#39;json&#39;))}&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;preview-content&quot;&gt;
+        ${state.previewTab === &#39;json&#39;
+          ? `&lt;pre class=&quot;json-preview&quot;&gt;${esc(JSON.stringify(json, null, 2))}&lt;/pre&gt;`
+          : renderVisualPreview(json)
+        }
+      &lt;/div&gt;`;
+
+    panel.querySelectorAll(&#39;.preview-tab&#39;).forEach(tab =&gt; {
+      tab.addEventListener(&#39;click&#39;, () =&gt; {
+        state.previewTab = tab.dataset.tab;
+        renderRight();
+      });
+    });
+  }
+
+  /* ── Help view ── */
+  function renderHelp() {
+    const ct = REGISTRY?.convergenceTypes ?? {};
+    const types = Object.entries(ct);
+    const stepCard = (n, title, body) =&gt; `
+      &lt;div style=&quot;display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)&quot;&gt;
+        &lt;div style=&quot;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0&quot;&gt;${n}&lt;/div&gt;
+        &lt;div&gt;&lt;strong&gt;${esc(title)}&lt;/strong&gt;&lt;br /&gt;&lt;span style=&quot;color:var(--muted)&quot;&gt;${body}&lt;/span&gt;&lt;/div&gt;
+      &lt;/div&gt;`;
+    const constraint = (title, body) =&gt; `
+      &lt;div style=&quot;padding:12px 16px;border-radius:10px;border-left:3px solid var(--accent);background:var(--card)&quot;&gt;
+        &lt;strong&gt;${esc(title)}&lt;/strong&gt;
+        &lt;span style=&quot;color:var(--muted)&quot;&gt; ${esc(body)}&lt;/span&gt;
+      &lt;/div&gt;`;
+
+    return `
+      &lt;div style=&quot;max-width:740px;font-size:14.5px;line-height:1.7;color:var(--ink)&quot;&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:22px;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em&quot;&gt;${esc(t(&#39;guideIntroTitle&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 12px;font-size:15px&quot;&gt;${esc(t(&#39;guideIntro1&#39;))}&lt;/p&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 12px;font-size:15px&quot;&gt;${esc(t(&#39;guideIntro2&#39;))}&lt;/p&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 12px;font-size:15px&quot;&gt;${esc(t(&#39;guideIntro3&#39;))}&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:20px;font-weight:700;margin:0 0 12px&quot;&gt;${esc(t(&#39;guideMakeTitle&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 16px&quot;&gt;${esc(t(&#39;guideMakeIntro&#39;))}&lt;/p&gt;
+          &lt;div style=&quot;display:flex;flex-direction:column;gap:10px&quot;&gt;
+            ${[1,2,3,4,5].map(n =&gt; `
+              &lt;div style=&quot;display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)&quot;&gt;
+                &lt;div style=&quot;width:28px;height:28px;border-radius:50%;background:var(--neutral-bg);color:var(--neutral-ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0&quot;&gt;${n}&lt;/div&gt;
+                &lt;div&gt;&lt;strong&gt;${esc(t(&#39;guideMakeStep&#39; + n + &#39;title&#39;))}&lt;/strong&gt;&lt;br /&gt;&lt;span style=&quot;color:var(--muted)&quot;&gt;${esc(t(&#39;guideMakeStep&#39; + n + &#39;body&#39;))}&lt;/span&gt;&lt;/div&gt;
+              &lt;/div&gt;`).join(&#39;&#39;)}
+          &lt;/div&gt;
+          &lt;div style=&quot;margin-top:14px;padding:14px 16px;border-radius:10px;background:color-mix(in srgb, var(--accent) 8%, var(--card));border:1px solid color-mix(in srgb, var(--accent) 25%, var(--line))&quot;&gt;
+            &lt;span style=&quot;font-size:13.5px;color:var(--ink)&quot;&gt;${esc(t(&#39;guideMakeOr&#39;))}&lt;/span&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:20px;font-weight:700;margin:0 0 12px&quot;&gt;${esc(t(&#39;guideGrowTitle&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 12px;font-size:15px&quot;&gt;${esc(t(&#39;guideGrow1&#39;))}&lt;/p&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 12px;font-size:15px&quot;&gt;${esc(t(&#39;guideGrow2&#39;))}&lt;/p&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0;font-size:15px&quot;&gt;${esc(t(&#39;guideGrow3&#39;))}&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:20px;font-weight:700;margin:0 0 12px&quot;&gt;${esc(t(&#39;guideStartTitle&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--ink);margin:0 0 16px&quot;&gt;${esc(t(&#39;guideStart1&#39;))}&lt;/p&gt;
+          &lt;div style=&quot;display:flex;flex-direction:column;gap:12px&quot;&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:6px&quot;&gt;${esc(t(&#39;guideStartFile&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0;font-size:13.5px;color:var(--muted)&quot;&gt;${esc(t(&#39;guideStartFileBody&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:6px&quot;&gt;${esc(t(&#39;guideStartServe&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0 0 10px;font-size:13.5px;color:var(--muted)&quot;&gt;${esc(t(&#39;guideStartServeBody&#39;))}&lt;/p&gt;
+              &lt;pre style=&quot;margin:0 0 10px;padding:10px 14px;border-radius:8px;background:var(--ink);color:#e2e8f0;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto&quot;&gt;${esc(t(&#39;guideStartServeCmd&#39;))}&lt;/pre&gt;
+              &lt;p style=&quot;margin:0;font-size:13px;color:var(--muted)&quot;&gt;${esc(t(&#39;guideStartServeThen&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:6px&quot;&gt;${esc(t(&#39;guideStartRender&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0 0 10px;font-size:13.5px;color:var(--muted)&quot;&gt;${esc(t(&#39;guideStartRenderBody&#39;))}&lt;/p&gt;
+              &lt;pre style=&quot;margin:0 0 10px;padding:10px 14px;border-radius:8px;background:var(--ink);color:#e2e8f0;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto&quot;&gt;${esc(t(&#39;guideStartRenderCmd&#39;))}&lt;/pre&gt;
+              &lt;p style=&quot;margin:0;font-size:13px;color:var(--muted)&quot;&gt;${esc(t(&#39;guideStartRenderResult&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:6px&quot;&gt;${esc(t(&#39;guideStartShare&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0;font-size:13.5px;color:var(--muted)&quot;&gt;${esc(t(&#39;guideStartShareBody&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:24px;padding-top:24px;border-top:1px solid var(--line)&quot;&gt;
+          &lt;p style=&quot;color:var(--muted);margin:0;font-size:13px;font-style:italic&quot;&gt;${esc(t(&#39;guideIntroTransition&#39;))}&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:22px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em&quot;&gt;${esc(t(&#39;guideConcept&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--muted);margin:0 0 16px&quot;&gt;${esc(t(&#39;guideConceptBody&#39;))}&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:18px;font-weight:700;margin:0 0 16px&quot;&gt;${esc(t(&#39;guideFundamentals&#39;))}&lt;/h2&gt;
+          &lt;div style=&quot;display:grid;grid-template-columns:repeat(3,1fr);gap:12px&quot;&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-size:13px;font-weight:700;margin-bottom:6px&quot;&gt;${esc(t(&#39;entity&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0;font-size:13px;color:var(--muted)&quot;&gt;${esc(t(&#39;entityDesc&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-size:13px;font-weight:700;margin-bottom:6px&quot;&gt;${esc(t(&#39;edge&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0;font-size:13px;color:var(--muted)&quot;&gt;${esc(t(&#39;edgeDesc&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px&quot;&gt;
+              &lt;div style=&quot;font-size:13px;font-weight:700;margin-bottom:6px&quot;&gt;${esc(t(&#39;scope&#39;))}&lt;/div&gt;
+              &lt;p style=&quot;margin:0;font-size:13px;color:var(--muted)&quot;&gt;${esc(t(&#39;scopeDesc&#39;))}&lt;/p&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:18px;font-weight:700;margin:0 0 8px&quot;&gt;${esc(t(&#39;guideCtTitle&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--muted);margin:0 0 16px&quot;&gt;${esc(t(&#39;guideCtBody&#39;))}&lt;/p&gt;
+          &lt;div style=&quot;display:flex;flex-direction:column;gap:10px&quot;&gt;
+            ${types.map(([id, def]) =&gt; {
+              const sourceLabels = (def.sources || []).map(s =&gt; s.label).join(&#39; + &#39;);
+              return `
+                &lt;div style=&quot;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start&quot;&gt;
+                  &lt;div style=&quot;width:36px;height:36px;border-radius:8px;background:var(--neutral-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted)&quot;&gt;
+                    &lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot; fill=&quot;currentColor&quot;&gt;${def.icon || &#39;&#39;}&lt;/svg&gt;
+                  &lt;/div&gt;
+                  &lt;div style=&quot;flex:1;min-width:0&quot;&gt;
+                    &lt;div style=&quot;font-size:14px;font-weight:700;margin-bottom:2px&quot;&gt;${esc(def.name)}&lt;/div&gt;
+                    &lt;div style=&quot;font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px&quot;&gt;${esc(sourceLabels)}&lt;/div&gt;
+                    ${def.tooltip ? `&lt;div style=&quot;font-size:13px;color:var(--muted);line-height:1.55&quot;&gt;${esc(def.tooltip)}&lt;/div&gt;` : &#39;&#39;}
+                  &lt;/div&gt;
+                  &lt;span style=&quot;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;padding:3px 10px;border-radius:999px;background:var(--neutral-bg);color:var(--neutral-ink);white-space:nowrap;flex-shrink:0&quot;&gt;${esc(def.projection)}&lt;/span&gt;
+                &lt;/div&gt;`;
+            }).join(&#39;&#39;)}
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:18px;font-weight:700;margin:0 0 8px&quot;&gt;${esc(t(&#39;guideConstraints&#39;))}&lt;/h2&gt;
+          &lt;div style=&quot;display:flex;flex-direction:column;gap:8px&quot;&gt;
+            ${constraint(t(&#39;constraint1title&#39;), t(&#39;constraint1body&#39;))}
+            ${constraint(t(&#39;constraint2title&#39;), t(&#39;constraint2body&#39;))}
+            ${constraint(t(&#39;constraint3title&#39;), t(&#39;constraint3body&#39;))}
+            ${constraint(t(&#39;constraint4title&#39;), t(&#39;constraint4body&#39;))}
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:18px;font-weight:700;margin:0 0 8px&quot;&gt;${esc(t(&#39;guideWorkflow&#39;))}&lt;/h2&gt;
+          &lt;div style=&quot;display:flex;flex-direction:column;gap:10px&quot;&gt;
+            ${stepCard(1, t(&#39;step1title&#39;), esc(t(&#39;step1body&#39;)))}
+            ${stepCard(2, t(&#39;step2title&#39;), esc(t(&#39;step2body&#39;)))}
+            ${stepCard(3, t(&#39;step3title&#39;), esc(t(&#39;step3body&#39;)))}
+            ${stepCard(4, t(&#39;step4title&#39;), `&lt;code style=&quot;font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)&quot;&gt;render-living-doc.mjs doc.json&lt;/code&gt; \u2014 ${esc(t(&#39;step4body&#39;))}`)}
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div style=&quot;margin-bottom:40px&quot;&gt;
+          &lt;h2 style=&quot;font-size:18px;font-weight:700;margin:0 0 8px&quot;&gt;${esc(t(&#39;guideInference&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--muted);margin:0&quot;&gt;${esc(t(&#39;guideInferenceBody&#39;))}&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;div&gt;
+          &lt;h2 style=&quot;font-size:18px;font-weight:700;margin:0 0 8px&quot;&gt;${esc(t(&#39;guideSkills&#39;))}&lt;/h2&gt;
+          &lt;p style=&quot;color:var(--muted);margin:0 0 12px&quot;&gt;${esc(t(&#39;guideSkillsBody&#39;))}&lt;/p&gt;
+          &lt;div style=&quot;display:flex;flex-direction:column;gap:8px&quot;&gt;
+            &lt;div style=&quot;padding:12px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:13px&quot;&gt;&lt;code style=&quot;font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)&quot;&gt;/living-doc&lt;/code&gt;&lt;/div&gt;
+              &lt;div style=&quot;font-size:13px;color:var(--muted);margin-top:4px&quot;&gt;${esc(t(&#39;skillBootstrap&#39;))}&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;padding:12px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:13px&quot;&gt;&lt;code style=&quot;font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)&quot;&gt;/convergence-advisor&lt;/code&gt;&lt;/div&gt;
+              &lt;div style=&quot;font-size:13px;color:var(--muted);margin-top:4px&quot;&gt;${esc(t(&#39;skillAdvisor&#39;))}&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div style=&quot;padding:12px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line)&quot;&gt;
+              &lt;div style=&quot;font-weight:700;font-size:13px&quot;&gt;&lt;code style=&quot;font-size:12px;padding:1px 5px;border-radius:4px;background:var(--neutral-bg);border:1px solid var(--line)&quot;&gt;render-living-doc.mjs&lt;/code&gt;&lt;/div&gt;
+              &lt;div style=&quot;font-size:13px;color:var(--muted);margin-top:4px&quot;&gt;${esc(t(&#39;skillRenderer&#39;))}&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+      &lt;/div&gt;`;
+  }
+
+  /* ── Visual preview (lightweight inline preview) ── */
+  function renderVisualPreview(json) {
+    const ct = REGISTRY.convergenceTypes;
+    const sections = json.sections || [];
+
+    const statusTones = { built: &#39;#166534&#39;, implemented: &#39;#166534&#39;, ready: &#39;#166534&#39;, wired: &#39;#166534&#39;, real: &#39;#166534&#39;, &#39;real-backend&#39;: &#39;#166534&#39;, &#39;ground-truth&#39;: &#39;#166534&#39;, partial: &#39;#92400e&#39;, &#39;hook-service-contract&#39;: &#39;#92400e&#39;, &#39;visual-only&#39;: &#39;#92400e&#39;, &#39;state-unwired&#39;: &#39;#92400e&#39;, &#39;mock-api&#39;: &#39;#92400e&#39;, drift: &#39;#991b1b&#39;, &#39;not-built&#39;: &#39;#64748b&#39;, &#39;not-started&#39;: &#39;#64748b&#39;, planned: &#39;#64748b&#39;, blocked: &#39;#991b1b&#39;, gap: &#39;#991b1b&#39;, &#39;screen-local&#39;: &#39;#991b1b&#39;, &#39;navigation-unwired&#39;: &#39;#991b1b&#39;, deprecated: &#39;#991b1b&#39;, &#39;legacy-only&#39;: &#39;#991b1b&#39; };
+
+    function statusDot(status) {
+      const color = statusTones[status] || &#39;#64748b&#39;;
+      return `&lt;span style=&quot;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${color}11;color:${color};font-size:11px;font-weight:600&quot;&gt;${esc(status.split(&#39;-&#39;).map(w =&gt; w[0].toUpperCase() + w.slice(1)).join(&#39; &#39;))}&lt;/span&gt;`;
+    }
+
+    const sectionHtml = sections.map(s =&gt; {
+      const def = ct[s.convergenceType];
+      if (!def) return &#39;&#39;;
+      const icon = def.icon ? `&lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot; fill=&quot;currentColor&quot; style=&quot;color:#64748b;flex-shrink:0&quot;&gt;${def.icon}&lt;/svg&gt;` : &#39;&#39;;
+      const sourceChips = (def.sources || []).map(src =&gt;
+        `&lt;span style=&quot;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11.5px;font-weight:600&quot;&gt;${esc(src.label)}&lt;/span&gt;`
+      ).join(&#39; &#39;);
+      const projLabel = def.projection === &#39;edge-table&#39; ? &#39;Edge Table&#39; : &#39;Card Grid&#39;;
+      const items = s.data || [];
+      const hasData = items.length &gt; 0;
+
+      // Stats bar if section has stats
+      const statsHtml = (s.stats || []).length &gt; 0
+        ? `&lt;div style=&quot;display:grid;grid-template-columns:repeat(${Math.min(s.stats.length, 4)},1fr);gap:8px;margin-top:12px&quot;&gt;
+            ${s.stats.map(st =&gt; `&lt;div style=&quot;background:#f5f7fa;border-radius:8px;padding:10px 12px&quot;&gt;
+              &lt;div style=&quot;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#64748b&quot;&gt;${esc(st.label)}&lt;/div&gt;
+              &lt;div style=&quot;font-size:24px;font-weight:700;margin-top:2px&quot;&gt;${esc(String(st.value))}&lt;/div&gt;
+            &lt;/div&gt;`).join(&#39;&#39;)}
+          &lt;/div&gt;`
+        : &#39;&#39;;
+
+      // Data preview
+      let dataHtml = &#39;&#39;;
+      if (hasData) {
+        // Count statuses
+        const statusCounts = {};
+        for (const item of items) {
+          const st = item.status || item.codeStatus || item.depth || &#39;unknown&#39;;
+          statusCounts[st] = (statusCounts[st] || 0) + 1;
+        }
+        const statusBar = Object.entries(statusCounts).map(([st, count]) =&gt;
+          `${statusDot(st)} &lt;span style=&quot;font-size:11px;color:#64748b&quot;&gt;\u00d7${count}&lt;/span&gt;`
+        ).join(&#39; &#39;);
+
+        const itemList = items.slice(0, 6).map(item =&gt;
+          `&lt;div style=&quot;display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9&quot;&gt;
+            &lt;span style=&quot;font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap&quot;&gt;${esc(item.name || item.figmaName || item.id || &#39;—&#39;)}&lt;/span&gt;
+            ${item.status ? statusDot(item.status) : &#39;&#39;}
+            ${item.codeStatus ? statusDot(item.codeStatus) : &#39;&#39;}
+          &lt;/div&gt;`
+        ).join(&#39;&#39;);
+
+        dataHtml = `
+          &lt;div style=&quot;margin-top:14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:14px&quot;&gt;
+            &lt;div style=&quot;display:flex;align-items:center;gap:8px;margin-bottom:10px&quot;&gt;
+              &lt;span style=&quot;font-size:13px;font-weight:700&quot;&gt;${items.length} ${esc(t(&#39;items&#39;))}&lt;/span&gt;
+              &lt;span style=&quot;flex:1&quot;&gt;&lt;/span&gt;
+              ${statusBar}
+            &lt;/div&gt;
+            ${itemList}
+            ${items.length &gt; 6 ? `&lt;div style=&quot;padding:6px 0;color:#64748b;font-size:12px&quot;&gt;+ ${items.length - 6} ${esc(t(&#39;more&#39;))}&lt;/div&gt;` : &#39;&#39;}
+          &lt;/div&gt;`;
+      } else {
+        // Show the source skeleton — what fields this type expects
+        const sources = (def.sources || []).filter(src =&gt; src.label);
+        const statusFields = (def.statusFields || []);
+        const textFields = (def.textFields || []);
+        const detailsFields = (def.detailsFields || []);
+
+        const skeletonRows = [
+          ...sources.map(src =&gt; `
+            &lt;div style=&quot;display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9&quot;&gt;
+              &lt;span style=&quot;font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0&quot;&gt;${esc(src.label)}&lt;/span&gt;
+              &lt;div style=&quot;flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e2e8f0 30%,transparent 30%);opacity:0.6&quot;&gt;&lt;/div&gt;
+              &lt;span style=&quot;font-size:10px;color:#94a3b8;font-style:italic&quot;&gt;${esc(src.entityType || &#39;text&#39;)}&lt;/span&gt;
+            &lt;/div&gt;`),
+          ...statusFields.map(sf =&gt; `
+            &lt;div style=&quot;display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9&quot;&gt;
+              &lt;span style=&quot;font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0&quot;&gt;Status&lt;/span&gt;
+              &lt;div style=&quot;display:flex;gap:4px&quot;&gt;
+                ${(REGISTRY?.statusSets?.[sf.statusSet]?.values || []).slice(0, 4).map(v =&gt; {
+                  const t = REGISTRY?.statusSets?.[sf.statusSet]?.tones?.[v] || &#39;neutral&#39;;
+                  const colors = { positive: &#39;#166534&#39;, warning: &#39;#92400e&#39;, negative: &#39;#991b1b&#39;, neutral: &#39;#64748b&#39; };
+                  return `&lt;span style=&quot;font-size:10px;padding:2px 7px;border-radius:999px;background:${colors[t]}11;color:${colors[t]};font-weight:600&quot;&gt;${esc(v)}&lt;/span&gt;`;
+                }).join(&#39;&#39;)}
+              &lt;/div&gt;
+            &lt;/div&gt;`),
+          ...textFields.map(tf =&gt; `
+            &lt;div style=&quot;display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9&quot;&gt;
+              &lt;span style=&quot;font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0&quot;&gt;${esc(tf.label)}&lt;/span&gt;
+              &lt;div style=&quot;flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e2e8f0 60%,transparent 60%);opacity:0.4&quot;&gt;&lt;/div&gt;
+              &lt;span style=&quot;font-size:10px;color:#94a3b8;font-style:italic&quot;&gt;text&lt;/span&gt;
+            &lt;/div&gt;`),
+          ...detailsFields.map(df =&gt; `
+            &lt;div style=&quot;display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9&quot;&gt;
+              &lt;span style=&quot;font-size:12px;font-weight:600;color:#475569;width:110px;flex-shrink:0&quot;&gt;${esc(df.label)}&lt;/span&gt;
+              &lt;div style=&quot;flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#e2e8f0 40%,transparent 40%);opacity:0.3&quot;&gt;&lt;/div&gt;
+              &lt;span style=&quot;font-size:10px;color:#94a3b8;font-style:italic&quot;&gt;list&lt;/span&gt;
+            &lt;/div&gt;`),
+        ].join(&#39;&#39;);
+
+        dataHtml = `
+          &lt;div style=&quot;margin-top:14px;border:1px dashed #e2e8f0;border-radius:10px;background:#fafbfc;padding:16px&quot;&gt;
+            &lt;div style=&quot;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:#94a3b8;margin-bottom:10px&quot;&gt;${esc(t(&#39;itemBlueprint&#39;))}&lt;/div&gt;
+            ${skeletonRows}
+            &lt;div style=&quot;margin-top:10px;font-size:11.5px;color:#94a3b8;text-align:center&quot;&gt;${esc(t(&#39;populatedBy&#39;))}&lt;/div&gt;
+          &lt;/div&gt;`;
+      }
+
+      return `
+        &lt;div style=&quot;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:12px&quot;&gt;
+          &lt;div style=&quot;display:flex;align-items:center;gap:10px;margin-bottom:12px&quot;&gt;
+            ${icon}
+            &lt;span style=&quot;font-size:16px;font-weight:700&quot;&gt;${esc(s.title)}&lt;/span&gt;
+            &lt;span style=&quot;margin-left:auto;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;padding:3px 10px;border-radius:999px;background:#f1f5f9;color:#475569&quot;&gt;${esc(projLabel)}&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;div style=&quot;display:flex;flex-wrap:wrap;gap:6px&quot;&gt;
+            ${sourceChips}
+          &lt;/div&gt;
+          ${statsHtml}
+          ${dataHtml}
+        &lt;/div&gt;`;
+    }).join(&#39;&#39;);
+
+    return `
+      &lt;div style=&quot;max-width:800px&quot;&gt;
+        &lt;div style=&quot;padding:20px 0 24px&quot;&gt;
+          &lt;div style=&quot;font-size:24px;font-weight:700;letter-spacing:-0.02em&quot;&gt;${esc(json.title || &#39;Untitled Living Doc&#39;)}&lt;/div&gt;
+          ${json.subtitle ? `&lt;div style=&quot;color:#64748b;margin-top:6px;font-size:14px&quot;&gt;${esc(json.subtitle)}&lt;/div&gt;` : &#39;&#39;}
+        &lt;/div&gt;
+        ${json.objective ? `
+        &lt;div style=&quot;background:#fff;border:1px solid #e2e8f0;border-left:3px solid #2563eb;border-radius:12px;padding:16px 20px;margin-bottom:16px&quot;&gt;
+          &lt;div style=&quot;font-size:13.5px&quot;&gt;&lt;strong&gt;${esc(t(&#39;objective&#39;))}&lt;/strong&gt; ${esc(json.objective)}&lt;/div&gt;
+          ${json.successCondition ? `&lt;div style=&quot;font-size:13px;color:#64748b;margin-top:6px&quot;&gt;&lt;strong&gt;${esc(t(&#39;successCondition&#39;))}&lt;/strong&gt; ${esc(json.successCondition)}&lt;/div&gt;` : &#39;&#39;}
+        &lt;/div&gt;` : &#39;&#39;}
+        ${sections.length === 0 ? `&lt;div style=&quot;color:#64748b;padding:40px;text-align:center&quot;&gt;${esc(t(&#39;noSections&#39;))}&lt;/div&gt;` : sectionHtml}
+      &lt;/div&gt;`;
+  }
+
+  /* ── Build JSON ── */
+  function buildJson() {
+    const now = new Date().toISOString();
+    const json = {
+      title: state.title || &#39;Untitled Living Doc&#39;,
+      subtitle: state.subtitle || &#39;&#39;,
+      brand: state.brand || &#39;LD&#39;,
+      updated: now,
+      ...(state.objective ? { objective: state.objective } : {}),
+      ...(state.successCondition ? { successCondition: state.successCondition } : {}),
+      pills: [`Updated ${now.slice(0, 10)}`],
+      callouts: [],
+      sections: state.sections.map(s =&gt; ({
+        id: s.id,
+        title: s.title,
+        convergenceType: s.convergenceType,
+        data: s.data || [],
+      })),
+    };
+    return json;
+  }
+
+  /* ── Export ── */
+  function exportJson() {
+    const json = buildJson();
+    const filename = `${slugify(state.title || &#39;living-doc&#39;)}.json`;
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: &#39;application/json&#39; });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement(&#39;a&#39;);
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showExportHint(filename);
+  }
+
+  function showExportHint(filename) {
+    let hint = document.getElementById(&#39;export-hint&#39;);
+    if (!hint) {
+      hint = document.createElement(&#39;div&#39;);
+      hint.id = &#39;export-hint&#39;;
+      hint.style.cssText = &#39;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:3000;background:var(--ink);color:#e2e8f0;padding:14px 20px;border-radius:12px;font-size:13px;line-height:1.5;max-width:480px;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:flex;gap:12px;align-items:flex-start&#39;;
+      document.body.appendChild(hint);
+    }
+    hint.innerHTML = `
+      &lt;div style=&quot;flex:1&quot;&gt;
+        &lt;strong&gt;${esc(filename)}&lt;/strong&gt; ${esc(t(&#39;exportedTo&#39;))}
+        &lt;pre style=&quot;margin:8px 0 0;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,0.1);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto&quot;&gt;mv ~/Downloads/${esc(filename)} docs/&lt;/pre&gt;
+      &lt;/div&gt;
+      &lt;button onclick=&quot;this.parentElement.remove()&quot; style=&quot;background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0;line-height:1&quot;&gt;\u00d7&lt;/button&gt;`;
+    clearTimeout(hint._timer);
+    hint._timer = setTimeout(() =&gt; hint.remove(), 12000);
+  }
+
+  /* ── Generate HTML ── */
+  function generateHtml() {
+    const json = buildJson();
+    const reg = REGISTRY;
+    const compositorSrc = document.documentElement.outerHTML;
+
+    function escH(s) { return String(s ?? &#39;&#39;).replace(/&amp;/g,&#39;&amp;amp;&#39;).replace(/&lt;/g,&#39;&amp;lt;&#39;).replace(/&gt;/g,&#39;&amp;gt;&#39;).replace(/&quot;/g,&#39;&amp;quot;&#39;); }
+    function toTitle(v) { return String(v ?? &#39;&#39;).split(&#39;-&#39;).map(p =&gt; p.charAt(0).toUpperCase() + p.slice(1)).join(&#39; &#39;); }
+    function bdg(label, tone) { return &#39;&lt;span class=&quot;badge badge-&#39; + tone + &#39;&quot;&gt;&#39; + escH(label) + &#39;&lt;/span&gt;&#39;; }
+    function getTone(setName, val) { return reg.statusSets?.[setName]?.tones?.[val] ?? &#39;neutral&#39;; }
+    function getLabel(setName, val) { return reg.statusSets?.[setName]?.labels?.[val] ?? toTitle(val); }
+
+    function renderCard(item, ctDef) {
+      const badges = (ctDef.statusFields || []).filter(sf =&gt; item[sf.key]).map(sf =&gt; bdg(getLabel(sf.statusSet, item[sf.key]), getTone(sf.statusSet, item[sf.key]))).join(&#39; &#39;);
+      const sources = (ctDef.sources || []).filter(src =&gt; src.entityType &amp;&amp; item[src.key]?.length &gt; 0).map(src =&gt;
+        &#39;&lt;div class=&quot;flow-meta&quot;&gt;&lt;strong&gt;&#39; + escH(src.label) + &#39;&lt;/strong&gt; &#39; + item[src.key].map(v =&gt; &#39;&lt;code&gt;&#39; + escH(v) + &#39;&lt;/code&gt;&#39;).join(&#39; &#39;) + &#39;&lt;/div&gt;&#39;
+      ).join(&#39;&#39;);
+      const texts = (ctDef.textFields || []).filter(tf =&gt; item[tf.key]).map(tf =&gt; &#39;&lt;p class=&quot;code-refs&quot;&gt;&lt;strong&gt;&#39; + escH(tf.label) + &#39;&lt;/strong&gt; &#39; + escH(item[tf.key]) + &#39;&lt;/p&gt;&#39;).join(&#39;&#39;);
+      const notes = item.notes?.length &gt; 0 ? &#39;&lt;ul class=&quot;notes&quot;&gt;&#39; + item.notes.map(n =&gt; &#39;&lt;li&gt;&#39; + escH(n) + &#39;&lt;/li&gt;&#39;).join(&#39;&#39;) + &#39;&lt;/ul&gt;&#39; : &#39;&#39;;
+      return &#39;&lt;article class=&quot;flow-card&quot;&#39; + (item.id ? &#39; id=&quot;&#39; + escH(item.id) + &#39;&quot;&#39; : &#39;&#39;) + &#39;&gt;&lt;header class=&quot;flow-card-header&quot;&gt;&lt;div&gt;&lt;h3&gt;&#39; + escH(item.name) + &#39;&lt;/h3&gt;&lt;/div&gt;&lt;div class=&quot;badge-row&quot;&gt;&#39; + badges + &#39;&lt;/div&gt;&lt;/header&gt;&#39; + sources + notes + texts + &#39;&lt;/article&gt;&#39;;
+    }
+
+    function renderEdgeTable(items, ctDef) {
+      const headers = (ctDef.columnHeaders || []).map(h =&gt; &#39;&lt;th&gt;&#39; + escH(h) + &#39;&lt;/th&gt;&#39;).join(&#39;&#39;);
+      const rows = items.map(item =&gt; {
+        const a = ctDef.sourceA, b = ctDef.sourceB;
+        return &#39;&lt;tr&gt;&lt;td&gt;&#39; + escH(item[a.displayKey] || item[a.key]) + &#39;&lt;br/&gt;&lt;code&gt;&#39; + escH(item[a.key]) + &#39;&lt;/code&gt;&lt;/td&gt;&lt;td&gt;&#39; + (item[b.key] ? &#39;&lt;code&gt;&#39; + escH(item[b.key]) + &#39;&lt;/code&gt;&#39; : &#39;None yet&#39;) + &#39;&lt;/td&gt;&lt;td&gt;&#39; + (ctDef.edgeStatus ? bdg(toTitle(item[ctDef.edgeStatus.key]), getTone(ctDef.edgeStatus.statusSet, item[ctDef.edgeStatus.key])) : &#39;&#39;) + &#39;&lt;/td&gt;&lt;td&gt;&#39; + (item[ctDef.edgeNotes?.key] || []).map(n =&gt; escH(n)).join(&#39;&lt;br/&gt;&#39;) + &#39;&lt;/td&gt;&lt;/tr&gt;&#39;;
+      }).join(&#39;&#39;);
+      return &#39;&lt;table class=&quot;full-table&quot;&gt;&lt;thead&gt;&lt;tr&gt;&#39; + headers + &#39;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#39; + rows + &#39;&lt;/tbody&gt;&lt;/table&gt;&#39;;
+    }
+
+    const sections = json.sections || [];
+    const sidebarH = sections.map(s =&gt; { const ct = reg.convergenceTypes[s.convergenceType]; if (!ct) return &#39;&#39;; return &#39;&lt;a href=&quot;#&#39; + escH(s.id) + &#39;&quot; class=&quot;nav-icon&quot; data-target=&quot;&#39; + escH(s.id) + &#39;&quot; aria-label=&quot;&#39; + escH(s.title) + &#39;&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;currentColor&quot;&gt;&#39; + (ct.icon||&#39;&#39;) + &#39;&lt;/svg&gt;&lt;span class=&quot;nav-tooltip&quot;&gt;&#39; + escH(s.title) + &#39;&lt;/span&gt;&lt;/a&gt;&#39;; }).join(&#39;&#39;);
+
+    const sectionsH = sections.map(s =&gt; {
+      const ct = reg.convergenceTypes[s.convergenceType]; if (!ct) return &#39;&#39;;
+      const icon = ct.icon ? &#39;&lt;svg class=&quot;section-icon&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;currentColor&quot;&gt;&#39; + ct.icon + &#39;&lt;/svg&gt;&#39; : &#39;&#39;;
+      const callout = s.callout ? &#39;&lt;section class=&quot;callout&quot;&gt;&#39; + s.callout.map(p =&gt; &#39;&lt;p&gt;&#39; + escH(p) + &#39;&lt;/p&gt;&#39;).join(&#39;&#39;) + &#39;&lt;/section&gt;&#39; : &#39;&#39;;
+      const stats = s.stats ? &#39;&lt;div class=&quot;summary-grid&quot;&gt;&#39; + s.stats.map(st =&gt; &#39;&lt;article class=&quot;stat-card&quot;&gt;&lt;h3&gt;&#39; + escH(st.label) + &#39;&lt;/h3&gt;&lt;div class=&quot;value&quot;&gt;&#39; + escH(String(st.value)) + &#39;&lt;/div&gt;&lt;/article&gt;&#39;).join(&#39;&#39;) + &#39;&lt;/div&gt;&#39; : &#39;&#39;;
+      const items = s.data || [];
+      let content = &#39;&#39;;
+      if (ct.projection === &#39;card-grid&#39;) content = &#39;&lt;div class=&quot;flows-grid&quot;&gt;&#39; + items.map(item =&gt; renderCard(item, ct)).join(&#39;&#39;) + &#39;&lt;/div&gt;&#39;;
+      else if (ct.projection === &#39;edge-table&#39;) content = renderEdgeTable(items, ct);
+      return &#39;&lt;section class=&quot;section&#39; + (ct.projection === &#39;edge-table&#39; ? &#39; table-card&#39; : &#39;&#39;) + &#39;&quot; id=&quot;&#39; + escH(s.id) + &#39;&quot;&gt;&lt;h2&gt;&#39; + icon + &#39; &#39; + escH(s.title) + &#39;&lt;/h2&gt;&#39; + callout + stats + content + &#39;&lt;/section&gt;&#39;;
+    }).join(&#39;&#39;);
+
+    const metaJ = JSON.stringify(json, null, 2).replace(/&lt;\/script/gi, &#39;&lt;\\/script&#39;);
+    const compSafe = compositorSrc.replace(/&quot;/g, &#39;&amp;quot;&#39;);
+
+    const fullHtml = &#39;&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;/&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;/&gt;&lt;title&gt;&#39; + escH(json.title) + &#39;&lt;/title&gt;&lt;style&gt;:root{color-scheme:light;--bg:#f5f7fa;--card:#fff;--ink:#1a2332;--muted:#64748b;--line:#e2e8f0;--positive-bg:#ecfdf5;--positive-ink:#166534;--warning-bg:#fffbeb;--warning-ink:#92400e;--negative-bg:#fef2f2;--negative-ink:#991b1b;--neutral-bg:#f1f5f9;--neutral-ink:#475569;--accent:#2563eb;--sidebar:56px;--max:1120px;--radius:12px;--shadow-sm:0 1px 2px rgba(0,0,0,.04)}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.88em;background:var(--neutral-bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px}.sidebar{position:fixed;top:0;left:0;width:var(--sidebar);height:100vh;background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:2px;z-index:100;overflow-y:auto}.sidebar .brand{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-bottom:12px;flex-shrink:0}.nav-icon{position:relative;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:background .15s,color .15s;text-decoration:none;flex-shrink:0}.nav-icon:hover{background:var(--neutral-bg);color:var(--ink);text-decoration:none}.nav-icon.active{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}.nav-tooltip{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}.nav-icon:hover .nav-tooltip{opacity:1}.comp-toggle{margin-top:auto;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:all .15s;flex-shrink:0}.comp-toggle:hover{background:var(--neutral-bg);color:var(--ink)}.comp-overlay{position:fixed;inset:0;z-index:200;background:#fff;display:none}.comp-overlay.open{display:block}.comp-overlay iframe{width:100%;height:100%;border:none}.comp-close{position:fixed;top:12px;right:16px;z-index:300;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:20px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.1)}.comp-close.open{display:flex}.comp-close:hover{background:var(--negative-bg);color:var(--negative-ink)}.content{margin-left:var(--sidebar)}.wrap{max-width:var(--max);margin:0 auto;padding:36px 32px 64px}header.page-header{padding:0 0 28px}h1{margin:0 0 8px;font-size:28px;line-height:1.25;letter-spacing:-.025em;font-weight:700}.subtitle{margin:0 0 20px;color:var(--muted);max-width:880px;font-size:15px;line-height:1.6}.pill-row,.badge-row,.meta-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow-sm);color:var(--muted);font-size:12.5px;font-weight:500}.section{margin-top:48px;padding-top:36px;border-top:1px solid var(--line)}.section:first-of-type{border-top:none;padding-top:0}.section h2{margin:0 0 20px;font-size:19px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}.section-icon{color:var(--muted);flex-shrink:0}.callout{margin-top:20px;padding:16px 20px;border-radius:var(--radius);border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-sm)}.callout p{margin:0 0 8px;line-height:1.55}.callout p:last-child{margin-bottom:0}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:20px}.stat-card,.flow-card,.table-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm)}.stat-card{padding:20px}.stat-card h3{margin:0;font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}.stat-card .value{margin-top:6px;font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.1}.flows-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.flow-card-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}h3{margin:0;font-size:15px;font-weight:650}.notes{margin:10px 0 0 18px;padding:0;color:var(--muted);font-size:14px;line-height:1.5}.notes li{margin-bottom:4px}.badge{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}.badge-positive{background:var(--positive-bg);color:var(--positive-ink)}.badge-warning{background:var(--warning-bg);color:var(--warning-ink)}.badge-negative{background:var(--negative-bg);color:var(--negative-ink)}.badge-neutral{background:var(--neutral-bg);color:var(--neutral-ink)}.full-table{width:100%;border-collapse:collapse;margin-top:14px}.full-table th,.full-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:13.5px}.full-table th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}.full-table thead th{border-bottom:2px solid var(--line);padding-bottom:10px}.flow-meta{margin-top:14px;color:var(--muted);font-size:13.5px;line-height:1.65}.code-refs{margin-top:10px;color:var(--muted);font-size:13.5px;line-height:1.55}.table-card{padding:24px}.footnote{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}@media(max-width:720px){.sidebar,.comp-overlay,.comp-close{display:none}.content{margin-left:0}.wrap{padding:20px 16px 48px}.summary-grid{grid-template-columns:1fr}h1{font-size:24px}}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&#39; +
+    &#39;&lt;script type=&quot;application/json&quot; id=&quot;doc-meta&quot;&gt;&#39; + metaJ + &#39;&lt;\/script&gt;&#39; +
+    &#39;&lt;nav class=&quot;sidebar&quot;&gt;&lt;div class=&quot;brand&quot;&gt;&#39; + escH(json.brand || &#39;LD&#39;) + &#39;&lt;/div&gt;&#39; + sidebarH + &#39;&lt;div class=&quot;comp-toggle&quot; id=&quot;comp-toggle&quot; title=&quot;Open compositor&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;&lt;/nav&gt;&#39; +
+    &#39;&lt;div class=&quot;comp-overlay&quot; id=&quot;comp-overlay&quot;&gt;&lt;iframe id=&quot;comp-iframe&quot; srcdoc=&quot;&#39; + compSafe + &#39;&quot;&gt;&lt;/iframe&gt;&lt;/div&gt;&lt;button class=&quot;comp-close&quot; id=&quot;comp-close&quot;&gt;&amp;times;&lt;/button&gt;&#39; +
+    &#39;&lt;div class=&quot;content&quot;&gt;&lt;div class=&quot;wrap&quot;&gt;&lt;header class=&quot;page-header&quot;&gt;&lt;h1&gt;&#39; + escH(json.title) + &#39;&lt;/h1&gt;&#39; + (json.subtitle ? &#39;&lt;p class=&quot;subtitle&quot;&gt;&#39; + escH(json.subtitle) + &#39;&lt;/p&gt;&#39; : &#39;&#39;) + (json.pills ? &#39;&lt;div class=&quot;pill-row&quot;&gt;&#39; + json.pills.map(p =&gt; &#39;&lt;span class=&quot;pill&quot;&gt;&#39; + escH(p) + &#39;&lt;/span&gt;&#39;).join(&#39;&#39;) + &#39;&lt;/div&gt;&#39; : &#39;&#39;) + &#39;&lt;/header&gt;&#39; +
+    (json.objective ? &#39;&lt;section class=&quot;callout&quot; style=&quot;border-left:3px solid var(--accent)&quot;&gt;&lt;p&gt;&lt;strong&gt;Objective&lt;/strong&gt; &#39; + escH(json.objective) + &#39;&lt;/p&gt;&#39; + (json.successCondition ? &#39;&lt;p style=&quot;color:var(--muted)&quot;&gt;&lt;strong&gt;Success condition&lt;/strong&gt; &#39; + escH(json.successCondition) + &#39;&lt;/p&gt;&#39; : &#39;&#39;) + &#39;&lt;/section&gt;&#39; : &#39;&#39;) +
+    sectionsH +
+    (json.source ? &#39;&lt;p class=&quot;footnote&quot;&gt;Source: &#39; + escH(json.source) + &#39;&lt;/p&gt;&#39; : &#39;&#39;) +
+    &#39;&lt;/div&gt;&lt;/div&gt;&#39; +
+    &#39;&lt;script&gt;(()=&gt;{const i=document.querySelectorAll(&quot;.nav-icon[data-target]&quot;);const s=[...i].map(icon=&gt;({icon,el:document.getElementById(icon.dataset.target)})).filter(s=&gt;s.el);let a=null;const act=icon=&gt;{if(a===icon)return;if(a)a.classList.remove(&quot;active&quot;);icon.classList.add(&quot;active&quot;);a=icon};const o=new IntersectionObserver(e=&gt;{for(const en of e)if(en.isIntersecting){const m=s.find(s=&gt;s.el===en.target);if(m)act(m.icon)}},{rootMargin:&quot;-20% 0px -60% 0px&quot;});for(const{el}of s)o.observe(el);if(s.length&gt;0)act(s[0].icon)})();&lt;\/script&gt;&#39; +
+    &#39;&lt;script&gt;(()=&gt;{const ov=document.getElementById(&quot;comp-overlay&quot;);const cl=document.getElementById(&quot;comp-close&quot;);const tg=document.getElementById(&quot;comp-toggle&quot;);tg.addEventListener(&quot;click&quot;,()=&gt;{ov.classList.add(&quot;open&quot;);cl.classList.add(&quot;open&quot;)});cl.addEventListener(&quot;click&quot;,()=&gt;{ov.classList.remove(&quot;open&quot;);cl.classList.remove(&quot;open&quot;)})})();&lt;\/script&gt;&#39; +
+    &#39;&lt;/body&gt;&lt;/html&gt;&#39;;
+
+    const blob = new Blob([fullHtml], { type: &#39;text/html&#39; });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement(&#39;a&#39;);
+    a.href = url;
+    a.download = slugify(state.title || &#39;living-doc&#39;) + &#39;.html&#39;;
+    a.click();
+    URL.revokeObjectURL(url);
+    showExportHint(a.download);
+  }
+
+  /* ── Load modal ── */
+  function renderLoadModal() {
+    if (!state.showLoadModal) {
+      document.getElementById(&#39;load-modal&#39;)?.remove();
+      return;
+    }
+    let overlay = document.getElementById(&#39;load-modal&#39;);
+    if (!overlay) {
+      overlay = document.createElement(&#39;div&#39;);
+      overlay.id = &#39;load-modal&#39;;
+      document.body.appendChild(overlay);
+    }
+    overlay.className = &#39;modal-overlay&#39;;
+    overlay.innerHTML = `
+      &lt;div class=&quot;modal&quot;&gt;
+        &lt;h2&gt;${esc(t(&#39;loadTitle&#39;))}&lt;/h2&gt;
+        &lt;div class=&quot;field&quot;&gt;
+          &lt;label&gt;${esc(t(&#39;pasteJson&#39;))}&lt;/label&gt;
+          &lt;textarea id=&quot;load-json-text&quot; rows=&quot;8&quot; placeholder=&#39;{&quot;title&quot;: &quot;...&quot;, &quot;sections&quot;: [...]}&#39;&gt;&lt;/textarea&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;field&quot;&gt;
+          &lt;label&gt;${esc(t(&#39;loadFromFile&#39;))}&lt;/label&gt;
+          &lt;input type=&quot;file&quot; id=&quot;load-json-file&quot; accept=&quot;.json&quot; /&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;modal-actions&quot;&gt;
+          &lt;button class=&quot;btn btn-secondary&quot; id=&quot;load-cancel&quot;&gt;${esc(t(&#39;cancel&#39;))}&lt;/button&gt;
+          &lt;button class=&quot;btn btn-primary&quot; id=&quot;load-apply&quot;&gt;${esc(t(&#39;apply&#39;))}&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;`;
+
+    document.getElementById(&#39;load-cancel&#39;).addEventListener(&#39;click&#39;, () =&gt; {
+      state.showLoadModal = false; renderLoadModal();
+    });
+    overlay.addEventListener(&#39;click&#39;, (e) =&gt; {
+      if (e.target === overlay) { state.showLoadModal = false; renderLoadModal(); }
+    });
+    document.getElementById(&#39;load-json-file&#39;).addEventListener(&#39;change&#39;, (e) =&gt; {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () =&gt; { document.getElementById(&#39;load-json-text&#39;).value = reader.result; };
+      reader.readAsText(file);
+    });
+    document.getElementById(&#39;load-apply&#39;).addEventListener(&#39;click&#39;, () =&gt; {
+      try {
+        const json = JSON.parse(document.getElementById(&#39;load-json-text&#39;).value);
+        state.title = json.title || &#39;&#39;;
+        state.subtitle = json.subtitle || &#39;&#39;;
+        state.brand = json.brand || &#39;LD&#39;;
+        state.objective = json.objective || &#39;&#39;;
+        state.successCondition = json.successCondition || &#39;&#39;;
+        state.sections = (json.sections || []).map(s =&gt; ({
+          id: s.id || `sec-${slugify(s.title)}`,
+          title: s.title || &#39;&#39;,
+          convergenceType: s.convergenceType || &#39;&#39;,
+          data: s.data || [],
+        }));
+        state.showLoadModal = false;
+        renderLoadModal();
+        renderLeft();
+        renderRight();
+      } catch (err) {
+        alert(t(&#39;invalidJson&#39;) + &#39;: &#39; + err.message);
+      }
+    });
+  }
+
+  /* ── Library discovery ── */
+  // Known doc filenames — the compositor scans these on load.
+  // When served from a file server, fetch each and check if it&#39;s a valid universal doc JSON.
+  const KNOWN_DOC_FILES = [
+    &#39;figma-mobile-universal.json&#39;,
+    &#39;figma-mobile-living-doc.json&#39;,
+  ];
+
+  async function discoverLibrary() {
+    library = [];
+    // Try fetching a directory listing (works with some dev servers)
+    try {
+      const res = await fetch(&#39;./&#39;);
+      if (res.ok) {
+        const html = await res.text();
+        const matches = html.match(/href=&quot;([^&quot;]+\.json)&quot;/g) || [];
+        const files = matches.map(m =&gt; m.replace(/href=&quot;|&quot;/g, &#39;&#39;)).filter(f =&gt; !f.startsWith(&#39;.&#39;) &amp;&amp; f !== &#39;living-doc-registry.json&#39;);
+        for (const file of files) {
+          await tryLoadLibraryItem(file);
+        }
+        if (library.length &gt; 0) return;
+      }
+    } catch {}
+    // Fallback: try known filenames
+    for (const file of KNOWN_DOC_FILES) {
+      await tryLoadLibraryItem(file);
+    }
+  }
+
+  async function tryLoadLibraryItem(filename) {
+    try {
+      const res = await fetch(`./${filename}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      // Must have sections array to be a universal doc, or title to be any living doc
+      if (json.sections || json.title) {
+        library.push({
+          filename,
+          title: json.title || filename,
+          updated: json.updated || null,
+          sectionCount: (json.sections || []).length,
+          brand: json.brand || null,
+          json,
+        });
+      }
+    } catch {}
+  }
+
+  function loadFromLibrary(item) {
+    const json = item.json;
+    state.title = json.title || &#39;&#39;;
+    state.subtitle = json.subtitle || &#39;&#39;;
+    state.brand = json.brand || &#39;LD&#39;;
+    state.objective = json.objective || &#39;&#39;;
+    state.successCondition = json.successCondition || &#39;&#39;;
+    state.originDoc = { filename: item.filename, title: item.title };
+    state.sections = (json.sections || []).map(s =&gt; ({
+      id: s.id || `sec-${slugify(s.title)}`,
+      title: s.title || &#39;&#39;,
+      convergenceType: s.convergenceType || &#39;&#39;,
+      data: s.data || [],
+    }));
+    renderLeft();
+    renderRight();
+  }
+
+  /* ── Guide overlay ── */
+  function openGuide() {
+    const overlay = document.getElementById(&#39;guide-overlay&#39;);
+    const panel = document.getElementById(&#39;guide-panel&#39;);
+    panel.innerHTML = `&lt;button class=&quot;guide-close&quot; id=&quot;guide-close&quot;&gt;\u00d7&lt;/button&gt;` + renderHelp();
+    overlay.classList.add(&#39;open&#39;);
+    document.getElementById(&#39;guide-close&#39;).addEventListener(&#39;click&#39;, closeGuide);
+    overlay.addEventListener(&#39;click&#39;, (e) =&gt; { if (e.target === overlay) closeGuide(); });
+  }
+  function closeGuide() {
+    document.getElementById(&#39;guide-overlay&#39;).classList.remove(&#39;open&#39;);
+  }
+
+  /* ── Init ── */
+  async function init() {
+    await loadRegistry();
+    await discoverLibrary();
+    // When embedded in a living doc iframe, skip auto-load — parent will call loadDocumentData
+    const restored = isEmbedded ? false : autoLoad();
+    if (restored &amp;&amp; state.sections.length &gt; 0) state.previewTab = &#39;visual&#39;;
+    // Detect if we arrived from a living doc via the pencil link
+    const ref = document.referrer;
+    if (ref &amp;&amp; ref.includes(&#39;.html&#39;) &amp;&amp; !ref.includes(&#39;compositor&#39;)) {
+      const refFile = ref.split(&#39;/&#39;).pop().replace(&#39;.html&#39;, &#39;.json&#39;);
+      const fromLib = library.find(l =&gt; l.filename === refFile);
+      if (fromLib &amp;&amp; !restored) {
+        loadFromLibrary(fromLib);
+        return; // loadFromLibrary calls render
+      } else if (fromLib) {
+        state.originDoc = { filename: fromLib.filename, title: fromLib.title };
+      }
+    }
+    renderTopBar();
+    renderLeft();
+    renderRight();
+  }
+
+  // Allow parent page to load document data (when embedded as iframe in a living doc)
+  window.loadDocumentData = function(json) {
+    state.title = json.title || &#39;&#39;;
+    state.subtitle = json.subtitle || &#39;&#39;;
+    state.brand = json.brand || &#39;LD&#39;;
+    state.objective = json.objective || &#39;&#39;;
+    state.successCondition = json.successCondition || &#39;&#39;;
+    state.sections = (json.sections || []).map(s =&gt; ({
+      id: s.id || `sec-${slugify(s.title)}`,
+      title: s.title || &#39;&#39;,
+      convergenceType: s.convergenceType || &#39;&#39;,
+      data: s.data || [],
+    }));
+    state.originDoc = { filename: &#39;current-document.json&#39;, title: json.title || &#39;Current Document&#39; };
+    state.previewTab = &#39;visual&#39;;
+    renderTopBar(); renderLeft(); renderRight();
+  };
+
+  init();
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+    </div>
+    <div class="comp-cta" id="comp-cta">
+      <div class="comp-cta-title" id="cta-title"></div>
+      <div class="comp-cta-body" id="cta-body"></div>
+      <div class="comp-cta-actions">
+        <button class="comp-cta-btn comp-cta-primary" id="cta-explore"></button>
+        <button class="comp-cta-btn comp-cta-dismiss" id="cta-dismiss"></button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="wrap">
+        <header class="page-header">
+          <h1>Living Doc Compositor</h1>
+          <p class="subtitle">Squeeze the intel out of that token</p>
+          
+        </header>
+
+        
+
+        
+
+        
+
+        
+        <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-46ee65d (2026-04-12)</p>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const icons = document.querySelectorAll('.nav-icon[data-target]');
+        const sections = [...icons].map(icon => ({
+          icon, el: document.getElementById(icon.dataset.target),
+        })).filter(s => s.el);
+        let active = null;
+        const activate = (icon) => {
+          if (active === icon) return;
+          if (active) active.classList.remove('active');
+          icon.classList.add('active');
+          active = icon;
+        };
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                const match = sections.find(s => s.el === entry.target);
+                if (match) activate(match.icon);
+              }
+            }
+          },
+          { rootMargin: '-20% 0px -60% 0px' }
+        );
+        for (const { el } of sections) observer.observe(el);
+        if (sections.length > 0) activate(sections[0].icon);
+      })();
+    </script>
+
+    <script>
+    (() => {
+      // Compositor toggle — opens the full tool as an overlay
+      const compOverlay = document.getElementById('comp-overlay');
+      const compToggle = document.getElementById('comp-toggle');
+      const compIframe = document.getElementById('comp-iframe');
+
+      // CTA i18n
+      const ctaStrings = {
+        en: { title: 'Want to build one of these?', body: 'This document was built with the Living Doc Compositor. Explore the tool, modify this structure, or create your own.', explore: 'Explore', dismiss: 'Later' },
+        nl: { title: 'Wil je er zelf een maken?', body: 'Dit document is gemaakt met de Living Doc Compositor. Ontdek de tool, pas de structuur aan, of maak je eigen versie.', explore: 'Ontdekken', dismiss: 'Later' },
+        id: { title: 'Ingin membuat sendiri?', body: 'Dokumen ini dibuat dengan Living Doc Compositor. Jelajahi alat ini, ubah struktur, atau buat versi Anda sendiri.', explore: 'Jelajahi', dismiss: 'Nanti' },
+      };
+      const lang = (navigator.language || 'en').toLowerCase();
+      const ctaL = ctaStrings[lang.startsWith('nl') ? 'nl' : lang.startsWith('id') || lang.startsWith('ms') ? 'id' : 'en'];
+      document.getElementById('cta-title').textContent = ctaL.title;
+      document.getElementById('cta-body').textContent = ctaL.body;
+      document.getElementById('cta-explore').textContent = ctaL.explore;
+      document.getElementById('cta-dismiss').textContent = ctaL.dismiss;
+
+      // CTA nudge after 8 seconds
+      const cta = document.getElementById('comp-cta');
+      let ctaDismissed = false;
+      if (!ctaDismissed) {
+        setTimeout(() => {
+          compToggle.classList.add('glow');
+          setTimeout(() => {
+            cta.classList.add('show');
+          }, 2000);
+          setTimeout(() => { compToggle.classList.remove('glow'); }, 4500);
+        }, 8000);
+      }
+      document.getElementById('cta-explore')?.addEventListener('click', () => {
+        cta.classList.remove('show');
+        ctaDismissed = true;
+        compOverlay.classList.add('open');
+      });
+      document.getElementById('cta-dismiss')?.addEventListener('click', () => {
+        cta.classList.remove('show');
+        ctaDismissed = true;
+      });
+
+      // Open compositor overlay
+      compToggle.addEventListener('click', () => {
+        cta.classList.remove('show');
+        ctaDismissed = true;
+        compOverlay.classList.add('open');
+        // Pass the current document data to the compositor iframe
+        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
+        function tryLoad() {
+          try {
+            const win = compIframe.contentWindow;
+            if (win && win.loadDocumentData) {
+              win.loadDocumentData(docData);
+            } else {
+              setTimeout(tryLoad, 100);
+            }
+          } catch (e) { setTimeout(tryLoad, 100); }
+        }
+        tryLoad();
+      });
+
+      // Auto-open compositor if document has no sections
+      const docSections = JSON.parse(document.getElementById('doc-meta').textContent).sections || [];
+      if (docSections.length === 0) {
+        compOverlay.classList.add('open');
+      }
+    })();
+    </script>
+
+  </body>
+</html>
