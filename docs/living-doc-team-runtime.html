@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Living Docs for Teams - Runtime Capability Model</title>
+<style>
+  :root {
+    --paper: #f6f0e7;
+    --paper-strong: #fffdf9;
+    --ink: #183345;
+    --muted: #5f7282;
+    --line: rgba(24, 51, 69, 0.12);
+    --blue: #2563c6;
+    --teal: #11796f;
+    --amber: #a96b11;
+    --rose: #b75167;
+    --mint: #dcefe7;
+    --sky: #deebfb;
+    --shadow: 0 18px 42px rgba(24, 51, 69, 0.08);
+    --radius-xl: 34px;
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+    --content: 1220px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(circle at top left, rgba(37, 99, 198, 0.10), transparent 26%),
+      radial-gradient(circle at top right, rgba(17, 121, 111, 0.08), transparent 24%),
+      linear-gradient(180deg, #fbf7f1 0%, var(--paper) 100%);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    line-height: 1.52;
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: none;
+  }
+
+  a:hover { text-decoration: underline; }
+
+  code, pre {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  .page {
+    max-width: var(--content);
+    margin: 0 auto;
+    padding: 38px 24px 72px;
+  }
+
+  .hero,
+  .card,
+  .table-card,
+  .callout {
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+  }
+
+  .hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(140deg, rgba(255, 253, 249, 0.98), rgba(225, 240, 252, 0.84));
+  }
+
+  .hero::before,
+  .hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+
+  .hero::before {
+    width: 280px;
+    height: 280px;
+    right: -70px;
+    top: -90px;
+    background: radial-gradient(circle, rgba(37, 99, 198, 0.14), transparent 70%);
+  }
+
+  .hero::after {
+    width: 260px;
+    height: 260px;
+    left: -70px;
+    bottom: -110px;
+    background: radial-gradient(circle, rgba(17, 121, 111, 0.16), transparent 72%);
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
+    padding: 44px;
+    display: grid;
+    gap: 24px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    width: fit-content;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(24, 51, 69, 0.06);
+    color: var(--muted);
+    font: 600 13px/1.1 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1, h2, h3 {
+    margin: 0;
+    line-height: 1.05;
+    font-weight: 700;
+  }
+
+  h1 {
+    font-size: clamp(2.8rem, 5vw, 4.9rem);
+    letter-spacing: -0.045em;
+    max-width: 11ch;
+  }
+
+  h2 {
+    font-size: clamp(1.7rem, 2.7vw, 2.35rem);
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+
+  h3 {
+    font-size: 0.84rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 1.06rem;
+  }
+
+  .lead {
+    max-width: 66ch;
+    font-size: 1.18rem;
+  }
+
+  .summary-grid,
+  .grid-2,
+  .grid-3,
+  .matrix {
+    display: grid;
+    gap: 16px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .summary-card,
+  .mini-card {
+    padding: 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.76);
+  }
+
+  .summary-card strong,
+  .mini-card strong {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .summary-card span,
+  .mini-card span {
+    display: block;
+    font-size: 1.02rem;
+  }
+
+  main {
+    display: grid;
+    gap: 22px;
+    margin-top: 28px;
+  }
+
+  .card {
+    padding: 26px;
+  }
+
+  .callout {
+    padding: 20px 22px;
+    background: linear-gradient(135deg, rgba(220, 239, 231, 0.86), rgba(255, 253, 249, 0.94));
+  }
+
+  .grid-2 {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(24, 51, 69, 0.10);
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--muted);
+    font: 600 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .pill.blue { color: var(--blue); }
+  .pill.teal { color: var(--teal); }
+  .pill.amber { color: var(--amber); }
+  .pill.rose { color: var(--rose); }
+
+  .matrix {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 16px;
+  }
+
+  .matrix-card {
+    padding: 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.74);
+  }
+
+  .matrix-card p {
+    font-size: 0.98rem;
+  }
+
+  .stack-list,
+  .ordered-list {
+    margin: 12px 0 0;
+    padding-left: 20px;
+  }
+
+  .stack-list li + li,
+  .ordered-list li + li {
+    margin-top: 8px;
+  }
+
+  .flow {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  .flow-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .flow-box {
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    background: var(--paper-strong);
+    border: 1px solid var(--line);
+  }
+
+  .arrow {
+    display: grid;
+    place-items: center;
+    color: var(--blue);
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .table-card {
+    overflow: hidden;
+  }
+
+  .table-card header {
+    padding: 20px 22px 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 14px 16px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    color: var(--muted);
+    background: rgba(37, 99, 198, 0.05);
+    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+
+  pre {
+    margin: 14px 0 0;
+    padding: 16px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(24, 51, 69, 0.08);
+    background: rgba(255, 253, 249, 0.96);
+    overflow-x: auto;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .highlight {
+    margin-top: 14px;
+    padding: 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(24, 51, 69, 0.10);
+    background: linear-gradient(135deg, rgba(222, 235, 251, 0.78), rgba(255, 253, 249, 0.92));
+  }
+
+  footer {
+    margin-top: 24px;
+    padding: 0 6px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 1024px) {
+    .summary-grid,
+    .grid-2,
+    .grid-3,
+    .matrix {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 720px) {
+    .page {
+      padding: 20px 14px 48px;
+    }
+
+    .hero-inner,
+    .card {
+      padding: 20px;
+    }
+
+    .summary-grid,
+    .grid-2,
+    .grid-3,
+    .matrix,
+    .flow-row {
+      grid-template-columns: 1fr;
+    }
+
+    .arrow {
+      transform: rotate(90deg);
+      min-height: 24px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="eyebrow">Team Model</div>
+        <h1>Living docs as runtime composition for deep collaborative work</h1>
+        <p class="lead">
+          This page brings together the current discussion about moving from a personal living-doc tool toward a team and organizational system where humans and AI work together over complex sources without redefining access control.
+        </p>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <strong>Type registry</strong>
+            <span>Semantic language for convergence types</span>
+          </div>
+          <div class="summary-card">
+            <strong>Catalog</strong>
+            <span>Shared index of actual living-doc instances</span>
+          </div>
+          <div class="summary-card">
+            <strong>Runtime access</strong>
+            <span>Inherited from existing source systems</span>
+          </div>
+          <div class="summary-card">
+            <strong>LLM role</strong>
+            <span>Compose typed views from reachable sources</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>The core insight</h2>
+        <p>
+          A living doc is not mainly a hand-authored narrative. It is a typed synthesis surface. The type says what kinds of things should converge. The runtime says which sources are actually reachable in this session. The LLM composes the view from that reachable surface.
+        </p>
+        <div class="pill-row">
+          <span class="pill blue">types define structure</span>
+          <span class="pill teal">sources define access</span>
+          <span class="pill amber">LLM performs composition</span>
+          <span class="pill rose">rendered HTML is a snapshot</span>
+        </div>
+      </section>
+
+      <section class="grid-2">
+        <article class="card">
+          <h2>What must stay separate</h2>
+          <div class="matrix">
+            <div class="matrix-card">
+              <h3>Type registry</h3>
+              <p>Defines convergence types, entity types, status sets, and structural contracts.</p>
+            </div>
+            <div class="matrix-card">
+              <h3>Living-doc catalog</h3>
+              <p>Tracks which living docs exist, where they live, who owns them, and how they are synced.</p>
+            </div>
+            <div class="matrix-card">
+              <h3>Source access</h3>
+              <p>Stays in GitHub, Figma, AWS, filesystems, issue trackers, internal systems, and SSO/RBAC.</p>
+            </div>
+            <div class="matrix-card">
+              <h3>Runtime inference</h3>
+              <p>Uses the current session’s real source surface to populate or update typed sections.</p>
+            </div>
+          </div>
+        </article>
+
+        <aside class="callout">
+          <h3>Important correction</h3>
+          <p>
+            The living-doc system should not redefine permissions. It should hook into existing source access systems and inherit what the current session can actually see.
+          </p>
+        </aside>
+      </section>
+
+      <section class="card">
+        <h2>The runtime model</h2>
+        <p>
+          In the current workflow, a session asks for a living doc, the relevant skill is loaded, and the LLM checks which sources it can access now. The quality and completeness of the resulting living doc are therefore functions of runtime capability, not a separate permission model inside the living-doc system.
+        </p>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="flow-box">
+              <h3>1. Declared scope</h3>
+              <p>Goal, project, initiative, lab surface, incident, or research track.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="flow-box">
+              <h3>2. Type language</h3>
+              <p>The convergence registry defines which semantic shapes are available.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-box">
+              <h3>3. Runtime capability surface</h3>
+              <p>The session resolves what GitHub repos, Figma files, logs, AWS accounts, datasets, notebooks, or APIs it can actually reach.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="flow-box">
+              <h3>4. Composition</h3>
+              <p>The LLM gathers entities from reachable sources and fills typed sections with explicit evidence and gaps.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Why this matters for teams</h2>
+        <p>
+          Once humans, teams, org units, and AI are all doing deep work together, source management becomes a complexity surface of its own. A living-doc system only helps if it compresses that complexity rather than reproducing it.
+        </p>
+        <ul class="stack-list">
+          <li>Rendered docs are useful snapshots, but not the authority layer.</li>
+          <li>The catalog is the authority for which living docs exist.</li>
+          <li>The type registry is the authority for what kinds of typed surfaces can exist.</li>
+          <li>Runtime access determines what an agent can populate in a given session.</li>
+          <li>Missing access should surface as incomplete coverage, not be hidden behind false completeness.</li>
+        </ul>
+      </section>
+
+      <section class="table-card">
+        <header>
+          <h2>What the system should and should not do</h2>
+          <p>Keep the role boundaries explicit so the system does not become a second governance layer.</p>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>Concern</th>
+              <th>Should do</th>
+              <th>Should not do</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Type system</td>
+              <td>Define semantic convergence contracts</td>
+              <td>Carry environment-specific access rules</td>
+            </tr>
+            <tr>
+              <td>Catalog</td>
+              <td>Track actual living-doc instances and ownership</td>
+              <td>Redefine source permissions</td>
+            </tr>
+            <tr>
+              <td>Runtime</td>
+              <td>Resolve what sources are reachable now</td>
+              <td>Pretend coverage exists where access is missing</td>
+            </tr>
+            <tr>
+              <td>Rendered artifact</td>
+              <td>Provide portable, self-contained snapshots</td>
+              <td>Become the canonical authority</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>The missing layer: a pre-scan skill</h2>
+        <p>
+          Before a living doc is created or extended, a pre-scan skill should inspect the available source surface in light of organizational goals, objectives, and active work. It should discover which convergences are worth turning into living-doc sections or entirely new docs.
+        </p>
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="mini-card">
+            <strong>Inputs</strong>
+            <span>Org goals, project context, active work, current source access, existing type registry, current living-doc catalog</span>
+          </div>
+          <div class="mini-card">
+            <strong>Outputs</strong>
+            <span>Proposed scopes, candidate convergence types, source coverage, missing connectors, extend-vs-create recommendation</span>
+          </div>
+        </div>
+        <ol class="ordered-list">
+          <li>Inspect current goals and objectives.</li>
+          <li>Scan the runtime capability surface.</li>
+          <li>Detect meaningful source combinations.</li>
+          <li>Match them to existing convergence types.</li>
+          <li>Identify where a new type may be emerging.</li>
+          <li>Recommend a new living doc, an extension to an existing one, or no doc at all.</li>
+        </ol>
+      </section>
+
+      <section class="grid-2">
+        <article class="card">
+          <h2>Lab example</h2>
+          <p>
+            Imagine a research manager using a local model over experiment logs, hardware traces, researcher artifacts, notebooks, code repos, and issue trackers. The model does not need a new permission system. It needs runtime access to those sources through whatever the lab already uses.
+          </p>
+          <div class="highlight">
+            <h3>Possible living-doc surfaces</h3>
+            <ul class="stack-list">
+              <li><strong>Experiment integrity surface</strong> — run logs, anomalies, reruns, notes</li>
+              <li><strong>Hardware readiness surface</strong> — calibration, incidents, maintenance, constraints</li>
+              <li><strong>Reproducibility surface</strong> — code version, dataset, config, outputs, validation state</li>
+              <li><strong>Result-evidence surface</strong> — plots, interpretations, decision records, open doubts</li>
+            </ul>
+          </div>
+        </article>
+
+        <aside class="card">
+          <h2>Runtime coverage matters</h2>
+          <p>
+            Two agents may create the same conceptual living doc with different completeness because their accessible source surfaces differ. That is not a flaw. It just has to be explicit.
+          </p>
+          <pre>requested surface: reproducibility
+expected sources:
+  - run logs
+  - code repo
+  - dataset snapshot
+  - analysis notebook
+
+runtime coverage:
+  - run logs: yes
+  - code repo: yes
+  - dataset snapshot: partial
+  - analysis notebook: no access</pre>
+        </aside>
+      </section>
+
+      <section class="card">
+        <h2>What this means for a team version</h2>
+        <p>
+          A team version of the system should not be understood as a shared folder of HTML files. It should be understood as a shared typed reasoning substrate built from three cooperating layers.
+        </p>
+        <div class="grid-3" style="margin-top:16px;">
+          <div class="mini-card">
+            <strong>Semantic layer</strong>
+            <span>Convergence registry stays small, explicit, and inference-strong.</span>
+          </div>
+          <div class="mini-card">
+            <strong>Instance layer</strong>
+            <span>Catalog tracks actual living docs, scope, ownership, and freshness.</span>
+          </div>
+          <div class="mini-card">
+            <strong>Runtime layer</strong>
+            <span>Skills and agents compose from the actual source capability surface of the current session.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Current anchor points in this repo</h2>
+        <ul class="stack-list">
+          <li><strong>Type registry</strong>: <code>scripts/living-doc-registry.json</code></li>
+          <li><strong>Catalog-driven overview renderer</strong>: <code>scripts/render-registry-overview.mjs</code></li>
+          <li><strong>Current catalog source</strong>: <code>~/.gtd/living-docs.json</code></li>
+          <li><strong>Standalone compositor</strong>: <code>docs/living-doc-compositor.html</code></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      Static discussion synthesis page for the team/runtime direction of the living-doc system.
+    </footer>
+  </div>
+</body>
+</html>

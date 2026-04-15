@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Living Docs as Shared, Access-Tolerant Reasoning Spaces</title>
+<style>
+  :root {
+    --paper: #f6f1e8;
+    --paper-strong: #fffdf8;
+    --ink: #183244;
+    --muted: #617383;
+    --line: rgba(24, 50, 68, 0.12);
+    --blue: #255fc4;
+    --teal: #0f7a72;
+    --amber: #ab6a10;
+    --rose: #b34f66;
+    --mint: #dcefe6;
+    --sky: #dfeafb;
+    --shadow: 0 18px 42px rgba(24, 50, 68, 0.08);
+    --radius-xl: 34px;
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+    --content: 1180px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(circle at top left, rgba(37, 95, 196, 0.10), transparent 26%),
+      radial-gradient(circle at top right, rgba(15, 122, 114, 0.08), transparent 24%),
+      linear-gradient(180deg, #fbf7f0 0%, var(--paper) 100%);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    line-height: 1.55;
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: none;
+  }
+
+  a:hover { text-decoration: underline; }
+
+  code, pre {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  .page {
+    max-width: var(--content);
+    margin: 0 auto;
+    padding: 38px 24px 72px;
+  }
+
+  .hero,
+  .card,
+  .quote-card,
+  .callout,
+  .table-card {
+    background: rgba(255, 255, 255, 0.76);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+  }
+
+  .hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(140deg, rgba(255, 253, 248, 0.98), rgba(224, 239, 252, 0.84));
+  }
+
+  .hero::before,
+  .hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+
+  .hero::before {
+    width: 280px;
+    height: 280px;
+    right: -80px;
+    top: -100px;
+    background: radial-gradient(circle, rgba(37, 95, 196, 0.14), transparent 70%);
+  }
+
+  .hero::after {
+    width: 260px;
+    height: 260px;
+    left: -70px;
+    bottom: -110px;
+    background: radial-gradient(circle, rgba(15, 122, 114, 0.15), transparent 72%);
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
+    padding: 46px;
+    display: grid;
+    gap: 24px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    width: fit-content;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(24, 50, 68, 0.06);
+    color: var(--muted);
+    font: 600 13px/1.1 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1, h2, h3 {
+    margin: 0;
+    line-height: 1.05;
+    font-weight: 700;
+  }
+
+  h1 {
+    font-size: clamp(2.8rem, 5vw, 5rem);
+    letter-spacing: -0.045em;
+    max-width: 11ch;
+  }
+
+  h2 {
+    font-size: clamp(1.7rem, 2.7vw, 2.3rem);
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+
+  h3 {
+    font-size: 0.84rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 1.06rem;
+  }
+
+  .lead {
+    max-width: 66ch;
+    font-size: 1.18rem;
+  }
+
+  .summary-grid,
+  .grid-2,
+  .grid-3 {
+    display: grid;
+    gap: 16px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .summary-card,
+  .mini-card {
+    padding: 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .summary-card strong,
+  .mini-card strong {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .summary-card span,
+  .mini-card span {
+    display: block;
+    font-size: 1.02rem;
+  }
+
+  main {
+    display: grid;
+    gap: 22px;
+    margin-top: 28px;
+  }
+
+  .card,
+  .quote-card,
+  .callout {
+    padding: 26px;
+  }
+
+  .quote-card {
+    background: linear-gradient(135deg, rgba(223, 234, 251, 0.78), rgba(255, 253, 248, 0.94));
+  }
+
+  blockquote {
+    margin: 0;
+    font-size: clamp(1.55rem, 2.3vw, 2.25rem);
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+  }
+
+  .quote-note {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 1rem;
+  }
+
+  .callout {
+    background: linear-gradient(135deg, rgba(220, 239, 230, 0.86), rgba(255, 253, 248, 0.94));
+  }
+
+  .grid-2 {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(24, 50, 68, 0.10);
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--muted);
+    font: 600 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .pill.blue { color: var(--blue); }
+  .pill.teal { color: var(--teal); }
+  .pill.amber { color: var(--amber); }
+  .pill.rose { color: var(--rose); }
+
+  .stack-list,
+  .ordered-list {
+    margin: 12px 0 0;
+    padding-left: 20px;
+  }
+
+  .stack-list li + li,
+  .ordered-list li + li {
+    margin-top: 8px;
+  }
+
+  .flow {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  .flow-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .flow-box {
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    background: var(--paper-strong);
+    border: 1px solid var(--line);
+  }
+
+  .arrow {
+    display: grid;
+    place-items: center;
+    color: var(--blue);
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .table-card {
+    overflow: hidden;
+  }
+
+  .table-card header {
+    padding: 20px 22px 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 14px 16px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    color: var(--muted);
+    background: rgba(37, 95, 196, 0.05);
+    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+
+  .highlight {
+    margin-top: 14px;
+    padding: 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(24, 50, 68, 0.10);
+    background: linear-gradient(135deg, rgba(223, 234, 251, 0.76), rgba(255, 253, 248, 0.92));
+  }
+
+  footer {
+    margin-top: 24px;
+    padding: 0 6px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 1024px) {
+    .summary-grid,
+    .grid-2,
+    .grid-3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 720px) {
+    .page {
+      padding: 20px 14px 48px;
+    }
+
+    .hero-inner,
+    .card,
+    .quote-card,
+    .callout {
+      padding: 20px;
+    }
+
+    .summary-grid,
+    .grid-2,
+    .grid-3,
+    .flow-row {
+      grid-template-columns: 1fr;
+    }
+
+    .arrow {
+      transform: rotate(90deg);
+      min-height: 24px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="eyebrow">Working Formulation</div>
+        <h1>Living docs as shared, access-tolerant reasoning spaces</h1>
+        <p class="lead">
+          This page captures a central formulation for the living-doc system: it is not only for sharing status, and not only for generating typed documents. It is for creating a common reasoning surface around organizational objectives, even when different people and local AIs do not share the same source access.
+        </p>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <strong>Shared</strong>
+            <span>A common surface for management, implementers, and collaborators</span>
+          </div>
+          <div class="summary-card">
+            <strong>Access-tolerant</strong>
+            <span>Useful even when source visibility differs across actors</span>
+          </div>
+          <div class="summary-card">
+            <strong>Reasoning space</strong>
+            <span>Supports joint interpretation, planning, and coordination</span>
+          </div>
+          <div class="summary-card">
+            <strong>Objective-linked</strong>
+            <span>Anchored in what the organization is trying to achieve</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="quote-card">
+        <h2>The formulation</h2>
+        <blockquote>
+          It is for creating shared, access-tolerant reasoning spaces around organizational objectives
+        </blockquote>
+        <p class="quote-note">
+          This is stronger than “dashboard”, “report”, or “documentation layer”. It describes the living doc as a place where differently situated actors can think together about the same work.
+        </p>
+      </section>
+
+      <section class="grid-2">
+        <article class="card">
+          <h2>What happens in practice today</h2>
+          <p>
+            A living doc is shared with team members and management as an overview of the current state of affairs. Some people have direct access to GitHub tickets and underlying systems. Others do not. Yet both can still reason productively on the same living doc, including with their own local Claude Code sessions.
+          </p>
+          <div class="pill-row">
+            <span class="pill blue">same doc</span>
+            <span class="pill teal">different source access</span>
+            <span class="pill amber">local AI reasoning</span>
+            <span class="pill rose">shared objective surface</span>
+          </div>
+        </article>
+
+        <aside class="callout">
+          <h3>Important implication</h3>
+          <p>
+            The living doc is already functioning as an organizational abstraction layer. It lets people reason together over a typed operational view without requiring identical permissions on the underlying systems.
+          </p>
+        </aside>
+      </section>
+
+      <section class="card">
+        <h2>What makes this different from ordinary reporting</h2>
+        <ul class="stack-list">
+          <li>The living doc is not just a passive status display.</li>
+          <li>It is a structured surface on which people and AI can interpret evidence together.</li>
+          <li>It allows reasoning to begin from the same typed view even when deeper source access differs.</li>
+          <li>It helps management, implementers, and partial-access collaborators stay aligned on the same objectives.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Why access-tolerant matters</h2>
+        <p>
+          In a real organization, people do not all have the same visibility. Some have ticket access, some only see summaries, some can inspect repos, some can inspect cloud systems, and some only see the resulting artifacts. If the living doc can still serve as a common reasoning surface across those asymmetries, it becomes strategically useful.
+        </p>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="flow-box">
+              <h3>Source systems</h3>
+              <p>GitHub, Figma, AWS, logs, notebooks, issue trackers, internal tools</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="flow-box">
+              <h3>Typed living doc</h3>
+              <p>A convergent view that brings the relevant evidence together in a stable structure</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-box">
+              <h3>Different actors</h3>
+              <p>Management, implementers, collaborators, researchers, local AI agents</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="flow-box">
+              <h3>Shared reasoning</h3>
+              <p>A common substrate for discussing progress, blockers, interpretation, and next moves</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="table-card">
+        <header>
+          <h2>What the living doc provides to different actors</h2>
+          <p>Not everyone needs the same access to reason from the same surface.</p>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th>Actor</th>
+              <th>May have</th>
+              <th>Uses the living doc for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Management</td>
+              <td>Partial source visibility</td>
+              <td>Understand whether objectives are being reached and where coordination is needed</td>
+            </tr>
+            <tr>
+              <td>Implementers</td>
+              <td>Deep repo and ticket access</td>
+              <td>Connect operational detail to broader objective and shared direction</td>
+            </tr>
+            <tr>
+              <td>Collaborators</td>
+              <td>Limited system access</td>
+              <td>Reason over the shaped work surface without needing full raw source access</td>
+            </tr>
+            <tr>
+              <td>Local AI in a session</td>
+              <td>Whatever the current runtime can reach</td>
+              <td>Interpret, update, extend, and reason from the typed surface</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="grid-2">
+        <article class="card">
+          <h2>What must be true for this to work well</h2>
+          <ul class="stack-list">
+            <li>Type semantics need to stay strong and explicit.</li>
+            <li>The living doc should show enough provenance that people know what they are looking at.</li>
+            <li>The document should make scope visible, so people know what it covers and what it does not.</li>
+            <li>Coverage limits should not be hidden when runtime access is partial.</li>
+            <li>The doc should remain useful as a reasoning surface even for actors who cannot drill into every source.</li>
+          </ul>
+        </article>
+
+        <aside class="card">
+          <h2>What should not happen</h2>
+          <div class="highlight">
+            <h3>Wrong direction</h3>
+            <p>
+              The living-doc system should not turn into a second permission model or a hidden source proxy that pretends everyone sees the same truth. Its value comes from making joint reasoning possible despite asymmetry, not from erasing the asymmetry.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="card">
+        <h2>Why this matters for organizational objectives</h2>
+        <p>
+          Objectives are usually achieved through complex, distributed work. The people accountable for those objectives often do not have the same operational visibility as the people implementing the details. A living doc helps bridge that gap by creating a typed surface where objective-level reasoning and implementation-level evidence can meet.
+        </p>
+        <div class="grid-3" style="margin-top:16px;">
+          <div class="mini-card">
+            <strong>Objective level</strong>
+            <span>Are we moving toward the intended organizational outcome</span>
+          </div>
+          <div class="mini-card">
+            <strong>Operational level</strong>
+            <span>What is actually built, blocked, drifting, or unresolved</span>
+          </div>
+          <div class="mini-card">
+            <strong>Reasoning level</strong>
+            <span>What should be interpreted, escalated, or done next</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Stronger restatement</h2>
+        <p>
+          A living doc is not only a document generated from multiple sources. It is a deliberate operational surface that allows differently situated humans and local AIs to reason together about the same objective, even when their access to the underlying systems is unequal.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Static concept page centered on the formulation of living docs as shared, access-tolerant reasoning spaces.
+    </footer>
+  </div>
+</body>
+</html>
