@@ -1,101 +1,151 @@
 # Living Doc Compositor
 
-**Squeeze the intel out of that token.**
+**Stop paying the hidden cost of fragmented work.**
 
-A living doc brings scattered work — designs, code, tickets, workflows, decisions — into one structured page that stays connected to the sources. The compositor is the tool that lets you define, render, and share those documents.
+Designs live in Figma. Code in the repo. Decisions in Slack. A living doc converges those sources into one structured page, still anchored to where they actually live. Complete, current, immediately usable. For humans and AI.
 
-## What it does
+Landing: https://triadflow.github.io/living-doc-compositor/
 
-- **Compose** living doc structures from convergence types — typed combinations of source entities
-- **Render** any living doc with one universal command
-- **Share** a single HTML file that is both the document and the tool
-- **Grow** the structure over time as new patterns emerge from work
-
-Every rendered document has the full compositor embedded. Recipients see the content, click the pencil icon, and can explore the tool, modify the structure, or create their own.
-
-## Quick start
+## Get running in 60 seconds
 
 ```bash
-# Render a living doc
-node scripts/render-living-doc.mjs docs/my-doc.json
+git clone https://github.com/triadflow/living-doc-compositor
+cd living-doc-compositor
 
-# Render the current registry overview
-node scripts/render-registry-overview.mjs
+# Render the empty template
+node scripts/render-living-doc.mjs docs/living-doc-empty.json
 
-# Serve the compositor with library discovery
-cd docs && python3 -m http.server 8111
-# Open http://localhost:8111/living-doc-compositor.html
-
-# Or just open the compositor directly
+# Open the compositor
 open docs/living-doc-compositor.html
 ```
 
-## How it works
+No install. No dependencies. Node 18+ for the renderer, a browser for everything else.
 
-Three fundamentals:
+## What you just saw
+
+Two self-contained HTML files, each one both a document and a tool:
+
+- `docs/living-doc-empty.html`: an empty rendered living doc, structure only
+- `docs/living-doc-compositor.html`: the authoring tool (also embedded in every rendered doc)
+
+Click the pencil icon in any rendered doc to open the compositor inline.
+
+## The model
+
+Three concepts. That's the whole thing.
 
 | | |
 |---|---|
-| **Entity** | Has identity, has own properties. A Figma page, a ticket, a code file, an API endpoint. |
-| **Edge** | A typed relationship between entities. Implements, specifies, tests, deploys. |
-| **Scope** | A named convergence of entities. No own properties — borrows them from its sources. |
+| **Entity** | Has identity, has own properties. A Figma page, a ticket, a code file. |
+| **Edge** | A typed relationship. Implements, specifies, tests, deploys. |
+| **Scope** | A named convergence of entities. No own properties. Borrows them from its sources. |
 
-A **convergence type** is a specific combination of source entity types. The combination *is* the type. The visual projection (card grid or edge table) follows automatically — there is no layout choice.
+A **convergence type** is a specific combination of source entity types. The combination *is* the type. The visual projection (card grid or edge table) derives automatically.
 
-## Convergence types
+## Make your own living doc
 
-Eight types ship with the registry:
+Copy a starter, edit the JSON, render.
 
-| Type | Sources | Projection |
-|------|---------|-----------|
-| Design–Code–Spec Flow | Figma pages, code files, UX specs, interactions, tickets | Card grid |
-| Component Status | Code paths, tickets | Card grid |
-| Design–Implementation Alignment | Figma nodes ↔ code files, with status on the edge | Edge table |
-| Deployment Verification | Pages, interactions, automation, APIs, tickets | Card grid |
-| Mediated Operation | Workflows, inputs, tickets | Card grid |
-| Stack-Depth Integration | Figma nodes, screens, hooks, services, contracts | Card grid |
-| Behavior Fidelity | Figma nodes, code paths, expected vs actual behavior | Card grid |
-| Decision Record | Tickets, status, notes | Edge table |
+```bash
+cp docs/living-doc-template-starter-ship-feature.json docs/my-feature.json
 
-Adding a new type = one JSON entry in `scripts/living-doc-registry.json`. No code changes.
+# Edit title, scope, sources, status in your editor
+# Then render:
+node scripts/render-living-doc.mjs docs/my-feature.json
 
-## Files
+open docs/my-feature.html
+```
+
+Starters available:
+
+| Starter | For |
+|---|---|
+| `living-doc-template-starter-ship-feature.json` | Shipping a feature end-to-end |
+| `living-doc-template-starter-prove-claim.json` | Defending a single claim with evidence |
+| `living-doc-template-starter-run-support-ops.json` | Running support and operations |
+| `living-doc-template-starter-write-book.json` | Drafting long-form without losing chapter focus |
+
+Full templates (more depth): `architect-manuscript`, `map-themes-storylines`, `operations-support`, `proof-canonicality`, `surface-delivery`. All in `docs/`.
+
+## Add a convergence type
+
+One entry in `scripts/living-doc-registry.json`. No code changes, no renderer updates.
+
+```json
+{
+  "convergenceTypes": {
+    "my-new-type": {
+      "title": "My New Type",
+      "category": "delivery",
+      "sources": ["code-file", "ticket", "figma-page"],
+      "projection": "card-grid",
+      "statusSet": "delivery-status"
+    }
+  }
+}
+```
+
+The renderer reads this on every render. Re-render any doc and the new type is available.
+
+See `docs/living-doc-registry-overview.html` (also live at the Pages URL) for the 26 convergence types, 19 entity types, and 15 status sets that ship with the registry.
+
+## Working with agents
+
+Two Claude Code skills in `.claude/skills/`:
+
+| Skill | Purpose |
+|---|---|
+| `/living-doc` | Connects a session to the relevant living doc. Shows what's stale, updates sections during work. |
+| `/convergence-advisor` | Helps discover which type fits a new domain through dialog. Writes registry entries for you. |
+
+The living doc itself is a plain HTML file, so any agent (Claude Code, OpenAI Codex, Cursor, etc.) can read it. The skills package is what turns the doc into a stable starting point for a session rather than rediscovery.
+
+## Share a doc
+
+One file. The recipient gets content and tool in the same artifact.
+
+```bash
+# Attach to email, drop into Slack, upload anywhere that serves HTML
+cp docs/my-feature.html /path/to/destination/
+```
+
+No backend. No account. No install. Works offline.
+
+To share just the tool with no proprietary data, click **Share tool** in the compositor header.
+
+## Serve locally (optional)
+
+Needed for library discovery (one doc finding its siblings). Open any file directly otherwise.
+
+```bash
+cd docs && python3 -m http.server 8111
+# http://localhost:8111/living-doc-compositor.html
+```
+
+## Project layout
 
 ```
 scripts/
-  living-doc-registry.json    # Convergence types, entity types, status sets
-  living-doc-i18n.json        # UI strings (EN, NL, ID)
-  render-living-doc.mjs       # Universal renderer
-  render-registry-overview.mjs # Registry-to-HTML overview generator
+  living-doc-registry.json       # Convergence types, entity types, status sets
+  living-doc-i18n.json           # UI strings (EN, NL, ID)
+  render-living-doc.mjs          # Universal renderer
+  render-registry-overview.mjs   # Registry-to-HTML overview generator
 
 docs/
-  living-doc-compositor.html  # Standalone compositor GUI
-  living-doc-empty.json       # Empty document template
-  living-doc-empty.html       # Empty rendered deliverable
-  living-doc-registry-overview.html # Generated registry overview page
+  index.html                              # Landing page
+  living-doc-compositor.html              # Standalone compositor GUI
+  living-doc-registry-overview.html       # Registry overview (generated)
+  living-doc-empty.html / .json           # Empty template
+  living-doc-template-starter-*.html/json # 4 starters
+  living-doc-template-*.html / .json      # 5 full templates
+  compositor-development-overview.html    # Active dev overview doc
+  assets/landing/                         # Landing page screenshots
 ```
 
 ## Internationalization
 
-The compositor and all rendered documents support English, Dutch, and Indonesian. Language auto-detects from the browser. Adding a language = adding a key to `scripts/living-doc-i18n.json`.
-
-## Skills
-
-Two skills for LLM-assisted workflows:
-
-**`/living-doc`** — Connects a session to the relevant living docs. Shows what exists, what's stale, and updates sections as part of ongoing work. The bootstrap.
-
-**`/convergence-advisor`** — Helps discover which convergence types fit a domain through dialog. Shows existing types as examples, identifies new patterns, writes registry entries. The thinking partner.
-
-## Sharing
-
-Two ways to share:
-
-1. **With a document** — Render your living doc to HTML. The recipient sees the content and has the full compositor embedded.
-2. **Without a document** — Click "Share tool" in the compositor header. Downloads a clean HTML with just the tool — no proprietary data.
-
-Both produce a single self-contained HTML file. No server, no install, no dependencies.
+English, Dutch, Indonesian ship by default. The compositor and all rendered docs auto-detect the browser language. Add a language by adding a key to `scripts/living-doc-i18n.json`. No code changes.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Free to use, modify, and share.
