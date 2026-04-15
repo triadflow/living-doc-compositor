@@ -98,4 +98,4 @@ Both produce a single self-contained HTML file. No server, no install, no depend
 
 ## License
 
-Private. All rights reserved.
+MIT. See [LICENSE](LICENSE).
