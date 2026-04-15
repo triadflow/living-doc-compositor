@@ -142,6 +142,10 @@ docs/
   assets/landing/                         # Landing page screenshots
 ```
 
+## Companion mobile app
+
+`mobile/` contains a small Expo app (iOS + Android) that lists your living docs, opens them in-app, and receives push notifications from GitHub Actions. GitHub-mobile-style UX. See [mobile/README.md](mobile/README.md) for setup.
+
 ## Internationalization
 
 English, Dutch, Indonesian ship by default. The compositor and all rendered docs auto-detect the browser language. Add a language by adding a key to `scripts/living-doc-i18n.json`. No code changes.

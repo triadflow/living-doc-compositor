@@ -1,0 +1,75 @@
+# Template workflow: sends a push notification to the Living Docs mobile app
+# when triggered (manually or by living-doc skills via `gh workflow run` /
+# `repository_dispatch`).
+#
+# Setup:
+#   1. Open the mobile app, copy the Expo push token from Settings.
+#   2. Repo Settings -> Secrets and variables -> Actions -> New repository secret
+#      Name: EXPO_PUSH_TOKEN
+#      Value: the token you copied (starts with ExponentPushToken[...] )
+#   3. To fire: gh workflow run living-doc-notify.yml \
+#        -f title="Ship Feature updated" \
+#        -f body="Status snapshot now green" \
+#        -f doc=living-doc-template-starter-ship-feature.html
+#
+# Later: living-doc skills will dispatch this workflow automatically when a
+# living doc changes state.
+
+name: Living Doc Notify
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Notification title"
+        required: true
+        type: string
+      body:
+        description: "Notification body"
+        required: true
+        type: string
+      doc:
+        description: "Rendered doc filename under /docs (e.g. my-feature.html)"
+        required: false
+        type: string
+  repository_dispatch:
+    types: [living-doc-updated]
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Expo push
+        env:
+          EXPO_PUSH_TOKEN: ${{ secrets.EXPO_PUSH_TOKEN }}
+          TITLE: ${{ inputs.title || github.event.client_payload.title }}
+          BODY: ${{ inputs.body || github.event.client_payload.body }}
+          DOC: ${{ inputs.doc || github.event.client_payload.doc }}
+        run: |
+          if [ -z "$EXPO_PUSH_TOKEN" ]; then
+            echo "EXPO_PUSH_TOKEN secret is not configured; add it in repo Settings."
+            exit 1
+          fi
+
+          PAGES_BASE="https://triadflow.github.io/living-doc-compositor/"
+          URL=""
+          if [ -n "$DOC" ]; then URL="${PAGES_BASE}${DOC}"; fi
+
+          payload=$(jq -n \
+            --arg to "$EXPO_PUSH_TOKEN" \
+            --arg title "$TITLE" \
+            --arg body "$BODY" \
+            --arg url "$URL" \
+            --arg docTitle "$DOC" \
+            '{
+              to: $to,
+              title: $title,
+              body: $body,
+              sound: "default",
+              data: ($url | if . == "" then {} else { url: $url, title: $docTitle } end)
+            }')
+
+          curl -sS -X POST https://exp.host/--/api/v2/push/send \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -d "$payload"
