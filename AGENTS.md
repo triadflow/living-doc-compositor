@@ -18,6 +18,16 @@ node scripts/render-registry-overview.mjs
 ```
 This produces `docs/living-doc-registry-overview.html`, a self-contained HTML overview of the current registry types.
 
+### When asked to find or re-render an existing living doc
+Check `~/.gtd/living-docs.json` first. This is the catalog of known living docs across repos, and entries include the owning repo, the rendered HTML path, and the sync skill.
+
+If a catalog entry points to an HTML file like `/path/to/doc.html`, the source JSON is usually the sibling `/path/to/doc.json`. Render that JSON with this repo's renderer:
+```bash
+node scripts/render-living-doc.mjs /absolute/path/to/doc.json
+```
+
+Do not assume every living doc lives in this repo. The registry defines document types; the catalog in `~/.gtd/living-docs.json` tells you where actual documents live.
+
 ### When asked to add a convergence type
 Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes`. Define: name, icon (SVG path), projection (card-grid or edge-table), sources (entity types), statusFields, and optionally textFields/detailsFields. No code changes needed.
 

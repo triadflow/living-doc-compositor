@@ -1283,7 +1283,7 @@
       &quot;guide&quot;: &quot;Guide&quot;,
       &quot;newDoc&quot;: &quot;New document&quot;,
       &quot;promptBuilder&quot;: &quot;Prompt Builder&quot;,
-      &quot;promptIntro&quot;: &quot;Turn the current living doc into a copy-paste prompt that asks a code agent to build a reusable skill package.&quot;,
+      &quot;promptIntro&quot;: &quot;Copy one fixed prompt that includes the current document structure and payload for skill generation.&quot;,
       &quot;promptTargetLabel&quot;: &quot;Target&quot;,
       &quot;promptAdapterGeneral&quot;: &quot;Portable&quot;,
       &quot;promptAdapterCodex&quot;: &quot;Codex&quot;,
@@ -1443,7 +1443,7 @@
       &quot;guide&quot;: &quot;Handleiding&quot;,
       &quot;newDoc&quot;: &quot;Nieuw document&quot;,
       &quot;promptBuilder&quot;: &quot;Promptbouwer&quot;,
-      &quot;promptIntro&quot;: &quot;Zet het huidige living doc om in een kopieerbare prompt die een code-agent vraagt een herbruikbaar skill-pakket te bouwen.&quot;,
+      &quot;promptIntro&quot;: &quot;Kopieer één vaste prompt die de huidige documentstructuur en payload bevat voor skill-generatie.&quot;,
       &quot;promptTargetLabel&quot;: &quot;Doel&quot;,
       &quot;promptAdapterGeneral&quot;: &quot;Draagbaar&quot;,
       &quot;promptAdapterCodex&quot;: &quot;Codex&quot;,
@@ -1603,7 +1603,7 @@
       &quot;guide&quot;: &quot;Panduan&quot;,
       &quot;newDoc&quot;: &quot;Dokumen baru&quot;,
       &quot;promptBuilder&quot;: &quot;Pembangun Prompt&quot;,
-      &quot;promptIntro&quot;: &quot;Ubah living doc saat ini menjadi prompt salin-tempel yang meminta agen kode membangun paket skill yang dapat dipakai ulang.&quot;,
+      &quot;promptIntro&quot;: &quot;Salin satu prompt tetap yang memuat struktur dokumen saat ini dan payload untuk pembuatan skill.&quot;,
       &quot;promptTargetLabel&quot;: &quot;Target&quot;,
       &quot;promptAdapterGeneral&quot;: &quot;Portabel&quot;,
       &quot;promptAdapterCodex&quot;: &quot;Codex&quot;,
@@ -1743,9 +1743,6 @@
         successCondition: state.successCondition,
         docExtras: state.docExtras,
         sections: state.sections,
-        promptAdapter: state.promptAdapter,
-        promptScope: state.promptScope,
-        promptPayloadMode: state.promptPayloadMode,
         locale,
       }));
     } catch {}
@@ -1764,9 +1761,6 @@
         state.successCondition = s.successCondition || &#39;&#39;;
         state.docExtras = s.docExtras || {};
         state.sections = s.sections || [];
-        if ([&#39;general&#39;, &#39;codex&#39;, &#39;claude&#39;].includes(s.promptAdapter)) state.promptAdapter = s.promptAdapter;
-        if ([&#39;document&#39;, &#39;focused&#39;].includes(s.promptScope)) state.promptScope = s.promptScope;
-        if ([&#39;structure-only&#39;, &#39;structure-and-data&#39;].includes(s.promptPayloadMode)) state.promptPayloadMode = s.promptPayloadMode;
         if (s.locale &amp;&amp; LOCALES[s.locale]) locale = s.locale;
         return true;
       }
@@ -1778,7 +1772,7 @@
   let REGISTRY = null;
   let library = []; // discovered JSON docs in the same folder
   const TEMPLATE_FILENAME_PREFIX = &#39;living-doc-template-&#39;;
-  const DOC_CORE_KEYS = new Set([&#39;title&#39;, &#39;subtitle&#39;, &#39;brand&#39;, &#39;objective&#39;, &#39;successCondition&#39;, &#39;sections&#39;, &#39;templateMeta&#39;]);
+  const DOC_CORE_KEYS = new Set([&#39;title&#39;, &#39;subtitle&#39;, &#39;brand&#39;, &#39;objective&#39;, &#39;successCondition&#39;, &#39;sections&#39;]);
   const DOC_META_FIELDS = [
     { key: &#39;docId&#39;, aliases: [], labelKey: &#39;docIdLabel&#39;, placeholderKey: &#39;docIdPlaceholder&#39;, multiline: false },
     { key: &#39;scope&#39;, aliases: [&#39;docScope&#39;], labelKey: &#39;scopeLabel&#39;, placeholderKey: &#39;scopePlaceholder&#39;, multiline: false },
@@ -1788,6 +1782,14 @@
     { key: &#39;derivedFrom&#39;, aliases: [&#39;derivedFromSnapshot&#39;, &#39;derivedFromVersion&#39;], labelKey: &#39;derivedFromLabel&#39;, placeholderKey: &#39;derivedFromPlaceholder&#39;, multiline: false },
     { key: &#39;sourceCoverage&#39;, aliases: [], labelKey: &#39;sourceCoverageLabel&#39;, placeholderKey: &#39;sourceCoveragePlaceholder&#39;, multiline: true },
   ];
+  const DOC_META_FIELDS_BY_KEY = Object.fromEntries(DOC_META_FIELDS.map((field) =&gt; [field.key, field]));
+  const DOC_ID_FIELD = DOC_META_FIELDS_BY_KEY.docId;
+  const DOC_SCOPE_FIELD = DOC_META_FIELDS_BY_KEY.scope;
+  const DOC_OWNER_FIELD = DOC_META_FIELDS_BY_KEY.owner;
+  const DOC_VERSION_FIELD = DOC_META_FIELDS_BY_KEY.version;
+  const DOC_CANONICAL_ORIGIN_FIELD = DOC_META_FIELDS_BY_KEY.canonicalOrigin;
+  const DOC_DERIVED_FROM_FIELD = DOC_META_FIELDS_BY_KEY.derivedFrom;
+  const DOC_SOURCE_COVERAGE_FIELD = DOC_META_FIELDS_BY_KEY.sourceCoverage;
   let state = {
     title: &#39;&#39;,
     subtitle: &#39;&#39;,
@@ -1798,9 +1800,6 @@
     sections: [],
     focusedSectionId: null,
     pendingFocusedSectionScroll: false,
-    promptAdapter: &#39;general&#39;,
-    promptScope: &#39;document&#39;,
-    promptPayloadMode: &#39;structure-only&#39;,
     promptCopyState: null,
     leftDrawerScrollTopByMode: {},
     leftDrawerMode: &#39;structure&#39;,
@@ -1840,7 +1839,7 @@
   }
 
   function suggestDocId(doc, fallbackOrigin = &#39;&#39;) {
-    const current = readDocMetaValue(doc, DOC_META_FIELDS[0]);
+    const current = readDocMetaValue(doc, DOC_ID_FIELD);
     if (current) return current;
     const seed = slugifyDocIdSeed(fallbackOrigin.replace(/\.(html|json)$/i, &#39;&#39;)) || slugifyDocIdSeed(doc?.title) || &#39;living-doc&#39;;
     return `doc:${seed}`;
@@ -1921,13 +1920,13 @@
     return {
       docId: suggestDocId(doc, fallbackOrigin),
       title: String(doc?.title ?? &#39;&#39;).trim() || &#39;Untitled Living Doc&#39;,
-      scope: readDocMetaValue(doc, DOC_META_FIELDS[1]),
-      owner: readDocMetaValue(doc, DOC_META_FIELDS[2]),
+      scope: readDocMetaValue(doc, DOC_SCOPE_FIELD),
+      owner: readDocMetaValue(doc, DOC_OWNER_FIELD),
       generatedAt,
-      version: readDocMetaValue(doc, DOC_META_FIELDS[3]),
-      canonicalOrigin: readDocMetaValue(doc, DOC_META_FIELDS[4]) || fallbackOrigin,
-      derivedFrom: readDocMetaValue(doc, DOC_META_FIELDS[5]),
-      sourceCoverage: readDocMetaValue(doc, DOC_META_FIELDS[6]) || describeSourceCoverage(doc?.syncHints),
+      version: readDocMetaValue(doc, DOC_VERSION_FIELD),
+      canonicalOrigin: readDocMetaValue(doc, DOC_CANONICAL_ORIGIN_FIELD) || fallbackOrigin,
+      derivedFrom: readDocMetaValue(doc, DOC_DERIVED_FROM_FIELD),
+      sourceCoverage: readDocMetaValue(doc, DOC_SOURCE_COVERAGE_FIELD) || describeSourceCoverage(doc?.syncHints),
     };
   }
 
@@ -6267,6 +6266,21 @@
   ];
   /* &lt;/generated:embedded-templates&gt; */
   const TEMPLATES = Array.isArray(EMBEDDED_TEMPLATES) ? EMBEDDED_TEMPLATES : [];
+  const PUBLIC_REFERENCE_REPO = Object.freeze({
+    fullName: &#39;triadflow/living-doc-compositor&#39;,
+    url: &#39;https://github.com/triadflow/living-doc-compositor&#39;,
+    referencePaths: Object.freeze([
+      { path: &#39;README.md&#39;, why: &#39;Repository overview, render/share workflow, and top-level file map.&#39; },
+      { path: &#39;docs/how-living-docs-work.md&#39;, why: &#39;Deep conceptual model for entities, edges, scopes, convergence types, and evolution.&#39; },
+      { path: &#39;docs/living-doc-sharing-model.html&#39;, why: &#39;Snapshot, lineage, and portability model for shared living docs.&#39; },
+      { path: &#39;docs/living-doc-team-runtime.html&#39;, why: &#39;Team/runtime operating model for how living docs function in practice.&#39; },
+      { path: &#39;docs/shared-reasoning-spaces.html&#39;, why: &#39;Why living docs are useful as access-tolerant reasoning surfaces across systems.&#39; },
+      { path: &#39;scripts/living-doc-registry.json&#39;, why: &#39;Authoritative registry for convergence types, entity types, and status fields.&#39; },
+      { path: &#39;docs/living-doc-empty.json&#39;, why: &#39;Canonical universal document skeleton and baseline structural shape.&#39; },
+      { path: &#39;scripts/render-living-doc.mjs&#39;, why: &#39;Canonical JSON-to-HTML renderer flow for living docs.&#39; },
+      { path: &#39;docs/living-doc-compositor.html&#39;, why: &#39;Full compositor runtime, editor behavior, and prompt-generation logic.&#39; },
+    ]),
+  });
 
   function getTemplateMeta(template) {
     const meta = template?.templateMeta || template?.json?.templateMeta;
@@ -6290,6 +6304,88 @@
       if (orderCompare !== 0) return orderCompare;
       return String(a?.title || a?.filename || &#39;&#39;).localeCompare(String(b?.title || b?.filename || &#39;&#39;));
     });
+  }
+
+  function collectTemplateKeys(value) {
+    const keys = new Set();
+    const trimmed = String(value ?? &#39;&#39;).trim();
+    if (!trimmed) return keys;
+    keys.add(trimmed);
+    const basename = trimmed.split(&#39;/&#39;).pop();
+    if (basename) keys.add(basename);
+    return keys;
+  }
+
+  function findMatchingTemplate(doc) {
+    const candidateKeys = new Set();
+    [
+      state.originDoc?.filename,
+      doc?.docId,
+      doc?.title,
+      readDocMetaValue(doc, DOC_CANONICAL_ORIGIN_FIELD),
+      readDocMetaValue(doc, DOC_DERIVED_FROM_FIELD),
+    ].forEach((value) =&gt; {
+      collectTemplateKeys(value).forEach((key) =&gt; candidateKeys.add(key));
+    });
+
+    if (candidateKeys.size === 0) return null;
+
+    return TEMPLATES.find((template) =&gt; {
+      const templateKeys = new Set();
+      [
+        template?.filename,
+        template?.htmlFilename,
+        template?.title,
+        template?.json?.docId,
+        template?.json?.title,
+        readDocMetaValue(template?.json, DOC_CANONICAL_ORIGIN_FIELD),
+      ].forEach((value) =&gt; {
+        collectTemplateKeys(value).forEach((key) =&gt; templateKeys.add(key));
+      });
+      return [...candidateKeys].some((key) =&gt; templateKeys.has(key));
+    }) || null;
+  }
+
+  function buildTemplateSemantics(doc) {
+    const template = findMatchingTemplate(doc);
+    if (!template) return null;
+    const meta = getTemplateMeta(template);
+    return compactObject({
+      templateTitle: template.title || template.json?.title,
+      templateFile: template.filename,
+      level: meta.level,
+      useWhen: meta.useWhen,
+      startsWith: Array.isArray(meta.startsWith) ? meta.startsWith : [],
+      growsInto: Array.isArray(meta.growsInto) ? meta.growsInto : [],
+      goodFor: Array.isArray(meta.goodFor) ? meta.goodFor : [],
+      templateSectionTypes: Array.isArray(template.sectionTypes) ? template.sectionTypes : [],
+    });
+  }
+
+  function buildReferenceRepoContext(templateSemantics) {
+    const references = new Map();
+    const addReference = (path, why) =&gt; {
+      const normalizedPath = String(path || &#39;&#39;).trim();
+      const normalizedWhy = String(why || &#39;&#39;).trim();
+      if (!normalizedPath || !normalizedWhy) return;
+      if (!references.has(normalizedPath)) references.set(normalizedPath, { path: normalizedPath, why: normalizedWhy });
+    };
+
+    PUBLIC_REFERENCE_REPO.referencePaths.forEach((entry) =&gt; addReference(entry.path, entry.why));
+    if (templateSemantics?.templateFile) {
+      addReference(
+        templateSemantics.templateFile,
+        &#39;Matched template that gives this document its higher-level workflow identity and growth path.&#39;
+      );
+    }
+
+    return {
+      repo: PUBLIC_REFERENCE_REPO.fullName,
+      url: PUBLIC_REFERENCE_REPO.url,
+      assumePublic: true,
+      useFor: &#39;Use this repo for deeper model context and to check for newer repo-level updates before making repo-specific claims.&#39;,
+      relevantPaths: [...references.values()],
+    };
   }
 
   function templateRow(label, content) {
@@ -6962,21 +7058,6 @@
           focusSection(card.dataset.sectionId);
         });
       });
-      panel.querySelector(&#39;#prompt-adapter&#39;)?.addEventListener(&#39;change&#39;, (event) =&gt; {
-        state.promptAdapter = event.target.value;
-        state.promptCopyState = null;
-        renderRight();
-      });
-      panel.querySelector(&#39;#prompt-scope&#39;)?.addEventListener(&#39;change&#39;, (event) =&gt; {
-        state.promptScope = event.target.value;
-        state.promptCopyState = null;
-        renderRight();
-      });
-      panel.querySelector(&#39;#prompt-payload&#39;)?.addEventListener(&#39;change&#39;, (event) =&gt; {
-        state.promptPayloadMode = event.target.value;
-        state.promptCopyState = null;
-        renderRight();
-      });
       panel.querySelector(&#39;#copy-prompt&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
         copyPromptText();
       });
@@ -7184,10 +7265,7 @@
 
   function buildPromptContext() {
     const json = buildJson();
-    const focusedSection = json.sections.find((section) =&gt; section.id === state.focusedSectionId) || null;
-    const useFocusedSection = state.promptScope === &#39;focused&#39; &amp;&amp; focusedSection;
-    const includeData = state.promptPayloadMode === &#39;structure-and-data&#39;;
-    const registryTypeIds = [...new Set((useFocusedSection ? [focusedSection] : json.sections).map((section) =&gt; section.convergenceType).filter(Boolean))];
+    const registryTypeIds = [...new Set(json.sections.map((section) =&gt; section.convergenceType).filter(Boolean))];
     const registrySlice = Object.fromEntries(registryTypeIds.map((typeId) =&gt; {
       const def = REGISTRY?.convergenceTypes?.[typeId];
       if (!def) return [typeId, null];
@@ -7236,7 +7314,7 @@
         title: section.title,
         convergenceType: section.convergenceType,
         itemBlueprint: section.itemBlueprint || buildSectionItemBlueprint(section),
-        data: includeData ? (section.data || []) : [],
+        data: section.data || [],
       };
       if (section.projection) projected.projection = section.projection;
       if (section.columns) projected.columns = section.columns;
@@ -7246,85 +7324,61 @@
       return projected;
     };
 
-    const payload = useFocusedSection
-      ? {
-          focusedSection: projectSection(focusedSection),
-          documentSectionMap: sectionMap,
-        }
-      : {
-          ...documentIdentity,
-          sections: json.sections.map(projectSection),
-        };
+    const payload = {
+      ...documentIdentity,
+      sections: json.sections.map(projectSection),
+    };
+
+    const templateSemantics = buildTemplateSemantics(json);
+    const referenceRepo = buildReferenceRepoContext(templateSemantics);
 
     return {
-      useFocusedSection,
-      focusedSection,
       documentIdentity,
       sectionMap,
       registrySlice,
       payload,
-      includeData,
+      templateSemantics,
+      referenceRepo,
     };
   }
 
   function buildPromptText() {
     const context = buildPromptContext();
     const jsonBlock = (value) =&gt; `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
-    const adapter = state.promptAdapter;
-    const header = adapter === &#39;codex&#39;
-      ? [
-          &#39;Create a Codex-compatible reusable skill package from the living document below.&#39;,
-          &#39;The result should be directly usable by a future Codex session without having to rediscover the document structure first.&#39;,
-        ]
-      : adapter === &#39;claude&#39;
-        ? [
-            &#39;Create a Claude Code-compatible reusable skill or instruction package from the living document below.&#39;,
-            &#39;Keep the core artifact lean, operational, and easy to drop into a repo or agent workspace without extra rewriting.&#39;,
-          ]
-        : [
-            &#39;Create a portable reusable code-agent skill package from the living document below.&#39;,
-            &#39;Keep the package model-agnostic so it can be adapted to Codex or Claude Code later without changing the domain structure.&#39;,
-          ];
-    const packageRequirements = adapter === &#39;codex&#39;
-      ? [
-          &#39;- Recommend a skill folder name in lowercase hyphen-case and keep it under 64 characters.&#39;,
-          &#39;- Output a compact file tree rooted at that skill folder.&#39;,
-          &#39;- Include `SKILL.md` with YAML frontmatter containing only `name` and `description`.&#39;,
-          &#39;- Make the `description` explicitly say what the skill does and when Codex should use it.&#39;,
-          &#39;- Write the `SKILL.md` body in imperative form.&#39;,
-          &#39;- Include `agents/openai.yaml` only if Codex-facing UI metadata materially helps; if you include it, provide `display_name`, `short_description`, and `default_prompt`.&#39;,
-        ]
-      : adapter === &#39;claude&#39;
-        ? [
-            &#39;- Recommend a concise artifact name and output a compact file tree.&#39;,
-            &#39;- Include one primary instruction file with a clear trigger description and imperative workflow steps.&#39;,
-            &#39;- Add only the supporting files that materially help future Claude Code sessions reuse the workflow.&#39;,
-          ]
-        : [
-            &#39;- Recommend a concise artifact name and output a compact file tree.&#39;,
-            &#39;- Include one primary portable instruction file and only the supporting files that materially help future code-agent sessions.&#39;,
-          ];
+    const header = [
+      &#39;Create a reusable code-agent skill package from the living document below.&#39;,
+      &#39;Use the structure and payload exactly as given so the result can inspect, update, and refresh this document shape without rediscovering it first.&#39;,
+    ];
+    const packageRequirements = [
+      &#39;- Recommend a concise artifact or skill folder name.&#39;,
+      &#39;- Output a compact file tree for the package.&#39;,
+      &#39;- Include one primary instruction file that explains when to use the skill and how to operate it.&#39;,
+      &#39;- Add supporting files only when they materially help future sessions reuse the workflow.&#39;,
+    ];
+    const semanticLayers = [
+      &#39;- Treat `Convergence type definitions used by this document` as the hard schema contract.&#39;,
+      &#39;- Treat `Current document payload` as the concrete current-state examples and source cues.&#39;,
+      &#39;- Treat `Public reference repo for deeper concept context and latest updates` as supporting background material for deeper conceptual grounding and freshness checks.&#39;,
+      context.templateSemantics
+        ? &#39;- Treat `Template semantics` as the higher-level workflow identity, intended use, and growth path for the skill.&#39;
+        : &#39;- Because no template semantics block is present, infer the workflow identity from the convergence types and current section map only.&#39;,
+    ];
     const requirements = [
       &#39;- Preserve section ids, titles, convergence types, and registry-defined field shapes.&#39;,
       &#39;- Do not invent source keys, status fields, derivations, or section structures that are not present in the document or registry slice.&#39;,
       &#39;- Treat `itemBlueprint` as the structural contract for empty or partially filled sections.&#39;,
-      context.includeData
-        ? &#39;- Use populated data as concrete examples and source cues, not as permission to reshape the schema.&#39;
-        : &#39;- Because the payload is structure-only, design the skill so it discovers or populates data without inventing new schema.&#39;,
-      context.useFocusedSection
-        ? &#39;- Center the workflow on the focused section while still using the document section map as surrounding context.&#39;
-        : &#39;- Cover the document-wide workflow across the provided section map.&#39;,
+      &#39;- Use the payload as concrete examples and source cues, not as permission to reshape the schema.&#39;,
+      &#39;- Cover the document-wide workflow across the provided section map.&#39;,
       &#39;- Show how the skill should inspect, update, or refresh the provided section structures from their source surfaces.&#39;,
+      &#39;- Assume the listed GitHub repo is publicly readable. Use it for deeper model understanding and to check for newer repo-level updates when needed.&#39;,
+      &#39;- If the repo references disagree with this prompt, keep the prompt payload, section map, and registry slice authoritative for this document instance.&#39;,
+      context.templateSemantics
+        ? &#39;- Use the template semantics block to shape the skill trigger conditions, workflow order, and higher-level identity without changing the schema contract.&#39;
+        : &#39;- Without a template harness, keep the skill identity grounded in the convergence-type meanings and the current section map.&#39;,
       &#39;- Keep the core instructions compact and split bulky examples, lookup tables, or domain notes into optional supporting files only when they add real value.&#39;,
       &#39;- Do not output README files, changelogs, installation guides, or other auxiliary docs.&#39;,
+      &#39;- If you choose a `SKILL.md` format, keep the frontmatter minimal and the instructions imperative.&#39;,
     ];
-    if (adapter === &#39;codex&#39;) {
-      requirements.push(&#39;- Add `scripts/`, `references/`, or `assets/` only when the repeated workflow genuinely benefits from them.&#39;);
-    } else if (adapter === &#39;claude&#39;) {
-      requirements.push(&#39;- Keep the artifact Claude Code-ready with a clear trigger rule, workflow, and optional references only when needed.&#39;);
-    } else {
-      requirements.push(&#39;- Keep the artifact portable with a clear trigger rule, core workflow, and optional supporting references only when needed.&#39;);
-    }
     const responseShape = [
       &#39;- Start with a short rationale for the package.&#39;,
       &#39;- Then output the proposed file tree.&#39;,
@@ -7343,19 +7397,23 @@
       &#39;&#39;,
       &#39;Section map:&#39;,
       jsonBlock(context.sectionMap),
-      ...(context.useFocusedSection ? [
-        &#39;&#39;,
-        &#39;Focused section:&#39;,
-        jsonBlock(context.payload.focusedSection),
-      ] : []),
       &#39;&#39;,
       &#39;Convergence type definitions used by this document:&#39;,
       jsonBlock(context.registrySlice),
       &#39;&#39;,
-      context.useFocusedSection
-        ? &#39;Document payload for surrounding context:&#39;
-        : &#39;Current document payload:&#39;,
+      &#39;Public reference repo for deeper concept context and latest updates:&#39;,
+      jsonBlock(context.referenceRepo),
+      ...(context.templateSemantics ? [
+        &#39;&#39;,
+        &#39;Template semantics:&#39;,
+        jsonBlock(context.templateSemantics),
+      ] : []),
+      &#39;&#39;,
+      &#39;Current document payload:&#39;,
       jsonBlock(context.payload),
+      &#39;&#39;,
+      &#39;Interpret these layers differently:&#39;,
+      ...semanticLayers,
       &#39;&#39;,
       &#39;Requirements:&#39;,
       ...requirements,
@@ -7404,7 +7462,6 @@
   function renderPromptPanel() {
     const promptText = buildPromptText();
     const copyLabel = state.promptCopyState === &#39;copied&#39; ? t(&#39;copied&#39;) : t(&#39;copyPrompt&#39;);
-    const showFocusNote = state.promptScope === &#39;focused&#39; &amp;&amp; !state.focusedSectionId;
 
     return `
       &lt;aside class=&quot;visual-prompt-panel&quot;&gt;
@@ -7416,31 +7473,6 @@
             &lt;/div&gt;
             &lt;button class=&quot;prompt-copy-btn&quot; id=&quot;copy-prompt&quot;&gt;${esc(copyLabel)}&lt;/button&gt;
           &lt;/div&gt;
-          &lt;div class=&quot;prompt-controls&quot;&gt;
-            &lt;div class=&quot;prompt-control&quot;&gt;
-              &lt;label for=&quot;prompt-adapter&quot;&gt;${esc(t(&#39;promptTargetLabel&#39;))}&lt;/label&gt;
-              &lt;select id=&quot;prompt-adapter&quot;&gt;
-                &lt;option value=&quot;general&quot;${state.promptAdapter === &#39;general&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptAdapterGeneral&#39;))}&lt;/option&gt;
-                &lt;option value=&quot;codex&quot;${state.promptAdapter === &#39;codex&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptAdapterCodex&#39;))}&lt;/option&gt;
-                &lt;option value=&quot;claude&quot;${state.promptAdapter === &#39;claude&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptAdapterClaude&#39;))}&lt;/option&gt;
-              &lt;/select&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;prompt-control&quot;&gt;
-              &lt;label for=&quot;prompt-scope&quot;&gt;${esc(t(&#39;promptScopeLabel&#39;))}&lt;/label&gt;
-              &lt;select id=&quot;prompt-scope&quot;&gt;
-                &lt;option value=&quot;document&quot;${state.promptScope === &#39;document&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptScopeDocument&#39;))}&lt;/option&gt;
-                &lt;option value=&quot;focused&quot;${state.promptScope === &#39;focused&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptScopeFocused&#39;))}&lt;/option&gt;
-              &lt;/select&gt;
-            &lt;/div&gt;
-            &lt;div class=&quot;prompt-control&quot;&gt;
-              &lt;label for=&quot;prompt-payload&quot;&gt;${esc(t(&#39;promptPayloadLabel&#39;))}&lt;/label&gt;
-              &lt;select id=&quot;prompt-payload&quot;&gt;
-                &lt;option value=&quot;structure-only&quot;${state.promptPayloadMode === &#39;structure-only&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptPayloadStructureOnly&#39;))}&lt;/option&gt;
-                &lt;option value=&quot;structure-and-data&quot;${state.promptPayloadMode === &#39;structure-and-data&#39; ? &#39; selected&#39; : &#39;&#39;}&gt;${esc(t(&#39;promptPayloadWithData&#39;))}&lt;/option&gt;
-              &lt;/select&gt;
-            &lt;/div&gt;
-          &lt;/div&gt;
-          ${showFocusNote ? `&lt;div class=&quot;prompt-focus-note&quot;&gt;${esc(t(&#39;promptNoFocusedSection&#39;))}&lt;/div&gt;` : &#39;&#39;}
           &lt;textarea class=&quot;prompt-output&quot; id=&quot;prompt-output&quot; readonly spellcheck=&quot;false&quot;&gt;${esc(promptText)}&lt;/textarea&gt;
         &lt;/section&gt;
       &lt;/aside&gt;`;
@@ -7811,11 +7843,11 @@
   function buildJson() {
     const now = new Date().toISOString();
     const docExtras = { ...(state.docExtras || {}) };
-    const docIdField = DOC_META_FIELDS[0];
+    const docIdField = DOC_ID_FIELD;
     if (!readDocMetaValue(docExtras, docIdField)) {
       writeDocMetaValue(docExtras, docIdField, suggestDocId({ ...docExtras, title: state.title }, currentOriginLabel()));
     }
-    const canonicalField = DOC_META_FIELDS[4];
+    const canonicalField = DOC_CANONICAL_ORIGIN_FIELD;
     if (!readDocMetaValue(docExtras, canonicalField) &amp;&amp; currentOriginLabel()) {
       writeDocMetaValue(docExtras, canonicalField, currentOriginLabel());
     }
@@ -8091,7 +8123,7 @@
     const compSafe = compositorSrc.replace(/&quot;/g, &#39;&amp;quot;&#39;);
     const docCallouts = (json.callouts || []).map(renderCallout).join(&#39;&#39;);
     const snapshotH = renderSnapshotBlock(buildSnapshotMeta(json, {
-      fallbackOrigin: readDocMetaValue(json, DOC_META_FIELDS[4]) || currentOriginLabel(),
+      fallbackOrigin: readDocMetaValue(json, DOC_CANONICAL_ORIGIN_FIELD) || currentOriginLabel(),
     }));
 
     const fullHtml = `&lt;!doctype html&gt;
@@ -8521,7 +8553,7 @@
         
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-15T03:31:47.622Z" title="2026-04-15T03:31:47.622Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-15T03:31:47.622Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-15T04:31:51.104Z" title="2026-04-15T04:31:51.104Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-15T04:31:51.104Z</time></span>
     </div>
         
     <div class="snapshot-item">
@@ -8760,7 +8792,7 @@
     </section>
 
         
-        <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-a5a4b00 (2026-04-15)</p>
+        <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-a064dfc (2026-04-15)</p>
       </div>
     </div>
 
