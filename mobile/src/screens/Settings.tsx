@@ -1,36 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, Pressable, Image, Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
 import { registerForPushNotifications } from '../notifications';
 import { colors, radii, spacing, type } from '../theme';
 
-export default function Settings() {
+export default function Settings({ navigation }: any) {
   const { user, signOut } = useAuth();
-  const [pushToken, setPushToken] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
+  const [pushReady, setPushReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     (async () => {
-      setRegistering(true);
-      try {
-        const t = await registerForPushNotifications();
-        setPushToken(t);
-      } finally {
-        setRegistering(false);
-      }
+      const t = await registerForPushNotifications();
+      setPushReady(!!t);
     })();
   }, []);
-
-  const copyToken = async () => {
-    if (!pushToken) return;
-    await Clipboard.setStringAsync(pushToken);
-    Alert.alert('Copied', 'Push token copied to clipboard. Paste it into your GitHub repo secret (EXPO_PUSH_TOKEN).');
-  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -45,26 +30,30 @@ export default function Settings() {
       </View>
 
       <Text style={styles.sectionLabel}>Notifications</Text>
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Expo push token</Text>
-        {registering ? (
-          <Text style={styles.tokenPlaceholder}>Requesting permission...</Text>
-        ) : pushToken ? (
-          <>
-            <Text style={styles.token} numberOfLines={2} selectable>{pushToken}</Text>
-            <Pressable style={styles.copyBtn} onPress={copyToken}>
-              <Ionicons name="copy-outline" size={14} color={colors.accent} />
-              <Text style={styles.copyBtnText}>Copy</Text>
-            </Pressable>
-          </>
+      <Pressable style={styles.row} onPress={() => navigation.navigate('Repos')}>
+        <View style={styles.rowIcon}>
+          <Ionicons name="git-branch-outline" size={18} color={colors.accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle}>Connect a repository</Text>
+          <Text style={styles.rowSub}>
+            Pick a repo; the app installs the push secret and workflow file automatically.
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+      </Pressable>
+
+      <View style={[styles.infoCard, !pushReady && { borderColor: colors.warningBg }]}>
+        <Text style={styles.infoLabel}>Push status</Text>
+        {pushReady === null ? (
+          <Text style={styles.infoValue}>Checking...</Text>
+        ) : pushReady ? (
+          <Text style={styles.infoValue}>Ready. This device can receive pushes from connected repos.</Text>
         ) : (
-          <Text style={styles.tokenPlaceholder}>
-            Push not available. Build with EAS and grant permission to receive notifications.
+          <Text style={[styles.infoValue, { color: colors.warning }]}>
+            Push token not available. On web or Expo Go this is expected; build with EAS for full push support.
           </Text>
         )}
-        <Text style={styles.hint}>
-          Paste this into a GitHub Actions secret named EXPO_PUSH_TOKEN so workflows can send you notifications.
-        </Text>
       </View>
 
       <View style={{ flex: 1 }} />
@@ -100,23 +89,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
-  card: {
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radii.md,
-    padding: spacing.lg,
-    gap: spacing.sm,
   },
-  cardLabel: { ...type.small, color: colors.textMuted },
-  token: { fontFamily: 'Menlo', fontSize: 12, color: colors.text },
-  tokenPlaceholder: { ...type.small, color: colors.textMuted, fontStyle: 'italic' },
-  copyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    alignSelf: 'flex-start',
-    paddingVertical: 4, paddingHorizontal: 8,
-    borderRadius: radii.sm, backgroundColor: colors.accentBg,
+  rowIcon: {
+    width: 36, height: 36, borderRadius: radii.sm,
+    backgroundColor: colors.accentBg,
+    alignItems: 'center', justifyContent: 'center',
   },
-  copyBtnText: { color: colors.accent, fontSize: 12, fontWeight: '600' },
-  hint: { ...type.small, color: colors.textMuted, lineHeight: 18 },
+  rowTitle: { ...type.bodyStrong, color: colors.text },
+  rowSub: { ...type.small, color: colors.textMuted, marginTop: 2, lineHeight: 18 },
+
+  infoCard: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoLabel: { ...type.tiny, color: colors.textMuted, textTransform: 'uppercase' },
+  infoValue: { ...type.small, color: colors.text, marginTop: 4, lineHeight: 18 },
 
   signOut: {
     flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center',

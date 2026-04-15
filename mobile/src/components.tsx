@@ -30,15 +30,18 @@ export function DocCard({
   category,
   meta,
   onPress,
+  onLongPress,
 }: {
   title: string;
   category: string;
   meta?: string;
   onPress: () => void;
+  onLongPress?: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [styles.card, pressed && { backgroundColor: colors.surface }]}
       android_ripple={{ color: colors.surface }}
     >

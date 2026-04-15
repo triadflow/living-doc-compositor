@@ -9,6 +9,7 @@ import Home from './screens/Home';
 import DocDetail from './screens/DocDetail';
 import Inbox from './screens/Inbox';
 import Settings from './screens/Settings';
+import Repos from './screens/Repos';
 import { colors } from './theme';
 
 const Tab = createBottomTabNavigator();
@@ -83,6 +84,11 @@ export default function RootNavigator() {
               name="DocDetail"
               component={DocDetail}
               options={({ route }: any) => ({ title: route.params?.title ?? 'Doc' })}
+            />
+            <Stack.Screen
+              name="Repos"
+              component={Repos}
+              options={{ title: 'Repositories', headerShown: false }}
             />
           </>
         ) : (

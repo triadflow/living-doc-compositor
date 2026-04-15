@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { EmptyState } from '../components';
+import { addDoc } from '../registry';
 import { colors, spacing, type, radii } from '../theme';
 
 type InboxItem = {
@@ -13,30 +14,53 @@ type InboxItem = {
   data?: Record<string, any>;
 };
 
-// In-memory inbox for MVP — real storage (SecureStore or SQLite) can come later.
+// Ephemeral session log. Persistent storage (SQLite) is a later ticket.
 const inbox: InboxItem[] = [];
+
+// When a push arrives carrying { url, title }, register the doc so Home updates
+// automatically. Kept as a module-level helper so the side effect runs even if
+// the Inbox screen isn't mounted.
+async function onPushReceived(n: Notifications.Notification) {
+  const c = n.request.content;
+  const item: InboxItem = {
+    id: n.request.identifier + ':' + Date.now(),
+    title: c.title ?? 'Notification',
+    body: c.body ?? '',
+    receivedAt: Date.now(),
+    data: (c.data as any) ?? {},
+  };
+  inbox.unshift(item);
+
+  const data = item.data ?? {};
+  if (typeof data.url === 'string' && data.url) {
+    await addDoc({
+      url: data.url,
+      title: typeof data.title === 'string' && data.title ? data.title : item.title,
+      source: typeof data.source === 'string' ? data.source : hostOf(data.url),
+    });
+  }
+}
+
+function hostOf(url: string): string | undefined {
+  try { return new URL(url).host; } catch { return undefined; }
+}
 
 export default function Inbox({ navigation }: any) {
   const [items, setItems] = useState<InboxItem[]>(inbox);
 
   useEffect(() => {
-    const sub = Notifications.addNotificationReceivedListener((n) => {
-      const c = n.request.content;
-      const item: InboxItem = {
-        id: n.request.identifier + ':' + Date.now(),
-        title: c.title ?? 'Notification',
-        body: c.body ?? '',
-        receivedAt: Date.now(),
-        data: (c.data as any) ?? {},
-      };
-      inbox.unshift(item);
+    const sub = Notifications.addNotificationReceivedListener(async (n) => {
+      await onPushReceived(n);
       setItems([...inbox]);
     });
 
     const tapSub = Notifications.addNotificationResponseReceivedListener((r) => {
       const data = r.notification.request.content.data as any;
-      if (data?.url && data?.title) {
-        navigation.navigate('DocDetail', { url: data.url, title: data.title });
+      if (data?.url) {
+        navigation.navigate('DocDetail', {
+          url: data.url,
+          title: data.title ?? r.notification.request.content.title ?? 'Doc',
+        });
       }
     });
 
@@ -58,7 +82,7 @@ export default function Inbox({ navigation }: any) {
       {items.length === 0 ? (
         <EmptyState
           title="No notifications yet"
-          body="When a GitHub Action runs a living-doc skill, you'll see it here."
+          body="When a GitHub Action from a connected repo fires, the notification shows up here."
           style={{ flex: 1 }}
         />
       ) : (
@@ -69,10 +93,10 @@ export default function Inbox({ navigation }: any) {
             <Pressable
               style={styles.row}
               onPress={() => {
-                if (item.data?.url && item.data?.title) {
+                if (item.data?.url) {
                   navigation.navigate('DocDetail', {
                     url: item.data.url,
-                    title: item.data.title,
+                    title: item.data.title ?? item.title,
                   });
                 }
               }}

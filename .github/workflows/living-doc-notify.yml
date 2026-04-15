@@ -1,19 +1,19 @@
-# Template workflow: sends a push notification to the Living Docs mobile app
-# when triggered (manually or by living-doc skills via `gh workflow run` /
-# `repository_dispatch`).
+# Reference copy of the Living Doc Notify workflow.
 #
-# Setup:
-#   1. Open the mobile app, copy the Expo push token from Settings.
-#   2. Repo Settings -> Secrets and variables -> Actions -> New repository secret
-#      Name: EXPO_PUSH_TOKEN
-#      Value: the token you copied (starts with ExponentPushToken[...] )
-#   3. To fire: gh workflow run living-doc-notify.yml \
-#        -f title="Ship Feature updated" \
-#        -f body="Status snapshot now green" \
-#        -f doc=living-doc-template-starter-ship-feature.html
+# The mobile app writes a copy of this file (generated from
+# mobile/src/workflow-template.ts) into each repo you connect. You should not
+# need to edit this file directly; the app handles installation and updates.
 #
-# Later: living-doc skills will dispatch this workflow automatically when a
-# living doc changes state.
+# Kept at the root of this repo as a reference + for testing the pipeline end
+# to end here. Keep in sync with mobile/src/workflow-template.ts.
+#
+# Required repo secret: EXPO_PUSH_TOKEN (installed automatically by the app).
+#
+# Manual fire example:
+#   gh workflow run living-doc-notify.yml \
+#     -f title="Ship Feature updated" \
+#     -f body="Status snapshot now green" \
+#     -f url="https://triadflow.github.io/living-doc-compositor/living-doc-template-starter-ship-feature.html"
 
 name: Living Doc Notify
 
@@ -28,8 +28,12 @@ on:
         description: "Notification body"
         required: true
         type: string
-      doc:
-        description: "Rendered doc filename under /docs (e.g. my-feature.html)"
+      url:
+        description: "URL to open when tapped (rendered doc)"
+        required: false
+        type: string
+      status:
+        description: "Optional status label (green, warning, etc.)"
         required: false
         type: string
   repository_dispatch:
@@ -44,29 +48,30 @@ jobs:
           EXPO_PUSH_TOKEN: ${{ secrets.EXPO_PUSH_TOKEN }}
           TITLE: ${{ inputs.title || github.event.client_payload.title }}
           BODY: ${{ inputs.body || github.event.client_payload.body }}
-          DOC: ${{ inputs.doc || github.event.client_payload.doc }}
+          URL: ${{ inputs.url || github.event.client_payload.url }}
+          STATUS: ${{ inputs.status || github.event.client_payload.status }}
         run: |
           if [ -z "$EXPO_PUSH_TOKEN" ]; then
-            echo "EXPO_PUSH_TOKEN secret is not configured; add it in repo Settings."
+            echo "EXPO_PUSH_TOKEN secret is not configured; add it via the mobile app."
             exit 1
           fi
-
-          PAGES_BASE="https://triadflow.github.io/living-doc-compositor/"
-          URL=""
-          if [ -n "$DOC" ]; then URL="${PAGES_BASE}${DOC}"; fi
 
           payload=$(jq -n \
             --arg to "$EXPO_PUSH_TOKEN" \
             --arg title "$TITLE" \
             --arg body "$BODY" \
             --arg url "$URL" \
-            --arg docTitle "$DOC" \
+            --arg status "$STATUS" \
             '{
               to: $to,
               title: $title,
               body: $body,
               sound: "default",
-              data: ($url | if . == "" then {} else { url: $url, title: $docTitle } end)
+              data: (
+                {} |
+                (if $url == "" then . else . + { url: $url, title: $title } end) |
+                (if $status == "" then . else . + { status: $status } end)
+              )
             }')
 
           curl -sS -X POST https://exp.host/--/api/v2/push/send \
