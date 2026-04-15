@@ -29,7 +29,7 @@ node scripts/render-living-doc.mjs /absolute/path/to/doc.json
 Do not assume every living doc lives in this repo. The registry defines document types; the catalog in `~/.gtd/living-docs.json` tells you where actual documents live.
 
 ### When asked to add a convergence type
-Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes`. Define: name, icon (SVG path), projection (card-grid or edge-table), sources (entity types), statusFields, and optionally textFields/detailsFields. No code changes needed.
+Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes`. Define: name, icon (SVG path), projection (card-grid or edge-table), sources (entity types), statusFields, and promptGuidance with operatingThesis, keepDistinct, inspect, update, and avoid. Optionally define textFields/detailsFields. No code changes needed.
 
 ### When asked to add a language
 Add a new locale key to `scripts/living-doc-i18n.json` with all the same keys as the `en` locale. The compositor and rendered docs pick it up automatically.
