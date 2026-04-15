@@ -28,6 +28,15 @@ node scripts/render-living-doc.mjs /absolute/path/to/doc.json
 
 Do not assume every living doc lives in this repo. The registry defines document types; the catalog in `~/.gtd/living-docs.json` tells you where actual documents live.
 
+### When asked to load the local living-doc library into the compositor
+Generate a sanitized local manifest from the private GTD catalog:
+```bash
+node scripts/export-living-doc-library.mjs
+```
+This reads `~/.gtd/living-docs.json` and writes `docs/living-doc-library.local.json`, which is intentionally gitignored. The compositor settings panel defaults to `./living-doc-library.local.json`.
+
+Use `--share-safe` when creating a manifest that may be shared outside the local machine; that mode omits local filesystem paths.
+
 ### When asked to add a convergence type
 Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes`. Define: name, icon (SVG path), projection (card-grid or edge-table), sources (entity types), statusFields, and promptGuidance with operatingThesis, keepDistinct, inspect, update, and avoid. Optionally define textFields/detailsFields. No code changes needed.
 

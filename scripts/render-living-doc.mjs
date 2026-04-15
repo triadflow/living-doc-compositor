@@ -506,7 +506,7 @@ function renderEdgeTable(items, convergenceType) {
 function renderSection(section) {
   const ct = registry.convergenceTypes[section.convergenceType];
   if (!ct) return `<!-- unknown convergence type: ${escapeHtml(section.convergenceType)} -->`;
-  const projection = section.projection ?? ct.projection;
+  const projection = ct.projection;
   const iconColorStyle = ct.iconColor ? ` style="color:${escapeHtml(ct.iconColor)}"` : '';
 
   const icon = ct.icon
@@ -535,7 +535,7 @@ function renderSection(section) {
   // Main content
   let contentHtml = '';
   if (projection === 'card-grid') {
-    const cols = Math.max(1, Number(section.columns ?? ct.columns ?? 2));
+    const cols = Math.max(1, Number(ct.columns ?? 2));
     contentHtml = `<div class="card-grid" style="--grid-cols:${escapeHtml(String(cols))}">${items.map((item) => renderCardItem(item, section.convergenceType)).join('')}</div>`;
   } else if (projection === 'edge-table') {
     contentHtml = renderEdgeTable(items, section.convergenceType);
@@ -1077,7 +1077,7 @@ const html = `<!doctype html>
 </html>
 `;
 
-await writeFile(htmlPath, html);
+await writeFile(htmlPath, html.replace(/[ \t]+$/gm, ''));
 const relDoc = path.relative(process.cwd(), resolvedDocPath);
 const relHtml = path.relative(process.cwd(), htmlPath);
 console.log(`Wrote ${relHtml} from ${relDoc}`);
