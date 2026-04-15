@@ -1,26 +1,35 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, RefreshControl,
-  ActivityIndicator, Alert, Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
 import { listAdminRepos, getConnectionStatus, connectRepo, AdminRepo, ConnectionStatus } from '../github-api';
-import { registerForPushNotifications } from '../notifications';
+import {
+  PREVIEW_PUSH_TOKEN,
+  PushRuntime,
+  pushRuntime,
+  pushRuntimeLabel,
+  registerForPushNotifications,
+} from '../notifications';
 import { EmptyState, Pill } from '../components';
 import { colors, radii, spacing, type } from '../theme';
 
-type Toast = { kind: 'progress' | 'success' | 'error'; text: string } | null;
+type Toast = { kind: 'progress' | 'success' | 'warning' | 'error'; text: string } | null;
+type ConnectionMode = 'real' | 'preview';
 
 type RepoState = AdminRepo & {
   status?: ConnectionStatus;
+  connectionMode?: ConnectionMode;
   loadingStatus?: boolean;
   connecting?: boolean;
 };
 
 export default function Repos() {
   const { token } = useAuth();
+  const runtime = pushRuntime();
   const [repos, setRepos] = useState<RepoState[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,26 +84,33 @@ export default function Repos() {
 
   const onConnect = async (repo: RepoState) => {
     if (!token) return;
-    if (!pushToken) {
-      Alert.alert(
-        'Push token not available',
-        'The app needs a push token before it can wire a repo. Enable notifications and try again.'
-      );
-      return;
-    }
+    const connectionMode: ConnectionMode = pushToken ? 'real' : 'preview';
+    const effectiveToken = pushToken ?? PREVIEW_PUSH_TOKEN;
+
     setRepos((prev) =>
       prev ? prev.map((p) => (p.id === repo.id ? { ...p, connecting: true } : p)) : prev
     );
     showToast({ kind: 'progress', text: 'Installing secret and workflow...' });
     try {
-      await connectRepo(token, repo.owner, repo.name, pushToken);
+      await connectRepo(token, repo.owner, repo.name, effectiveToken);
       const status = await getConnectionStatus(token, repo.owner, repo.name);
       setRepos((prev) =>
-        prev ? prev.map((p) => (p.id === repo.id ? { ...p, status, connecting: false } : p)) : prev
+        prev
+          ? prev.map((p) =>
+              p.id === repo.id
+                ? { ...p, status, connectionMode, connecting: false }
+                : p
+            )
+          : prev
       );
       showToast(
-        { kind: 'success', text: 'Connected. Pushes from this repo will arrive here.' },
-        3500
+        {
+          kind: connectionMode === 'preview' ? 'warning' : 'success',
+          text: connectionMode === 'preview'
+            ? 'Wired for preview. Install an EAS build to activate pushes.'
+            : 'Connected. Pushes from this repo will arrive here.',
+        },
+        4000
       );
     } catch (err: any) {
       setRepos((prev) =>
@@ -112,7 +128,9 @@ export default function Repos() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Connect a repository</Text>
         <Text style={styles.headerSub}>
-          Any repo where you're an admin. Tap Connect to install the push secret and workflow file.
+          {pushToken
+            ? 'Any repo where you are an admin. Tap Connect to install the push secret and workflow file.'
+            : `Running in ${pushRuntimeLabel(runtime)}. Repo setup can be wired for preview, but real pushes need an EAS build token.`}
         </Text>
       </View>
 
@@ -130,7 +148,14 @@ export default function Repos() {
         <FlatList
           data={repos}
           keyExtractor={(r) => String(r.id)}
-          renderItem={({ item }) => <RepoRow item={item} onConnect={() => onConnect(item)} />}
+          renderItem={({ item }) => (
+            <RepoRow
+              item={item}
+              runtime={runtime}
+              hasRealPushToken={Boolean(pushToken)}
+              onConnect={() => onConnect(item)}
+            />
+          )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
@@ -140,27 +165,45 @@ export default function Repos() {
 }
 
 function ToastBanner({ toast, onClose }: { toast: NonNullable<Toast>; onClose: () => void }) {
-  const bg = toast.kind === 'success' ? colors.success
-    : toast.kind === 'error' ? colors.danger
-    : colors.text;
+  const palette = toast.kind === 'success'
+    ? { bg: colors.success, fg: '#fff' }
+    : toast.kind === 'warning'
+      ? { bg: colors.warningBg, fg: colors.warning }
+      : toast.kind === 'error'
+        ? { bg: colors.danger, fg: '#fff' }
+        : { bg: colors.text, fg: '#fff' };
   return (
-    <Pressable onPress={onClose} style={[styles.toast, { backgroundColor: bg }]}>
+    <Pressable onPress={onClose} style={[styles.toast, { backgroundColor: palette.bg }]}>
       {toast.kind === 'progress' ? (
-        <ActivityIndicator color="#fff" size="small" />
+        <ActivityIndicator color={palette.fg} size="small" />
       ) : toast.kind === 'success' ? (
-        <Ionicons name="checkmark" size={18} color="#fff" />
+        <Ionicons name="checkmark" size={18} color={palette.fg} />
       ) : (
-        <Ionicons name="alert-circle-outline" size={18} color="#fff" />
+        <Ionicons name="alert-circle-outline" size={18} color={palette.fg} />
       )}
-      <Text style={styles.toastText}>{toast.text}</Text>
+      <Text style={[styles.toastText, { color: palette.fg }]}>{toast.text}</Text>
     </Pressable>
   );
 }
 
-function RepoRow({ item, onConnect }: { item: RepoState; onConnect: () => void }) {
+function RepoRow({
+  item,
+  runtime,
+  hasRealPushToken,
+  onConnect,
+}: {
+  item: RepoState;
+  runtime: PushRuntime;
+  hasRealPushToken: boolean;
+  onConnect: () => void;
+}) {
   const connected = item.status?.secret && item.status?.workflow && !item.status?.workflowOutdated;
   const partial = !connected && (item.status?.secret || item.status?.workflow);
   const needsUpdate = item.status?.workflow && item.status?.workflowOutdated;
+  const previewConnected = connected && (item.connectionMode === 'preview' || !hasRealPushToken);
+  const disableConnectedPreview = previewConnected && !hasRealPushToken && !needsUpdate;
+  const disableRealConnected = connected && !needsUpdate && item.connectionMode === 'real';
+  const disabled = item.connecting || disableConnectedPreview || disableRealConnected;
 
   return (
     <View style={styles.row}>
@@ -175,12 +218,14 @@ function RepoRow({ item, onConnect }: { item: RepoState; onConnect: () => void }
             {item.fullName}
           </Text>
         </View>
-        {item.description ? (
-          <Text style={styles.rowDesc} numberOfLines={2}>{item.description}</Text>
-        ) : null}
+        <Text style={styles.rowDesc} numberOfLines={1}>
+          {item.description || 'No description'}
+        </Text>
         <View style={styles.rowStatusLine}>
           {item.loadingStatus ? (
             <Text style={styles.rowMeta}>Checking...</Text>
+          ) : previewConnected ? (
+            <Pill tone="warning">Preview-connected</Pill>
           ) : connected ? (
             <Pill tone="success">Connected</Pill>
           ) : needsUpdate ? (
@@ -194,20 +239,24 @@ function RepoRow({ item, onConnect }: { item: RepoState; onConnect: () => void }
       </View>
       <Pressable
         onPress={onConnect}
-        disabled={item.connecting || (connected && !needsUpdate)}
+        disabled={disabled}
         style={({ pressed }) => [
           styles.btn,
-          connected && !needsUpdate && styles.btnGhost,
+          disabled && connected && !needsUpdate && styles.btnGhost,
           pressed && !item.connecting && { opacity: 0.7 },
           item.connecting && { opacity: 0.6 },
         ]}
       >
         {item.connecting ? (
           <ActivityIndicator size="small" color="#fff" />
-        ) : connected && !needsUpdate ? (
+        ) : disableConnectedPreview ? (
+          <Text style={styles.btnPreviewText}>{runtime === 'eas' ? 'Denied' : 'Preview'}</Text>
+        ) : disableRealConnected ? (
           <Ionicons name="checkmark" size={14} color={colors.success} />
         ) : (
-          <Text style={styles.btnText}>{needsUpdate ? 'Update' : 'Connect'}</Text>
+          <Text style={styles.btnText}>
+            {needsUpdate ? 'Update' : connected ? 'Reconnect' : 'Connect'}
+          </Text>
         )}
       </Pressable>
     </View>
@@ -234,8 +283,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     backgroundColor: colors.bg,
@@ -260,6 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successBg,
   },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  btnPreviewText: { color: colors.warning, fontWeight: '700', fontSize: 13 },
 
   toast: {
     position: 'absolute',
@@ -276,5 +326,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  toastText: { color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 },
+  toastText: { fontSize: 13, fontWeight: '500', flex: 1 },
 });

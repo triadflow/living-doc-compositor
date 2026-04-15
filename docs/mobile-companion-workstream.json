@@ -1,0 +1,738 @@
+{
+  "docId": "living-doc-compositor:mobile-companion-workstream",
+  "title": "Mobile Companion Workstream",
+  "subtitle": "Repo-connect, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.",
+  "brand": "MO",
+  "scope": "Mobile companion implementation work across tickets #19-#24, with #18 retained as closed historical context.",
+  "owner": "Triadflow",
+  "version": "2026-q2-active",
+  "canonicalOrigin": "docs/mobile-companion-workstream.json",
+  "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
+  "updated": "2026-04-15T15:14:23.000Z",
+  "pills": ["Mobile", "Workstream", "GitHub Issues"],
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
+  "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
+  "callouts": [
+    {
+      "tone": "info",
+      "title": "How to use this doc",
+      "items": [
+        "Use #19-#24 as the active implementation source of truth. Treat #18 as closed context only.",
+        "Before editing `mobile/src/navigation.tsx` or `mobile/src/screens/Repos.tsx`, inspect the existing local worktree changes so unrelated edits are not overwritten."
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "updated": "2026-04-15T15:14:23.000Z",
+      "stats": [
+        { "label": "Open child tickets", "value": "6" },
+        { "label": "Closed context ticket", "value": "1" },
+        { "label": "Blocking verification gates", "value": "4" },
+        { "label": "Open decisions", "value": "4" }
+      ],
+      "callout": {
+        "tone": "warning",
+        "title": "Current pressure pattern",
+        "items": [
+          "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
+          "#24 still carries the next major design decision: where notification capture should live relative to the persistent Inbox store.",
+          "#20 and #23 depend on real GitHub behavior, especially around write-only secrets and idempotent cleanup.",
+          "#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure."
+        ]
+      },
+      "data": []
+    },
+    {
+      "id": "mobile-capabilities",
+      "title": "Mobile Capability Map",
+      "convergenceType": "capability-surface",
+      "updated": "2026-04-15T15:14:23.000Z",
+      "data": [
+        {
+          "id": "auth-sign-in",
+          "name": "Authentication and sign-in surface",
+          "status": "partial",
+          "updated": "2026-04-15T15:14:23.000Z",
+          "codePaths": [
+            "mobile/src/auth.tsx",
+            "mobile/src/screens/SignIn.tsx"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            }
+          ],
+          "notes": [
+            "The app has authentication code and a sign-in screen, but #19 still owns mockup-level visual alignment.",
+            "The implementation should preserve native device-flow sign-in while keeping the web/PAT path legible as a preview or fallback mode."
+          ]
+        },
+        {
+          "id": "home-doc-registry",
+          "name": "Home screen and document registry",
+          "status": "partial",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/src/screens/Home.tsx",
+            "mobile/src/registry.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            }
+          ],
+          "notes": [
+            "The screen exists and can list available living documents, but visual fidelity remains governed by #19.",
+            "#18 is useful context for why the mobile app exists, but its scaffolding should not be treated as the active implementation ticket."
+          ]
+        },
+        {
+          "id": "settings-runtime-status",
+          "name": "Settings runtime and push status",
+          "status": "partial",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/src/screens/Settings.tsx",
+            "mobile/src/notifications.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            },
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            },
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            }
+          ],
+          "notes": [
+            "`mobile/src/notifications.ts` now exposes `pushRuntime()` with the ticket-defined `eas`, `expo-go`, `web`, and `unknown` type contract.",
+            "Settings now shows runtime-specific push status copy for EAS builds, Expo Go, and web preview mode instead of silently degrading when no push token exists."
+          ]
+        },
+        {
+          "id": "repo-connection",
+          "name": "Connect-a-repo flow",
+          "status": "partial",
+          "updated": "2026-04-15T15:14:23.000Z",
+          "codePaths": [
+            "mobile/src/screens/Repos.tsx",
+            "mobile/src/github-api.ts",
+            "mobile/src/sealed-box.ts",
+            "mobile/src/workflow-template.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            }
+          ],
+          "notes": [
+            "The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.",
+            "When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.",
+            "When a real token is available, Repos writes the real token and uses the success path; connected rows can be reconnected to overwrite older placeholder secrets."
+          ]
+        },
+        {
+          "id": "disconnect-repo",
+          "name": "Disconnect repo flow",
+          "status": "not-built",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/src/github-api.ts",
+            "mobile/src/screens/Repos.tsx"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            }
+          ],
+          "notes": [
+            "#23 should remove the GitHub Actions workflow and secret idempotently, including the case where one artifact is already missing.",
+            "If #21 introduces a readable preview marker or local connection metadata, disconnect should clear that state too."
+          ]
+        },
+        {
+          "id": "inbox-audit-log",
+          "name": "Persistent inbox and notification audit trail",
+          "status": "gap",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/src/screens/Inbox.tsx",
+            "mobile/src/notifications.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            }
+          ],
+          "notes": [
+            "The Inbox screen exists, but #24 requires persistence with `expo-sqlite` and a real event history model.",
+            "Notification capture should probably not live only inside `Inbox.tsx`, because events can arrive before that screen mounts."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "runtime-state-model",
+      "title": "Runtime and Connection State Model",
+      "convergenceType": "operating-surface",
+      "updated": "2026-04-15T15:14:23.000Z",
+      "data": [
+        {
+          "id": "web-runtime",
+          "name": "Web runtime",
+          "status": "built",
+          "updated": "2026-04-15T15:14:23.000Z",
+          "codePaths": [
+            "mobile/src/notifications.ts",
+            "mobile/src/screens/Settings.tsx",
+            "mobile/src/screens/Repos.tsx"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            }
+          ],
+          "notes": [
+            "`pushRuntime()` now returns `web` when `Platform.OS === 'web'`.",
+            "Settings and Repos label web as preview-only and route repo setup through the placeholder-token path."
+          ]
+        },
+        {
+          "id": "expo-go-runtime",
+          "name": "Expo Go runtime",
+          "status": "built",
+          "updated": "2026-04-15T15:14:23.000Z",
+          "codePaths": [
+            "mobile/src/notifications.ts",
+            "mobile/src/screens/Settings.tsx"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            }
+          ],
+          "notes": [
+            "`pushRuntime()` now returns `expo-go` when `Constants.appOwnership === 'expo'`.",
+            "Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes."
+          ]
+        },
+        {
+          "id": "eas-runtime",
+          "name": "EAS/dev-build runtime",
+          "status": "not-built",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/app.json",
+            "mobile/eas.json",
+            "mobile/README.md"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            },
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            }
+          ],
+          "notes": [
+            "#22 should establish the dev-build path and document how a real push token is produced.",
+            "The work needs a decision on whether the committed Expo project ID belongs to the Triadflow project or stays contributor-local."
+          ]
+        },
+        {
+          "id": "repo-artifact-status",
+          "name": "GitHub repo artifact status",
+          "status": "partial",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/src/github-api.ts",
+            "mobile/src/workflow-template.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            }
+          ],
+          "notes": [
+            "Repo status should distinguish missing workflow, missing secret, partial setup, and ready setup where possible.",
+            "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation."
+          ]
+        },
+        {
+          "id": "local-state-stores",
+          "name": "Local mobile state stores",
+          "status": "gap",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "codePaths": [
+            "mobile/src/storage.ts",
+            "mobile/src/inbox-store.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            }
+          ],
+          "notes": [
+            "#21 may need local connection metadata to preserve preview-vs-real state across refreshes.",
+            "#24 introduces the inbox store, which should be designed as an application-level event log rather than just screen-local state."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operational-tools",
+      "title": "Operational Tools and Artifacts",
+      "convergenceType": "tooling-surface",
+      "updated": "2026-04-15T14:55:21.000Z",
+      "data": [
+        {
+          "id": "github-api-client",
+          "name": "GitHub API client",
+          "status": "prototype",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "scriptPaths": [
+            "mobile/src/github-api.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            }
+          ],
+          "purpose": "Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.",
+          "whenToUse": "Use when implementing or verifying connect, status refresh, or disconnect behavior.",
+          "invocation": "Called by the mobile app screens, not directly from the CLI.",
+          "notes": [
+            "The API surface should be verified against a real throwaway repository before being treated as trusted."
+          ],
+          "caveats": [
+            "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
+          ]
+        },
+        {
+          "id": "sealed-box-crypto",
+          "name": "GitHub secret sealed-box encryption",
+          "status": "prototype",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "scriptPaths": [
+            "mobile/src/sealed-box.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            }
+          ],
+          "purpose": "Encrypt the push token for GitHub Actions secrets using GitHub's public key flow.",
+          "whenToUse": "Use during connect-repo verification and any debugging of 422 or malformed-secret errors.",
+          "invocation": "Called from `mobile/src/github-api.ts` when writing the repository secret.",
+          "caveats": [
+            "If GitHub rejects secret creation, first validate sealed-box output, UTF-8/base64 handling, key IDs, and public-key fetch behavior."
+          ]
+        },
+        {
+          "id": "workflow-template",
+          "name": "Living-doc notification workflow template",
+          "status": "prototype",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "scriptPaths": [
+            "mobile/src/workflow-template.ts"
+          ],
+          "workflowPaths": [
+            ".github/workflows/living-doc-notify.yml"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            }
+          ],
+          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion when a living document changes.",
+          "whenToUse": "Use in connect, status refresh, and disconnect work where workflow contents or path behavior matter.",
+          "invocation": "Written through GitHub Contents API by the mobile app.",
+          "caveats": [
+            "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret."
+          ]
+        },
+        {
+          "id": "mobile-mockup-canvas",
+          "name": "Mobile mockup canvas",
+          "status": "trusted",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "artifactPaths": [
+            "docs/mobile-mockups.html"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            }
+          ],
+          "purpose": "Provide the visual reference for pixel-matching the mobile screens.",
+          "whenToUse": "Use before editing any mobile screen layout or theme work covered by #19.",
+          "invocation": "Open `docs/mobile-mockups.html` and compare against the running app.",
+          "caveats": [
+            "The current tickets do not define an automated screenshot diff harness, so verification is still manual unless one is added."
+          ]
+        },
+        {
+          "id": "eas-dev-build",
+          "name": "EAS dev-build setup",
+          "status": "missing",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "artifactPaths": [
+            "mobile/eas.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            }
+          ],
+          "purpose": "Make real native push-token testing reproducible outside Expo Go.",
+          "whenToUse": "Use after #21 labels runtime modes and before claiming push notifications are production-real.",
+          "invocation": "`cd mobile && eas build --profile development --platform ios` or equivalent documented path.",
+          "caveats": [
+            "Requires Expo project ownership and project ID decisions before the setup can be considered canonical."
+          ]
+        },
+        {
+          "id": "inbox-store",
+          "name": "SQLite inbox store",
+          "status": "missing",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "scriptPaths": [
+            "mobile/src/inbox-store.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            }
+          ],
+          "purpose": "Persist notification events and user-read state for the mobile Inbox.",
+          "whenToUse": "Use when implementing the persistent Inbox and when deciding where notification listeners write events.",
+          "invocation": "Imported by application-level notification handling and `mobile/src/screens/Inbox.tsx`.",
+          "caveats": [
+            "The listener owner should be clarified so notifications are not missed when the Inbox screen is not mounted."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "title": "Verification Plan",
+      "convergenceType": "verification-surface",
+      "updated": "2026-04-15T15:14:23.000Z",
+      "data": [
+        {
+          "id": "pixel-match-393",
+          "name": "Pixel-match mobile screens",
+          "status": "planned",
+          "priority": "blocking",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "automationPaths": [],
+          "ticketIds": [
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            }
+          ],
+          "currentCoverage": "The mockup reference exists at `docs/mobile-mockups.html`, but no automated screenshot gate is defined.",
+          "nextStep": "Run the mobile app at an equivalent 393x852 viewport and compare Sign In, Home, Doc Detail, Settings, Repos, and Inbox against the mockups.",
+          "notes": [
+            "This should be the first implementation lane because later tickets depend on stable screen structure."
+          ],
+          "gaps": [
+            "No explicit device/simulator capture workflow is documented in the ticket.",
+            "No pixel-diff threshold or artifact storage path is defined."
+          ]
+        },
+        {
+          "id": "connect-e2e",
+          "name": "Connect-a-repo end-to-end",
+          "status": "planned",
+          "priority": "blocking",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "automationPaths": [
+            ".github/workflows/living-doc-notify.yml"
+          ],
+          "apiRefs": [
+            { "ref": "GitHub REST: Actions secrets" },
+            { "ref": "GitHub REST: Contents API" }
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            }
+          ],
+          "currentCoverage": "Code exists for API client, encryption, and workflow content, but the issue explicitly asks for real throwaway-repo verification.",
+          "nextStep": "Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.",
+          "gaps": [
+            "No verified note has been added to `mobile/README.md` yet.",
+            "If testing from web or Expo Go, #21 may force placeholder behavior instead of a real push token."
+          ]
+        },
+        {
+          "id": "runtime-token-matrix",
+          "name": "Push-token runtime matrix",
+          "status": "partial",
+          "priority": "blocking",
+          "updated": "2026-04-15T15:14:23.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            }
+          ],
+          "currentCoverage": "`pushRuntime()` exists, Settings consumes it, and Repos now differentiates real and preview connection paths with distinct copy, toast tone, and row pills. `npm run typecheck` passes.",
+          "nextStep": "Manually verify the matrix in web, Expo Go, and an EAS/dev build; then update #21 with runtime screenshots or notes.",
+          "gaps": [
+            "GitHub secrets cannot prove after the fact whether a stored value was a real Expo token or a placeholder.",
+            "This implementation keeps preview state explicit in the current runtime and current session; a durable readable preview marker is still deferred unless #20 or #23 requires it."
+          ]
+        },
+        {
+          "id": "eas-build-verification",
+          "name": "EAS dev-build verification",
+          "status": "planned",
+          "priority": "informational",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            }
+          ],
+          "currentCoverage": "`mobile/eas.json` is not present in the inspected tree.",
+          "nextStep": "Add the EAS config and README section, then record whether a dev build was actually produced.",
+          "gaps": [
+            "Expo project ID ownership is not yet captured as a decision.",
+            "A real device build may require credentials outside the repo."
+          ]
+        },
+        {
+          "id": "disconnect-verification",
+          "name": "Disconnect repo verification",
+          "status": "planned",
+          "priority": "informational",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            }
+          ],
+          "currentCoverage": "No disconnect implementation exists yet in the inspected code paths.",
+          "nextStep": "Implement secret and workflow cleanup, then verify idempotent disconnect against a test repository.",
+          "gaps": [
+            "The ticket should decide whether workflow removal or secret-only removal is the intended normal path.",
+            "If #21 creates preview metadata, disconnect must remove that state too."
+          ]
+        },
+        {
+          "id": "persistent-inbox-verification",
+          "name": "Persistent inbox verification",
+          "status": "planned",
+          "priority": "blocking",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            }
+          ],
+          "currentCoverage": "The Inbox screen exists, but there is no `expo-sqlite` dependency or `mobile/src/inbox-store.ts` implementation in the inspected tree.",
+          "nextStep": "Add the SQLite store and wire notification events to it from an application-level owner.",
+          "gaps": [
+            "A screen-local listener in `Inbox.tsx` can miss events if the screen has not mounted.",
+            "The ticket should define whether old events are retained indefinitely or pruned."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "open-decisions",
+      "title": "Open Decisions",
+      "convergenceType": "decision-record",
+      "updated": "2026-04-15T15:14:23.000Z",
+      "data": [
+        {
+          "id": "issue-18-context-only",
+          "name": "#18 is closed context, not active implementation scope",
+          "status": "ground-truth",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "19",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/19"
+            },
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            },
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            },
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            }
+          ],
+          "notes": [
+            "#18 remains useful for intent and history, but #19-#24 are the actual work breakdown."
+          ]
+        },
+        {
+          "id": "preview-connection-persistence",
+          "name": "Choose how preview connection state survives refresh",
+          "status": "reference",
+          "updated": "2026-04-15T15:14:23.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "21",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
+            }
+          ],
+          "notes": [
+            "Because GitHub secrets are write-only, the app cannot infer real-vs-placeholder token state from the secret value after creation.",
+            "The #21 implementation uses explicit current-runtime and current-session preview labeling without introducing a readable repo marker.",
+            "If #20 or #23 needs durable preview-vs-real recovery after refresh or reinstall, promote this into a concrete local metadata or repo-marker ticket."
+          ]
+        },
+        {
+          "id": "notification-listener-owner",
+          "name": "Own notification capture above the Inbox screen",
+          "status": "reference",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            }
+          ],
+          "notes": [
+            "The Inbox should render persisted notification events, but event capture should likely live at app/root/service level so notifications are not missed before the Inbox mounts."
+          ]
+        },
+        {
+          "id": "eas-project-ownership",
+          "name": "Decide EAS project ownership before committing canonical config",
+          "status": "reference",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            }
+          ],
+          "notes": [
+            "If the repository is open source, the committed EAS project ID and build instructions need to distinguish Triadflow-owned builds from contributor-local builds."
+          ]
+        },
+        {
+          "id": "single-device-secret",
+          "name": "A single GitHub secret models one active mobile endpoint",
+          "status": "reference",
+          "updated": "2026-04-15T14:55:21.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "18",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/18"
+            },
+            {
+              "issueNumber": "23",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            }
+          ],
+          "notes": [
+            "The current secret-based connection model appears to support one notification target per connected repository unless the workflow and token model are expanded.",
+            "Multi-device or team notification delivery should remain out of scope unless a new ticket defines it."
+          ]
+        }
+      ]
+    }
+  ]
+}

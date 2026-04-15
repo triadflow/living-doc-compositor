@@ -88,7 +88,7 @@ export default function RootNavigator() {
             <Stack.Screen
               name="Repos"
               component={Repos}
-              options={{ title: 'Repositories', headerShown: false }}
+              options={{ title: 'Repositories' }}
             />
           </>
         ) : (

@@ -3,19 +3,37 @@ import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
-import { registerForPushNotifications } from '../notifications';
+import {
+  PushRuntime,
+  pushRuntime,
+  pushRuntimeLabel,
+  registerForPushNotifications,
+} from '../notifications';
 import { colors, radii, spacing, type } from '../theme';
 
 export default function Settings({ navigation }: any) {
   const { user, signOut } = useAuth();
+  const runtime = pushRuntime();
   const [pushReady, setPushReady] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (runtime !== 'eas') {
+      setPushReady(false);
+      return;
+    }
+    let mounted = true;
+    setPushReady(null);
     (async () => {
       const t = await registerForPushNotifications();
-      setPushReady(!!t);
+      if (mounted) setPushReady(!!t);
     })();
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [runtime]);
+
+  const isReady = runtime === 'eas' && pushReady === true;
+  const isChecking = runtime === 'eas' && pushReady === null;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -43,15 +61,15 @@ export default function Settings({ navigation }: any) {
         <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
       </Pressable>
 
-      <View style={[styles.infoCard, !pushReady && { borderColor: colors.warningBg }]}>
-        <Text style={styles.infoLabel}>Push status</Text>
-        {pushReady === null ? (
+      <View style={[styles.infoCard, isReady ? styles.infoCardSuccess : styles.infoCardWarning]}>
+        <Text style={styles.infoLabel}>Push status · {pushRuntimeLabel(runtime)}</Text>
+        {isChecking ? (
           <Text style={styles.infoValue}>Checking...</Text>
-        ) : pushReady ? (
+        ) : isReady ? (
           <Text style={styles.infoValue}>Ready. This device can receive pushes from connected repos.</Text>
         ) : (
           <Text style={[styles.infoValue, { color: colors.warning }]}>
-            Push token not available. On web or Expo Go this is expected; build with EAS for full push support.
+            {pushStatusMessage(runtime)}
           </Text>
         )}
       </View>
@@ -64,6 +82,19 @@ export default function Settings({ navigation }: any) {
       </Pressable>
     </SafeAreaView>
   );
+}
+
+function pushStatusMessage(runtime: PushRuntime): string {
+  switch (runtime) {
+    case 'expo-go':
+      return 'Expo Go cannot hold a push token. Install an EAS dev build to receive real pushes.';
+    case 'web':
+      return 'Browser previews cannot receive pushes. Install an EAS dev build to activate.';
+    case 'eas':
+      return 'Notifications permission denied. Enable in system settings.';
+    default:
+      return 'Push runtime could not be detected. Install an EAS dev build to activate.';
+  }
 }
 
 const styles = StyleSheet.create({
@@ -114,6 +145,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  infoCardSuccess: { borderColor: colors.successBg },
+  infoCardWarning: { borderColor: colors.warningBg },
   infoLabel: { ...type.tiny, color: colors.textMuted, textTransform: 'uppercase' },
   infoValue: { ...type.small, color: colors.text, marginTop: 4, lineHeight: 18 },
 
