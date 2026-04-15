@@ -1,32 +1,39 @@
-import React, { useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { colors } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing } from '../theme';
 
-export default function DocDetail({ route }: any) {
+export default function DocDetail({ route, navigation }: any) {
   const { url } = route.params as { url: string; title: string };
   const [loading, setLoading] = useState(true);
-  const [cacheBuster, setCacheBuster] = useState(0);
   const webRef = useRef<WebView>(null);
 
-  const onRefresh = () => {
-    setCacheBuster((n) => n + 1);
-    webRef.current?.reload();
-  };
+  const reload = () => webRef.current?.reload();
 
-  const finalUrl = cacheBuster ? `${url}?r=${cacheBuster}` : url;
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={reload}
+          hitSlop={10}
+          style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1, padding: spacing.xs }]}
+        >
+          <Ionicons name="refresh" size={22} color={colors.accent} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <WebView
         ref={webRef}
-        source={{ uri: finalUrl }}
+        source={{ uri: url }}
         onLoadStart={() => setLoading(true)}
         onLoadEnd={() => setLoading(false)}
         style={styles.web}
-        pullToRefreshEnabled
-        onRefresh={onRefresh}
       />
       {loading ? (
         <View style={styles.loading} pointerEvents="none">
