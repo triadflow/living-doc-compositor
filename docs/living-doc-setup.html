@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Living Doc Compositor - Current Setup</title>
+<style>
+  :root {
+    --paper: #f6f1e8;
+    --paper-strong: #fffdf8;
+    --ink: #193042;
+    --muted: #5f7181;
+    --line: rgba(25, 48, 66, 0.14);
+    --blue: #2367c6;
+    --teal: #0f7b74;
+    --amber: #b26a08;
+    --rose: #b44e62;
+    --mint: #dff3ec;
+    --sky: #ddeafb;
+    --sun: #f4e8c8;
+    --shadow: 0 18px 40px rgba(25, 48, 66, 0.08);
+    --radius-lg: 28px;
+    --radius-md: 18px;
+    --radius-sm: 12px;
+    --content: 1180px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(circle at top left, rgba(35, 103, 198, 0.10), transparent 28%),
+      radial-gradient(circle at top right, rgba(15, 123, 116, 0.09), transparent 26%),
+      linear-gradient(180deg, #fbf7f0 0%, var(--paper) 100%);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    line-height: 1.5;
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: none;
+  }
+
+  a:hover { text-decoration: underline; }
+
+  code, pre {
+    font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  }
+
+  .page {
+    max-width: var(--content);
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+
+  .hero {
+    background: linear-gradient(140deg, rgba(255, 253, 248, 0.98), rgba(233, 244, 255, 0.78));
+    border: 1px solid var(--line);
+    border-radius: 34px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .hero::before,
+  .hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+
+  .hero::before {
+    width: 300px;
+    height: 300px;
+    right: -80px;
+    top: -120px;
+    background: radial-gradient(circle, rgba(35, 103, 198, 0.12), transparent 68%);
+  }
+
+  .hero::after {
+    width: 260px;
+    height: 260px;
+    left: -90px;
+    bottom: -120px;
+    background: radial-gradient(circle, rgba(15, 123, 116, 0.14), transparent 70%);
+  }
+
+  .hero-inner {
+    padding: 44px;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 24px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(25, 48, 66, 0.06);
+    color: var(--muted);
+    font: 600 13px/1.1 "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    width: fit-content;
+  }
+
+  h1, h2, h3 {
+    margin: 0;
+    line-height: 1.05;
+    font-weight: 700;
+  }
+
+  h1 {
+    font-size: clamp(2.4rem, 5.5vw, 4.8rem);
+    max-width: 12ch;
+    letter-spacing: -0.04em;
+  }
+
+  h2 {
+    font-size: clamp(1.7rem, 2.8vw, 2.5rem);
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    margin: 0;
+    font-size: 1.06rem;
+  }
+
+  .lead {
+    max-width: 64ch;
+    color: var(--ink);
+    font-size: 1.14rem;
+  }
+
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .summary-card,
+  .card,
+  .table-card,
+  .callout {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 24px rgba(25, 48, 66, 0.05);
+  }
+
+  .summary-card {
+    padding: 18px 18px 16px;
+  }
+
+  .summary-card strong {
+    display: block;
+    font: 700 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .summary-card span {
+    display: block;
+    font-size: 1.02rem;
+  }
+
+  main {
+    display: grid;
+    gap: 22px;
+    margin-top: 30px;
+  }
+
+  .section-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 22px;
+  }
+
+  .card {
+    padding: 26px;
+  }
+
+  .card p + p,
+  .card ul + p,
+  .card p + ul,
+  .card ol + p {
+    margin-top: 14px;
+  }
+
+  .callout {
+    padding: 22px 24px;
+    background: linear-gradient(135deg, rgba(223, 243, 236, 0.82), rgba(255, 253, 248, 0.86));
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 8px;
+    font: 700 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+  }
+
+  .flow {
+    display: grid;
+    gap: 14px;
+  }
+
+  .flow-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .flow-box {
+    background: var(--paper-strong);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    min-height: 100%;
+  }
+
+  .flow-box strong {
+    display: block;
+    margin-bottom: 6px;
+    font: 700 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .flow-box p {
+    font-size: 0.98rem;
+    color: var(--ink);
+  }
+
+  .arrow {
+    display: grid;
+    place-items: center;
+    color: var(--blue);
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(25, 48, 66, 0.10);
+    background: rgba(255, 255, 255, 0.8);
+    font: 600 0.92rem/1.2 "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .pill.blue { color: var(--blue); }
+  .pill.teal { color: var(--teal); }
+  .pill.amber { color: var(--amber); }
+  .pill.rose { color: var(--rose); }
+
+  ul, ol {
+    margin: 14px 0 0;
+    padding-left: 20px;
+  }
+
+  li + li { margin-top: 8px; }
+
+  .table-card {
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead {
+    background: rgba(35, 103, 198, 0.06);
+  }
+
+  th, td {
+    padding: 15px 16px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    font: 700 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  pre {
+    margin: 16px 0 0;
+    padding: 18px;
+    border-radius: var(--radius-sm);
+    background: #fffdfa;
+    border: 1px solid rgba(25, 48, 66, 0.08);
+    color: #203446;
+    overflow: auto;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .note-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .note {
+    padding: 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    background: var(--paper-strong);
+  }
+
+  .note strong {
+    display: block;
+    margin-bottom: 6px;
+    font: 700 0.82rem/1.2 "Helvetica Neue", Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .note.blue strong { color: var(--blue); }
+  .note.teal strong { color: var(--teal); }
+  .note.amber strong { color: var(--amber); }
+  .note.rose strong { color: var(--rose); }
+
+  footer {
+    margin-top: 28px;
+    padding: 22px 8px 0;
+    color: var(--muted);
+    font-size: 0.96rem;
+  }
+
+  @media (max-width: 900px) {
+    .summary-strip,
+    .section-grid,
+    .flow-row,
+    .note-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .arrow {
+      min-height: 24px;
+      transform: rotate(90deg);
+    }
+
+    .hero-inner,
+    .card {
+      padding: 24px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="eyebrow">Current Architecture</div>
+        <h1>One canonical model, self-contained HTML outputs</h1>
+        <p class="lead">
+          The registry and i18n now live in one authoritative place. The standalone compositor and every rendered living doc remain self-contained, but their embedded data is generated from the canonical JSON files rather than maintained by hand.
+        </p>
+        <div class="summary-strip">
+          <div class="summary-card">
+            <strong>Canonical source</strong>
+            <span><code>scripts/living-doc-registry.json</code> and <code>scripts/living-doc-i18n.json</code></span>
+          </div>
+          <div class="summary-card">
+            <strong>Generated embed</strong>
+            <span><code>docs/living-doc-compositor.html</code> carries generated inline blocks</span>
+          </div>
+          <div class="summary-card">
+            <strong>Guaranteed sync</strong>
+            <span><code>render-living-doc.mjs</code> syncs embeds before rendering</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section-grid">
+        <article class="card">
+          <h2>The setup in one sentence</h2>
+          <p>
+            There is one source of truth for type and language data, and there are self-contained HTML artifacts that embed generated copies of that data so they can run anywhere with no server and no external fetches.
+          </p>
+          <div class="pill-row">
+            <span class="pill blue">single source of truth</span>
+            <span class="pill teal">standalone HTML</span>
+            <span class="pill amber">generated embeds</span>
+            <span class="pill rose">no hand-maintained drift</span>
+          </div>
+        </article>
+
+        <aside class="callout">
+          <strong>Why this matters</strong>
+          <p>
+            The system is meant to help AI reason over structured work. If type definitions drift between files, the formal model weakens. If HTML is not self-contained, sharing breaks. This setup keeps both constraints intact at the same time.
+          </p>
+        </aside>
+      </section>
+
+      <section class="card">
+        <h2>Flow of truth</h2>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>1. Edit canonicals</strong>
+              <p>Change convergence types only in <code>scripts/living-doc-registry.json</code>. Change UI text only in <code>scripts/living-doc-i18n.json</code>.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="flow-box">
+              <strong>2. Sync standalone embed</strong>
+              <p><code>scripts/sync-compositor-embeds.mjs</code> rewrites the generated <code>LOCALES</code> and <code>EMBEDDED_REGISTRY</code> blocks inside <code>docs/living-doc-compositor.html</code>.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>3. Keep the tool standalone</strong>
+              <p>The compositor still works as one local HTML file because it carries the generated data inline as a fallback when fetch-based loading is unavailable.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="flow-box">
+              <strong>4. Render any doc</strong>
+              <p><code>scripts/render-living-doc.mjs</code> runs the sync first, then embeds the current compositor into every rendered living doc.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Role</th>
+              <th>Edit directly?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>scripts/living-doc-registry.json</code></td>
+              <td>Canonical convergence type, entity type, and status-set model</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td><code>scripts/living-doc-i18n.json</code></td>
+              <td>Canonical UI strings for the compositor and rendered docs</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td><code>scripts/sync-compositor-embeds.mjs</code></td>
+              <td>Generator that copies canonical data into the standalone HTML</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td><code>docs/living-doc-compositor.html</code></td>
+              <td>Standalone compositor GUI with generated embed blocks</td>
+              <td>Yes, except the generated blocks</td>
+            </tr>
+            <tr>
+              <td><code>scripts/render-living-doc.mjs</code></td>
+              <td>Universal renderer that syncs first, then emits self-contained HTML docs</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td><code>docs/*.html</code> rendered outputs</td>
+              <td>Shareable living docs with the full compositor embedded</td>
+              <td>No, regenerate them</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section-grid">
+        <article class="card">
+          <h2>Generated blocks</h2>
+          <p>
+            The standalone compositor contains two marker-delimited generated regions. They are the only intentional duplication in the system, and they are derived artifacts rather than separate sources of truth.
+          </p>
+          <pre>/* &lt;generated:locales&gt; */
+const LOCALES = { ... };
+/* &lt;/generated:locales&gt; */
+
+/* &lt;generated:embedded-registry&gt; */
+const EMBEDDED_REGISTRY = { ... };
+/* &lt;/generated:embedded-registry&gt; */</pre>
+        </article>
+
+        <article class="card">
+          <h2>What not to do</h2>
+          <ul>
+            <li>Do not hand-edit the generated registry or locale blocks inside the HTML.</li>
+            <li>Do not add type knowledge directly into the renderer or compositor logic.</li>
+            <li>Do not patch rendered doc HTMLs by hand when the change belongs in the source JSON or compositor.</li>
+            <li>Do not treat duplicated embedded data as a second canonical definition.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Current command path</h2>
+        <p>These are the commands that matter for keeping the setup healthy.</p>
+        <pre># Rewrite the generated embed blocks from canonical JSON
+node scripts/sync-compositor-embeds.mjs
+
+# Fail if the standalone compositor is out of sync
+node scripts/sync-compositor-embeds.mjs --check
+
+# Render a living doc after syncing the embedded compositor data
+node scripts/render-living-doc.mjs docs/my-doc.json</pre>
+
+        <div class="note-grid">
+          <div class="note blue">
+            <strong>Direct file use</strong>
+            <p><code>docs/living-doc-compositor.html</code> can still be opened directly as a local file. The library fetches may be unavailable, but the tool itself remains complete.</p>
+          </div>
+          <div class="note teal">
+            <strong>Served use</strong>
+            <p>When served from <code>docs/</code>, the compositor can discover sibling JSON files and act as a document library as well as an editor.</p>
+          </div>
+          <div class="note amber">
+            <strong>Rendered use</strong>
+            <p>Each rendered living doc remains a fully standalone HTML deliverable with the complete embedded compositor inside it.</p>
+          </div>
+          <div class="note rose">
+            <strong>AI use</strong>
+            <p>Type semantics stay anchored in one registry, which keeps inference-time contracts stronger than instance-local drift or duplicated schema copies.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>The design decision</h2>
+        <p>
+          The system deliberately accepts generated duplication in artifacts so that sharing stays frictionless. What it no longer accepts is semantic duplication in authoring. Canonical semantics live once; generated self-containment can appear many times.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Static explainer page for the current Living Doc Compositor setup.
+    </footer>
+  </div>
+</body>
+</html>

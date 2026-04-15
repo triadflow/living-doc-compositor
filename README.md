@@ -19,6 +19,9 @@ Every rendered document has the full compositor embedded. Recipients see the con
 # Render a living doc
 node scripts/render-living-doc.mjs docs/my-doc.json
 
+# Render the current registry overview
+node scripts/render-registry-overview.mjs
+
 # Serve the compositor with library discovery
 cd docs && python3 -m http.server 8111
 # Open http://localhost:8111/living-doc-compositor.html
@@ -63,11 +66,13 @@ scripts/
   living-doc-registry.json    # Convergence types, entity types, status sets
   living-doc-i18n.json        # UI strings (EN, NL, ID)
   render-living-doc.mjs       # Universal renderer
+  render-registry-overview.mjs # Registry-to-HTML overview generator
 
 docs/
   living-doc-compositor.html  # Standalone compositor GUI
   living-doc-empty.json       # Empty document template
   living-doc-empty.html       # Empty rendered deliverable
+  living-doc-registry-overview.html # Generated registry overview page
 ```
 
 ## Internationalization

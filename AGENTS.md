@@ -12,6 +12,12 @@ node scripts/render-living-doc.mjs <path-to-doc.json>
 ```
 This produces a self-contained HTML file with the compositor embedded.
 
+### When asked to render a registry overview
+```bash
+node scripts/render-registry-overview.mjs
+```
+This produces `docs/living-doc-registry-overview.html`, a self-contained HTML overview of the current registry types.
+
 ### When asked to add a convergence type
 Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes`. Define: name, icon (SVG path), projection (card-grid or edge-table), sources (entity types), statusFields, and optionally textFields/detailsFields. No code changes needed.
 
