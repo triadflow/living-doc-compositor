@@ -37,6 +37,7 @@ async function onPushReceived(n: Notifications.Notification) {
       url: data.url,
       title: typeof data.title === 'string' && data.title ? data.title : item.title,
       source: typeof data.source === 'string' ? data.source : hostOf(data.url),
+      status: typeof data.status === 'string' ? data.status : undefined,
     });
   }
 }

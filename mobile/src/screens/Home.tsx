@@ -78,8 +78,8 @@ export default function Home({ navigation }: any) {
           renderItem={({ item }) => (
             <DocCard
               title={item.title}
-              category={item.source ?? 'Doc'}
-              meta={formatRelative(item.addedAt)}
+              status={item.status}
+              meta={[formatRelative(item.addedAt), item.source].filter(Boolean).join(' · ')}
               onPress={() =>
                 navigation.navigate('DocDetail', {
                   title: item.title,

@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, RefreshControl,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,8 @@ import { listAdminRepos, getConnectionStatus, connectRepo, AdminRepo, Connection
 import { registerForPushNotifications } from '../notifications';
 import { EmptyState, Pill } from '../components';
 import { colors, radii, spacing, type } from '../theme';
+
+type Toast = { kind: 'progress' | 'success' | 'error'; text: string } | null;
 
 type RepoState = AdminRepo & {
   status?: ConnectionStatus;
@@ -23,6 +25,16 @@ export default function Repos() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (t: Toast, autoHideMs?: number) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(t);
+    if (autoHideMs) {
+      toastTimer.current = setTimeout(() => setToast(null), autoHideMs);
+    }
+  };
 
   const loadRepos = useCallback(async () => {
     if (!token) return;
@@ -73,17 +85,25 @@ export default function Repos() {
     setRepos((prev) =>
       prev ? prev.map((p) => (p.id === repo.id ? { ...p, connecting: true } : p)) : prev
     );
+    showToast({ kind: 'progress', text: 'Installing secret and workflow...' });
     try {
       await connectRepo(token, repo.owner, repo.name, pushToken);
       const status = await getConnectionStatus(token, repo.owner, repo.name);
       setRepos((prev) =>
         prev ? prev.map((p) => (p.id === repo.id ? { ...p, status, connecting: false } : p)) : prev
       );
+      showToast(
+        { kind: 'success', text: 'Connected. Pushes from this repo will arrive here.' },
+        3500
+      );
     } catch (err: any) {
       setRepos((prev) =>
         prev ? prev.map((p) => (p.id === repo.id ? { ...p, connecting: false } : p)) : prev
       );
-      Alert.alert('Connect failed', err.message ?? 'Unknown error');
+      showToast(
+        { kind: 'error', text: `Connect failed: ${err.message ?? 'Unknown error'}` },
+        4500
+      );
     }
   };
 
@@ -114,7 +134,26 @@ export default function Repos() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
+      {toast ? <ToastBanner toast={toast} onClose={() => showToast(null)} /> : null}
     </SafeAreaView>
+  );
+}
+
+function ToastBanner({ toast, onClose }: { toast: NonNullable<Toast>; onClose: () => void }) {
+  const bg = toast.kind === 'success' ? colors.success
+    : toast.kind === 'error' ? colors.danger
+    : colors.text;
+  return (
+    <Pressable onPress={onClose} style={[styles.toast, { backgroundColor: bg }]}>
+      {toast.kind === 'progress' ? (
+        <ActivityIndicator color="#fff" size="small" />
+      ) : toast.kind === 'success' ? (
+        <Ionicons name="checkmark" size={18} color="#fff" />
+      ) : (
+        <Ionicons name="alert-circle-outline" size={18} color="#fff" />
+      )}
+      <Text style={styles.toastText}>{toast.text}</Text>
+    </Pressable>
   );
 }
 
@@ -221,4 +260,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successBg,
   },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  toast: {
+    position: 'absolute',
+    left: spacing.lg, right: spacing.lg,
+    bottom: spacing.xl,
+    paddingVertical: 12, paddingHorizontal: 16,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  toastText: { color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 },
 });

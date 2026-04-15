@@ -27,13 +27,13 @@ export function Pill({
 // Repo-card-style row used for doc list entries.
 export function DocCard({
   title,
-  category,
+  status,
   meta,
   onPress,
   onLongPress,
 }: {
   title: string;
-  category: string;
+  status?: string;
   meta?: string;
   onPress: () => void;
   onLongPress?: () => void;
@@ -52,10 +52,20 @@ export function DocCard({
           </Text>
           {meta ? <Text style={styles.cardMeta}>{meta}</Text> : null}
         </View>
-        <Pill>{category}</Pill>
+        {status ? <Pill tone={statusTone(status)}>{status}</Pill> : null}
       </View>
     </Pressable>
   );
+}
+
+// Rough tone inference for human-entered status labels. Falls back to neutral.
+function statusTone(raw: string): 'neutral' | 'accent' | 'success' | 'warning' | 'danger' {
+  const s = raw.toLowerCase();
+  if (/\b(ship|green|done|ok|ready|ok|resolved|good)\b/.test(s)) return 'success';
+  if (/\b(investigat|warn|pending|partial|outdated|stale|review)\b/.test(s)) return 'warning';
+  if (/\b(fail|red|broken|blocked|error|incident)\b/.test(s)) return 'danger';
+  if (/\b(overview|docs|info|ref)\b/.test(s)) return 'accent';
+  return 'neutral';
 }
 
 // Generic empty-state for Inbox, errors, etc.

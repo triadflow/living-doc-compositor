@@ -5,6 +5,7 @@ export type RegisteredDoc = {
   url: string;
   title: string;
   source?: string;
+  status?: string;
   addedAt: number;
 };
 
@@ -34,15 +35,30 @@ export async function saveDocs(docs: RegisteredDoc[]): Promise<void> {
   await storage.set(KEY, JSON.stringify(docs));
 }
 
-export async function addDoc(input: { url: string; title: string; source?: string }): Promise<RegisteredDoc> {
+export async function addDoc(input: {
+  url: string;
+  title: string;
+  source?: string;
+  status?: string;
+}): Promise<RegisteredDoc> {
   const docs = await loadDocs();
   const existing = docs.find((d) => d.url === input.url);
-  if (existing) return existing;
+  if (existing) {
+    // Refresh metadata (title, status) from the latest push, keep position.
+    Object.assign(existing, {
+      title: input.title || existing.title,
+      status: input.status ?? existing.status,
+      source: input.source ?? existing.source,
+    });
+    await saveDocs(docs);
+    return existing;
+  }
   const doc: RegisteredDoc = {
     id: uuid(),
     url: input.url,
     title: input.title,
     source: input.source,
+    status: input.status,
     addedAt: Date.now(),
   };
   docs.unshift(doc);
