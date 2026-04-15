@@ -1,21 +1,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { storage } from './storage';
 
 type GitHubUser = {
   login: string;
   name: string | null;
   avatarUrl: string;
   id: number;
-};
-
-type AuthState = {
-  ready: boolean;
-  user: GitHubUser | null;
-  token: string | null;
-  signIn: () => Promise<DeviceCode | null>;
-  completeSignIn: (deviceCode: string, interval: number) => Promise<void>;
-  signOut: () => Promise<void>;
 };
 
 type DeviceCode = {
@@ -26,8 +18,17 @@ type DeviceCode = {
   expiresIn: number;
 };
 
-const TOKEN_KEY = 'github_access_token';
+type AuthState = {
+  ready: boolean;
+  user: GitHubUser | null;
+  token: string | null;
+  signInDevice: () => Promise<DeviceCode>;
+  completeDeviceSignIn: (deviceCode: string, interval: number) => Promise<void>;
+  signInWithToken: (token: string) => Promise<void>;
+  signOut: () => Promise<void>;
+};
 
+const TOKEN_KEY = 'github_access_token';
 const AuthContext = createContext<AuthState | null>(null);
 
 function getClientId(): string | null {
@@ -53,12 +54,12 @@ async function fetchUser(token: string): Promise<GitHubUser> {
   };
 }
 
-// GitHub OAuth Device Flow — no client secret required, works great for mobile.
-// https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow
+// Device flow: mobile only. GitHub's /login/device endpoints do not set CORS
+// headers, so browser-based fetches are blocked.
 async function requestDeviceCode(clientId: string): Promise<DeviceCode> {
   const res = await fetch('https://github.com/login/device/code', {
     method: 'POST',
-    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: clientId, scope: 'read:user repo' }),
   });
   if (!res.ok) throw new Error(`Device code request failed: ${res.status}`);
@@ -72,7 +73,11 @@ async function requestDeviceCode(clientId: string): Promise<DeviceCode> {
   };
 }
 
-async function pollForToken(clientId: string, deviceCode: string, interval: number): Promise<string> {
+async function pollForToken(
+  clientId: string,
+  deviceCode: string,
+  interval: number
+): Promise<string> {
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const deadline = Date.now() + 15 * 60 * 1000;
   let waitMs = interval * 1000;
@@ -81,7 +86,7 @@ async function pollForToken(clientId: string, deviceCode: string, interval: numb
     await delay(waitMs);
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         client_id: clientId,
         device_code: deviceCode,
@@ -107,13 +112,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const saved = await SecureStore.getItemAsync(TOKEN_KEY);
+        const saved = await storage.get(TOKEN_KEY);
         if (saved) {
           setToken(saved);
           try {
             setUser(await fetchUser(saved));
           } catch {
-            await SecureStore.deleteItemAsync(TOKEN_KEY);
+            await storage.remove(TOKEN_KEY);
             setToken(null);
           }
         }
@@ -123,33 +128,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const signIn = async (): Promise<DeviceCode | null> => {
+  const signInDevice = async (): Promise<DeviceCode> => {
     const clientId = getClientId();
     if (!clientId) {
       throw new Error(
         'GitHub OAuth client ID not configured. Set githubClientId in app.json → expo.extra.'
       );
     }
+    if (Platform.OS === 'web') {
+      throw new Error('Device flow is blocked by CORS in browsers. Use a personal access token on web.');
+    }
     return requestDeviceCode(clientId);
   };
 
-  const completeSignIn = async (deviceCode: string, interval: number) => {
+  const completeDeviceSignIn = async (deviceCode: string, interval: number) => {
     const clientId = getClientId();
     if (!clientId) throw new Error('Missing GitHub client ID.');
     const accessToken = await pollForToken(clientId, deviceCode, interval);
-    await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+    await storage.set(TOKEN_KEY, accessToken);
     setToken(accessToken);
     setUser(await fetchUser(accessToken));
   };
 
+  // PAT flow: works on web and native. User pastes a token with "read:user" and
+  // "repo" scopes; we verify it by fetching /user.
+  const signInWithToken = async (raw: string) => {
+    const t = raw.trim();
+    if (!t) throw new Error('Token is empty.');
+    const u = await fetchUser(t);
+    await storage.set(TOKEN_KEY, t);
+    setToken(t);
+    setUser(u);
+  };
+
   const signOut = async () => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await storage.remove(TOKEN_KEY);
     setToken(null);
     setUser(null);
   };
 
   const value = useMemo<AuthState>(
-    () => ({ ready, user, token, signIn, completeSignIn, signOut }),
+    () => ({ ready, user, token, signInDevice, completeDeviceSignIn, signInWithToken, signOut }),
     [ready, user, token]
   );
 

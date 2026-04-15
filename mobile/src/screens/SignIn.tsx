@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, Linking,
+  TextInput, Platform, ScrollView, KeyboardAvoidingView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,14 +16,15 @@ type Phase =
   | { name: 'polling' };
 
 export default function SignIn() {
-  const { signIn, completeSignIn } = useAuth();
+  const { signInDevice, completeDeviceSignIn, signInWithToken } = useAuth();
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
+  const [pat, setPat] = useState('');
+  const [patSubmitting, setPatSubmitting] = useState(false);
 
-  const start = async () => {
+  const startDevice = async () => {
     setPhase({ name: 'requesting' });
     try {
-      const code = await signIn();
-      if (!code) throw new Error('No code returned');
+      const code = await signInDevice();
       setPhase({
         name: 'waiting',
         userCode: code.userCode,
@@ -36,65 +38,116 @@ export default function SignIn() {
     }
   };
 
-  const authorize = async () => {
+  const authorizeDevice = async () => {
     if (phase.name !== 'waiting') return;
     await Clipboard.setStringAsync(phase.userCode);
     await Linking.openURL(phase.verificationUri);
     setPhase({ name: 'polling' });
     try {
-      await completeSignIn(phase.deviceCode, phase.interval);
+      await completeDeviceSignIn(phase.deviceCode, phase.interval);
     } catch (err: any) {
       Alert.alert('Sign-in failed', err.message ?? 'Unknown error');
       setPhase({ name: 'idle' });
     }
   };
 
+  const submitPat = async () => {
+    setPatSubmitting(true);
+    try {
+      await signInWithToken(pat);
+    } catch (err: any) {
+      Alert.alert('Token rejected', err.message ?? 'Could not validate token.');
+    } finally {
+      setPatSubmitting(false);
+    }
+  };
+
+  const isWeb = Platform.OS === 'web';
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      <View style={styles.content}>
-        <View style={styles.brand}>
-          <Text style={styles.logo}>L</Text>
-        </View>
-        <Text style={styles.title}>Living Docs</Text>
-        <Text style={styles.subtitle}>
-          Sign in with GitHub to open your living docs and receive notifications when they change.
-        </Text>
-
-        {phase.name === 'waiting' ? (
-          <View style={styles.codeBlock}>
-            <Text style={styles.codeLabel}>Your code</Text>
-            <Text style={styles.code}>{phase.userCode}</Text>
-            <Text style={styles.codeHint}>
-              We copied it to your clipboard. Tap "Authorize on GitHub" to finish.
-            </Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.brand}>
+            <Text style={styles.logo}>L</Text>
           </View>
-        ) : null}
+          <Text style={styles.title}>Living Docs</Text>
+          <Text style={styles.subtitle}>
+            Sign in with GitHub to open your living docs and receive notifications when they change.
+          </Text>
 
-        {phase.name === 'polling' ? (
-          <View style={styles.polling}>
-            <ActivityIndicator />
-            <Text style={styles.pollingText}>Waiting for GitHub authorization</Text>
-          </View>
-        ) : null}
+          {!isWeb && phase.name === 'waiting' ? (
+            <View style={styles.codeBlock}>
+              <Text style={styles.codeLabel}>Your code</Text>
+              <Text style={styles.code}>{phase.userCode}</Text>
+              <Text style={styles.codeHint}>
+                We copied it to your clipboard. Tap "Authorize on GitHub" to finish.
+              </Text>
+            </View>
+          ) : null}
 
-        {phase.name === 'idle' || phase.name === 'requesting' ? (
-          <Pressable
-            style={[styles.primaryBtn, phase.name === 'requesting' && { opacity: 0.6 }]}
-            onPress={start}
-            disabled={phase.name === 'requesting'}
-          >
-            <Ionicons name="logo-github" size={18} color="#fff" />
-            <Text style={styles.primaryBtnText}>Sign in with GitHub</Text>
-          </Pressable>
-        ) : null}
+          {!isWeb && phase.name === 'polling' ? (
+            <View style={styles.polling}>
+              <ActivityIndicator />
+              <Text style={styles.pollingText}>Waiting for GitHub authorization</Text>
+            </View>
+          ) : null}
 
-        {phase.name === 'waiting' ? (
-          <Pressable style={styles.primaryBtn} onPress={authorize}>
-            <Ionicons name="open-outline" size={18} color="#fff" />
-            <Text style={styles.primaryBtnText}>Authorize on GitHub</Text>
-          </Pressable>
-        ) : null}
-      </View>
+          {!isWeb && (phase.name === 'idle' || phase.name === 'requesting') ? (
+            <Pressable
+              style={[styles.primaryBtn, phase.name === 'requesting' && { opacity: 0.6 }]}
+              onPress={startDevice}
+              disabled={phase.name === 'requesting'}
+            >
+              <Ionicons name="logo-github" size={18} color="#fff" />
+              <Text style={styles.primaryBtnText}>Sign in with GitHub</Text>
+            </Pressable>
+          ) : null}
+
+          {!isWeb && phase.name === 'waiting' ? (
+            <Pressable style={styles.primaryBtn} onPress={authorizeDevice}>
+              <Ionicons name="open-outline" size={18} color="#fff" />
+              <Text style={styles.primaryBtnText}>Authorize on GitHub</Text>
+            </Pressable>
+          ) : null}
+
+          {isWeb ? (
+            <View style={styles.patBlock}>
+              <Text style={styles.sectionLabel}>Browser sign-in</Text>
+              <Text style={styles.helpText}>
+                GitHub's device flow is blocked by CORS in browsers. Paste a personal access token
+                with <Text style={styles.mono}>read:user</Text> and <Text style={styles.mono}>repo</Text> scopes.
+              </Text>
+              <Pressable
+                onPress={() => Linking.openURL('https://github.com/settings/tokens/new?description=Living%20Docs%20Web&scopes=repo,read:user')}
+              >
+                <Text style={styles.link}>Create a token →</Text>
+              </Pressable>
+              <TextInput
+                value={pat}
+                onChangeText={setPat}
+                placeholder="ghp_... or github_pat_..."
+                placeholderTextColor={colors.textSubtle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                style={styles.patInput}
+              />
+              <Pressable
+                style={[styles.primaryBtn, patSubmitting && { opacity: 0.6 }]}
+                onPress={submitPat}
+                disabled={patSubmitting || !pat.trim()}
+              >
+                {patSubmitting ? <ActivityIndicator color="#fff" /> : <Ionicons name="log-in-outline" size={18} color="#fff" />}
+                <Text style={styles.primaryBtnText}>Sign in with token</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -102,9 +155,10 @@ export default function SignIn() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
     gap: spacing.lg,
   },
   brand: {
@@ -145,8 +199,31 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: 14,
     borderRadius: radii.md,
-    marginTop: 'auto',
-    marginBottom: spacing.lg,
+    marginTop: spacing.md,
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  patBlock: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+  },
+  sectionLabel: { ...type.tiny, color: colors.textMuted, textTransform: 'uppercase' },
+  helpText: { ...type.small, color: colors.textMuted, lineHeight: 18 },
+  mono: { fontFamily: 'Menlo', color: colors.text },
+  link: { color: colors.accent, fontSize: 14, fontWeight: '600' },
+  patInput: {
+    backgroundColor: colors.bg,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    fontFamily: 'Menlo',
+    fontSize: 13,
+    color: colors.text,
+    marginTop: spacing.xs,
+  },
 });
