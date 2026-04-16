@@ -148,6 +148,19 @@ No CI is configured for EAS builds yet. Future work may add preview-track or aut
 
 Verification status: not yet verified in this repo. After a reviewer completes a real device build, add a dated note here in the form `Verified EAS build on YYYY-MM-DD`.
 
+## Verified flows
+
+- Verified web PAT connect/update flow on 2026-04-16 against `triadflow/mobile-connect-test`.
+- Passed:
+  - PAT sign-in on web preview
+  - `EXPO_PUSH_TOKEN` secret creation
+  - `.github/workflows/living-doc-notify.yml` creation with commit `Add Living Docs notify workflow`
+  - Drift detection after a manual workflow edit
+  - Workflow restore with commit `Update Living Docs notify workflow`
+- Notes:
+  - The same-session row can remain stale immediately after connect because GitHub secret visibility is eventually consistent; a fresh repo-list load converged to the correct state.
+  - Real EAS push delivery remains unverified here.
+
 ## Roadmap
 
 - [ ] Native re-render of living docs (no WebView) using the same registry JSON
