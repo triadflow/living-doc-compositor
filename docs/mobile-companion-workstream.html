@@ -388,27 +388,27 @@
     <script type="application/json" id="doc-meta">{
   "docId": "living-doc-compositor:mobile-companion-workstream",
   "title": "Mobile Companion Workstream",
-  "subtitle": "Repo-connect, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.",
+  "subtitle": "Repo-connect, in-app delivery feed, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.",
   "brand": "MO",
-  "scope": "Mobile companion implementation work across tickets #19-#24, with #18 retained as closed historical context.",
+  "scope": "Mobile companion implementation work across tickets #19-#24 and #36, with #18 retained as closed historical context.",
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T01:52:30.000Z",
+  "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.",
+  "updated": "2026-04-16T12:33:45.000Z",
   "pills": [
     "Mobile",
     "Workstream",
     "GitHub Issues"
   ],
-  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed in-app delivery, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
   "callouts": [
     {
       "tone": "info",
       "title": "How to use this doc",
       "items": [
-        "Use #19-#24 as the active implementation source of truth. Treat #18 as closed context only.",
+        "Use #19-#24 and #36 as the active implementation source of truth. Treat #18 as closed context only.",
         "Before editing `mobile/src/navigation.tsx` or `mobile/src/screens/Repos.tsx`, inspect the existing local worktree changes so unrelated edits are not overwritten."
       ]
     }
@@ -418,11 +418,11 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "stats": [
         {
           "label": "Open child tickets",
-          "value": "6"
+          "value": "7"
         },
         {
           "label": "Closed context ticket",
@@ -442,13 +442,17 @@
         "title": "Current pressure pattern",
         "items": [
           "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
-          "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.",
+          "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it is ready to become the local sink for a repo-backed sync feed.",
           "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
           "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.",
           "#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.",
+          "#36 now has an initial code path: the workflow writes JSON events into the `living-docs-feed` branch, and the app syncs connected repos into Inbox and the doc registry on launch, foreground, and pull-to-refresh.",
           "Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.",
-          "The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison."
+          "The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.",
+          "Runtime detection is now being hardened around `Constants.executionEnvironment` and `expo-dev-client` so Expo Go does not present itself as a real native push-capable build.",
+          "When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.",
+          "The remaining work now splits into two lanes: verification of the existing mobile surface, and real end-to-end verification plus hardening of the repo-backed in-app delivery feed."
         ]
       },
       "data": []
@@ -457,13 +461,13 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "data": [
         {
           "id": "auth-sign-in",
           "name": "Authentication and sign-in surface",
           "status": "partial",
-          "updated": "2026-04-16T01:20:55.000Z",
+          "updated": "2026-04-16T04:05:00.000Z",
           "codePaths": [
             "mobile/src/auth.tsx",
             "mobile/src/screens/SignIn.tsx"
@@ -476,14 +480,15 @@
           ],
           "notes": [
             "The app has authentication code and a sign-in screen, with the native idle, code-issued, and polling states now aligned closer to the mockup spacing, button placement, code-card padding, and polling typography.",
-            "The implementation should preserve native device-flow sign-in while keeping the web/PAT path legible as a preview or fallback mode."
+            "The implementation now treats native device-flow login as the only supported GitHub sign-in path. Browser preview shows an explicit limitation state until a proper web OAuth callback flow exists.",
+            "Pending native device-flow sessions are now persisted locally and resume after the GitHub browser hop, so Expo Go no longer forces the user to restart sign-in after a successful approval."
           ]
         },
         {
           "id": "home-doc-registry",
           "name": "Home screen and document registry",
           "status": "partial",
-          "updated": "2026-04-16T01:13:30.000Z",
+          "updated": "2026-04-16T05:39:46.000Z",
           "codePaths": [
             "mobile/src/screens/Home.tsx",
             "mobile/src/registry.ts"
@@ -529,7 +534,8 @@
           ],
           "notes": [
             "`mobile/src/notifications.ts` now exposes `pushRuntime()` with the ticket-defined `eas`, `expo-go`, `web`, and `unknown` type contract.",
-            "Settings now shows runtime-specific push status copy for EAS builds, Expo Go, and web preview mode instead of silently degrading when no push token exists.",
+            "Settings now shows runtime-specific push status copy for native builds, Expo Go, and web preview mode instead of silently degrading when no push token exists.",
+            "The failure copy for native builds no longer assumes the only problem is permission denial; it now points at permission, project setup, and rebuild issues as separate real causes.",
             "The #19 code-alignment pass tightened section-label spacing, row padding, info-label sizing, and subtitle line-height toward the mockup."
           ]
         },
@@ -537,7 +543,7 @@
           "id": "repo-connection",
           "name": "Connect-a-repo flow",
           "status": "partial",
-          "updated": "2026-04-16T01:52:30.000Z",
+          "updated": "2026-04-16T04:12:00.000Z",
           "codePaths": [
             "mobile/src/screens/Repos.tsx",
             "mobile/src/github-api.ts",
@@ -561,6 +567,7 @@
           ],
           "notes": [
             "The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.",
+            "Browser preview now presents repo connection as unavailable until a proper web OAuth callback flow exists. Native builds remain the only supported path for GitHub auth and repo wiring.",
             "Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.",
             "After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.",
             "When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.",
@@ -590,6 +597,43 @@
           ]
         },
         {
+          "id": "repo-delivery-feed",
+          "name": "Repo-backed in-app delivery feed",
+          "status": "partial",
+          "updated": "2026-04-16T12:33:45.000Z",
+          "codePaths": [
+            "mobile/src/delivery-feed.ts",
+            "mobile/src/delivery-ingest.ts",
+            "mobile/src/workflow-template.ts",
+            "mobile/src/github-api.ts",
+            "mobile/src/inbox-store.ts",
+            "mobile/src/registry.ts",
+            "mobile/App.tsx",
+            "mobile/src/screens/Inbox.tsx",
+            "mobile/src/screens/Home.tsx"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "notes": [
+            "The workflow contract now writes one JSON event per run into the `living-docs-feed` branch under `.living-docs/feed/`, and Expo push is treated as optional best-effort acceleration.",
+            "The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.",
+            "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
+            "This still needs real GitHub end-to-end verification and likely some cursor or batching hardening before the feed should be treated as production-stable."
+          ]
+        },
+        {
           "id": "inbox-audit-log",
           "name": "Persistent inbox and notification audit trail",
           "status": "partial",
@@ -614,7 +658,8 @@
             "Notifications now persist through `expo-sqlite` in `mobile/src/inbox-store.ts` instead of a module-scoped array.",
             "Notification capture has moved to `mobile/App.tsx`, while the Inbox screen subscribes to the store and renders the event log.",
             "Rows support read state, swipe-to-delete, and a clear-all action with confirmation.",
-            "The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata."
+            "The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata.",
+            "#36 will extend this store from a push-only sink into the destination for synced GitHub feed events, so app-visible updates no longer depend on OS notification delivery."
           ]
         }
       ]
@@ -623,13 +668,13 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-16T01:09:31.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "data": [
         {
           "id": "web-runtime",
           "name": "Web runtime",
           "status": "built",
-          "updated": "2026-04-15T15:14:23.000Z",
+          "updated": "2026-04-16T05:39:46.000Z",
           "codePaths": [
             "mobile/src/notifications.ts",
             "mobile/src/screens/Settings.tsx",
@@ -643,14 +688,14 @@
           ],
           "notes": [
             "`pushRuntime()` now returns `web` when `Platform.OS === 'web'`.",
-            "Settings and Repos label web as preview-only and route repo setup through the placeholder-token path."
+            "Settings and Repos now treat web as browser-preview-only and block repo setup until a proper web OAuth callback flow exists."
           ]
         },
         {
           "id": "expo-go-runtime",
           "name": "Expo Go runtime",
           "status": "built",
-          "updated": "2026-04-15T15:14:23.000Z",
+          "updated": "2026-04-16T11:45:00.000Z",
           "codePaths": [
             "mobile/src/notifications.ts",
             "mobile/src/screens/Settings.tsx"
@@ -662,19 +707,22 @@
             }
           ],
           "notes": [
-            "`pushRuntime()` now returns `expo-go` when `Constants.appOwnership === 'expo'`.",
-            "Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes."
+            "`pushRuntime()` now classifies Expo Go conservatively from `Constants.executionEnvironment === storeClient` plus Expo Go-specific constants instead of relying on the deprecated `appOwnership` flag alone.",
+            "Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes.",
+            "Settings now includes a local preview-notification action so Expo Go can still exercise inbox capture and doc deep-link handling without a real Expo push token.",
+            "The workspace dependency baseline is now Expo SDK 54 / React Native 0.81 / React 19.1, and `npx expo start --go --tunnel` launches successfully."
           ]
         },
         {
           "id": "eas-runtime",
           "name": "EAS/dev-build runtime",
           "status": "partial",
-          "updated": "2026-04-16T01:09:31.000Z",
+          "updated": "2026-04-16T05:39:46.000Z",
           "codePaths": [
             "mobile/app.json",
             "mobile/eas.json",
-            "mobile/README.md"
+            "mobile/README.md",
+            "mobile/package.json"
           ],
           "ticketIds": [
             {
@@ -689,6 +737,7 @@
           "notes": [
             "`mobile/eas.json` now defines development, preview, and production profiles.",
             "`mobile/README.md` now documents Expo login, `npx eas-cli init`, iOS and Android development builds, install flow, first-launch permission, and Settings verification.",
+            "`mobile/package.json` now includes `expo-dev-client` plus explicit `npm run go` and `npm run dev-client` scripts so Expo Go and development-build testing are distinct entry points.",
             "`app.json` intentionally does not commit `extra.eas.projectId`; `eas init` writes account-specific project identity."
           ]
         },
@@ -696,7 +745,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "updated": "2026-04-16T12:33:45.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -709,19 +758,24 @@
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
           "notes": [
             "Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.",
             "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.",
-            "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`."
+            "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`.",
+            "The workflow contract now also writes feed-event JSON files into the `living-docs-feed` branch, which gives the app a GitHub-backed source of truth to sync from."
           ]
         },
         {
           "id": "local-state-stores",
           "name": "Local mobile state stores",
           "status": "partial",
-          "updated": "2026-04-16T01:52:30.000Z",
+          "updated": "2026-04-16T12:18:05.000Z",
           "codePaths": [
             "mobile/src/storage.ts",
             "mobile/src/repo-connection-store.ts",
@@ -735,11 +789,16 @@
             {
               "issueNumber": "24",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
           "notes": [
             "#21 and #20 now use `mobile/src/repo-connection-store.ts` to preserve preview-vs-real repo connection mode across refreshes on the same app install.",
-            "#24 now introduces `mobile/src/inbox-store.ts` as an application-level SQLite event log rather than screen-local state."
+            "#24 now introduces `mobile/src/inbox-store.ts` as an application-level SQLite event log rather than screen-local state.",
+            "#36 now reuses these stores directly: connected repos provide the sync target list, and the Inbox store is the dedupe and persistence sink for synced repo feed entries."
           ]
         }
       ]
@@ -770,15 +829,20 @@
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "purpose": "Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.",
-          "whenToUse": "Use when implementing or verifying connect, status refresh, or disconnect behavior.",
+          "purpose": "Create, inspect, remove, and eventually sync GitHub repository artifacts for the mobile companion connection and delivery feed.",
+          "whenToUse": "Use when implementing or verifying connect, status refresh, disconnect behavior, or repo-backed feed sync.",
           "invocation": "Called by the mobile app screens, not directly from the CLI.",
           "notes": [
             "The API surface should be verified against a real throwaway repository before being treated as trusted.",
             "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.",
-            "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint."
+            "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint.",
+            "#36 will extend this client from connect/disconnect/status work into reading unseen feed artifacts from connected repositories."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -833,13 +897,18 @@
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion when a living document changes.",
-          "whenToUse": "Use in connect, status refresh, and disconnect work where workflow contents or path behavior matter.",
+          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.",
+          "whenToUse": "Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.",
           "invocation": "Written through GitHub Contents API by the mobile app.",
           "caveats": [
-            "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret."
+            "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.",
+            "The current workflow still only sends Expo Push; #36 will add the GitHub-backed feed-writing side of the contract."
           ]
         },
         {
@@ -913,7 +982,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -966,6 +1035,33 @@
           "gaps": [
             "No verified note has been added to `mobile/README.md` yet.",
             "If testing from web or Expo Go, #21 may force placeholder behavior instead of a real push token."
+          ]
+        },
+        {
+          "id": "repo-feed-sync",
+          "name": "Repo-backed in-app delivery sync",
+          "status": "partial",
+          "priority": "blocking",
+          "updated": "2026-04-16T12:33:45.000Z",
+          "automationPaths": [
+            ".github/workflows/living-doc-notify.yml"
+          ],
+          "apiRefs": [
+            {
+              "ref": "GitHub REST: Contents API"
+            }
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes.",
+          "nextStep": "Verify the end-to-end path against a real connected repository: fire the workflow, confirm a feed file lands on the branch, foreground the app, and confirm the new item appears exactly once in Inbox and Home.",
+          "gaps": [
+            "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
+            "No real GitHub repository verification has been recorded yet for the feed branch and sync path."
           ]
         },
         {
@@ -1030,15 +1126,19 @@
           "name": "Persistent inbox verification",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T00:05:12.000Z",
+          "updated": "2026-04-16T12:33:45.000Z",
           "ticketIds": [
             {
               "issueNumber": "24",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, and Inbox supports list, mark-read, swipe delete, and clear-all. `npm run typecheck` passes.",
-          "nextStep": "Manually verify notification receipt, restart persistence, tap-to-read navigation, swipe delete, and clear-all on device or simulator.",
+          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. `npm run typecheck` passes.",
+          "nextStep": "Manually verify restart persistence, tap-to-read navigation, swipe delete, and clear-all first with preview notifications and then with synced repo-feed events from a real connected repository.",
           "gaps": [
             "No runtime/device verification has been recorded yet.",
             "The ticket still does not define retention or pruning for old events."
@@ -1050,7 +1150,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:18:05.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -1089,6 +1189,31 @@
           ],
           "notes": [
             "#18 remains useful for intent and history, but #19-#24 are the actual work breakdown."
+          ]
+        },
+        {
+          "id": "repo-feed-source-of-truth",
+          "name": "GitHub feed is the delivery source of truth; push is optional acceleration",
+          "status": "ground-truth",
+          "updated": "2026-04-16T12:18:05.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "notes": [
+            "The product goal is that living-doc updates appear inside the app itself whenever the app refreshes, even if Apple or Expo push is unavailable.",
+            "Connected-repo workflow runs should therefore write a structured GitHub-backed feed that the app syncs into Inbox and the local doc registry.",
+            "Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness."
           ]
         },
         {
@@ -1162,6 +1287,7 @@
           ],
           "notes": [
             "The current secret-based connection model appears to support one notification target per connected repository unless the workflow and token model are expanded.",
+            "After #36, this remains a push-delivery limitation, but it no longer blocks updates from appearing inside the app because the repo feed becomes the source of truth.",
             "Multi-device or team notification delivery should remain out of scope unless a new ticket defines it."
           ]
         }
@@ -11707,7 +11833,7 @@
       <div class="wrap">
         <header class="page-header">
           <h1>Mobile Companion Workstream</h1>
-          <p class="subtitle">Repo-connect, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.</p>
+          <p class="subtitle">Repo-connect, in-app delivery feed, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.</p>
           <div class="pill-row"><span class="pill">Mobile</span><span class="pill">Workstream</span><span class="pill">GitHub Issues</span></div>
 
           <div class="view-switch" role="tablist" aria-label="Living doc views">
@@ -11741,7 +11867,7 @@
 
     <div class="snapshot-item">
       <span class="snapshot-label">Scope</span>
-      <span class="snapshot-value">Mobile companion implementation work across tickets #19-#24, with #18 retained as closed historical context.</span>
+      <span class="snapshot-value">Mobile companion implementation work across tickets #19-#24 and #36, with #18 retained as closed historical context.</span>
     </div>
 
     <div class="snapshot-item">
@@ -11751,7 +11877,7 @@
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-16T03:54:27.735Z" title="2026-04-16T03:54:27.735Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T03:54:27.735Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-16T12:34:36.011Z" title="2026-04-16T12:34:36.011Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T12:34:36.011Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -11771,14 +11897,14 @@
 
     <div class="snapshot-item snapshot-item-wide">
       <span class="snapshot-label">Source Coverage</span>
-      <span class="snapshot-value">GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.</span>
+      <span class="snapshot-value">GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.</span>
     </div>
       </div>
     </section>
 
 
           <section class="callout" style="border-left:3px solid var(--accent)">
-            <p><strong>Objective</strong> Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.</p>
+            <p><strong>Objective</strong> Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed in-app delivery, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.</p>
             <p style="color:var(--muted)"><strong>Success condition</strong> A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.</p>
 
           </section>
@@ -11786,23 +11912,23 @@
 
     <section class="callout callout-info">
       <h3 class="callout-title">How to use this doc</h3>
-      <p><span class="callout-line">Use #19-#24 as the active implementation source of truth. Treat #18 as closed context only.</span></p><p><span class="callout-line">Before editing <code>mobile/src/navigation.tsx</code> or <code>mobile/src/screens/Repos.tsx</code>, inspect the existing local worktree changes so unrelated edits are not overwritten.</span></p>
+      <p><span class="callout-line">Use #19-#24 and #36 as the active implementation source of truth. Treat #18 as closed context only.</span></p><p><span class="callout-line">Before editing <code>mobile/src/navigation.tsx</code> or <code>mobile/src/screens/Repos.tsx</code>, inspect the existing local worktree changes so unrelated edits are not overwritten.</span></p>
 
     </section>
 
 
     <section class="section" id="status-snapshot">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:52:30Z" title="2026-04-16T01:52:30Z" data-relative-to-snapshot="true">2026-04-16T01:52:30Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></h2>
 
     <section class="callout callout-warning">
       <h3 class="callout-title">Current pressure pattern</h3>
-      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#22 now has <code>mobile/eas.json</code> and real-push setup documentation; it still needs a real EAS dev build verification note.</span></p><p><span class="callout-line">#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.</span></p><p><span class="callout-line">Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.</span></p><p><span class="callout-line">The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison.</span></p>
+      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it is ready to become the local sink for a repo-backed sync feed.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#22 now has <code>mobile/eas.json</code> and real-push setup documentation; it still needs a real EAS dev build verification note.</span></p><p><span class="callout-line">#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.</span></p><p><span class="callout-line">#36 now has an initial code path: the workflow writes JSON events into the <code>living-docs-feed</code> branch, and the app syncs connected repos into Inbox and the doc registry on launch, foreground, and pull-to-refresh.</span></p><p><span class="callout-line">Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.</span></p><p><span class="callout-line">The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.</span></p><p><span class="callout-line">Runtime detection is now being hardened around <code>Constants.executionEnvironment</code> and <code>expo-dev-client</code> so Expo Go does not present itself as a real native push-capable build.</span></p><p><span class="callout-line">When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.</span></p><p><span class="callout-line">The remaining work now splits into two lanes: verification of the existing mobile surface, and real end-to-end verification plus hardening of the repo-backed in-app delivery feed.</span></p>
 
     </section>
       <div class="summary-grid">
         <article class="stat-card">
           <h3>Open child tickets</h3>
-          <div class="value">6</div>
+          <div class="value">7</div>
         </article>
         <article class="stat-card">
           <h3>Closed context ticket</h3>
@@ -11820,7 +11946,7 @@
       <div class="card-grid" style="--grid-cols:2"></div>
     </section>
     <section class="section" id="mobile-capabilities">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:52:30Z" title="2026-04-16T01:52:30Z" data-relative-to-snapshot="true">2026-04-16T01:52:30Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></h2>
 
 
 
@@ -11829,14 +11955,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Authentication and sign-in surface</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T01:20:55Z" title="2026-04-16T01:20:55Z" data-relative-to-snapshot="true">2026-04-16T01:20:55Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T04:05:00Z" title="2026-04-16T04:05:00Z" data-relative-to-snapshot="true">2026-04-16T04:05:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/auth.tsx"><code>mobile/src/auth.tsx</code></a> <a href="../mobile/src/screens/SignIn.tsx"><code>mobile/src/screens/SignIn.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/19" class="ticket-link"><span class="ticket-badge badge badge-neutral">#19</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The app has authentication code and a sign-in screen, with the native idle, code-issued, and polling states now aligned closer to the mockup spacing, button placement, code-card padding, and polling typography.</span></p><p class="note-description"><span class="note-line">The implementation should preserve native device-flow sign-in while keeping the web/PAT path legible as a preview or fallback mode.</span></p>
+      <p class="note-description"><span class="note-line">The app has authentication code and a sign-in screen, with the native idle, code-issued, and polling states now aligned closer to the mockup spacing, button placement, code-card padding, and polling typography.</span></p><p class="note-description"><span class="note-line">The implementation now treats native device-flow login as the only supported GitHub sign-in path. Browser preview shows an explicit limitation state until a proper web OAuth callback flow exists.</span></p><p class="note-description"><span class="note-line">Pending native device-flow sessions are now persisted locally and resume after the GitHub browser hop, so Expo Go no longer forces the user to restart sign-in after a successful approval.</span></p>
     </div>
 
 
@@ -11845,7 +11971,7 @@
       <header class="flow-card-header">
         <div>
           <h3>Home screen and document registry</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T01:13:30Z" title="2026-04-16T01:13:30Z" data-relative-to-snapshot="true">2026-04-16T01:13:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T05:39:46Z" title="2026-04-16T05:39:46Z" data-relative-to-snapshot="true">2026-04-16T05:39:46Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
@@ -11868,7 +11994,7 @@
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/screens/Settings.tsx"><code>mobile/src/screens/Settings.tsx</code></a> <a href="../mobile/src/notifications.ts"><code>mobile/src/notifications.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/19" class="ticket-link"><span class="ticket-badge badge badge-neutral">#19</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line"><code>mobile/src/notifications.ts</code> now exposes <code>pushRuntime()</code> with the ticket-defined <code>eas</code>, <code>expo-go</code>, <code>web</code>, and <code>unknown</code> type contract.</span></p><p class="note-description"><span class="note-line">Settings now shows runtime-specific push status copy for EAS builds, Expo Go, and web preview mode instead of silently degrading when no push token exists.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass tightened section-label spacing, row padding, info-label sizing, and subtitle line-height toward the mockup.</span></p>
+      <p class="note-description"><span class="note-line"><code>mobile/src/notifications.ts</code> now exposes <code>pushRuntime()</code> with the ticket-defined <code>eas</code>, <code>expo-go</code>, <code>web</code>, and <code>unknown</code> type contract.</span></p><p class="note-description"><span class="note-line">Settings now shows runtime-specific push status copy for native builds, Expo Go, and web preview mode instead of silently degrading when no push token exists.</span></p><p class="note-description"><span class="note-line">The failure copy for native builds no longer assumes the only problem is permission denial; it now points at permission, project setup, and rebuild issues as separate real causes.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass tightened section-label spacing, row padding, info-label sizing, and subtitle line-height toward the mockup.</span></p>
     </div>
 
 
@@ -11877,14 +12003,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Connect-a-repo flow</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T01:52:30Z" title="2026-04-16T01:52:30Z" data-relative-to-snapshot="true">2026-04-16T01:52:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T04:12:00Z" title="2026-04-16T04:12:00Z" data-relative-to-snapshot="true">2026-04-16T04:12:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/screens/Repos.tsx"><code>mobile/src/screens/Repos.tsx</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/sealed-box.ts"><code>mobile/src/sealed-box.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.</span></p><p class="note-description"><span class="note-line">Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.</span></p><p class="note-description"><span class="note-line">After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.</span></p><p class="note-description"><span class="note-line">When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.</span></p><p class="note-description"><span class="note-line">Connection mode is now persisted locally per repo. Explicitly preview-connected rows show an Upgrade action when a real push token becomes available, while unknown connected rows can still Reconnect from a real-token runtime to overwrite opaque GitHub secrets.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions.</span></p>
+      <p class="note-description"><span class="note-line">The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.</span></p><p class="note-description"><span class="note-line">Browser preview now presents repo connection as unavailable until a proper web OAuth callback flow exists. Native builds remain the only supported path for GitHub auth and repo wiring.</span></p><p class="note-description"><span class="note-line">Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.</span></p><p class="note-description"><span class="note-line">After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.</span></p><p class="note-description"><span class="note-line">When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.</span></p><p class="note-description"><span class="note-line">Connection mode is now persisted locally per repo. Explicitly preview-connected rows show an Upgrade action when a real push token becomes available, while unknown connected rows can still Reconnect from a real-token runtime to overwrite opaque GitHub secrets.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions.</span></p>
     </div>
 
 
@@ -11905,6 +12031,22 @@
 
 
     </article>
+    <article class="flow-card" id="repo-delivery-feed">
+      <header class="flow-card-header">
+        <div>
+          <h3>Repo-backed in-app delivery feed</h3>
+          <div class="meta-row"><span><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
+      </header>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">The workflow contract now writes one JSON event per run into the <code>living-docs-feed</code> branch under <code>.living-docs/feed/</code>, and Expo push is treated as optional best-effort acceleration.</span></p><p class="note-description"><span class="note-line">The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.</span></p><p class="note-description"><span class="note-line">Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.</span></p><p class="note-description"><span class="note-line">This still needs real GitHub end-to-end verification and likely some cursor or batching hardening before the feed should be treated as production-stable.</span></p>
+    </div>
+
+
+    </article>
     <article class="flow-card" id="inbox-audit-log">
       <header class="flow-card-header">
         <div>
@@ -11916,14 +12058,14 @@
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/notifications.ts"><code>mobile/src/notifications.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/19" class="ticket-link"><span class="ticket-badge badge badge-neutral">#19</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Notifications now persist through <code>expo-sqlite</code> in <code>mobile/src/inbox-store.ts</code> instead of a module-scoped array.</span></p><p class="note-description"><span class="note-line">Notification capture has moved to <code>mobile/App.tsx</code>, while the Inbox screen subscribes to the store and renders the event log.</span></p><p class="note-description"><span class="note-line">Rows support read state, swipe-to-delete, and a clear-all action with confirmation.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata.</span></p>
+      <p class="note-description"><span class="note-line">Notifications now persist through <code>expo-sqlite</code> in <code>mobile/src/inbox-store.ts</code> instead of a module-scoped array.</span></p><p class="note-description"><span class="note-line">Notification capture has moved to <code>mobile/App.tsx</code>, while the Inbox screen subscribes to the store and renders the event log.</span></p><p class="note-description"><span class="note-line">Rows support read state, swipe-to-delete, and a clear-all action with confirmation.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata.</span></p><p class="note-description"><span class="note-line">#36 will extend this store from a push-only sink into the destination for synced GitHub feed events, so app-visible updates no longer depend on OS notification delivery.</span></p>
     </div>
 
 
     </article></div>
     </section>
     <section class="section" id="runtime-state-model">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0891b2"><rect x='4' y='5' width='16' height='14' rx='2' opacity='.22'/><path d='M7 9h10v2H7zm0 4h6v2H7z'/><circle cx='17' cy='14' r='2.5'/></svg> Runtime and Connection State Model<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:09:31Z" title="2026-04-16T01:09:31Z" data-relative-to-snapshot="true">2026-04-16T01:09:31Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0891b2"><rect x='4' y='5' width='16' height='14' rx='2' opacity='.22'/><path d='M7 9h10v2H7zm0 4h6v2H7z'/><circle cx='17' cy='14' r='2.5'/></svg> Runtime and Connection State Model<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></h2>
 
 
 
@@ -11932,14 +12074,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Web runtime</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T15:14:23Z" title="2026-04-15T15:14:23Z" data-relative-to-snapshot="true">2026-04-15T15:14:23Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T05:39:46Z" title="2026-04-16T05:39:46Z" data-relative-to-snapshot="true">2026-04-16T05:39:46Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-positive">Built</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/notifications.ts"><code>mobile/src/notifications.ts</code></a> <a href="../mobile/src/screens/Settings.tsx"><code>mobile/src/screens/Settings.tsx</code></a> <a href="../mobile/src/screens/Repos.tsx"><code>mobile/src/screens/Repos.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line"><code>pushRuntime()</code> now returns <code>web</code> when <code>Platform.OS === &#39;web&#39;</code>.</span></p><p class="note-description"><span class="note-line">Settings and Repos label web as preview-only and route repo setup through the placeholder-token path.</span></p>
+      <p class="note-description"><span class="note-line"><code>pushRuntime()</code> now returns <code>web</code> when <code>Platform.OS === &#39;web&#39;</code>.</span></p><p class="note-description"><span class="note-line">Settings and Repos now treat web as browser-preview-only and block repo setup until a proper web OAuth callback flow exists.</span></p>
     </div>
 
 
@@ -11948,14 +12090,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Expo Go runtime</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T15:14:23Z" title="2026-04-15T15:14:23Z" data-relative-to-snapshot="true">2026-04-15T15:14:23Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T11:45:00Z" title="2026-04-16T11:45:00Z" data-relative-to-snapshot="true">2026-04-16T11:45:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-positive">Built</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/notifications.ts"><code>mobile/src/notifications.ts</code></a> <a href="../mobile/src/screens/Settings.tsx"><code>mobile/src/screens/Settings.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line"><code>pushRuntime()</code> now returns <code>expo-go</code> when <code>Constants.appOwnership === &#39;expo&#39;</code>.</span></p><p class="note-description"><span class="note-line">Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes.</span></p>
+      <p class="note-description"><span class="note-line"><code>pushRuntime()</code> now classifies Expo Go conservatively from <code>Constants.executionEnvironment === storeClient</code> plus Expo Go-specific constants instead of relying on the deprecated <code>appOwnership</code> flag alone.</span></p><p class="note-description"><span class="note-line">Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes.</span></p><p class="note-description"><span class="note-line">Settings now includes a local preview-notification action so Expo Go can still exercise inbox capture and doc deep-link handling without a real Expo push token.</span></p><p class="note-description"><span class="note-line">The workspace dependency baseline is now Expo SDK 54 / React Native 0.81 / React 19.1, and <code>npx expo start --go --tunnel</code> launches successfully.</span></p>
     </div>
 
 
@@ -11964,14 +12106,14 @@
       <header class="flow-card-header">
         <div>
           <h3>EAS/dev-build runtime</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T01:09:31Z" title="2026-04-16T01:09:31Z" data-relative-to-snapshot="true">2026-04-16T01:09:31Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T05:39:46Z" title="2026-04-16T05:39:46Z" data-relative-to-snapshot="true">2026-04-16T05:39:46Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/app.json"><code>mobile/app.json</code></a> <a href="../mobile/eas.json"><code>mobile/eas.json</code></a> <a href="../mobile/README.md"><code>mobile/README.md</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/app.json"><code>mobile/app.json</code></a> <a href="../mobile/eas.json"><code>mobile/eas.json</code></a> <a href="../mobile/README.md"><code>mobile/README.md</code></a> <a href="../mobile/package.json"><code>mobile/package.json</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line"><code>mobile/eas.json</code> now defines development, preview, and production profiles.</span></p><p class="note-description"><span class="note-line"><code>mobile/README.md</code> now documents Expo login, <code>npx eas-cli init</code>, iOS and Android development builds, install flow, first-launch permission, and Settings verification.</span></p><p class="note-description"><span class="note-line"><code>app.json</code> intentionally does not commit <code>extra.eas.projectId</code>; <code>eas init</code> writes account-specific project identity.</span></p>
+      <p class="note-description"><span class="note-line"><code>mobile/eas.json</code> now defines development, preview, and production profiles.</span></p><p class="note-description"><span class="note-line"><code>mobile/README.md</code> now documents Expo login, <code>npx eas-cli init</code>, iOS and Android development builds, install flow, first-launch permission, and Settings verification.</span></p><p class="note-description"><span class="note-line"><code>mobile/package.json</code> now includes <code>expo-dev-client</code> plus explicit <code>npm run go</code> and <code>npm run dev-client</code> scripts so Expo Go and development-build testing are distinct entry points.</span></p><p class="note-description"><span class="note-line"><code>app.json</code> intentionally does not commit <code>extra.eas.projectId</code>; <code>eas init</code> writes account-specific project identity.</span></p>
     </div>
 
 
@@ -11980,14 +12122,14 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub repo artifact status</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.</span></p><p class="note-description"><span class="note-line">GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.</span></p><p class="note-description"><span class="note-line">Disconnect now reuses the same status refresh path after removing the secret and optionally deleting <code>.github/workflows/living-doc-notify.yml</code>.</span></p>
+      <p class="note-description"><span class="note-line">Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.</span></p><p class="note-description"><span class="note-line">GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.</span></p><p class="note-description"><span class="note-line">Disconnect now reuses the same status refresh path after removing the secret and optionally deleting <code>.github/workflows/living-doc-notify.yml</code>.</span></p><p class="note-description"><span class="note-line">The workflow contract now also writes feed-event JSON files into the <code>living-docs-feed</code> branch, which gives the app a GitHub-backed source of truth to sync from.</span></p>
     </div>
 
 
@@ -11996,14 +12138,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Local mobile state stores</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T01:52:30Z" title="2026-04-16T01:52:30Z" data-relative-to-snapshot="true">2026-04-16T01:52:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T12:18:05Z" title="2026-04-16T12:18:05Z" data-relative-to-snapshot="true">2026-04-16T12:18:05Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/storage.ts"><code>mobile/src/storage.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/storage.ts"><code>mobile/src/storage.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">#21 and #20 now use <code>mobile/src/repo-connection-store.ts</code> to preserve preview-vs-real repo connection mode across refreshes on the same app install.</span></p><p class="note-description"><span class="note-line">#24 now introduces <code>mobile/src/inbox-store.ts</code> as an application-level SQLite event log rather than screen-local state.</span></p>
+      <p class="note-description"><span class="note-line">#21 and #20 now use <code>mobile/src/repo-connection-store.ts</code> to preserve preview-vs-real repo connection mode across refreshes on the same app install.</span></p><p class="note-description"><span class="note-line">#24 now introduces <code>mobile/src/inbox-store.ts</code> as an application-level SQLite event log rather than screen-local state.</span></p><p class="note-description"><span class="note-line">#36 now reuses these stores directly: connected repos provide the sync target list, and the Inbox store is the dedupe and persistence sink for synced repo feed entries.</span></p>
     </div>
 
 
@@ -12023,12 +12165,12 @@
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
       </header>
-      <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+      <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p><p class="note-description"><span class="note-line">Workflow status now comes from the Contents API file at <code>.github/workflows/living-doc-notify.yml</code>, which avoids eventual-consistency lag in the Actions workflow-list endpoint.</span></p>
+      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p><p class="note-description"><span class="note-line">Workflow status now comes from the Contents API file at <code>.github/workflows/living-doc-notify.yml</code>, which avoids eventual-consistency lag in the Actions workflow-list endpoint.</span></p><p class="note-description"><span class="note-line">#36 will extend this client from connect/disconnect/status work into reading unseen feed artifacts from connected repositories.</span></p>
     </div>
-      <p class="code-refs"><strong>Purpose</strong> Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.</p><p class="code-refs"><strong>When to use</strong> Use when implementing or verifying connect, status refresh, or disconnect behavior.</p><p class="code-refs"><strong>Invocation</strong> Called by the mobile app screens, not directly from the CLI.</p>
+      <p class="code-refs"><strong>Purpose</strong> Create, inspect, remove, and eventually sync GitHub repository artifacts for the mobile companion connection and delivery feed.</p><p class="code-refs"><strong>When to use</strong> Use when implementing or verifying connect, status refresh, disconnect behavior, or repo-backed feed sync.</p><p class="code-refs"><strong>Invocation</strong> Called by the mobile app screens, not directly from the CLI.</p>
 
     <details class="details-block">
       <summary>Caveats and gaps (1)</summary>
@@ -12066,15 +12208,15 @@
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
       </header>
-      <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="flow-meta"><strong>Workflows</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+      <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="flow-meta"><strong>Workflows</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
-      <p class="code-refs"><strong>Purpose</strong> Install the GitHub Actions workflow that notifies the mobile companion when a living document changes.</p><p class="code-refs"><strong>When to use</strong> Use in connect, status refresh, and disconnect work where workflow contents or path behavior matter.</p><p class="code-refs"><strong>Invocation</strong> Written through GitHub Contents API by the mobile app.</p>
+      <p class="code-refs"><strong>Purpose</strong> Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.</p><p class="code-refs"><strong>When to use</strong> Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.</p><p class="code-refs"><strong>Invocation</strong> Written through GitHub Contents API by the mobile app.</p>
 
     <details class="details-block">
-      <summary>Caveats and gaps (1)</summary>
+      <summary>Caveats and gaps (2)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.</span></p>
+      <p class="note-description"><span class="note-line">Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.</span></p><p class="note-description"><span class="note-line">The current workflow still only sends Expo Push; #36 will add the GitHub-backed feed-writing side of the contract.</span></p>
     </div>
     </details>
     </article>
@@ -12140,7 +12282,7 @@
     </article></div>
     </section>
     <section class="section" id="verification-plan">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:52:30Z" title="2026-04-16T01:52:30Z" data-relative-to-snapshot="true">2026-04-16T01:52:30Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></h2>
 
 
 
@@ -12185,6 +12327,26 @@
 
     <div class="note-stack">
       <p class="note-description"><span class="note-line">No verified note has been added to <code>mobile/README.md</code> yet.</span></p><p class="note-description"><span class="note-line">If testing from web or Expo Go, #21 may force placeholder behavior instead of a real push token.</span></p>
+    </div>
+    </details>
+    </article>
+    <article class="flow-card" id="repo-feed-sync">
+      <header class="flow-card-header">
+        <div>
+          <h3>Repo-backed in-app delivery sync</h3>
+          <div class="meta-row"><span><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-warning">Partial</span> <span class="badge badge-warning">Gate</span></div>
+      </header>
+      <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+
+      <p class="code-refs"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes.</p><p class="code-refs"><strong>Next step</strong> Verify the end-to-end path against a real connected repository: fire the workflow, confirm a feed file lands on the branch, foreground the app, and confirm the new item appears exactly once in Inbox and Home.</p>
+
+    <details class="details-block">
+      <summary>Current gaps (2)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.</span></p><p class="note-description"><span class="note-line">No real GitHub repository verification has been recorded yet for the feed branch and sync path.</span></p>
     </div>
     </details>
     </article>
@@ -12252,13 +12414,13 @@
       <header class="flow-card-header">
         <div>
           <h3>Persistent inbox verification</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T00:05:12Z" title="2026-04-16T00:05:12Z" data-relative-to-snapshot="true">2026-04-16T00:05:12Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T12:33:45Z" title="2026-04-16T12:33:45Z" data-relative-to-snapshot="true">2026-04-16T12:33:45Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span> <span class="badge badge-warning">Gate</span></div>
       </header>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> <code>expo-sqlite</code> is installed, <code>mobile/src/inbox-store.ts</code> exists, App-level notification ingestion writes the store, and Inbox supports list, mark-read, swipe delete, and clear-all. <code>npm run typecheck</code> passes.</p><p class="code-refs"><strong>Next step</strong> Manually verify notification receipt, restart persistence, tap-to-read navigation, swipe delete, and clear-all on device or simulator.</p>
+      <p class="code-refs"><strong>Current coverage</strong> <code>expo-sqlite</code> is installed, <code>mobile/src/inbox-store.ts</code> exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. <code>npm run typecheck</code> passes.</p><p class="code-refs"><strong>Next step</strong> Manually verify restart persistence, tap-to-read navigation, swipe delete, and clear-all first with preview notifications and then with synced repo-feed events from a real connected repository.</p>
 
     <details class="details-block">
       <summary>Current gaps (2)</summary>
@@ -12270,7 +12432,7 @@
     </article></div>
     </section>
     <section class="section" id="open-decisions">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Open Decisions<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:52:30Z" title="2026-04-16T01:52:30Z" data-relative-to-snapshot="true">2026-04-16T01:52:30Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Open Decisions<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T12:18:05Z" title="2026-04-16T12:18:05Z" data-relative-to-snapshot="true">2026-04-16T12:18:05Z</time></span></h2>
 
 
 
@@ -12287,6 +12449,22 @@
 
     <div class="note-stack">
       <p class="note-description"><span class="note-line">#18 remains useful for intent and history, but #19-#24 are the actual work breakdown.</span></p>
+    </div>
+
+
+    </article>
+    <article class="flow-card" id="repo-feed-source-of-truth">
+      <header class="flow-card-header">
+        <div>
+          <h3>GitHub feed is the delivery source of truth; push is optional acceleration</h3>
+          <div class="meta-row"><span><time datetime="2026-04-16T12:18:05Z" title="2026-04-16T12:18:05Z" data-relative-to-snapshot="true">2026-04-16T12:18:05Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">The product goal is that living-doc updates appear inside the app itself whenever the app refreshes, even if Apple or Expo push is unavailable.</span></p><p class="note-description"><span class="note-line">Connected-repo workflow runs should therefore write a structured GitHub-backed feed that the app syncs into Inbox and the local doc registry.</span></p><p class="note-description"><span class="note-line">Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness.</span></p>
     </div>
 
 
@@ -12350,7 +12528,7 @@
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The current secret-based connection model appears to support one notification target per connected repository unless the workflow and token model are expanded.</span></p><p class="note-description"><span class="note-line">Multi-device or team notification delivery should remain out of scope unless a new ticket defines it.</span></p>
+      <p class="note-description"><span class="note-line">The current secret-based connection model appears to support one notification target per connected repository unless the workflow and token model are expanded.</span></p><p class="note-description"><span class="note-line">After #36, this remains a push-delivery limitation, but it no longer blocks updates from appearing inside the app because the repo feed becomes the source of truth.</span></p><p class="note-description"><span class="note-line">Multi-device or team notification delivery should remain out of scope unless a new ticket defines it.</span></p>
     </div>
 
 
@@ -12358,7 +12536,7 @@
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-f22b7b1 (2026-04-16)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-eeb6f84 (2026-04-16)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -12410,7 +12588,7 @@
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Partial</span>
-        <span class="board-count">9</span>
+        <span class="board-count">10</span>
       </header>
       <div class="board-lane-cards">
 
@@ -12451,6 +12629,13 @@
     </article>
     <article class="board-card" data-section-id="mobile-capabilities">
       <div class="board-card-kicker">Mobile Capability Map · Capability Surface</div>
+      <h3>Repo-backed in-app delivery feed</h3>
+      <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
+
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="mobile-capabilities">
+      <div class="board-card-kicker">Mobile Capability Map · Capability Surface</div>
       <h3>Persistent inbox and notification audit trail</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
@@ -12461,21 +12646,21 @@
       <h3>EAS/dev-build runtime</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/app.json"><code>mobile/app.json</code></a> <a href="../mobile/eas.json"><code>mobile/eas.json</code></a> <a href="../mobile/README.md"><code>mobile/README.md</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/app.json"><code>mobile/app.json</code></a> <a href="../mobile/eas.json"><code>mobile/eas.json</code></a> <a href="../mobile/README.md"><code>mobile/README.md</code></a> <a href="../mobile/package.json"><code>mobile/package.json</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="runtime-state-model">
       <div class="board-card-kicker">Runtime and Connection State Model · Operating Surface</div>
       <h3>GitHub repo artifact status</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="runtime-state-model">
       <div class="board-card-kicker">Runtime and Connection State Model · Operating Surface</div>
       <h3>Local mobile state stores</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/storage.ts"><code>mobile/src/storage.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/storage.ts"><code>mobile/src/storage.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
       </div>
     </section>
@@ -12529,7 +12714,7 @@
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Partial</span>
-        <span class="board-count">6</span>
+        <span class="board-count">7</span>
       </header>
       <div class="board-lane-cards">
 
@@ -12567,6 +12752,13 @@
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/screens/Repos.tsx"><code>mobile/src/screens/Repos.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="mobile-capabilities">
+      <div class="board-card-kicker">Mobile Capability Map · Capability Surface</div>
+      <h3>Repo-backed in-app delivery feed</h3>
+      <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
+
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="mobile-capabilities">
       <div class="board-card-kicker">Mobile Capability Map · Capability Surface</div>
@@ -12650,21 +12842,21 @@
       <h3>EAS/dev-build runtime</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/app.json"><code>mobile/app.json</code></a> <a href="../mobile/eas.json"><code>mobile/eas.json</code></a> <a href="../mobile/README.md"><code>mobile/README.md</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/app.json"><code>mobile/app.json</code></a> <a href="../mobile/eas.json"><code>mobile/eas.json</code></a> <a href="../mobile/README.md"><code>mobile/README.md</code></a> <a href="../mobile/package.json"><code>mobile/package.json</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="runtime-state-model">
       <div class="board-card-kicker">Runtime and Connection State Model · Operating Surface</div>
       <h3>GitHub repo artifact status</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="runtime-state-model">
       <div class="board-card-kicker">Runtime and Connection State Model · Operating Surface</div>
       <h3>Local mobile state stores</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/storage.ts"><code>mobile/src/storage.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/storage.ts"><code>mobile/src/storage.ts</code></a> <a href="../mobile/src/repo-connection-store.ts"><code>mobile/src/repo-connection-store.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
       </div>
     </section>
@@ -12749,8 +12941,8 @@
       <div class="board-card-kicker">Operational Tools and Artifacts · Tooling Surface</div>
       <h3>GitHub API client</h3>
       <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
-      <p class="board-card-note"><strong>Purpose</strong> Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.</p>
-      <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
+      <p class="board-card-note"><strong>Purpose</strong> Create, inspect, remove, and eventually sync GitHub repository artifacts for the mobile companion connection and delivery feed.</p>
+      <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="operational-tools">
       <div class="board-card-kicker">Operational Tools and Artifacts · Tooling Surface</div>
@@ -12763,7 +12955,7 @@
       <div class="board-card-kicker">Operational Tools and Artifacts · Tooling Surface</div>
       <h3>Living-doc notification workflow template</h3>
       <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
-      <p class="board-card-note"><strong>Purpose</strong> Install the GitHub Actions workflow that notifies the mobile companion when a living document changes.</p>
+      <p class="board-card-note"><strong>Purpose</strong> Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.</p>
       <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="flow-meta"><strong>Workflows</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div>
     </article>
     <article class="board-card" data-section-id="operational-tools">
@@ -12823,7 +13015,7 @@
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Partial</span>
-        <span class="board-count">5</span>
+        <span class="board-count">6</span>
       </header>
       <div class="board-lane-cards">
 
@@ -12833,6 +13025,13 @@
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       <p class="board-card-note"><strong>Current coverage</strong> A bounded #19 code pass aligned Home and Inbox empty icon tiles, Home/Inbox row and header spacing, Repos intro and row/button typography, Settings label/row details, Inbox relative-time/source metadata, native Sign In state spacing, and centered Doc Detail title behavior. <code>npm run typecheck</code> passes.</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/19" class="ticket-link"><span class="ticket-badge badge badge-neutral">#19</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Repo-backed in-app delivery sync</h3>
+      <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes.</p>
+      <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div>
     </article>
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
@@ -12859,8 +13058,8 @@
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Persistent inbox verification</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> <code>expo-sqlite</code> is installed, <code>mobile/src/inbox-store.ts</code> exists, App-level notification ingestion writes the store, and Inbox supports list, mark-read, swipe delete, and clear-all. <code>npm run typecheck</code> passes.</p>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+      <p class="board-card-note"><strong>Current coverage</strong> <code>expo-sqlite</code> is installed, <code>mobile/src/inbox-store.ts</code> exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. <code>npm run typecheck</code> passes.</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
       </div>
     </section>
@@ -12896,7 +13095,7 @@
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Gate</span>
-        <span class="board-count">4</span>
+        <span class="board-count">5</span>
       </header>
       <div class="board-lane-cards">
 
@@ -12916,6 +13115,13 @@
     </article>
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Repo-backed in-app delivery sync</h3>
+      <div class="badge-row"><span class="badge badge-warning">Gate</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes.</p>
+      <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div>
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Push-token runtime matrix</h3>
       <div class="badge-row"><span class="badge badge-warning">Gate</span></div>
       <p class="board-card-note"><strong>Current coverage</strong> <code>pushRuntime()</code> exists, Settings consumes it, and Repos now differentiates real and preview connection paths with distinct copy, toast tone, and row pills. <code>npm run typecheck</code> passes.</p>
@@ -12925,8 +13131,8 @@
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Persistent inbox verification</h3>
       <div class="badge-row"><span class="badge badge-warning">Gate</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> <code>expo-sqlite</code> is installed, <code>mobile/src/inbox-store.ts</code> exists, App-level notification ingestion writes the store, and Inbox supports list, mark-read, swipe delete, and clear-all. <code>npm run typecheck</code> passes.</p>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+      <p class="board-card-note"><strong>Current coverage</strong> <code>expo-sqlite</code> is installed, <code>mobile/src/inbox-store.ts</code> exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. <code>npm run typecheck</code> passes.</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
       </div>
     </section>
@@ -12967,7 +13173,7 @@
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Ground Truth</span>
-        <span class="board-count">4</span>
+        <span class="board-count">5</span>
       </header>
       <div class="board-lane-cards">
 
@@ -12977,6 +13183,13 @@
       <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
 
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/19" class="ticket-link"><span class="ticket-badge badge badge-neutral">#19</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="open-decisions">
+      <div class="board-card-kicker">Open Decisions · Decision Record</div>
+      <h3>GitHub feed is the delivery source of truth; push is optional acceleration</h3>
+      <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
+
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="open-decisions">
       <div class="board-card-kicker">Open Decisions · Decision Record</div>

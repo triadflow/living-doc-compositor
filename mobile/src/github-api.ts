@@ -1,10 +1,23 @@
 import { encryptForSecret, utf8ToBase64, base64ToUtf8 } from './sealed-box';
+import {
+  DELIVERY_FEED_BRANCH,
+  DELIVERY_FEED_DIR,
+  DELIVERY_FEED_PER_REPO_LIMIT,
+  type DeliveryFeedEvent,
+} from './delivery-feed';
+import { recordDeliveryEvent } from './delivery-ingest';
+import { getRepoConnectionModes } from './repo-connection-store';
 import { WORKFLOW_TEMPLATE, WORKFLOW_PATH } from './workflow-template';
 
 const API = 'https://api.github.com';
 const PUSH_TOKEN_SECRET_NAME = 'EXPO_PUSH_TOKEN';
 
 type Json = Record<string, any>;
+type ContentsEntry = {
+  name: string;
+  path: string;
+  type: 'file' | 'dir' | 'symlink' | 'submodule';
+};
 
 function headers(token: string): Record<string, string> {
   return {
@@ -61,6 +74,7 @@ export async function listAdminRepos(token: string): Promise<AdminRepo[]> {
 // ─── Secrets ────────────────────────────────────────────────────────────────
 
 type PublicKey = { keyId: string; key: string };
+type WorkflowSummary = { path: string };
 
 async function getRepoPublicKey(token: string, owner: string, repo: string): Promise<PublicKey> {
   const res = await fetch(
@@ -124,10 +138,15 @@ async function checkSecretExists(token: string, owner: string, repo: string, nam
 type FileMeta = { content: string; sha: string };
 
 async function getFile(
-  token: string, owner: string, repo: string, path: string
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  opts: { ref?: string } = {}
 ): Promise<FileMeta | null> {
+  const query = opts.ref ? `?ref=${encodeURIComponent(opts.ref)}` : '';
   const res = await fetch(
-    `${API}/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,
+    `${API}/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}${query}`,
     { headers: headers(token) }
   );
   if (res.status === 404) return null;
@@ -137,6 +156,29 @@ async function getFile(
   const raw = (d.content ?? '').replace(/\n/g, '');
   const content = await base64ToUtf8(raw);
   return { content, sha: d.sha };
+}
+
+async function listDirectory(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  opts: { ref?: string } = {}
+): Promise<ContentsEntry[] | null> {
+  const query = opts.ref ? `?ref=${encodeURIComponent(opts.ref)}` : '';
+  const res = await fetch(
+    `${API}/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}${query}`,
+    { headers: headers(token) }
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`List directory failed: ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error(`Path is a file: ${path}`);
+  return data.map((entry) => ({
+    name: entry.name,
+    path: entry.path,
+    type: entry.type,
+  }));
 }
 
 async function putFile(
@@ -157,6 +199,11 @@ async function putFile(
     }
   );
   if (res.status !== 200 && res.status !== 201) {
+    if (res.status === 404 && path === WORKFLOW_PATH) {
+      throw new Error(
+        'Write workflow failed: 404. GitHub tokens need workflow scope to create or update files in .github/workflows.'
+      );
+    }
     throw new Error(`Write file failed: ${res.status}`);
   }
 }
@@ -203,13 +250,40 @@ export type ConnectionStatus = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function checkWorkflowExistsFromActions(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string
+): Promise<boolean | null> {
+  const res = await fetch(
+    `${API}/repos/${owner}/${repo}/actions/workflows?per_page=100`,
+    { headers: headers(token) }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  const workflows: WorkflowSummary[] = Array.isArray(data.workflows) ? data.workflows : [];
+  return workflows.some((workflow) => workflow.path === path);
+}
+
 export async function getConnectionStatus(
-  token: string, owner: string, repo: string
+  token: string,
+  owner: string,
+  repo: string,
+  opts: { preferContents?: boolean } = {}
 ): Promise<ConnectionStatus> {
-  const [secret, workflowFile] = await Promise.all([
+  const [secret, workflowExistsFromActions] = await Promise.all([
     checkSecretExists(token, owner, repo, PUSH_TOKEN_SECRET_NAME),
-    getFile(token, owner, repo, WORKFLOW_PATH).catch(() => null),
+    opts.preferContents
+      ? Promise.resolve(null)
+      : checkWorkflowExistsFromActions(token, owner, repo, WORKFLOW_PATH),
   ]);
+
+  if (workflowExistsFromActions === false) {
+    return { secret, workflow: false, workflowOutdated: false };
+  }
+
+  const workflowFile = await getFile(token, owner, repo, WORKFLOW_PATH).catch(() => null);
   const workflowOutdated =
     workflowFile !== null && workflowFile.content.trim() !== WORKFLOW_TEMPLATE.trim();
   return { secret, workflow: workflowFile !== null, workflowOutdated };
@@ -226,12 +300,12 @@ export async function getConnectionStatusWithRetry(
   const delayMs = opts.delayMs ?? 700;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const status = await getConnectionStatus(token, owner, repo);
+    const status = await getConnectionStatus(token, owner, repo, { preferContents: true });
     if (isExpected(status) || attempt === attempts - 1) return status;
     await sleep(delayMs);
   }
 
-  return getConnectionStatus(token, owner, repo);
+  return getConnectionStatus(token, owner, repo, { preferContents: true });
 }
 
 export async function connectRepo(
@@ -260,4 +334,110 @@ export async function disconnectRepo(
   if (opts.removeWorkflow) {
     await deleteWorkflowFile(token, owner, repo);
   }
+}
+
+export type RepoFeedSyncResult = {
+  repos: number;
+  events: number;
+};
+
+export async function syncRepoDeliveryFeed(
+  token: string,
+  opts: { perRepoLimit?: number } = {}
+): Promise<RepoFeedSyncResult> {
+  const connections = await getRepoConnectionModes().catch(() => ({}));
+  const fullNames = Object.keys(connections).sort();
+  const perRepoLimit = Math.max(1, opts.perRepoLimit ?? DELIVERY_FEED_PER_REPO_LIMIT);
+  let repos = 0;
+  let events = 0;
+
+  for (const fullName of fullNames) {
+    const parsed = parseRepoFullName(fullName);
+    if (!parsed) continue;
+    repos += 1;
+
+    const entries = await listDirectory(
+      token,
+      parsed.owner,
+      parsed.repo,
+      DELIVERY_FEED_DIR,
+      { ref: DELIVERY_FEED_BRANCH }
+    ).catch(() => null);
+
+    if (!entries) continue;
+
+    const files = entries
+      .filter((entry) => entry.type === 'file' && entry.name.endsWith('.json'))
+      .sort((a, b) => b.name.localeCompare(a.name))
+      .slice(0, perRepoLimit);
+
+    for (const file of files) {
+      const payload = await getFile(
+        token,
+        parsed.owner,
+        parsed.repo,
+        file.path,
+        { ref: DELIVERY_FEED_BRANCH }
+      ).catch(() => null);
+      if (!payload) continue;
+
+      const event = parseDeliveryFeedEvent(payload.content, fullName);
+      if (!event) continue;
+
+      await recordDeliveryEvent({
+        id: event.id,
+        title: event.title,
+        body: event.body,
+        receivedAt: parseReceivedAt(event.createdAt),
+        data: {
+          url: event.url,
+          title: event.title,
+          status: event.status,
+          source: event.source ?? event.repo,
+          repo: event.repo,
+          delivery: 'repo-feed',
+        },
+      });
+      events += 1;
+    }
+  }
+
+  return { repos, events };
+}
+
+function parseRepoFullName(fullName: string): { owner: string; repo: string } | null {
+  const [owner, repo, ...rest] = fullName.split('/');
+  if (!owner || !repo || rest.length > 0) return null;
+  return { owner, repo };
+}
+
+function parseDeliveryFeedEvent(content: string, fallbackRepo: string): DeliveryFeedEvent | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+
+    const id = typeof parsed.id === 'string' ? parsed.id : '';
+    const title = typeof parsed.title === 'string' ? parsed.title : '';
+    const body = typeof parsed.body === 'string' ? parsed.body : '';
+    const createdAt = typeof parsed.createdAt === 'string' ? parsed.createdAt : '';
+    if (!id || !title || !body || !createdAt) return null;
+
+    return {
+      id,
+      title,
+      body,
+      createdAt,
+      repo: typeof parsed.repo === 'string' && parsed.repo ? parsed.repo : fallbackRepo,
+      url: typeof parsed.url === 'string' && parsed.url ? parsed.url : undefined,
+      status: typeof parsed.status === 'string' && parsed.status ? parsed.status : undefined,
+      source: typeof parsed.source === 'string' && parsed.source ? parsed.source : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseReceivedAt(createdAt: string): number {
+  const parsed = Date.parse(createdAt);
+  return Number.isFinite(parsed) ? parsed : Date.now();
 }

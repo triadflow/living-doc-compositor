@@ -1,8 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
-import { insert, type InboxItem } from './inbox-store';
-import { addDoc } from './registry';
+import { type InboxItem } from './inbox-store';
+import { loadDocs } from './registry';
+import { recordDeliveryEvent } from './delivery-ingest';
 
 export type PushRuntime = 'eas' | 'expo-go' | 'web' | 'unknown';
 
@@ -20,14 +22,25 @@ Notifications.setNotificationHandler({
 
 export function pushRuntime(): PushRuntime {
   if (Platform.OS === 'web') return 'web';
-  if (Constants.appOwnership === 'expo') return 'expo-go';
-  return 'eas';
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+    if (Constants.expoGoConfig || Constants.appOwnership === 'expo' || Constants.expoVersion) {
+      return 'expo-go';
+    }
+    return 'eas';
+  }
+  if (
+    Constants.executionEnvironment === ExecutionEnvironment.Standalone
+    || Constants.executionEnvironment === ExecutionEnvironment.Bare
+  ) {
+    return 'eas';
+  }
+  return 'unknown';
 }
 
 export function pushRuntimeLabel(runtime: PushRuntime): string {
   switch (runtime) {
     case 'eas':
-      return 'EAS build';
+      return 'Native build';
     case 'expo-go':
       return 'Expo Go';
     case 'web':
@@ -66,19 +79,61 @@ export async function recordNotification(
   notification: Notifications.Notification
 ): Promise<InboxItem> {
   const item = inboxItemFromNotification(notification);
-  await insert(item);
+  return recordDeliveryEvent(item);
+}
 
-  const data = item.data ?? {};
-  if (typeof data.url === 'string' && data.url) {
-    await addDoc({
-      url: data.url,
-      title: typeof data.title === 'string' && data.title ? data.title : item.title,
-      source: typeof data.source === 'string' ? data.source : hostOf(data.url),
-      status: typeof data.status === 'string' ? data.status : undefined,
-    });
+export type PreviewDeliveryResult = {
+  mode: 'local-notification' | 'inbox-only';
+  usesDoc: boolean;
+  title: string;
+};
+
+export async function sendPreviewNotification(): Promise<PreviewDeliveryResult> {
+  const preview = await buildPreviewPayload();
+
+  if (Platform.OS === 'web') {
+    await recordNotificationContent(`preview-${Date.now()}`, preview.content);
+    return {
+      mode: 'inbox-only',
+      usesDoc: preview.usesDoc,
+      title: preview.content.title ?? 'Preview notification',
+    };
   }
 
-  return { ...item, read: false };
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  let status = existing;
+  if (existing !== 'granted') {
+    const requested = await Notifications.requestPermissionsAsync();
+    status = requested.status;
+  }
+
+  if (status !== 'granted') {
+    await recordNotificationContent(`preview-${Date.now()}`, preview.content);
+    return {
+      mode: 'inbox-only',
+      usesDoc: preview.usesDoc,
+      title: preview.content.title ?? 'Preview notification',
+    };
+  }
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: preview.content,
+      trigger: null,
+    });
+    return {
+      mode: 'local-notification',
+      usesDoc: preview.usesDoc,
+      title: preview.content.title ?? 'Preview notification',
+    };
+  } catch {
+    await recordNotificationContent(`preview-${Date.now()}`, preview.content);
+    return {
+      mode: 'inbox-only',
+      usesDoc: preview.usesDoc,
+      title: preview.content.title ?? 'Preview notification',
+    };
+  }
 }
 
 // Register the device for push and return the Expo push token.
@@ -121,4 +176,55 @@ function hostOf(url: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+async function buildPreviewPayload(): Promise<{
+  content: Notifications.NotificationContentInput;
+  usesDoc: boolean;
+}> {
+  const docs = await loadDocs();
+  const latest = docs[0];
+
+  if (!latest) {
+    return {
+      usesDoc: false,
+      content: {
+        title: 'Preview notification',
+        body: 'Local preview delivery is active. Connect a repo or open a doc to test deep links later.',
+        data: {
+          source: 'Local preview',
+          preview: true,
+        },
+      },
+    };
+  }
+
+  return {
+    usesDoc: true,
+    content: {
+      title: latest.title,
+      body: 'Previewing local delivery for the latest registered doc on this device.',
+      data: {
+        url: latest.url,
+        title: latest.title,
+        source: latest.source ?? hostOf(latest.url) ?? 'Local preview',
+        status: latest.status ?? 'Preview',
+        preview: true,
+      },
+    },
+  };
+}
+
+async function recordNotificationContent(
+  id: string,
+  content: Notifications.NotificationContentInput
+): Promise<void> {
+  const data = (content.data as Record<string, any> | undefined) ?? {};
+  await recordDeliveryEvent({
+    id,
+    title: content.title ?? 'Notification',
+    body: content.body ?? '',
+    receivedAt: Date.now(),
+    data,
+  });
 }

@@ -1,23 +1,23 @@
 {
   "docId": "living-doc-compositor:mobile-companion-workstream",
   "title": "Mobile Companion Workstream",
-  "subtitle": "Repo-connect, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.",
+  "subtitle": "Repo-connect, in-app delivery feed, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.",
   "brand": "MO",
-  "scope": "Mobile companion implementation work across tickets #19-#24, with #18 retained as closed historical context.",
+  "scope": "Mobile companion implementation work across tickets #19-#24 and #36, with #18 retained as closed historical context.",
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T01:52:30.000Z",
+  "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.",
+  "updated": "2026-04-16T12:33:45.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
-  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed in-app delivery, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
   "callouts": [
     {
       "tone": "info",
       "title": "How to use this doc",
       "items": [
-        "Use #19-#24 as the active implementation source of truth. Treat #18 as closed context only.",
+        "Use #19-#24 and #36 as the active implementation source of truth. Treat #18 as closed context only.",
         "Before editing `mobile/src/navigation.tsx` or `mobile/src/screens/Repos.tsx`, inspect the existing local worktree changes so unrelated edits are not overwritten."
       ]
     }
@@ -27,9 +27,9 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "stats": [
-        { "label": "Open child tickets", "value": "6" },
+        { "label": "Open child tickets", "value": "7" },
         { "label": "Closed context ticket", "value": "1" },
         { "label": "Blocking verification gates", "value": "4" },
         { "label": "Open decisions", "value": "0" }
@@ -39,13 +39,17 @@
         "title": "Current pressure pattern",
         "items": [
           "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
-          "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.",
+          "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it is ready to become the local sink for a repo-backed sync feed.",
           "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
           "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.",
           "#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.",
+          "#36 now has an initial code path: the workflow writes JSON events into the `living-docs-feed` branch, and the app syncs connected repos into Inbox and the doc registry on launch, foreground, and pull-to-refresh.",
           "Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.",
-          "The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison."
+          "The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.",
+          "Runtime detection is now being hardened around `Constants.executionEnvironment` and `expo-dev-client` so Expo Go does not present itself as a real native push-capable build.",
+          "When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.",
+          "The remaining work now splits into two lanes: verification of the existing mobile surface, and real end-to-end verification plus hardening of the repo-backed in-app delivery feed."
         ]
       },
       "data": []
@@ -54,13 +58,13 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "data": [
         {
           "id": "auth-sign-in",
           "name": "Authentication and sign-in surface",
           "status": "partial",
-          "updated": "2026-04-16T01:20:55.000Z",
+          "updated": "2026-04-16T04:05:00.000Z",
           "codePaths": [
             "mobile/src/auth.tsx",
             "mobile/src/screens/SignIn.tsx"
@@ -73,14 +77,15 @@
           ],
           "notes": [
             "The app has authentication code and a sign-in screen, with the native idle, code-issued, and polling states now aligned closer to the mockup spacing, button placement, code-card padding, and polling typography.",
-            "The implementation should preserve native device-flow sign-in while keeping the web/PAT path legible as a preview or fallback mode."
+            "The implementation now treats native device-flow login as the only supported GitHub sign-in path. Browser preview shows an explicit limitation state until a proper web OAuth callback flow exists.",
+            "Pending native device-flow sessions are now persisted locally and resume after the GitHub browser hop, so Expo Go no longer forces the user to restart sign-in after a successful approval."
           ]
         },
         {
           "id": "home-doc-registry",
           "name": "Home screen and document registry",
           "status": "partial",
-          "updated": "2026-04-16T01:13:30.000Z",
+          "updated": "2026-04-16T05:39:46.000Z",
           "codePaths": [
             "mobile/src/screens/Home.tsx",
             "mobile/src/registry.ts"
@@ -126,7 +131,8 @@
           ],
           "notes": [
             "`mobile/src/notifications.ts` now exposes `pushRuntime()` with the ticket-defined `eas`, `expo-go`, `web`, and `unknown` type contract.",
-            "Settings now shows runtime-specific push status copy for EAS builds, Expo Go, and web preview mode instead of silently degrading when no push token exists.",
+            "Settings now shows runtime-specific push status copy for native builds, Expo Go, and web preview mode instead of silently degrading when no push token exists.",
+            "The failure copy for native builds no longer assumes the only problem is permission denial; it now points at permission, project setup, and rebuild issues as separate real causes.",
             "The #19 code-alignment pass tightened section-label spacing, row padding, info-label sizing, and subtitle line-height toward the mockup."
           ]
         },
@@ -134,7 +140,7 @@
           "id": "repo-connection",
           "name": "Connect-a-repo flow",
           "status": "partial",
-          "updated": "2026-04-16T01:52:30.000Z",
+          "updated": "2026-04-16T04:12:00.000Z",
           "codePaths": [
             "mobile/src/screens/Repos.tsx",
             "mobile/src/github-api.ts",
@@ -158,6 +164,7 @@
           ],
           "notes": [
             "The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.",
+            "Browser preview now presents repo connection as unavailable until a proper web OAuth callback flow exists. Native builds remain the only supported path for GitHub auth and repo wiring.",
             "Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.",
             "After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.",
             "When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.",
@@ -187,6 +194,43 @@
           ]
         },
         {
+          "id": "repo-delivery-feed",
+          "name": "Repo-backed in-app delivery feed",
+          "status": "partial",
+          "updated": "2026-04-16T12:33:45.000Z",
+          "codePaths": [
+            "mobile/src/delivery-feed.ts",
+            "mobile/src/delivery-ingest.ts",
+            "mobile/src/workflow-template.ts",
+            "mobile/src/github-api.ts",
+            "mobile/src/inbox-store.ts",
+            "mobile/src/registry.ts",
+            "mobile/App.tsx",
+            "mobile/src/screens/Inbox.tsx",
+            "mobile/src/screens/Home.tsx"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "20",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "notes": [
+            "The workflow contract now writes one JSON event per run into the `living-docs-feed` branch under `.living-docs/feed/`, and Expo push is treated as optional best-effort acceleration.",
+            "The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.",
+            "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
+            "This still needs real GitHub end-to-end verification and likely some cursor or batching hardening before the feed should be treated as production-stable."
+          ]
+        },
+        {
           "id": "inbox-audit-log",
           "name": "Persistent inbox and notification audit trail",
           "status": "partial",
@@ -211,7 +255,8 @@
             "Notifications now persist through `expo-sqlite` in `mobile/src/inbox-store.ts` instead of a module-scoped array.",
             "Notification capture has moved to `mobile/App.tsx`, while the Inbox screen subscribes to the store and renders the event log.",
             "Rows support read state, swipe-to-delete, and a clear-all action with confirmation.",
-            "The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata."
+            "The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata.",
+            "#36 will extend this store from a push-only sink into the destination for synced GitHub feed events, so app-visible updates no longer depend on OS notification delivery."
           ]
         }
       ]
@@ -220,13 +265,13 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-16T01:09:31.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "data": [
         {
           "id": "web-runtime",
           "name": "Web runtime",
           "status": "built",
-          "updated": "2026-04-15T15:14:23.000Z",
+          "updated": "2026-04-16T05:39:46.000Z",
           "codePaths": [
             "mobile/src/notifications.ts",
             "mobile/src/screens/Settings.tsx",
@@ -240,14 +285,14 @@
           ],
           "notes": [
             "`pushRuntime()` now returns `web` when `Platform.OS === 'web'`.",
-            "Settings and Repos label web as preview-only and route repo setup through the placeholder-token path."
+            "Settings and Repos now treat web as browser-preview-only and block repo setup until a proper web OAuth callback flow exists."
           ]
         },
         {
           "id": "expo-go-runtime",
           "name": "Expo Go runtime",
           "status": "built",
-          "updated": "2026-04-15T15:14:23.000Z",
+          "updated": "2026-04-16T11:45:00.000Z",
           "codePaths": [
             "mobile/src/notifications.ts",
             "mobile/src/screens/Settings.tsx"
@@ -259,19 +304,22 @@
             }
           ],
           "notes": [
-            "`pushRuntime()` now returns `expo-go` when `Constants.appOwnership === 'expo'`.",
-            "Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes."
+            "`pushRuntime()` now classifies Expo Go conservatively from `Constants.executionEnvironment === storeClient` plus Expo Go-specific constants instead of relying on the deprecated `appOwnership` flag alone.",
+            "Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes.",
+            "Settings now includes a local preview-notification action so Expo Go can still exercise inbox capture and doc deep-link handling without a real Expo push token.",
+            "The workspace dependency baseline is now Expo SDK 54 / React Native 0.81 / React 19.1, and `npx expo start --go --tunnel` launches successfully."
           ]
         },
         {
           "id": "eas-runtime",
           "name": "EAS/dev-build runtime",
           "status": "partial",
-          "updated": "2026-04-16T01:09:31.000Z",
+          "updated": "2026-04-16T05:39:46.000Z",
           "codePaths": [
             "mobile/app.json",
             "mobile/eas.json",
-            "mobile/README.md"
+            "mobile/README.md",
+            "mobile/package.json"
           ],
           "ticketIds": [
             {
@@ -286,6 +334,7 @@
           "notes": [
             "`mobile/eas.json` now defines development, preview, and production profiles.",
             "`mobile/README.md` now documents Expo login, `npx eas-cli init`, iOS and Android development builds, install flow, first-launch permission, and Settings verification.",
+            "`mobile/package.json` now includes `expo-dev-client` plus explicit `npm run go` and `npm run dev-client` scripts so Expo Go and development-build testing are distinct entry points.",
             "`app.json` intentionally does not commit `extra.eas.projectId`; `eas init` writes account-specific project identity."
           ]
         },
@@ -293,7 +342,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "updated": "2026-04-16T12:33:45.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -306,19 +355,24 @@
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
           "notes": [
             "Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.",
             "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.",
-            "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`."
+            "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`.",
+            "The workflow contract now also writes feed-event JSON files into the `living-docs-feed` branch, which gives the app a GitHub-backed source of truth to sync from."
           ]
         },
         {
           "id": "local-state-stores",
           "name": "Local mobile state stores",
           "status": "partial",
-          "updated": "2026-04-16T01:52:30.000Z",
+          "updated": "2026-04-16T12:18:05.000Z",
           "codePaths": [
             "mobile/src/storage.ts",
             "mobile/src/repo-connection-store.ts",
@@ -332,11 +386,16 @@
             {
               "issueNumber": "24",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
           "notes": [
             "#21 and #20 now use `mobile/src/repo-connection-store.ts` to preserve preview-vs-real repo connection mode across refreshes on the same app install.",
-            "#24 now introduces `mobile/src/inbox-store.ts` as an application-level SQLite event log rather than screen-local state."
+            "#24 now introduces `mobile/src/inbox-store.ts` as an application-level SQLite event log rather than screen-local state.",
+            "#36 now reuses these stores directly: connected repos provide the sync target list, and the Inbox store is the dedupe and persistence sink for synced repo feed entries."
           ]
         }
       ]
@@ -367,15 +426,20 @@
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "purpose": "Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.",
-          "whenToUse": "Use when implementing or verifying connect, status refresh, or disconnect behavior.",
+          "purpose": "Create, inspect, remove, and eventually sync GitHub repository artifacts for the mobile companion connection and delivery feed.",
+          "whenToUse": "Use when implementing or verifying connect, status refresh, disconnect behavior, or repo-backed feed sync.",
           "invocation": "Called by the mobile app screens, not directly from the CLI.",
           "notes": [
             "The API surface should be verified against a real throwaway repository before being treated as trusted.",
             "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.",
-            "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint."
+            "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint.",
+            "#36 will extend this client from connect/disconnect/status work into reading unseen feed artifacts from connected repositories."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -430,13 +494,18 @@
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion when a living document changes.",
-          "whenToUse": "Use in connect, status refresh, and disconnect work where workflow contents or path behavior matter.",
+          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.",
+          "whenToUse": "Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.",
           "invocation": "Written through GitHub Contents API by the mobile app.",
           "caveats": [
-            "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret."
+            "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.",
+            "The current workflow still only sends Expo Push; #36 will add the GitHub-backed feed-writing side of the contract."
           ]
         },
         {
@@ -510,7 +579,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:33:45.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -559,6 +628,33 @@
           "gaps": [
             "No verified note has been added to `mobile/README.md` yet.",
             "If testing from web or Expo Go, #21 may force placeholder behavior instead of a real push token."
+          ]
+        },
+        {
+          "id": "repo-feed-sync",
+          "name": "Repo-backed in-app delivery sync",
+          "status": "partial",
+          "priority": "blocking",
+          "updated": "2026-04-16T12:33:45.000Z",
+          "automationPaths": [
+            ".github/workflows/living-doc-notify.yml"
+          ],
+          "apiRefs": [
+            {
+              "ref": "GitHub REST: Contents API"
+            }
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes.",
+          "nextStep": "Verify the end-to-end path against a real connected repository: fire the workflow, confirm a feed file lands on the branch, foreground the app, and confirm the new item appears exactly once in Inbox and Home.",
+          "gaps": [
+            "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
+            "No real GitHub repository verification has been recorded yet for the feed branch and sync path."
           ]
         },
         {
@@ -623,15 +719,19 @@
           "name": "Persistent inbox verification",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T00:05:12.000Z",
+          "updated": "2026-04-16T12:33:45.000Z",
           "ticketIds": [
             {
               "issueNumber": "24",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, and Inbox supports list, mark-read, swipe delete, and clear-all. `npm run typecheck` passes.",
-          "nextStep": "Manually verify notification receipt, restart persistence, tap-to-read navigation, swipe delete, and clear-all on device or simulator.",
+          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. `npm run typecheck` passes.",
+          "nextStep": "Manually verify restart persistence, tap-to-read navigation, swipe delete, and clear-all first with preview notifications and then with synced repo-feed events from a real connected repository.",
           "gaps": [
             "No runtime/device verification has been recorded yet.",
             "The ticket still does not define retention or pruning for old events."
@@ -643,7 +743,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T01:52:30.000Z",
+      "updated": "2026-04-16T12:18:05.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -682,6 +782,31 @@
           ],
           "notes": [
             "#18 remains useful for intent and history, but #19-#24 are the actual work breakdown."
+          ]
+        },
+        {
+          "id": "repo-feed-source-of-truth",
+          "name": "GitHub feed is the delivery source of truth; push is optional acceleration",
+          "status": "ground-truth",
+          "updated": "2026-04-16T12:18:05.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "22",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
+            },
+            {
+              "issueNumber": "24",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "notes": [
+            "The product goal is that living-doc updates appear inside the app itself whenever the app refreshes, even if Apple or Expo push is unavailable.",
+            "Connected-repo workflow runs should therefore write a structured GitHub-backed feed that the app syncs into Inbox and the local doc registry.",
+            "Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness."
           ]
         },
         {
@@ -755,6 +880,7 @@
           ],
           "notes": [
             "The current secret-based connection model appears to support one notification target per connected repository unless the workflow and token model are expanded.",
+            "After #36, this remains a push-delivery limitation, but it no longer blocks updates from appearing inside the app because the repo feed becomes the source of truth.",
             "Multi-device or team notification delivery should remain out of scope unless a new ticket defines it."
           ]
         }

@@ -2,14 +2,18 @@
 
 A small Expo app that acts as your personal endpoint for living-doc notifications. It mirrors the look and rhythm of the GitHub mobile app: clean white, blue accent, bottom tabs.
 
+Current baseline: Expo SDK 54, React Native 0.81, React 19.1, TypeScript 5.9. Use Node 20.19.4 or newer.
+
 ## How it works
 
 1. Sign in with GitHub on the device
 2. Tap **Connect a repository** in Settings and pick any repo where you're an admin
 3. The app silently installs two things into that repo:
    - An `EXPO_PUSH_TOKEN` secret (your device's push address, encrypted with the repo's public key)
-   - A `.github/workflows/living-doc-notify.yml` workflow (the sender)
-4. Any time that workflow fires (manually, via `repository_dispatch`, or later via the `/living-doc` skill), the push arrives on your phone. Tapping the notification opens the referenced doc.
+   - A `.github/workflows/living-doc-notify.yml` workflow (the sender + feed writer)
+4. Any time that workflow fires (manually, via `repository_dispatch`, or later via the `/living-doc` skill), it writes a structured event into the repo's `living-docs-feed` branch.
+5. On app launch, foreground, or pull-to-refresh, the mobile app syncs those repo events into Inbox and the local doc registry.
+6. If a real Expo push token is also available, the workflow sends a push notification as best-effort acceleration. Tapping the notification opens the referenced doc.
 
 No backend, no server, no copy-paste.
 
@@ -23,27 +27,22 @@ npm start
 
 Then:
 - Press `i` for iOS simulator, `a` for Android emulator, or scan the QR with Expo Go
-- Or `npm run web` to preview in a browser (sign in uses a personal access token instead of device flow, because GitHub's OAuth device endpoints are CORS-blocked in browsers)
+- `npm run web` is still useful for layout preview, but GitHub sign-in is not supported there until a proper web OAuth callback flow exists
+- `npm run go` starts an Expo Go tunnel for quick phone testing
+- `npm run dev-client` starts Metro for an installed development build
 
 ## Architecture
 
 ```
-┌────────────────┐     1. sign in via device flow
-│                │<─────────────────────────────┐
-│  Mobile app    │                              │
-│                │  2. pick repo -> encrypt    ┌─┴──────────┐
-│                ├─────── push token ─────────>│            │
-│                │  3. commit workflow file    │  GitHub    │
-│                ├────────────────────────────>│            │
-└────────┬───────┘                              └─────┬──────┘
-         │                                            │
-         │ 5. receive push                            │
-         │                     4. workflow fires      │
-         │                        (manual or skill)   │
-         │                                            v
-         │                                     ┌─────────────┐
-         └─────────────────────────────────────┤ Expo push   │
-                                               └─────────────┘
+┌────────────┐   1-3. sign in + connect repo    ┌────────────┐
+│ Mobile app │─────────────────────────────────>│   GitHub   │
+└─────┬──────┘                                  └─────┬──────┘
+      │                                               │
+      │ 5. sync feed on open / refresh                │ 4. workflow fires
+      │<──────────────────────────────────────────────┤
+      │                                               │
+      │ 6. optional push acceleration                 │
+      │<──────────────────────────────────────────────┘
 ```
 
 ## Files
@@ -57,17 +56,19 @@ mobile/
 ├── tsconfig.json
 └── src/
     ├── theme.ts                  # Colors, radii, spacing, typography
-    ├── auth.tsx                  # GitHub device-flow + PAT fallback (web)
+    ├── auth.tsx                  # GitHub device-flow auth
     ├── storage.ts                # SecureStore on native, localStorage on web
     ├── registry.ts               # Registered docs store (persisted)
+    ├── delivery-feed.ts          # Feed branch/path contract shared by app + workflow
+    ├── delivery-ingest.ts        # Shared event -> inbox/doc-registry ingestion
     ├── notifications.ts          # Expo push registration
     ├── sealed-box.ts             # crypto_box_seal via tweetnacl + blakejs
-    ├── github-api.ts             # GitHub REST client (secrets + contents)
+    ├── github-api.ts             # GitHub REST client (secrets + contents + feed sync)
     ├── workflow-template.ts      # YAML workflow embedded as a string
     ├── navigation.tsx            # Tabs + stack
     ├── components.tsx            # DocCard, Pill, EmptyState
     └── screens/
-        ├── SignIn.tsx            # Device flow (native) / PAT (web)
+        ├── SignIn.tsx            # Device flow (native) + web limitation state
         ├── Home.tsx              # Registered docs list
         ├── DocDetail.tsx         # WebView, pull-to-refresh
         ├── Inbox.tsx             # Raw notification log
@@ -87,7 +88,13 @@ The `githubClientId` in `app.json` is a public identifier (device flow doesn't u
 
 ## Real push notifications
 
-Expo Go and the web preview can run the app, authenticate, browse repos, and wire a repo for preview. They cannot hold the native Expo push token that GitHub Actions needs for real delivery. Use an EAS development build when you need actual push notifications on a phone.
+Expo Go and the web preview can run the app UI, but browser preview does not support GitHub sign-in yet and neither browser preview nor Expo Go can hold the native Expo push token that GitHub Actions needs for real delivery. Use a native build when you need actual sign-in and use an EAS development build when you need actual push notifications on a phone.
+
+Repo-backed delivery no longer depends on that push path. A connected repo can write feed events into GitHub, and the app can pull them into Inbox and the doc registry on refresh. Real native push is still useful, but it is now optional acceleration rather than the only way for docs to become visible in the app.
+
+Until that paid-team EAS path is available, **Settings → Trigger preview notification** can mimic delivery locally. On native runtimes it schedules a local notification; on web or when notification permission is unavailable it writes directly to Inbox. If the device already knows a doc, the preview notification points back into that doc so tap-to-open behavior can still be tested.
+
+This repo now includes `expo-dev-client`, which is required for the real development-build path.
 
 1. Sign in to Expo from this directory:
 
@@ -139,7 +146,7 @@ Expo Go and the web preview can run the app, authenticate, browse repos, and wir
 8. Run the Metro dev server and connect the development build to it:
 
 ```bash
-npm start
+npm run dev-client
 ```
 
 Scan the QR code or choose the listed development build target. Live reload should work from the installed dev build.
@@ -150,9 +157,8 @@ Verification status: not yet verified in this repo. After a reviewer completes a
 
 ## Verified flows
 
-- Verified web PAT connect/update flow on 2026-04-16 against `triadflow/mobile-connect-test`.
+- Verified workflow install/update behavior on 2026-04-16 against `triadflow/mobile-connect-test`.
 - Passed:
-  - PAT sign-in on web preview
   - `EXPO_PUSH_TOKEN` secret creation
   - `.github/workflows/living-doc-notify.yml` creation with commit `Add Living Docs notify workflow`
   - Drift detection after a manual workflow edit

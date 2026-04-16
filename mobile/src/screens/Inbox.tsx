@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { Alert, View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../auth';
 import { EmptyState } from '../components';
+import { syncRepoDeliveryFeed } from '../github-api';
 import {
   clear,
   list,
@@ -15,7 +17,9 @@ import {
 import { colors, spacing, type, radii } from '../theme';
 
 export default function Inbox({ navigation }: any) {
+  const { token } = useAuth();
   const [items, setItems] = useState<InboxItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
     setItems(await list());
@@ -65,6 +69,15 @@ export default function Inbox({ navigation }: any) {
     );
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (token) {
+      await syncRepoDeliveryFeed(token).catch(() => {});
+    }
+    await refresh();
+    setRefreshing(false);
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
@@ -83,43 +96,43 @@ export default function Inbox({ navigation }: any) {
         </View>
       </View>
 
-      {items.length === 0 ? (
-        <EmptyState
-          title="No notifications yet"
-          body="When a GitHub Action from a connected repo fires, the notification shows up here."
-          icon={<Ionicons name="notifications-outline" size={34} color={colors.neutralInk} />}
-          style={{ flex: 1 }}
-        />
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(n) => n.id}
-          renderItem={({ item }) => (
-            <Swipeable
-              renderRightActions={() => <DeleteAction />}
-              onSwipeableOpen={() => {
-                void removeItem(item.id);
+      <FlatList
+        data={items}
+        keyExtractor={(n) => n.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          <EmptyState
+            title="No updates yet"
+            body="Connected repos sync new living-doc events into this inbox when the app refreshes."
+            icon={<Ionicons name="notifications-outline" size={34} color={colors.neutralInk} />}
+            style={{ flex: 1, paddingTop: 120 }}
+          />
+        }
+        renderItem={({ item }) => (
+          <Swipeable
+            renderRightActions={() => <DeleteAction />}
+            onSwipeableOpen={() => {
+              void removeItem(item.id);
+            }}
+          >
+            <Pressable
+              style={styles.row}
+              onPress={() => {
+                void openItem(item);
               }}
             >
-              <Pressable
-                style={styles.row}
-                onPress={() => {
-                  void openItem(item);
-                }}
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemBody} numberOfLines={2}>
-                    {item.body}
-                  </Text>
-                  <Text style={styles.itemMeta}>{itemMeta(item)}</Text>
-                </View>
-                <View style={styles.dotSlot}>{item.read ? null : <View style={styles.dot} />}</View>
-              </Pressable>
-            </Swipeable>
-          )}
-        />
-      )}
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                <Text style={styles.itemBody} numberOfLines={2}>
+                  {item.body}
+                </Text>
+                <Text style={styles.itemMeta}>{itemMeta(item)}</Text>
+              </View>
+              <View style={styles.dotSlot}>{item.read ? null : <View style={styles.dot} />}</View>
+            </Pressable>
+          </Swipeable>
+        )}
+      />
     </SafeAreaView>
   );
 }

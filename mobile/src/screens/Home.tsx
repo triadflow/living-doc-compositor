@@ -4,11 +4,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../auth';
 import { DocCard, EmptyState } from '../components';
+import { syncRepoDeliveryFeed } from '../github-api';
 import { loadDocs, removeDoc, RegisteredDoc } from '../registry';
 import { colors, spacing, type } from '../theme';
 
 export default function Home({ navigation }: any) {
+  const { token } = useAuth();
   const [docs, setDocs] = useState<RegisteredDoc[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -24,6 +27,9 @@ export default function Home({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    if (token) {
+      await syncRepoDeliveryFeed(token).catch(() => {});
+    }
     await load();
     setRefreshing(false);
   };
@@ -61,7 +67,7 @@ export default function Home({ navigation }: any) {
         <View style={styles.emptyWrap}>
           <EmptyState
             title="No docs yet"
-            body="Docs appear here when a GitHub Action pushes to this device. Connect a repository to get started."
+            body="Docs appear here when connected repos sync updates into this device. Connect a repository to get started."
             icon={<Ionicons name="book-outline" size={34} color={colors.accent} />}
             iconTone="accent"
           />
