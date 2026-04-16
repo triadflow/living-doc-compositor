@@ -85,7 +85,10 @@ export default function RootNavigator() {
             <Stack.Screen
               name="DocDetail"
               component={DocDetail}
-              options={({ route }: any) => ({ title: route.params?.title ?? 'Doc' })}
+              options={({ route }: any) => ({
+                title: route.params?.title ?? 'Doc',
+                headerTitleAlign: 'center',
+              })}
             />
             <Stack.Screen
               name="Repos"

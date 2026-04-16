@@ -96,6 +96,8 @@ export default function SignIn() {
             </View>
           ) : null}
 
+          {!isWeb ? <View style={styles.spacer} /> : null}
+
           {!isWeb && (phase.name === 'idle' || phase.name === 'requesting') ? (
             <Pressable
               style={[styles.primaryBtn, phase.name === 'requesting' && { opacity: 0.6 }]}
@@ -157,15 +159,15 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
+    paddingTop: 20,
     paddingBottom: spacing.xl,
-    gap: spacing.lg,
+    gap: 18,
   },
   brand: {
     width: 48, height: 48, borderRadius: 12,
     backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
-    marginTop: spacing.xxl,
+    marginTop: 20,
   },
   logo: { color: '#fff', fontWeight: '800', fontSize: 22 },
   title: { ...type.h1, color: colors.text },
@@ -174,22 +176,23 @@ const styles = StyleSheet.create({
   codeBlock: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
-    padding: spacing.lg,
-    gap: spacing.xs,
+    padding: 20,
+    marginTop: spacing.sm,
   },
   codeLabel: { ...type.tiny, color: colors.textMuted, textTransform: 'uppercase' },
   code: {
-    fontFamily: 'Menlo', fontSize: 28, fontWeight: '700',
-    color: colors.text, letterSpacing: 4,
+    fontFamily: 'Menlo', fontSize: 30, fontWeight: '700',
+    color: colors.text, letterSpacing: 4, marginTop: 10,
   },
-  codeHint: { ...type.small, color: colors.textMuted, marginTop: spacing.xs },
+  codeHint: { ...type.small, color: colors.textMuted, marginTop: 10, lineHeight: 19 },
 
   polling: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 10,
   },
-  pollingText: { ...type.small, color: colors.textMuted },
+  pollingText: { fontSize: 14, fontWeight: '400', color: colors.textMuted },
+  spacer: { flex: 1 },
 
   primaryBtn: {
     backgroundColor: colors.text,
@@ -199,7 +202,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: 14,
     borderRadius: radii.md,
-    marginTop: spacing.md,
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
