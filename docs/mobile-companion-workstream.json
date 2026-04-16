@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T01:20:55.000Z",
+  "updated": "2026-04-16T01:23:52.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,7 +27,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T01:20:55.000Z",
+      "updated": "2026-04-16T01:23:52.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "6" },
         { "label": "Closed context ticket", "value": "1" },
@@ -43,7 +43,7 @@
           "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
           "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.",
-          "#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.",
+          "#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.",
           "The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison."
         ]
       },
@@ -53,7 +53,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T01:20:55.000Z",
+      "updated": "2026-04-16T01:23:52.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -133,7 +133,7 @@
           "id": "repo-connection",
           "name": "Connect-a-repo flow",
           "status": "partial",
-          "updated": "2026-04-16T01:13:30.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "codePaths": [
             "mobile/src/screens/Repos.tsx",
             "mobile/src/github-api.ts",
@@ -156,6 +156,8 @@
           ],
           "notes": [
             "The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.",
+            "Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.",
+            "After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.",
             "When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.",
             "When a real token is available, Repos writes the real token and uses the success path; connected rows can be reconnected to overwrite older placeholder secrets.",
             "The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions."
@@ -346,7 +348,7 @@
           "id": "github-api-client",
           "name": "GitHub API client",
           "status": "prototype",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "scriptPaths": [
             "mobile/src/github-api.ts"
           ],
@@ -369,7 +371,8 @@
           "invocation": "Called by the mobile app screens, not directly from the CLI.",
           "notes": [
             "The API surface should be verified against a real throwaway repository before being treated as trusted.",
-            "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status."
+            "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.",
+            "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -379,7 +382,7 @@
           "id": "sealed-box-crypto",
           "name": "GitHub secret sealed-box encryption",
           "status": "prototype",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "scriptPaths": [
             "mobile/src/sealed-box.ts"
           ],
@@ -397,6 +400,7 @@
           "whenToUse": "Use during connect-repo verification and any debugging of 422 or malformed-secret errors.",
           "invocation": "Called from `mobile/src/github-api.ts` when writing the repository secret.",
           "caveats": [
+            "The implementation now asserts GitHub's public key is 32 bytes and the sealed ciphertext length is `message + 48` bytes before sending it to the REST API.",
             "If GitHub rejects secret creation, first validate sealed-box output, UTF-8/base64 handling, key IDs, and public-key fetch behavior."
           ]
         },
@@ -503,7 +507,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T01:20:55.000Z",
+      "updated": "2026-04-16T01:23:52.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -533,7 +537,7 @@
           "name": "Connect-a-repo end-to-end",
           "status": "planned",
           "priority": "blocking",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -547,7 +551,7 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
             }
           ],
-          "currentCoverage": "Code exists for API client, encryption, and workflow content, but the issue explicitly asks for real throwaway-repo verification.",
+          "currentCoverage": "Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.",
           "nextStep": "Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.",
           "gaps": [
             "No verified note has been added to `mobile/README.md` yet.",

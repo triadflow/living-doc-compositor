@@ -18,6 +18,9 @@ import naclUtil from 'tweetnacl-util';
 import { blake2b } from 'blakejs';
 
 function cryptoBoxSeal(message: Uint8Array, recipientPk: Uint8Array): Uint8Array {
+  if (recipientPk.length !== nacl.box.publicKeyLength) {
+    throw new Error(`GitHub public key must be ${nacl.box.publicKeyLength} bytes`);
+  }
   const ephemeral = nacl.box.keyPair();
   const nonceInput = new Uint8Array(ephemeral.publicKey.length + recipientPk.length);
   nonceInput.set(ephemeral.publicKey, 0);
@@ -27,6 +30,9 @@ function cryptoBoxSeal(message: Uint8Array, recipientPk: Uint8Array): Uint8Array
   const sealed = new Uint8Array(ephemeral.publicKey.length + box.length);
   sealed.set(ephemeral.publicKey, 0);
   sealed.set(box, ephemeral.publicKey.length);
+  if (sealed.length !== message.length + nacl.box.publicKeyLength + nacl.box.overheadLength) {
+    throw new Error('GitHub sealed-box ciphertext has an unexpected length');
+  }
   return sealed;
 }
 

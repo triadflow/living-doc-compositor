@@ -395,7 +395,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T01:20:55.000Z",
+  "updated": "2026-04-16T01:23:52.000Z",
   "pills": [
     "Mobile",
     "Workstream",
@@ -418,7 +418,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T01:20:55.000Z",
+      "updated": "2026-04-16T01:23:52.000Z",
       "stats": [
         {
           "label": "Open child tickets",
@@ -446,7 +446,7 @@
           "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
           "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.",
-          "#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.",
+          "#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.",
           "The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison."
         ]
       },
@@ -456,7 +456,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T01:20:55.000Z",
+      "updated": "2026-04-16T01:23:52.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -536,7 +536,7 @@
           "id": "repo-connection",
           "name": "Connect-a-repo flow",
           "status": "partial",
-          "updated": "2026-04-16T01:13:30.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "codePaths": [
             "mobile/src/screens/Repos.tsx",
             "mobile/src/github-api.ts",
@@ -559,6 +559,8 @@
           ],
           "notes": [
             "The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.",
+            "Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.",
+            "After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.",
             "When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.",
             "When a real token is available, Repos writes the real token and uses the success path; connected rows can be reconnected to overwrite older placeholder secrets.",
             "The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions."
@@ -749,7 +751,7 @@
           "id": "github-api-client",
           "name": "GitHub API client",
           "status": "prototype",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "scriptPaths": [
             "mobile/src/github-api.ts"
           ],
@@ -772,7 +774,8 @@
           "invocation": "Called by the mobile app screens, not directly from the CLI.",
           "notes": [
             "The API surface should be verified against a real throwaway repository before being treated as trusted.",
-            "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status."
+            "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.",
+            "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -782,7 +785,7 @@
           "id": "sealed-box-crypto",
           "name": "GitHub secret sealed-box encryption",
           "status": "prototype",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "scriptPaths": [
             "mobile/src/sealed-box.ts"
           ],
@@ -800,6 +803,7 @@
           "whenToUse": "Use during connect-repo verification and any debugging of 422 or malformed-secret errors.",
           "invocation": "Called from `mobile/src/github-api.ts` when writing the repository secret.",
           "caveats": [
+            "The implementation now asserts GitHub's public key is 32 bytes and the sealed ciphertext length is `message + 48` bytes before sending it to the REST API.",
             "If GitHub rejects secret creation, first validate sealed-box output, UTF-8/base64 handling, key IDs, and public-key fetch behavior."
           ]
         },
@@ -906,7 +910,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T01:20:55.000Z",
+      "updated": "2026-04-16T01:23:52.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -936,7 +940,7 @@
           "name": "Connect-a-repo end-to-end",
           "status": "planned",
           "priority": "blocking",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T01:23:52.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -954,7 +958,7 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
             }
           ],
-          "currentCoverage": "Code exists for API client, encryption, and workflow content, but the issue explicitly asks for real throwaway-repo verification.",
+          "currentCoverage": "Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.",
           "nextStep": "Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.",
           "gaps": [
             "No verified note has been added to `mobile/README.md` yet.",
@@ -11743,7 +11747,7 @@
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-16T03:38:27.391Z" title="2026-04-16T03:38:27.391Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T03:38:27.391Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-16T03:39:02.752Z" title="2026-04-16T03:39:02.752Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T03:39:02.752Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -11784,11 +11788,11 @@
 
 
     <section class="section" id="status-snapshot">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:20:55Z" title="2026-04-16T01:20:55Z" data-relative-to-snapshot="true">2026-04-16T01:20:55Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></h2>
 
     <section class="callout callout-warning">
       <h3 class="callout-title">Current pressure pattern</h3>
-      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#22 now has <code>mobile/eas.json</code> and real-push setup documentation; it still needs a real EAS dev build verification note.</span></p><p><span class="callout-line">#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.</span></p><p><span class="callout-line">The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison.</span></p>
+      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#22 now has <code>mobile/eas.json</code> and real-push setup documentation; it still needs a real EAS dev build verification note.</span></p><p><span class="callout-line">#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.</span></p><p><span class="callout-line">The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison.</span></p>
 
     </section>
       <div class="summary-grid">
@@ -11812,7 +11816,7 @@
       <div class="card-grid" style="--grid-cols:2"></div>
     </section>
     <section class="section" id="mobile-capabilities">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:20:55Z" title="2026-04-16T01:20:55Z" data-relative-to-snapshot="true">2026-04-16T01:20:55Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></h2>
 
 
 
@@ -11869,14 +11873,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Connect-a-repo flow</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T01:13:30Z" title="2026-04-16T01:13:30Z" data-relative-to-snapshot="true">2026-04-16T01:13:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/screens/Repos.tsx"><code>mobile/src/screens/Repos.tsx</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/sealed-box.ts"><code>mobile/src/sealed-box.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/21" class="ticket-link"><span class="ticket-badge badge badge-neutral">#21</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.</span></p><p class="note-description"><span class="note-line">When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.</span></p><p class="note-description"><span class="note-line">When a real token is available, Repos writes the real token and uses the success path; connected rows can be reconnected to overwrite older placeholder secrets.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions.</span></p>
+      <p class="note-description"><span class="note-line">The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.</span></p><p class="note-description"><span class="note-line">Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.</span></p><p class="note-description"><span class="note-line">After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.</span></p><p class="note-description"><span class="note-line">When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.</span></p><p class="note-description"><span class="note-line">When a real token is available, Repos writes the real token and uses the success path; connected rows can be reconnected to overwrite older placeholder secrets.</span></p><p class="note-description"><span class="note-line">The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions.</span></p>
     </div>
 
 
@@ -12011,14 +12015,14 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub API client</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
       </header>
       <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p>
+      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p><p class="note-description"><span class="note-line">Workflow status now comes from the Contents API file at <code>.github/workflows/living-doc-notify.yml</code>, which avoids eventual-consistency lag in the Actions workflow-list endpoint.</span></p>
     </div>
       <p class="code-refs"><strong>Purpose</strong> Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.</p><p class="code-refs"><strong>When to use</strong> Use when implementing or verifying connect, status refresh, or disconnect behavior.</p><p class="code-refs"><strong>Invocation</strong> Called by the mobile app screens, not directly from the CLI.</p>
 
@@ -12034,7 +12038,7 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub secret sealed-box encryption</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
       </header>
@@ -12043,10 +12047,10 @@
       <p class="code-refs"><strong>Purpose</strong> Encrypt the push token for GitHub Actions secrets using GitHub&#39;s public key flow.</p><p class="code-refs"><strong>When to use</strong> Use during connect-repo verification and any debugging of 422 or malformed-secret errors.</p><p class="code-refs"><strong>Invocation</strong> Called from <code>mobile/src/github-api.ts</code> when writing the repository secret.</p>
 
     <details class="details-block">
-      <summary>Caveats and gaps (1)</summary>
+      <summary>Caveats and gaps (2)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">If GitHub rejects secret creation, first validate sealed-box output, UTF-8/base64 handling, key IDs, and public-key fetch behavior.</span></p>
+      <p class="note-description"><span class="note-line">The implementation now asserts GitHub&#39;s public key is 32 bytes and the sealed ciphertext length is <code>message + 48</code> bytes before sending it to the REST API.</span></p><p class="note-description"><span class="note-line">If GitHub rejects secret creation, first validate sealed-box output, UTF-8/base64 handling, key IDs, and public-key fetch behavior.</span></p>
     </div>
     </details>
     </article>
@@ -12132,7 +12136,7 @@
     </article></div>
     </section>
     <section class="section" id="verification-plan">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:20:55Z" title="2026-04-16T01:20:55Z" data-relative-to-snapshot="true">2026-04-16T01:20:55Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></h2>
 
 
 
@@ -12164,13 +12168,13 @@
       <header class="flow-card-header">
         <div>
           <h3>Connect-a-repo end-to-end</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T01:23:52Z" title="2026-04-16T01:23:52Z" data-relative-to-snapshot="true">2026-04-16T01:23:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Planned</span> <span class="badge badge-warning">Gate</span></div>
       </header>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Actions secrets</code> <code>GitHub REST: Contents API</code></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> Code exists for API client, encryption, and workflow content, but the issue explicitly asks for real throwaway-repo verification.</p><p class="code-refs"><strong>Next step</strong> Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.</p><p class="code-refs"><strong>Next step</strong> Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.</p>
 
     <details class="details-block">
       <summary>Current gaps (2)</summary>
@@ -12350,7 +12354,7 @@
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-8a37b65 (2026-04-16)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-23fe405 (2026-04-16)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -12807,7 +12811,7 @@
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Connect-a-repo end-to-end</h3>
       <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Code exists for API client, encryption, and workflow content, but the issue explicitly asks for real throwaway-repo verification.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.</p>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Actions secrets</code> <code>GitHub REST: Contents API</code></div>
     </article>
       </div>
@@ -12903,7 +12907,7 @@
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Connect-a-repo end-to-end</h3>
       <div class="badge-row"><span class="badge badge-warning">Gate</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Code exists for API client, encryption, and workflow content, but the issue explicitly asks for real throwaway-repo verification.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.</p>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Actions secrets</code> <code>GitHub REST: Contents API</code></div>
     </article>
     <article class="board-card" data-section-id="verification-plan">

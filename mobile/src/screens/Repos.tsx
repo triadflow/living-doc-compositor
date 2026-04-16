@@ -9,6 +9,7 @@ import { useAuth } from '../auth';
 import {
   listAdminRepos,
   getConnectionStatus,
+  getConnectionStatusWithRetry,
   connectRepo,
   disconnectRepo,
   AdminRepo,
@@ -100,7 +101,12 @@ export default function Repos() {
     showToast({ kind: 'progress', text: 'Installing secret and workflow...' });
     try {
       await connectRepo(token, repo.owner, repo.name, effectiveToken);
-      const status = await getConnectionStatus(token, repo.owner, repo.name);
+      const status = await getConnectionStatusWithRetry(
+        token,
+        repo.owner,
+        repo.name,
+        (s) => s.secret && s.workflow && !s.workflowOutdated
+      );
       setRepos((prev) =>
         prev
           ? prev.map((p) =>
@@ -110,10 +116,13 @@ export default function Repos() {
             )
           : prev
       );
+      const connectedNow = status.secret && status.workflow && !status.workflowOutdated;
       showToast(
         {
-          kind: connectionMode === 'preview' ? 'warning' : 'success',
-          text: connectionMode === 'preview'
+          kind: !connectedNow || connectionMode === 'preview' ? 'warning' : 'success',
+          text: !connectedNow
+            ? 'Installed, but GitHub status is still catching up. Pull to refresh.'
+            : connectionMode === 'preview'
             ? 'Wired for preview. Install an EAS build to activate pushes.'
             : 'Connected. Pushes from this repo will arrive here.',
         },
@@ -140,7 +149,12 @@ export default function Repos() {
 
     try {
       await disconnectRepo(token, repo.owner, repo.name, { removeWorkflow });
-      const status = await getConnectionStatus(token, repo.owner, repo.name);
+      const status = await getConnectionStatusWithRetry(
+        token,
+        repo.owner,
+        repo.name,
+        (s) => !s.secret && (!removeWorkflow || !s.workflow)
+      );
       setRepos((prev) =>
         prev
           ? prev.map((p) =>
@@ -150,7 +164,16 @@ export default function Repos() {
             )
           : prev
       );
-      showToast({ kind: 'success', text: 'Disconnected.' }, 3500);
+      const disconnectedNow = !status.secret && (!removeWorkflow || !status.workflow);
+      showToast(
+        {
+          kind: disconnectedNow ? 'success' : 'warning',
+          text: disconnectedNow
+            ? 'Disconnected.'
+            : 'Disconnect requested, but GitHub status is still catching up. Pull to refresh.',
+        },
+        3500
+      );
     } catch (err: any) {
       setRepos((prev) =>
         prev ? prev.map((p) => (p.id === repo.id ? { ...p, disconnecting: false } : p)) : prev

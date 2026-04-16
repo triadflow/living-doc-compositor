@@ -201,34 +201,37 @@ export type ConnectionStatus = {
   workflowOutdated: boolean;
 };
 
-async function checkWorkflowExists(token: string, owner: string, repo: string, path: string): Promise<boolean> {
-  const res = await fetch(
-    `${API}/repos/${owner}/${repo}/actions/workflows?per_page=100`,
-    { headers: headers(token) }
-  );
-  if (!res.ok) return false;
-  const data = await res.json();
-  const workflows: Array<{ path: string }> = data.workflows ?? [];
-  return workflows.some((w) => w.path === path);
-}
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function getConnectionStatus(
   token: string, owner: string, repo: string
 ): Promise<ConnectionStatus> {
-  const [secret, workflowExists] = await Promise.all([
+  const [secret, workflowFile] = await Promise.all([
     checkSecretExists(token, owner, repo, PUSH_TOKEN_SECRET_NAME),
-    checkWorkflowExists(token, owner, repo, WORKFLOW_PATH),
+    getFile(token, owner, repo, WORKFLOW_PATH).catch(() => null),
   ]);
-  let workflowOutdated = false;
-  if (workflowExists) {
-    try {
-      const file = await getFile(token, owner, repo, WORKFLOW_PATH);
-      workflowOutdated = file !== null && file.content.trim() !== WORKFLOW_TEMPLATE.trim();
-    } catch {
-      // fall through; treat as present but not validated.
-    }
+  const workflowOutdated =
+    workflowFile !== null && workflowFile.content.trim() !== WORKFLOW_TEMPLATE.trim();
+  return { secret, workflow: workflowFile !== null, workflowOutdated };
+}
+
+export async function getConnectionStatusWithRetry(
+  token: string,
+  owner: string,
+  repo: string,
+  isExpected: (status: ConnectionStatus) => boolean,
+  opts: { attempts?: number; delayMs?: number } = {}
+): Promise<ConnectionStatus> {
+  const attempts = Math.max(1, opts.attempts ?? 4);
+  const delayMs = opts.delayMs ?? 700;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const status = await getConnectionStatus(token, owner, repo);
+    if (isExpected(status) || attempt === attempts - 1) return status;
+    await sleep(delayMs);
   }
-  return { secret, workflow: workflowExists, workflowOutdated };
+
+  return getConnectionStatus(token, owner, repo);
 }
 
 export async function connectRepo(
