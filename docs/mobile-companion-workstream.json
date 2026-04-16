@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T12:44:10.000Z",
+  "updated": "2026-04-16T13:12:00.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed in-app delivery, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,7 +27,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T12:44:10.000Z",
+      "updated": "2026-04-16T13:12:00.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "7" },
         { "label": "Closed context ticket", "value": "1" },
@@ -49,7 +49,8 @@
           "The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.",
           "Runtime detection is now being hardened around `Constants.executionEnvironment` and `expo-dev-client` so Expo Go does not present itself as a real native push-capable build.",
           "When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.",
-          "The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed."
+          "The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed.",
+          "Commit-driven delivery now needs an explicit repo-visible manifest contract: the central living-doc registry can remain the richer cross-system catalog, but each connected repo still needs a minimal local mirror so GitHub Actions can resolve changed doc paths into titles and public URLs during `push`."
         ]
       },
       "data": []
@@ -197,7 +198,7 @@
           "id": "repo-delivery-feed",
           "name": "Repo-backed in-app delivery feed",
           "status": "partial",
-          "updated": "2026-04-16T12:44:10.000Z",
+          "updated": "2026-04-16T13:12:00.000Z",
           "codePaths": [
             "mobile/src/delivery-feed.ts",
             "mobile/src/delivery-ingest.ts",
@@ -228,6 +229,7 @@
             "The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.",
             "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
             "Repo-side verification now exists against `triadflow/mobile-connect-test`: workflow run `24510668921` created branch `living-docs-feed` and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
+            "The current workflow is still explicit-trigger only (`workflow_dispatch` or `repository_dispatch`). Commit-driven delivery will need a repo-local manifest that mirrors delivery-critical living-doc metadata from the central registry, so GitHub Actions can map changed JSON or HTML paths to doc identity and public URL during `push`.",
             "This still needs phone-side verification and likely some cursor or batching hardening before the feed should be treated as production-stable."
           ]
         },
@@ -343,7 +345,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-16T12:44:10.000Z",
+          "updated": "2026-04-16T13:12:00.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -652,11 +654,12 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
-          "nextStep": "Foreground the phone app or pull to refresh Home/Inbox on the connected device and confirm that the repo-feed item appears exactly once in Inbox and Home.",
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is now also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh.",
+          "nextStep": "Define a repo-local living-doc delivery manifest that mirrors the delivery-critical fields from the central registry, then extend the workflow to run on `push`, inspect changed manifest-backed doc paths, and emit feed events automatically for affected living docs.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
-            "Phone-side verification has not yet been recorded for the synced item."
+            "The workflow is still explicit-trigger only; commits do not yet auto-dispatch feed events for changed living docs.",
+            "The repo-visible manifest contract that commit-time automation needs has not yet been defined."
           ]
         },
         {
@@ -745,7 +748,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T12:18:05.000Z",
+      "updated": "2026-04-16T13:12:00.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -790,7 +793,7 @@
           "id": "repo-feed-source-of-truth",
           "name": "GitHub feed is the delivery source of truth; push is optional acceleration",
           "status": "ground-truth",
-          "updated": "2026-04-16T12:18:05.000Z",
+          "updated": "2026-04-16T13:12:00.000Z",
           "ticketIds": [
             {
               "issueNumber": "22",
@@ -808,7 +811,10 @@
           "notes": [
             "The product goal is that living-doc updates appear inside the app itself whenever the app refreshes, even if Apple or Expo push is unavailable.",
             "Connected-repo workflow runs should therefore write a structured GitHub-backed feed that the app syncs into Inbox and the local doc registry.",
-            "Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness."
+            "Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness.",
+            "The central living-doc registry should remain the richer cross-system catalog, but commit-time automation cannot depend on a local `~/.gtd` file or other central-only state.",
+            "Each connected repo therefore needs a minimal repo-local manifest that mirrors delivery-critical fields from the central registry, such as doc id, tracked JSON/HTML paths, title, and public URL.",
+            "The central registry remains authoritative for semantic identity and broader system discovery, while the repo-local manifest becomes authoritative for resolving changed files into delivery events during GitHub `push` workflows."
           ]
         },
         {
