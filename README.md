@@ -19,7 +19,7 @@ node scripts/render-living-doc.mjs docs/living-doc-empty.json
 open docs/living-doc-compositor.html
 ```
 
-No install. No dependencies. Node 18+ for the renderer, a browser for everything else.
+No install. No runtime dependencies. Node 18+ for the renderer, a browser for everything else. The optional test suite uses npm dev dependencies.
 
 ## What you just saw
 
@@ -122,6 +122,29 @@ cd docs && python3 -m http.server 8111
 # http://localhost:8111/living-doc-compositor.html
 ```
 
+## Test the living-doc system
+
+The deployment test suite has two layers: fast Node contract checks and Playwright browser E2E tests against a static server.
+
+```bash
+npm install
+npx playwright install chromium
+
+# Contract checks plus local browser E2E
+npm test
+
+# Contract checks only
+npm run test:contract
+
+# Local browser E2E only
+npm run test:e2e
+
+# Smoke-test the published GitHub Pages site
+npm run test:deploy
+```
+
+The local suite uses deterministic fixtures under `tests/fixtures/` and does not require private `~/.gtd` data. It checks locale parity, registry contracts, renderer output, compositor boot, Guide localization, template/prompt behavior, load/export downloads, fixture library manifests, and embedded compositor behavior in rendered HTML.
+
 ## Project layout
 
 ```
@@ -130,6 +153,11 @@ scripts/
   living-doc-i18n.json           # UI strings (EN, NL, ID)
   render-living-doc.mjs          # Universal renderer
   render-registry-overview.mjs   # Registry-to-HTML overview generator
+
+tests/
+  contract/                      # Node checks for i18n, registry, renderer output
+  e2e/                           # Playwright browser integration tests
+  fixtures/                      # Deterministic living-doc test data
 
 docs/
   index.html                              # Landing page

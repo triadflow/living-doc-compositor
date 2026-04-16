@@ -1718,10 +1718,19 @@
   /* ── Auto-save ── */
   const STORAGE_KEY = 'living-doc-compositor-state';
   const SETTINGS_STORAGE_KEY = 'living-doc-compositor-settings';
+  function isLocalLibraryDiscoveryContext() {
+    try {
+      const { protocol, hostname } = window.location;
+      return protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    } catch {
+      return false;
+    }
+  }
+  const LOCAL_LIBRARY_DISCOVERY_DEFAULT = isLocalLibraryDiscoveryContext();
   const DEFAULT_SETTINGS = {
     libraryManifestUrl: './living-doc-library.local.json',
-    preferManifest: true,
-    includeSiblingDiscovery: true,
+    preferManifest: LOCAL_LIBRARY_DISCOVERY_DEFAULT,
+    includeSiblingDiscovery: LOCAL_LIBRARY_DISCOVERY_DEFAULT,
     defaultShareMode: 'none',
   };
   let appSettings = loadSettings();
@@ -2020,14 +2029,6 @@
 
   /* ── Registry loading ── */
   async function loadRegistry() {
-    // Try loading from sibling path first, then from embedded
-    for (const url of ['../scripts/living-doc-registry.json', './living-doc-registry.json']) {
-      try {
-        const res = await fetch(url);
-        if (res.ok) { REGISTRY = await res.json(); return; }
-      } catch {}
-    }
-    // Fallback: embedded minimal registry
     REGISTRY = EMBEDDED_REGISTRY;
   }
 
