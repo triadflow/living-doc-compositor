@@ -158,13 +158,19 @@ Verification status: not yet verified in this repo. After a reviewer completes a
 ## Verified flows
 
 - Verified workflow install/update behavior on 2026-04-16 against `triadflow/mobile-connect-test`.
+- Verified repo-backed delivery feed behavior on 2026-04-16 against `triadflow/mobile-connect-test`.
 - Passed:
   - `EXPO_PUSH_TOKEN` secret creation
   - `.github/workflows/living-doc-notify.yml` creation with commit `Add Living Docs notify workflow`
   - Drift detection after a manual workflow edit
   - Workflow restore with commit `Update Living Docs notify workflow`
+  - Manual workflow run `24510668921` created branch `living-docs-feed`
+  - Feed event file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json`
+  - Feed event payload carried title, body, repo, source, createdAt, and doc URL as expected
 - Notes:
   - The same-session row can remain stale immediately after connect because GitHub secret visibility is eventually consistent; a fresh repo-list load converged to the correct state.
+  - The test repo still held the preview placeholder token, so Expo push was skipped intentionally while repo-feed delivery succeeded.
+  - App-side phone verification of that synced feed item remains unverified here.
   - Real EAS push delivery remains unverified here.
 
 ## Roadmap

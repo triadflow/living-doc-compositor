@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T12:33:45.000Z",
+  "updated": "2026-04-16T12:44:10.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed in-app delivery, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,7 +27,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T12:33:45.000Z",
+      "updated": "2026-04-16T12:44:10.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "7" },
         { "label": "Closed context ticket", "value": "1" },
@@ -44,12 +44,12 @@
           "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.",
           "#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.",
-          "#36 now has an initial code path: the workflow writes JSON events into the `living-docs-feed` branch, and the app syncs connected repos into Inbox and the doc registry on launch, foreground, and pull-to-refresh.",
+          "#36 now has an initial verified repo-side path: the workflow writes JSON events into the `living-docs-feed` branch, and `triadflow/mobile-connect-test` produced a real feed file from workflow run `24510668921`.",
           "Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.",
           "The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.",
           "Runtime detection is now being hardened around `Constants.executionEnvironment` and `expo-dev-client` so Expo Go does not present itself as a real native push-capable build.",
           "When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.",
-          "The remaining work now splits into two lanes: verification of the existing mobile surface, and real end-to-end verification plus hardening of the repo-backed in-app delivery feed."
+          "The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed."
         ]
       },
       "data": []
@@ -58,7 +58,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T12:33:45.000Z",
+      "updated": "2026-04-16T12:44:10.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -197,7 +197,7 @@
           "id": "repo-delivery-feed",
           "name": "Repo-backed in-app delivery feed",
           "status": "partial",
-          "updated": "2026-04-16T12:33:45.000Z",
+          "updated": "2026-04-16T12:44:10.000Z",
           "codePaths": [
             "mobile/src/delivery-feed.ts",
             "mobile/src/delivery-ingest.ts",
@@ -227,7 +227,8 @@
             "The workflow contract now writes one JSON event per run into the `living-docs-feed` branch under `.living-docs/feed/`, and Expo push is treated as optional best-effort acceleration.",
             "The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.",
             "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
-            "This still needs real GitHub end-to-end verification and likely some cursor or batching hardening before the feed should be treated as production-stable."
+            "Repo-side verification now exists against `triadflow/mobile-connect-test`: workflow run `24510668921` created branch `living-docs-feed` and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
+            "This still needs phone-side verification and likely some cursor or batching hardening before the feed should be treated as production-stable."
           ]
         },
         {
@@ -265,7 +266,7 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-16T12:33:45.000Z",
+      "updated": "2026-04-16T12:44:10.000Z",
       "data": [
         {
           "id": "web-runtime",
@@ -342,7 +343,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-16T12:33:45.000Z",
+          "updated": "2026-04-16T12:44:10.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -365,7 +366,8 @@
             "Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.",
             "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.",
             "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`.",
-            "The workflow contract now also writes feed-event JSON files into the `living-docs-feed` branch, which gives the app a GitHub-backed source of truth to sync from."
+            "The workflow contract now also writes feed-event JSON files into the `living-docs-feed` branch, which gives the app a GitHub-backed source of truth to sync from.",
+            "Repo-side verification has been proven on `triadflow/mobile-connect-test`, where the updated workflow created the feed branch and wrote a valid JSON event file."
           ]
         },
         {
@@ -579,7 +581,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T12:33:45.000Z",
+      "updated": "2026-04-16T12:44:10.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -635,7 +637,7 @@
           "name": "Repo-backed in-app delivery sync",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T12:33:45.000Z",
+          "updated": "2026-04-16T12:44:10.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -650,11 +652,11 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes.",
-          "nextStep": "Verify the end-to-end path against a real connected repository: fire the workflow, confirm a feed file lands on the branch, foreground the app, and confirm the new item appears exactly once in Inbox and Home.",
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
+          "nextStep": "Foreground the phone app or pull to refresh Home/Inbox on the connected device and confirm that the repo-feed item appears exactly once in Inbox and Home.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
-            "No real GitHub repository verification has been recorded yet for the feed branch and sync path."
+            "Phone-side verification has not yet been recorded for the synced item."
           ]
         },
         {
@@ -719,7 +721,7 @@
           "name": "Persistent inbox verification",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T12:33:45.000Z",
+          "updated": "2026-04-16T12:44:10.000Z",
           "ticketIds": [
             {
               "issueNumber": "24",
@@ -730,8 +732,8 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. `npm run typecheck` passes.",
-          "nextStep": "Manually verify restart persistence, tap-to-read navigation, swipe delete, and clear-all first with preview notifications and then with synced repo-feed events from a real connected repository.",
+          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. `npm run typecheck` passes. A real repo-feed event now exists in `triadflow/mobile-connect-test` for device-side sync verification.",
+          "nextStep": "Manually verify restart persistence, tap-to-read navigation, swipe delete, and clear-all first with preview notifications and then with the synced repo-feed event now available from the connected repository.",
           "gaps": [
             "No runtime/device verification has been recorded yet.",
             "The ticket still does not define retention or pruning for old events."
