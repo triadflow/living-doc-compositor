@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-15T15:14:23.000Z",
+  "updated": "2026-04-16T00:05:12.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,19 +27,19 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-15T15:14:23.000Z",
+      "updated": "2026-04-16T00:05:12.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "6" },
         { "label": "Closed context ticket", "value": "1" },
         { "label": "Blocking verification gates", "value": "4" },
-        { "label": "Open decisions", "value": "4" }
+        { "label": "Open decisions", "value": "3" }
       ],
       "callout": {
         "tone": "warning",
         "title": "Current pressure pattern",
         "items": [
           "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
-          "#24 still carries the next major design decision: where notification capture should live relative to the persistent Inbox store.",
+          "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.",
           "#20 and #23 depend on real GitHub behavior, especially around write-only secrets and idempotent cleanup.",
           "#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure."
         ]
@@ -50,7 +50,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-15T15:14:23.000Z",
+      "updated": "2026-04-16T00:05:12.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -178,9 +178,11 @@
         {
           "id": "inbox-audit-log",
           "name": "Persistent inbox and notification audit trail",
-          "status": "gap",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "partial",
+          "updated": "2026-04-16T00:05:12.000Z",
           "codePaths": [
+            "mobile/App.tsx",
+            "mobile/src/inbox-store.ts",
             "mobile/src/screens/Inbox.tsx",
             "mobile/src/notifications.ts"
           ],
@@ -195,8 +197,9 @@
             }
           ],
           "notes": [
-            "The Inbox screen exists, but #24 requires persistence with `expo-sqlite` and a real event history model.",
-            "Notification capture should probably not live only inside `Inbox.tsx`, because events can arrive before that screen mounts."
+            "Notifications now persist through `expo-sqlite` in `mobile/src/inbox-store.ts` instead of a module-scoped array.",
+            "Notification capture has moved to `mobile/App.tsx`, while the Inbox screen subscribes to the store and renders the event log.",
+            "Rows support read state, swipe-to-delete, and a clear-all action with confirmation."
           ]
         }
       ]
@@ -300,8 +303,8 @@
         {
           "id": "local-state-stores",
           "name": "Local mobile state stores",
-          "status": "gap",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "partial",
+          "updated": "2026-04-16T00:05:12.000Z",
           "codePaths": [
             "mobile/src/storage.ts",
             "mobile/src/inbox-store.ts"
@@ -318,7 +321,7 @@
           ],
           "notes": [
             "#21 may need local connection metadata to preserve preview-vs-real state across refreshes.",
-            "#24 introduces the inbox store, which should be designed as an application-level event log rather than just screen-local state."
+            "#24 now introduces `mobile/src/inbox-store.ts` as an application-level SQLite event log rather than screen-local state."
           ]
         }
       ]
@@ -327,7 +330,7 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-15T14:55:21.000Z",
+      "updated": "2026-04-16T00:05:12.000Z",
       "data": [
         {
           "id": "github-api-client",
@@ -463,8 +466,8 @@
         {
           "id": "inbox-store",
           "name": "SQLite inbox store",
-          "status": "missing",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "prototype",
+          "updated": "2026-04-16T00:05:12.000Z",
           "scriptPaths": [
             "mobile/src/inbox-store.ts"
           ],
@@ -478,7 +481,7 @@
           "whenToUse": "Use when implementing the persistent Inbox and when deciding where notification listeners write events.",
           "invocation": "Imported by application-level notification handling and `mobile/src/screens/Inbox.tsx`.",
           "caveats": [
-            "The listener owner should be clarified so notifications are not missed when the Inbox screen is not mounted."
+            "Typecheck passes, but restart persistence, swipe gestures, and notification response navigation still need manual device/runtime verification."
           ]
         }
       ]
@@ -487,7 +490,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-15T15:14:23.000Z",
+      "updated": "2026-04-16T00:05:12.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -598,20 +601,20 @@
         {
           "id": "persistent-inbox-verification",
           "name": "Persistent inbox verification",
-          "status": "planned",
+          "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:05:12.000Z",
           "ticketIds": [
             {
               "issueNumber": "24",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/24"
             }
           ],
-          "currentCoverage": "The Inbox screen exists, but there is no `expo-sqlite` dependency or `mobile/src/inbox-store.ts` implementation in the inspected tree.",
-          "nextStep": "Add the SQLite store and wire notification events to it from an application-level owner.",
+          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, and Inbox supports list, mark-read, swipe delete, and clear-all. `npm run typecheck` passes.",
+          "nextStep": "Manually verify notification receipt, restart persistence, tap-to-read navigation, swipe delete, and clear-all on device or simulator.",
           "gaps": [
-            "A screen-local listener in `Inbox.tsx` can miss events if the screen has not mounted.",
-            "The ticket should define whether old events are retained indefinitely or pruned."
+            "No runtime/device verification has been recorded yet.",
+            "The ticket still does not define retention or pruning for old events."
           ]
         }
       ]
@@ -620,7 +623,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-15T15:14:23.000Z",
+      "updated": "2026-04-16T00:05:12.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -685,8 +688,8 @@
         {
           "id": "notification-listener-owner",
           "name": "Own notification capture above the Inbox screen",
-          "status": "reference",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "ground-truth",
+          "updated": "2026-04-16T00:05:12.000Z",
           "ticketIds": [
             {
               "issueNumber": "24",
@@ -694,7 +697,8 @@
             }
           ],
           "notes": [
-            "The Inbox should render persisted notification events, but event capture should likely live at app/root/service level so notifications are not missed before the Inbox mounts."
+            "Notification capture now lives in `mobile/App.tsx` so events can be persisted even when the Inbox screen is not mounted.",
+            "The Inbox screen renders and mutates persisted events through `mobile/src/inbox-store.ts`; it no longer owns the push-capture side effect."
           ]
         },
         {
