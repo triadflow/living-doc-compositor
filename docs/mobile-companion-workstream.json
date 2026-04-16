@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T00:46:30.000Z",
+  "updated": "2026-04-16T01:09:31.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,12 +27,12 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T00:46:30.000Z",
+      "updated": "2026-04-16T01:09:31.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "6" },
         { "label": "Closed context ticket", "value": "1" },
         { "label": "Blocking verification gates", "value": "4" },
-        { "label": "Open decisions", "value": "3" }
+        { "label": "Open decisions", "value": "2" }
       ],
       "callout": {
         "tone": "warning",
@@ -41,6 +41,7 @@
           "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
           "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.",
           "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
+          "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.",
           "#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure."
         ]
@@ -210,7 +211,7 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-16T00:46:30.000Z",
+      "updated": "2026-04-16T01:09:31.000Z",
       "data": [
         {
           "id": "web-runtime",
@@ -256,8 +257,8 @@
         {
           "id": "eas-runtime",
           "name": "EAS/dev-build runtime",
-          "status": "not-built",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "status": "partial",
+          "updated": "2026-04-16T01:09:31.000Z",
           "codePaths": [
             "mobile/app.json",
             "mobile/eas.json",
@@ -274,8 +275,9 @@
             }
           ],
           "notes": [
-            "#22 should establish the dev-build path and document how a real push token is produced.",
-            "The work needs a decision on whether the committed Expo project ID belongs to the Triadflow project or stays contributor-local."
+            "`mobile/eas.json` now defines development, preview, and production profiles.",
+            "`mobile/README.md` now documents Expo login, `npx eas-cli init`, iOS and Android development builds, install flow, first-launch permission, and Settings verification.",
+            "`app.json` intentionally does not commit `extra.eas.projectId`; `eas init` writes account-specific project identity."
           ]
         },
         {
@@ -333,7 +335,7 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-16T00:46:30.000Z",
+      "updated": "2026-04-16T01:09:31.000Z",
       "data": [
         {
           "id": "github-api-client",
@@ -449,10 +451,11 @@
         {
           "id": "eas-dev-build",
           "name": "EAS dev-build setup",
-          "status": "missing",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "usable-with-caveats",
+          "updated": "2026-04-16T01:09:31.000Z",
           "artifactPaths": [
-            "mobile/eas.json"
+            "mobile/eas.json",
+            "mobile/README.md"
           ],
           "ticketIds": [
             {
@@ -462,9 +465,10 @@
           ],
           "purpose": "Make real native push-token testing reproducible outside Expo Go.",
           "whenToUse": "Use after #21 labels runtime modes and before claiming push notifications are production-real.",
-          "invocation": "`cd mobile && eas build --profile development --platform ios` or equivalent documented path.",
+          "invocation": "`cd mobile && npx eas-cli build --profile development --platform ios` or `npx eas-cli build --profile development --platform android`.",
           "caveats": [
-            "Requires Expo project ownership and project ID decisions before the setup can be considered canonical."
+            "Requires an Expo account and `npx eas-cli init` before a contributor can build.",
+            "No successful device build has been recorded in `mobile/README.md` yet."
           ]
         },
         {
@@ -494,7 +498,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T00:46:30.000Z",
+      "updated": "2026-04-16T01:09:31.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -567,20 +571,20 @@
         {
           "id": "eas-build-verification",
           "name": "EAS dev-build verification",
-          "status": "planned",
+          "status": "partial",
           "priority": "informational",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T01:09:31.000Z",
           "ticketIds": [
             {
               "issueNumber": "22",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/22"
             }
           ],
-          "currentCoverage": "`mobile/eas.json` is not present in the inspected tree.",
-          "nextStep": "Add the EAS config and README section, then record whether a dev build was actually produced.",
+          "currentCoverage": "`mobile/eas.json` exists, `mobile/README.md` documents the real-push build flow, and `npm run typecheck` passes.",
+          "nextStep": "Run `npx eas-cli init`, produce an iOS or Android development build, verify Settings shows `Ready...`, and add a `Verified EAS build on YYYY-MM-DD` note to `mobile/README.md`.",
           "gaps": [
-            "Expo project ID ownership is not yet captured as a decision.",
-            "A real device build may require credentials outside the repo."
+            "No real EAS development build has been recorded yet.",
+            "A real device build requires Expo credentials outside the repo."
           ]
         },
         {
@@ -627,7 +631,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T01:09:31.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -708,8 +712,8 @@
         {
           "id": "eas-project-ownership",
           "name": "Decide EAS project ownership before committing canonical config",
-          "status": "reference",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "ground-truth",
+          "updated": "2026-04-16T01:09:31.000Z",
           "ticketIds": [
             {
               "issueNumber": "22",
@@ -717,7 +721,8 @@
             }
           ],
           "notes": [
-            "If the repository is open source, the committed EAS project ID and build instructions need to distinguish Triadflow-owned builds from contributor-local builds."
+            "`app.json` should not commit a random contributor's `extra.eas.projectId`.",
+            "Triadflow-owned builds should use the shared Expo project; fork or contributor testing can use a local Expo project and keep that project ID out of shared commits."
           ]
         },
         {

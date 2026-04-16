@@ -85,22 +85,74 @@ The `githubClientId` in `app.json` is a public identifier (device flow doesn't u
 4. After creation, **enable Device Flow** in settings
 5. Replace `githubClientId` in `app.json` with your new client ID
 
-## Push notifications caveat
+## Real push notifications
 
-Real push notifications require an EAS project:
+Expo Go and the web preview can run the app, authenticate, browse repos, and wire a repo for preview. They cannot hold the native Expo push token that GitHub Actions needs for real delivery. Use an EAS development build when you need actual push notifications on a phone.
+
+1. Sign in to Expo from this directory:
+
+   ```bash
+   cd mobile
+   npx eas-cli login
+   ```
+
+   `npx expo login` is also acceptable if you already use the Expo CLI workflow.
+
+2. Initialize the EAS project:
+
+   ```bash
+   npx eas-cli init
+   ```
+
+   This writes `extra.eas.projectId` into `app.json`. For Triadflow-owned builds, use the shared project. For personal fork testing, use your own Expo project and avoid committing an unrelated project ID back to this repo.
+
+3. Confirm the build profiles in `eas.json`. This repo defines:
+
+   - `development`: internal development client, iOS device build, Android APK
+   - `preview`: internal distribution
+   - `production`: empty production profile for future store builds
+
+4. Create an iOS development build:
+
+   ```bash
+   npx eas-cli build --profile development --platform ios
+   ```
+
+   Expect this to take roughly 15 minutes. Open the EAS build link on the device and follow the install flow for the chosen credential/distribution mode.
+
+5. Create an Android development build:
+
+   ```bash
+   npx eas-cli build --profile development --platform android
+   ```
+
+   Expect this to take roughly 10 minutes. Download the APK on the device, allow install from unknown sources if prompted, and install it.
+
+6. Launch the installed development build. Grant notification permission when prompted.
+
+7. Verify runtime status in the app:
+
+   - Open **Settings**
+   - Check **Push status**
+   - It should read `Ready. This device can receive pushes from connected repos.`
+
+8. Run the Metro dev server and connect the development build to it:
 
 ```bash
-npx eas init                    # one-time, ties to your Expo account
-npx eas build --profile development
+npm start
 ```
 
-In Expo Go / web preview the app runs fully, but `expo-notifications` returns no token. You can still use the app to Connect repos; the wiring is idempotent so when you move to an EAS build you just tap Connect again and the secret refreshes.
+Scan the QR code or choose the listed development build target. Live reload should work from the installed dev build.
+
+No CI is configured for EAS builds yet. Future work may add preview-track or auto-submit automation.
+
+Verification status: not yet verified in this repo. After a reviewer completes a real device build, add a dated note here in the form `Verified EAS build on YYYY-MM-DD`.
 
 ## Roadmap
 
 - [ ] Native re-render of living docs (no WebView) using the same registry JSON
-- [ ] Persistent inbox (SQLite)
-- [ ] Disconnect repo (remove secret + workflow)
+- [x] Persistent inbox (SQLite)
+- [x] Disconnect repo (remove secret + workflow)
 - [ ] Multi-device fan-out (requires a backend — secret holds only one value)
 - [ ] `/living-doc` skill integration: skill fires the workflow automatically when a doc changes
 
