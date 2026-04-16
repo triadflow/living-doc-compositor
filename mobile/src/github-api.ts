@@ -417,7 +417,7 @@ async function discoverFeedRepos(token: string): Promise<string[]> {
       const status = await getConnectionStatus(token, repo.owner, repo.name, {
         preferContents: true,
       }).catch(() => null);
-      if (!status?.workflow) return;
+      if (!status?.workflow || !status?.secret || status.workflowOutdated) return;
       discovered.push(repo.fullName);
     })
   );
