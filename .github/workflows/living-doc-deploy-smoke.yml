@@ -1,0 +1,56 @@
+name: Living Doc Deploy Smoke
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [pages-build-deployment]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main'
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run published-site smoke with retry
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            echo "Deployment smoke attempt ${attempt}/5"
+            if npm run test:deploy; then
+              exit 0
+            fi
+
+            if [ "${attempt}" -eq 5 ]; then
+              exit 1
+            fi
+
+            echo "Published site not ready yet. Waiting 15 seconds before retry."
+            sleep 15
+          done
