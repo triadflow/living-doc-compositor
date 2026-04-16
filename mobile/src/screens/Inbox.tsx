@@ -106,11 +106,29 @@ export default function Inbox({ navigation }: any) {
               {items.length ? `${items.length} notification${items.length === 1 ? '' : 's'}` : 'Nothing yet'}
             </Text>
           </View>
-          {items.length ? (
-            <Pressable onPress={clearInbox} style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.7 }]}>
-              <Text style={styles.clearText}>Clear all</Text>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => {
+                void onRefresh();
+              }}
+              disabled={refreshing}
+              style={({ pressed }) => [
+                styles.refreshBtn,
+                (pressed || refreshing) && { opacity: 0.7 },
+              ]}
+            >
+              <Ionicons name="refresh" size={14} color={colors.accent} />
+              <Text style={styles.refreshText}>{refreshing ? 'Syncing' : 'Refresh'}</Text>
             </Pressable>
-          ) : null}
+            {items.length ? (
+              <Pressable
+                onPress={clearInbox}
+                style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.clearText}>Clear all</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         {syncNote ? (
           <View
@@ -254,6 +272,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   headerTitle: { ...type.h2, color: colors.text },
   headerSub: { ...type.small, color: colors.textMuted },
   syncNote: {
@@ -275,6 +294,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.dangerBg,
   },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radii.md,
+    backgroundColor: colors.accentBg,
+  },
+  refreshText: { ...type.tiny, color: colors.accent, textTransform: 'uppercase' },
   clearText: { ...type.tiny, color: colors.danger, textTransform: 'uppercase' },
 
   row: {
