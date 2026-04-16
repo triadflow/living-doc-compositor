@@ -395,7 +395,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T13:12:00.000Z",
+  "updated": "2026-04-16T13:28:00.000Z",
   "pills": [
     "Mobile",
     "Workstream",
@@ -418,7 +418,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T13:12:00.000Z",
+      "updated": "2026-04-16T13:28:00.000Z",
       "stats": [
         {
           "label": "Open child tickets",
@@ -453,7 +453,8 @@
           "Runtime detection is now being hardened around `Constants.executionEnvironment` and `expo-dev-client` so Expo Go does not present itself as a real native push-capable build.",
           "When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.",
           "The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed.",
-          "Commit-driven delivery now needs an explicit repo-visible manifest contract: the central living-doc registry can remain the richer cross-system catalog, but each connected repo still needs a minimal local mirror so GitHub Actions can resolve changed doc paths into titles and public URLs during `push`."
+          "A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow template now reacts to `push` on the default branch by checking changed manifest-backed doc paths.",
+          "The remaining delivery proof is end-to-end verification that a normal commit affecting a tracked living doc in a connected repo automatically writes the expected feed event without manual dispatch."
         ]
       },
       "data": []
@@ -601,9 +602,10 @@
           "id": "repo-delivery-feed",
           "name": "Repo-backed in-app delivery feed",
           "status": "partial",
-          "updated": "2026-04-16T13:12:00.000Z",
+          "updated": "2026-04-16T13:28:00.000Z",
           "codePaths": [
             "mobile/src/delivery-feed.ts",
+            "mobile/src/delivery-manifest.ts",
             "mobile/src/delivery-ingest.ts",
             "mobile/src/workflow-template.ts",
             "mobile/src/github-api.ts",
@@ -629,11 +631,12 @@
           ],
           "notes": [
             "The workflow contract now writes one JSON event per run into the `living-docs-feed` branch under `.living-docs/feed/`, and Expo push is treated as optional best-effort acceleration.",
+            "A repo-local delivery manifest now exists at `.living-docs/manifest.json`; it mirrors delivery-critical fields from the central registry so push-time automation can map changed doc paths to doc ids, titles, and public URLs.",
             "The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.",
             "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
             "Repo-side verification now exists against `triadflow/mobile-connect-test`: workflow run `24510668921` created branch `living-docs-feed` and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
-            "The current workflow is still explicit-trigger only (`workflow_dispatch` or `repository_dispatch`). Commit-driven delivery will need a repo-local manifest that mirrors delivery-critical living-doc metadata from the central registry, so GitHub Actions can map changed JSON or HTML paths to doc identity and public URL during `push`.",
-            "This still needs phone-side verification and likely some cursor or batching hardening before the feed should be treated as production-stable."
+            "The current workflow now also triggers on `push` and inspects changed manifest-backed doc paths on the default branch, so commit-driven delivery no longer depends on a separate dispatcher for the common case.",
+            "Phone-side verification is proven for manual feed sync, but commit-driven delivery still needs a real connected-repo verification pass and likely some cursor or batching hardening before the feed should be treated as production-stable."
           ]
         },
         {
@@ -748,7 +751,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-16T13:12:00.000Z",
+          "updated": "2026-04-16T13:28:00.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -1061,12 +1064,12 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is now also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh.",
-          "nextStep": "Define a repo-local living-doc delivery manifest that mirrors the delivery-critical fields from the central registry, then extend the workflow to run on `push`, inspect changed manifest-backed doc paths, and emit feed events automatically for affected living docs.",
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is now also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh.",
+          "nextStep": "Update a connected repo to the new workflow plus manifest contract, push a tracked living-doc change on its default branch, and verify that the feed event appears in the app without any manual dispatch step.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
-            "The workflow is still explicit-trigger only; commits do not yet auto-dispatch feed events for changed living docs.",
-            "The repo-visible manifest contract that commit-time automation needs has not yet been defined."
+            "No end-to-end proof has been recorded yet that a normal Git commit in a connected repo automatically emits the feed event through the new push path.",
+            "There is not yet a helper to derive or refresh the repo-local manifest automatically from the richer central registry."
           ]
         },
         {
@@ -1155,7 +1158,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T13:12:00.000Z",
+      "updated": "2026-04-16T13:28:00.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -1200,7 +1203,7 @@
           "id": "repo-feed-source-of-truth",
           "name": "GitHub feed is the delivery source of truth; push is optional acceleration",
           "status": "ground-truth",
-          "updated": "2026-04-16T13:12:00.000Z",
+          "updated": "2026-04-16T13:28:00.000Z",
           "ticketIds": [
             {
               "issueNumber": "22",
@@ -1221,7 +1224,8 @@
             "Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness.",
             "The central living-doc registry should remain the richer cross-system catalog, but commit-time automation cannot depend on a local `~/.gtd` file or other central-only state.",
             "Each connected repo therefore needs a minimal repo-local manifest that mirrors delivery-critical fields from the central registry, such as doc id, tracked JSON/HTML paths, title, and public URL.",
-            "The central registry remains authoritative for semantic identity and broader system discovery, while the repo-local manifest becomes authoritative for resolving changed files into delivery events during GitHub `push` workflows."
+            "The central registry remains authoritative for semantic identity and broader system discovery, while the repo-local manifest becomes authoritative for resolving changed files into delivery events during GitHub `push` workflows.",
+            "That repo-local manifest contract now exists in this repo at `.living-docs/manifest.json`, and the workflow template now consumes it on `push`."
           ]
         },
         {
@@ -11885,7 +11889,7 @@
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-16T13:10:46.111Z" title="2026-04-16T13:10:46.111Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T13:10:46.111Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-16T13:20:04.554Z" title="2026-04-16T13:20:04.554Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T13:20:04.554Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -11926,11 +11930,11 @@
 
 
     <section class="section" id="status-snapshot">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T13:12:00Z" title="2026-04-16T13:12:00Z" data-relative-to-snapshot="true">2026-04-16T13:12:00Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T13:28:00Z" title="2026-04-16T13:28:00Z" data-relative-to-snapshot="true">2026-04-16T13:28:00Z</time></span></h2>
 
     <section class="callout callout-warning">
       <h3 class="callout-title">Current pressure pattern</h3>
-      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it is ready to become the local sink for a repo-backed sync feed.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#22 now has <code>mobile/eas.json</code> and real-push setup documentation; it still needs a real EAS dev build verification note.</span></p><p><span class="callout-line">#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.</span></p><p><span class="callout-line">#36 now has an initial verified repo-side path: the workflow writes JSON events into the <code>living-docs-feed</code> branch, and <code>triadflow/mobile-connect-test</code> produced a real feed file from workflow run <code>24510668921</code>.</span></p><p><span class="callout-line">Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.</span></p><p><span class="callout-line">The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.</span></p><p><span class="callout-line">Runtime detection is now being hardened around <code>Constants.executionEnvironment</code> and <code>expo-dev-client</code> so Expo Go does not present itself as a real native push-capable build.</span></p><p><span class="callout-line">When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.</span></p><p><span class="callout-line">The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed.</span></p><p><span class="callout-line">Commit-driven delivery now needs an explicit repo-visible manifest contract: the central living-doc registry can remain the richer cross-system catalog, but each connected repo still needs a minimal local mirror so GitHub Actions can resolve changed doc paths into titles and public URLs during <code>push</code>.</span></p>
+      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it is ready to become the local sink for a repo-backed sync feed.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#22 now has <code>mobile/eas.json</code> and real-push setup documentation; it still needs a real EAS dev build verification note.</span></p><p><span class="callout-line">#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.</span></p><p><span class="callout-line">#36 now has an initial verified repo-side path: the workflow writes JSON events into the <code>living-docs-feed</code> branch, and <code>triadflow/mobile-connect-test</code> produced a real feed file from workflow run <code>24510668921</code>.</span></p><p><span class="callout-line">Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.</span></p><p><span class="callout-line">The mobile workspace now runs on Expo SDK 54 with React Native 0.81 and React 19, and an Expo Go tunnel starts successfully for native phone testing.</span></p><p><span class="callout-line">Runtime detection is now being hardened around <code>Constants.executionEnvironment</code> and <code>expo-dev-client</code> so Expo Go does not present itself as a real native push-capable build.</span></p><p><span class="callout-line">When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.</span></p><p><span class="callout-line">The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed.</span></p><p><span class="callout-line">A repo-local delivery manifest contract now exists at <code>.living-docs/manifest.json</code>, and the workflow template now reacts to <code>push</code> on the default branch by checking changed manifest-backed doc paths.</span></p><p><span class="callout-line">The remaining delivery proof is end-to-end verification that a normal commit affecting a tracked living doc in a connected repo automatically writes the expected feed event without manual dispatch.</span></p>
 
     </section>
       <div class="summary-grid">
@@ -12043,14 +12047,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Repo-backed in-app delivery feed</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T13:12:00Z" title="2026-04-16T13:12:00Z" data-relative-to-snapshot="true">2026-04-16T13:12:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T13:28:00Z" title="2026-04-16T13:28:00Z" data-relative-to-snapshot="true">2026-04-16T13:28:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-manifest.ts"><code>mobile/src/delivery-manifest.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The workflow contract now writes one JSON event per run into the <code>living-docs-feed</code> branch under <code>.living-docs/feed/</code>, and Expo push is treated as optional best-effort acceleration.</span></p><p class="note-description"><span class="note-line">The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.</span></p><p class="note-description"><span class="note-line">Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.</span></p><p class="note-description"><span class="note-line">Repo-side verification now exists against <code>triadflow/mobile-connect-test</code>: workflow run <code>24510668921</code> created branch <code>living-docs-feed</code> and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload.</span></p><p class="note-description"><span class="note-line">The current workflow is still explicit-trigger only (<code>workflow_dispatch</code> or <code>repository_dispatch</code>). Commit-driven delivery will need a repo-local manifest that mirrors delivery-critical living-doc metadata from the central registry, so GitHub Actions can map changed JSON or HTML paths to doc identity and public URL during <code>push</code>.</span></p><p class="note-description"><span class="note-line">This still needs phone-side verification and likely some cursor or batching hardening before the feed should be treated as production-stable.</span></p>
+      <p class="note-description"><span class="note-line">The workflow contract now writes one JSON event per run into the <code>living-docs-feed</code> branch under <code>.living-docs/feed/</code>, and Expo push is treated as optional best-effort acceleration.</span></p><p class="note-description"><span class="note-line">A repo-local delivery manifest now exists at <code>.living-docs/manifest.json</code>; it mirrors delivery-critical fields from the central registry so push-time automation can map changed doc paths to doc ids, titles, and public URLs.</span></p><p class="note-description"><span class="note-line">The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.</span></p><p class="note-description"><span class="note-line">Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.</span></p><p class="note-description"><span class="note-line">Repo-side verification now exists against <code>triadflow/mobile-connect-test</code>: workflow run <code>24510668921</code> created branch <code>living-docs-feed</code> and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload.</span></p><p class="note-description"><span class="note-line">The current workflow now also triggers on <code>push</code> and inspects changed manifest-backed doc paths on the default branch, so commit-driven delivery no longer depends on a separate dispatcher for the common case.</span></p><p class="note-description"><span class="note-line">Phone-side verification is proven for manual feed sync, but commit-driven delivery still needs a real connected-repo verification pass and likely some cursor or batching hardening before the feed should be treated as production-stable.</span></p>
     </div>
 
 
@@ -12130,7 +12134,7 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub repo artifact status</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T13:12:00Z" title="2026-04-16T13:12:00Z" data-relative-to-snapshot="true">2026-04-16T13:12:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T13:28:00Z" title="2026-04-16T13:28:00Z" data-relative-to-snapshot="true">2026-04-16T13:28:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
@@ -12348,13 +12352,13 @@
       </header>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is now also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh.</p><p class="code-refs"><strong>Next step</strong> Define a repo-local living-doc delivery manifest that mirrors the delivery-critical fields from the central registry, then extend the workflow to run on <code>push</code>, inspect changed manifest-backed doc paths, and emit feed events automatically for affected living docs.</p>
+      <p class="code-refs"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. A repo-local delivery manifest contract now exists at <code>.living-docs/manifest.json</code>, and the workflow reacts to <code>push</code> on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is now also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh.</p><p class="code-refs"><strong>Next step</strong> Update a connected repo to the new workflow plus manifest contract, push a tracked living-doc change on its default branch, and verify that the feed event appears in the app without any manual dispatch step.</p>
 
     <details class="details-block">
       <summary>Current gaps (3)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.</span></p><p class="note-description"><span class="note-line">The workflow is still explicit-trigger only; commits do not yet auto-dispatch feed events for changed living docs.</span></p><p class="note-description"><span class="note-line">The repo-visible manifest contract that commit-time automation needs has not yet been defined.</span></p>
+      <p class="note-description"><span class="note-line">Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.</span></p><p class="note-description"><span class="note-line">No end-to-end proof has been recorded yet that a normal Git commit in a connected repo automatically emits the feed event through the new push path.</span></p><p class="note-description"><span class="note-line">There is not yet a helper to derive or refresh the repo-local manifest automatically from the richer central registry.</span></p>
     </div>
     </details>
     </article>
@@ -12440,7 +12444,7 @@
     </article></div>
     </section>
     <section class="section" id="open-decisions">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Open Decisions<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T13:12:00Z" title="2026-04-16T13:12:00Z" data-relative-to-snapshot="true">2026-04-16T13:12:00Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Open Decisions<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T13:28:00Z" title="2026-04-16T13:28:00Z" data-relative-to-snapshot="true">2026-04-16T13:28:00Z</time></span></h2>
 
 
 
@@ -12465,14 +12469,14 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub feed is the delivery source of truth; push is optional acceleration</h3>
-          <div class="meta-row"><span><time datetime="2026-04-16T13:12:00Z" title="2026-04-16T13:12:00Z" data-relative-to-snapshot="true">2026-04-16T13:12:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T13:28:00Z" title="2026-04-16T13:28:00Z" data-relative-to-snapshot="true">2026-04-16T13:28:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/22" class="ticket-link"><span class="ticket-badge badge badge-neutral">#22</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The product goal is that living-doc updates appear inside the app itself whenever the app refreshes, even if Apple or Expo push is unavailable.</span></p><p class="note-description"><span class="note-line">Connected-repo workflow runs should therefore write a structured GitHub-backed feed that the app syncs into Inbox and the local doc registry.</span></p><p class="note-description"><span class="note-line">Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness.</span></p><p class="note-description"><span class="note-line">The central living-doc registry should remain the richer cross-system catalog, but commit-time automation cannot depend on a local <code>~/.gtd</code> file or other central-only state.</span></p><p class="note-description"><span class="note-line">Each connected repo therefore needs a minimal repo-local manifest that mirrors delivery-critical fields from the central registry, such as doc id, tracked JSON/HTML paths, title, and public URL.</span></p><p class="note-description"><span class="note-line">The central registry remains authoritative for semantic identity and broader system discovery, while the repo-local manifest becomes authoritative for resolving changed files into delivery events during GitHub <code>push</code> workflows.</span></p>
+      <p class="note-description"><span class="note-line">The product goal is that living-doc updates appear inside the app itself whenever the app refreshes, even if Apple or Expo push is unavailable.</span></p><p class="note-description"><span class="note-line">Connected-repo workflow runs should therefore write a structured GitHub-backed feed that the app syncs into Inbox and the local doc registry.</span></p><p class="note-description"><span class="note-line">Expo Push remains useful for waking the user or device, but correctness for in-app visibility cannot depend on paid-team push readiness.</span></p><p class="note-description"><span class="note-line">The central living-doc registry should remain the richer cross-system catalog, but commit-time automation cannot depend on a local <code>~/.gtd</code> file or other central-only state.</span></p><p class="note-description"><span class="note-line">Each connected repo therefore needs a minimal repo-local manifest that mirrors delivery-critical fields from the central registry, such as doc id, tracked JSON/HTML paths, title, and public URL.</span></p><p class="note-description"><span class="note-line">The central registry remains authoritative for semantic identity and broader system discovery, while the repo-local manifest becomes authoritative for resolving changed files into delivery events during GitHub <code>push</code> workflows.</span></p><p class="note-description"><span class="note-line">That repo-local manifest contract now exists in this repo at <code>.living-docs/manifest.json</code>, and the workflow template now consumes it on <code>push</code>.</span></p>
     </div>
 
 
@@ -12544,7 +12548,7 @@
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-e169dd4 (2026-04-16)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-fd6466b (2026-04-16)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -12640,7 +12644,7 @@
       <h3>Repo-backed in-app delivery feed</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-manifest.ts"><code>mobile/src/delivery-manifest.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="mobile-capabilities">
       <div class="board-card-kicker">Mobile Capability Map · Capability Surface</div>
@@ -12766,7 +12770,7 @@
       <h3>Repo-backed in-app delivery feed</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/delivery-feed.ts"><code>mobile/src/delivery-feed.ts</code></a> <a href="../mobile/src/delivery-manifest.ts"><code>mobile/src/delivery-manifest.ts</code></a> <a href="../mobile/src/delivery-ingest.ts"><code>mobile/src/delivery-ingest.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/inbox-store.ts"><code>mobile/src/inbox-store.ts</code></a> <a href="../mobile/src/registry.ts"><code>mobile/src/registry.ts</code></a> <a href="../mobile/App.tsx"><code>mobile/App.tsx</code></a> <a href="../mobile/src/screens/Inbox.tsx"><code>mobile/src/screens/Inbox.tsx</code></a> <a href="../mobile/src/screens/Home.tsx"><code>mobile/src/screens/Home.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/24" class="ticket-link"><span class="ticket-badge badge badge-neutral">#24</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="mobile-capabilities">
       <div class="board-card-kicker">Mobile Capability Map · Capability Surface</div>
@@ -13038,7 +13042,7 @@
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Repo-backed in-app delivery sync</h3>
       <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is now also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. A repo-local delivery manifest contract now exists at <code>.living-docs/manifest.json</code>, and the workflow reacts to <code>push</code> on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is now also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh.</p>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div>
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -13125,7 +13129,7 @@
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Repo-backed in-app delivery sync</h3>
       <div class="badge-row"><span class="badge badge-warning">Gate</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is now also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. A repo-local delivery manifest contract now exists at <code>.living-docs/manifest.json</code>, and the workflow reacts to <code>push</code> on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is now also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh.</p>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div>
     </article>
     <article class="board-card" data-section-id="verification-plan">
