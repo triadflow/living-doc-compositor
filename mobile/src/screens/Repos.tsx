@@ -21,11 +21,16 @@ import {
   pushRuntimeLabel,
   registerForPushNotifications,
 } from '../notifications';
+import {
+  ConnectionMode,
+  getRepoConnectionModes,
+  removeRepoConnectionMode,
+  setRepoConnectionMode,
+} from '../repo-connection-store';
 import { EmptyState, Pill } from '../components';
 import { colors, radii, spacing, type } from '../theme';
 
 type Toast = { kind: 'progress' | 'success' | 'warning' | 'error'; text: string } | null;
-type ConnectionMode = 'real' | 'preview';
 
 type RepoState = AdminRepo & {
   status?: ConnectionStatus;
@@ -58,14 +63,33 @@ export default function Repos() {
     try {
       setError(null);
       const list = await listAdminRepos(token);
-      setRepos(list.map((r) => ({ ...r, loadingStatus: true })));
+      const connectionModes: Record<string, ConnectionMode> =
+        await getRepoConnectionModes().catch(() => ({}));
+      setRepos(list.map((r) => ({
+        ...r,
+        connectionMode: connectionModes[r.fullName],
+        loadingStatus: true,
+      })));
       // Hydrate connection status in parallel.
       await Promise.all(
         list.map(async (r) => {
           try {
             const status = await getConnectionStatus(token, r.owner, r.name);
+            const connected = status.secret && status.workflow && !status.workflowOutdated;
+            if (!connected) void removeRepoConnectionMode(r.fullName).catch(() => {});
             setRepos((prev) =>
-              prev ? prev.map((p) => (p.id === r.id ? { ...p, status, loadingStatus: false } : p)) : prev
+              prev
+                ? prev.map((p) =>
+                    p.id === r.id
+                      ? {
+                          ...p,
+                          status,
+                          connectionMode: connected ? connectionModes[r.fullName] : undefined,
+                          loadingStatus: false,
+                        }
+                      : p
+                  )
+                : prev
             );
           } catch {
             setRepos((prev) =>
@@ -117,6 +141,7 @@ export default function Repos() {
           : prev
       );
       const connectedNow = status.secret && status.workflow && !status.workflowOutdated;
+      void setRepoConnectionMode(repo.fullName, connectionMode).catch(() => {});
       showToast(
         {
           kind: !connectedNow || connectionMode === 'preview' ? 'warning' : 'success',
@@ -174,6 +199,7 @@ export default function Repos() {
         },
         3500
       );
+      void removeRepoConnectionMode(repo.fullName).catch(() => {});
     } catch (err: any) {
       setRepos((prev) =>
         prev ? prev.map((p) => (p.id === repo.id ? { ...p, disconnecting: false } : p)) : prev
@@ -285,8 +311,9 @@ function RepoRow({
   const connected = item.status?.secret && item.status?.workflow && !item.status?.workflowOutdated;
   const partial = !connected && (item.status?.secret || item.status?.workflow);
   const needsUpdate = item.status?.workflow && item.status?.workflowOutdated;
-  const previewConnected = connected && (item.connectionMode === 'preview' || !hasRealPushToken);
-  const showActions = connected && !needsUpdate;
+  const previewConnected = connected && item.connectionMode === 'preview';
+  const canRefreshSecret = connected && hasRealPushToken && item.connectionMode !== 'real';
+  const showActions = connected && !needsUpdate && !canRefreshSecret;
 
   return (
     <View style={styles.row}>
@@ -336,7 +363,13 @@ function RepoRow({
           <Ionicons name="ellipsis-horizontal" size={16} color={colors.accent} />
         ) : (
           <Text style={styles.btnText}>
-            {needsUpdate ? 'Update' : connected ? 'Reconnect' : 'Connect'}
+            {canRefreshSecret && item.connectionMode === 'preview'
+              ? 'Upgrade'
+              : needsUpdate
+                ? 'Update'
+                : connected
+                  ? 'Reconnect'
+                  : 'Connect'}
           </Text>
         )}
       </Pressable>

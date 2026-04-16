@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T01:23:52.000Z",
+  "updated": "2026-04-16T01:52:30.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,12 +27,12 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T01:23:52.000Z",
+      "updated": "2026-04-16T01:52:30.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "6" },
         { "label": "Closed context ticket", "value": "1" },
         { "label": "Blocking verification gates", "value": "4" },
-        { "label": "Open decisions", "value": "2" }
+        { "label": "Open decisions", "value": "0" }
       ],
       "callout": {
         "tone": "warning",
@@ -44,6 +44,7 @@
           "#22 now has `mobile/eas.json` and real-push setup documentation; it still needs a real EAS dev build verification note.",
           "#19 now has a bounded code-alignment pass for empty states, row/header spacing, Repos intro strip, Inbox metadata, native sign-in states, and Doc Detail title alignment; it still needs visual comparison against the mockup canvas.",
           "#20 remains the primary real-GitHub end-to-end gate, but the status path now avoids Actions workflow-list lag by inspecting the workflow file through the Contents API and retrying after connect/disconnect mutations.",
+          "Preview-vs-real repo connection mode is now kept in local app storage so a preview-connected repo can be upgraded when a real EAS push token becomes available.",
           "The remaining work is now mostly verification: real GitHub, device runtime, EAS build, and pixel comparison."
         ]
       },
@@ -53,7 +54,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T01:23:52.000Z",
+      "updated": "2026-04-16T01:52:30.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -133,10 +134,11 @@
           "id": "repo-connection",
           "name": "Connect-a-repo flow",
           "status": "partial",
-          "updated": "2026-04-16T01:23:52.000Z",
+          "updated": "2026-04-16T01:52:30.000Z",
           "codePaths": [
             "mobile/src/screens/Repos.tsx",
             "mobile/src/github-api.ts",
+            "mobile/src/repo-connection-store.ts",
             "mobile/src/sealed-box.ts",
             "mobile/src/workflow-template.ts"
           ],
@@ -159,7 +161,7 @@
             "Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.",
             "After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.",
             "When no real push token is available, Repos now writes the explicit placeholder token and shows warning-toned preview copy instead of claiming full push delivery.",
-            "When a real token is available, Repos writes the real token and uses the success path; connected rows can be reconnected to overwrite older placeholder secrets.",
+            "Connection mode is now persisted locally per repo. Explicitly preview-connected rows show an Upgrade action when a real push token becomes available, while unknown connected rows can still Reconnect from a real-token runtime to overwrite opaque GitHub secrets.",
             "The #19 code-alignment pass removed the extra in-screen title so the stack header owns the page title and tightened row typography/button dimensions."
           ]
         },
@@ -316,9 +318,10 @@
           "id": "local-state-stores",
           "name": "Local mobile state stores",
           "status": "partial",
-          "updated": "2026-04-16T00:05:12.000Z",
+          "updated": "2026-04-16T01:52:30.000Z",
           "codePaths": [
             "mobile/src/storage.ts",
+            "mobile/src/repo-connection-store.ts",
             "mobile/src/inbox-store.ts"
           ],
           "ticketIds": [
@@ -332,7 +335,7 @@
             }
           ],
           "notes": [
-            "#21 may need local connection metadata to preserve preview-vs-real state across refreshes.",
+            "#21 and #20 now use `mobile/src/repo-connection-store.ts` to preserve preview-vs-real repo connection mode across refreshes on the same app install.",
             "#24 now introduces `mobile/src/inbox-store.ts` as an application-level SQLite event log rather than screen-local state."
           ]
         }
@@ -507,7 +510,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T01:23:52.000Z",
+      "updated": "2026-04-16T01:52:30.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -537,7 +540,7 @@
           "name": "Connect-a-repo end-to-end",
           "status": "planned",
           "priority": "blocking",
-          "updated": "2026-04-16T01:23:52.000Z",
+          "updated": "2026-04-16T01:52:30.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -551,7 +554,7 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
             }
           ],
-          "currentCoverage": "Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.",
+          "currentCoverage": "Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, local preview-vs-real connection mode storage, upgrade/reconnect actions for opaque secrets, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.",
           "nextStep": "Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.",
           "gaps": [
             "No verified note has been added to `mobile/README.md` yet.",
@@ -640,7 +643,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T01:09:31.000Z",
+      "updated": "2026-04-16T01:52:30.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -684,8 +687,8 @@
         {
           "id": "preview-connection-persistence",
           "name": "Choose how preview connection state survives refresh",
-          "status": "reference",
-          "updated": "2026-04-15T15:14:23.000Z",
+          "status": "ground-truth",
+          "updated": "2026-04-16T01:52:30.000Z",
           "ticketIds": [
             {
               "issueNumber": "20",
@@ -698,8 +701,9 @@
           ],
           "notes": [
             "Because GitHub secrets are write-only, the app cannot infer real-vs-placeholder token state from the secret value after creation.",
-            "The #21 implementation uses explicit current-runtime and current-session preview labeling without introducing a readable repo marker.",
-            "If #20 or #23 needs durable preview-vs-real recovery after refresh or reinstall, promote this into a concrete local metadata or repo-marker ticket."
+            "The chosen implementation is local metadata in `mobile/src/repo-connection-store.ts`, keyed by repository full name and storing `real` or `preview` plus an ISO timestamp.",
+            "This avoids writing an additional readable repo marker while still letting the app upgrade a known preview connection when a real push token becomes available.",
+            "If the app is reinstalled or local storage is cleared, GitHub's opaque secret remains unknowable; from a real-token runtime, the row can still Reconnect to overwrite the secret."
           ]
         },
         {
