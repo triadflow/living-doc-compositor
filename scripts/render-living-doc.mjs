@@ -503,6 +503,223 @@ function renderEdgeTable(items, convergenceType) {
     </table>`;
 }
 
+/* ── Registry-derived board view ── */
+
+function statusSetTitle(statusSet) {
+  return toTitleCase(String(statusSet ?? '').replace(/-status$/, ''));
+}
+
+function boardFieldLabel(field) {
+  return field?.label ?? toTitleCase(field?.key ?? 'status');
+}
+
+function buildSectionBoardEntries(section) {
+  const ct = registry.convergenceTypes[section.convergenceType];
+  if (!ct) return [];
+
+  if (ct.projection === 'edge-table' && ct.edgeStatus?.key && ct.edgeStatus?.statusSet) {
+    return [{
+      section,
+      ct,
+      fieldKey: ct.edgeStatus.key,
+      fieldLabel: boardFieldLabel(ct.edgeStatus),
+      statusSet: ct.edgeStatus.statusSet,
+      source: 'edgeStatus',
+    }];
+  }
+
+  return (ct.statusFields ?? [])
+    .filter((field) => field?.key && field?.statusSet)
+    .map((field) => ({
+      section,
+      ct,
+      fieldKey: field.key,
+      fieldLabel: boardFieldLabel(field),
+      statusSet: field.statusSet,
+      source: 'statusField',
+    }));
+}
+
+function buildBoardDimensions(sectionsToRender) {
+  const entries = sectionsToRender.flatMap(buildSectionBoardEntries);
+  const byStatusSet = new Map();
+  for (const entry of entries) {
+    if (!byStatusSet.has(entry.statusSet)) byStatusSet.set(entry.statusSet, []);
+    byStatusSet.get(entry.statusSet).push(entry);
+  }
+
+  const documentDimensions = [...byStatusSet.entries()]
+    .filter(([, groupEntries]) => groupEntries.length > 1)
+    .map(([statusSet, groupEntries]) => ({
+      id: `doc-${slugifyValue(statusSet) || 'status'}`,
+      scope: 'document',
+      statusSet,
+      label: `${statusSetTitle(statusSet)} board`,
+      entries: groupEntries,
+    }));
+
+  const sectionDimensions = entries.map((entry) => ({
+    id: `section-${slugifyValue(entry.section.id) || 'section'}-${slugifyValue(entry.fieldKey) || 'status'}`,
+    scope: 'section',
+    statusSet: entry.statusSet,
+    label: `${entry.section.title} · ${entry.fieldLabel}`,
+    entries: [entry],
+  }));
+
+  return [...documentDimensions, ...sectionDimensions];
+}
+
+function boardItemTitle(item, entry) {
+  if (entry.source === 'edgeStatus') {
+    const edgeLabel = (sourceDef) => {
+      if (!sourceDef) return '';
+      const value = item[sourceDef.key];
+      if (!value) return '';
+      const displayOverride = sourceDef.displayKey ? item[sourceDef.displayKey] : '';
+      return entityDisplayValue(sourceDef.entityType, value, { displayOverride });
+    };
+    const left = edgeLabel(entry.ct.sourceA);
+    const right = edgeLabel(entry.ct.sourceB);
+    const edgeTitle = [left, right].filter(Boolean).join(' -> ');
+    if (edgeTitle) return edgeTitle;
+  }
+  return String(item.name ?? item.figmaName ?? item.title ?? item.id ?? 'Untitled item');
+}
+
+function boardCardNote(item, entry) {
+  const textField = (entry.ct.textFields ?? []).find((field) => item[field.key]);
+  if (textField) {
+    return `<p class="board-card-note"><strong>${escapeHtml(textField.label)}</strong> ${renderInlineText(item[textField.key])}</p>`;
+  }
+  if (entry.ct.edgeNotes?.key && item[entry.ct.edgeNotes.key]) {
+    return renderNotes(item[entry.ct.edgeNotes.key]);
+  }
+  return '';
+}
+
+function boardCardRefs(item, entry) {
+  if (entry.source === 'edgeStatus') return '';
+  return (entry.ct.sources ?? [])
+    .filter((src) => src.entityType && item[src.key]?.length > 0)
+    .slice(0, 2)
+    .map((src) => renderRefList(item[src.key], src.entityType, src.label))
+    .join('');
+}
+
+function buildBoardModel(dimension) {
+  const statusSet = registry.statusSets[dimension.statusSet];
+  const values = Array.isArray(statusSet?.values) ? statusSet.values : [];
+  const lanes = values.map((value) => ({
+    value,
+    label: statusLabel(dimension.statusSet, value),
+    tone: tone(dimension.statusSet, value),
+    cards: [],
+  }));
+  const laneByValue = new Map(lanes.map((lane) => [lane.value, lane]));
+  const fallbackLane = {
+    value: '__other__',
+    label: 'Other / missing',
+    tone: 'neutral',
+    cards: [],
+  };
+
+  for (const entry of dimension.entries) {
+    for (const item of entry.section.data ?? []) {
+      const rawValue = item?.[entry.fieldKey];
+      const value = rawValue == null ? '' : String(rawValue).trim();
+      const lane = laneByValue.get(value) ?? fallbackLane;
+      const knownValue = lane !== fallbackLane;
+      lane.cards.push({
+        sectionId: entry.section.id,
+        sectionTitle: entry.section.title,
+        typeName: entry.ct.name ?? entry.section.convergenceType,
+        title: boardItemTitle(item, entry),
+        fieldLabel: entry.fieldLabel,
+        rawValue: value,
+        knownValue,
+        noteHtml: boardCardNote(item, entry),
+        refsHtml: boardCardRefs(item, entry),
+      });
+    }
+  }
+
+  return {
+    dimension,
+    lanes: fallbackLane.cards.length > 0 ? [...lanes, fallbackLane] : lanes,
+  };
+}
+
+function renderBoardCard(card, statusSet) {
+  const statusText = card.knownValue && card.rawValue
+    ? statusLabel(statusSet, card.rawValue)
+    : (card.rawValue ? toTitleCase(card.rawValue) : 'Missing');
+  const statusTone = card.knownValue ? tone(statusSet, card.rawValue) : 'neutral';
+  return `
+    <article class="board-card" data-section-id="${escapeHtml(card.sectionId)}">
+      <div class="board-card-kicker">${escapeHtml(card.sectionTitle)} · ${escapeHtml(card.typeName)}</div>
+      <h3>${escapeHtml(card.title)}</h3>
+      <div class="badge-row">${badge(statusText, statusTone)}</div>
+      ${card.noteHtml}
+      ${card.refsHtml}
+    </article>`;
+}
+
+function renderBoardLane(lane, statusSet) {
+  return `
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>${escapeHtml(lane.label)}</span>
+        <span class="board-count">${escapeHtml(String(lane.cards.length))}</span>
+      </header>
+      <div class="board-lane-cards">
+        ${lane.cards.length
+          ? lane.cards.map((card) => renderBoardCard(card, statusSet)).join('')
+          : '<div class="board-empty">No items</div>'}
+      </div>
+    </section>`;
+}
+
+function renderBoardView(dimensions) {
+  if (dimensions.length === 0) return '';
+  const panels = dimensions.map((dimension, index) => {
+    const model = buildBoardModel(dimension);
+    return `
+      <div class="board-panel" data-board-panel="${escapeHtml(dimension.id)}"${index === 0 ? '' : ' hidden'}>
+        <div class="board-context">
+          <span>${escapeHtml(dimension.scope === 'document' ? 'Document view' : 'Section view')}</span>
+          <strong>${escapeHtml(statusSetTitle(dimension.statusSet))}</strong>
+        </div>
+        <div class="board-track">
+          <div class="board-grid">
+            ${model.lanes.map((lane) => renderBoardLane(lane, dimension.statusSet)).join('')}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const dimensionControl = dimensions.length > 1
+    ? `
+      <label class="board-select-wrap">
+        <span>Board</span>
+        <select class="board-select" data-board-select>
+          ${dimensions.map((dimension, index) => `<option value="${escapeHtml(dimension.id)}"${index === 0 ? ' selected' : ''}>${escapeHtml(dimension.label)}</option>`).join('')}
+        </select>
+      </label>`
+    : `<div class="board-static-label">${escapeHtml(dimensions[0].label)}</div>`;
+
+  return `
+    <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
+      <div class="board-toolbar">
+        <div>
+          <h2>Board</h2>
+          <p>Columns are generated from registry status sets; cards are grouped from convergence-type status fields.</p>
+        </div>
+        ${dimensionControl}
+      </div>
+      ${panels}
+    </section>`;
+}
+
 function renderSection(section) {
   const ct = registry.convergenceTypes[section.convergenceType];
   if (!ct) return `<!-- unknown convergence type: ${escapeHtml(section.convergenceType)} -->`;
@@ -582,6 +799,15 @@ function buildSidebar(sections) {
 /* ── Assemble HTML ── */
 
 const sections = data.sections ?? [];
+const boardDimensions = buildBoardDimensions(sections);
+const boardViewHtml = renderBoardView(boardDimensions);
+const viewSwitchHtml = boardDimensions.length > 0
+  ? `
+          <div class="view-switch" role="tablist" aria-label="Living doc views">
+            <button class="view-switch-btn active" type="button" data-view-target="document" aria-selected="true">Document</button>
+            <button class="view-switch-btn" type="button" data-view-target="board" aria-selected="false">Board</button>
+          </div>`
+  : '';
 const snapshotMeta = buildSnapshotMeta(data);
 const metaJson = JSON.stringify(data, null, 2).replace(/<\/script/gi, '<\\/script');
 const registryJson = JSON.stringify(registry, null, 2).replace(/<\/script/gi, '<\\/script');
@@ -701,6 +927,81 @@ const html = `<!doctype html>
         padding: 5px 12px; border-radius: 999px;
         background: var(--card); border: 1px solid var(--line);
         box-shadow: var(--shadow-sm); color: var(--muted); font-size: 12.5px; font-weight: 500;
+      }
+      .view-switch {
+        display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+        box-shadow: var(--shadow-sm);
+      }
+      .view-switch-btn {
+        appearance: none; border: none; border-radius: 7px; padding: 7px 13px;
+        background: transparent; color: var(--muted); font: inherit; font-size: 12.5px;
+        font-weight: 700; cursor: pointer;
+      }
+      .view-switch-btn.active { background: var(--accent); color: #fff; }
+      .view-panel[hidden], .board-panel[hidden] { display: none !important; }
+      .board-view { margin-top: 28px; }
+      .board-toolbar {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+        margin-bottom: 16px; padding: 18px 20px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .board-toolbar h2 { margin: 0; font-size: 19px; line-height: 1.25; }
+      .board-toolbar p { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; max-width: 62ch; }
+      .board-select-wrap { display: flex; flex-direction: column; gap: 5px; min-width: min(320px, 100%); }
+      .board-select-wrap span {
+        color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      }
+      .board-select, .board-static-label {
+        border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+        color: var(--ink); font: inherit; font-size: 13px; padding: 8px 10px;
+      }
+      .board-context {
+        display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+        margin: 0 0 10px; color: var(--muted); font-size: 12.5px;
+      }
+      .board-context strong { color: var(--ink); }
+      .board-track {
+        overflow-x: auto; overflow-y: hidden; padding-bottom: 4px;
+        overscroll-behavior-x: contain;
+      }
+      .board-grid {
+        display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 280px);
+        gap: 12px; align-items: start; justify-content: start;
+        width: max-content; min-width: 100%;
+      }
+      .board-lane {
+        min-width: 0; border: 1px solid var(--line); border-radius: var(--radius);
+        background: color-mix(in srgb, var(--neutral-bg) 55%, var(--card));
+        padding: 10px; box-shadow: var(--shadow-sm);
+      }
+      .board-lane-header {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        min-height: 28px; color: var(--ink); font-size: 12.5px; font-weight: 800;
+      }
+      .board-count {
+        min-width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+        color: var(--muted); font-size: 11px; font-weight: 800;
+      }
+      .board-lane-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .board-card {
+        border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+        padding: 12px; box-shadow: var(--shadow-sm);
+      }
+      .board-card-kicker {
+        margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 700;
+        line-height: 1.35; text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .board-card h3 { margin-bottom: 8px; line-height: 1.35; overflow-wrap: anywhere; }
+      .board-card-note {
+        margin: 9px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.55;
+      }
+      .board-card .flow-meta, .board-card .ticket-row { margin-top: 9px; }
+      .board-empty {
+        min-height: 64px; display: flex; align-items: center; justify-content: center;
+        border: 1px dashed var(--line); border-radius: 8px; color: var(--muted);
+        font-size: 12.5px; background: color-mix(in srgb, var(--card) 70%, transparent);
       }
       .section { margin-top: 48px; padding-top: 36px; border-top: 1px solid var(--line); }
       .section:first-of-type { border-top: none; padding-top: 0; }
@@ -893,6 +1194,7 @@ const html = `<!doctype html>
         .content { margin-left: 0; }
         .wrap { padding: 20px 16px 48px; }
         .summary-grid { grid-template-columns: 1fr; }
+        .board-toolbar { flex-direction: column; }
         h1 { font-size: 24px; }
       }
     </style>
@@ -926,23 +1228,27 @@ const html = `<!doctype html>
           <h1>${escapeHtml(data.title)}</h1>
           ${data.subtitle ? `<p class="subtitle">${escapeHtml(data.subtitle)}</p>` : ''}
           ${data.pills ? `<div class="pill-row">${data.pills.map((p) => `<span class="pill">${escapeHtml(p)}</span>`).join('')}</div>` : ''}
+          ${viewSwitchHtml}
         </header>
 
-        ${renderSnapshotPanel(snapshotMeta)}
+        <div id="document-view" class="view-panel" data-view-panel="document">
+          ${renderSnapshotPanel(snapshotMeta)}
 
-        ${data.objective ? `
-        <section class="callout" style="border-left:3px solid var(--accent)">
-          <p><strong>Objective</strong> ${escapeHtml(data.objective)}</p>
-          ${data.successCondition ? `<p style="color:var(--muted)"><strong>Success condition</strong> ${escapeHtml(data.successCondition)}</p>` : ''}
-          ${data.syncHints ? `<p style="color:var(--muted);font-size:13px"><strong>Scope</strong> ${Object.entries(data.syncHints).map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(v)}</code>`).join(' ')}</p>` : ''}
-        </section>` : ''}
+          ${data.objective ? `
+          <section class="callout" style="border-left:3px solid var(--accent)">
+            <p><strong>Objective</strong> ${escapeHtml(data.objective)}</p>
+            ${data.successCondition ? `<p style="color:var(--muted)"><strong>Success condition</strong> ${escapeHtml(data.successCondition)}</p>` : ''}
+            ${data.syncHints ? `<p style="color:var(--muted);font-size:13px"><strong>Scope</strong> ${Object.entries(data.syncHints).map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(v)}</code>`).join(' ')}</p>` : ''}
+          </section>` : ''}
 
-        ${(data.callouts ?? []).map(renderCallout).join('')}
+          ${(data.callouts ?? []).map(renderCallout).join('')}
 
-        ${sections.map(renderSection).join('')}
+          ${sections.map(renderSection).join('')}
 
-        ${data.source ? `<p class="footnote">Source: ${escapeHtml(data.source)}</p>` : ''}
-        <p class="footnote" style="margin-top:${data.source ? '8px' : '40px'}">Living Doc Compositor ${escapeHtml(buildVersion)}</p>
+          ${data.source ? `<p class="footnote">Source: ${escapeHtml(data.source)}</p>` : ''}
+          <p class="footnote" style="margin-top:${data.source ? '8px' : '40px'}">Living Doc Compositor ${escapeHtml(buildVersion)}</p>
+        </div>
+        ${boardViewHtml}
       </div>
     </div>
 
@@ -972,6 +1278,43 @@ const html = `<!doctype html>
         );
         for (const { el } of sections) observer.observe(el);
         if (sections.length > 0) activate(sections[0].icon);
+      })();
+    </script>
+
+    <script>
+      (() => {
+        const viewButtons = Array.from(document.querySelectorAll('[data-view-target]'));
+        const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+        if (viewButtons.length === 0) return;
+
+        const showView = (view) => {
+          for (const panel of panels) {
+            panel.hidden = panel.dataset.viewPanel !== view;
+          }
+          for (const button of viewButtons) {
+            const active = button.dataset.viewTarget === view;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+          }
+        };
+
+        for (const button of viewButtons) {
+          button.addEventListener('click', () => showView(button.dataset.viewTarget));
+        }
+
+        document.querySelectorAll('[data-board-select]').forEach((select) => {
+          const root = select.closest('.board-view');
+          const panelsForBoard = Array.from(root?.querySelectorAll('[data-board-panel]') ?? []);
+          const showBoard = (id) => {
+            for (const panel of panelsForBoard) {
+              panel.hidden = panel.dataset.boardPanel !== id;
+            }
+          };
+          select.addEventListener('change', () => showBoard(select.value));
+          showBoard(select.value);
+        });
+
+        showView('document');
       })();
     </script>
 

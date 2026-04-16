@@ -23,6 +23,10 @@ assert.match(html, /Fixture Feature Living Doc/, 'rendered HTML should include f
 assert.match(html, /Portable Snapshot/, 'rendered HTML should include snapshot identity panel');
 assert.match(html, /Identity and lineage/, 'rendered HTML should include lineage heading');
 assert.match(html, /data-target="status-snapshot"/, 'rendered HTML should include section navigation');
+assert.match(html, /data-view-target="board"/, 'rendered HTML should include board view switch');
+assert.match(html, /id="board-view"/, 'rendered HTML should include registry-derived board view');
+assert.match(html, /Tooling Surface · Status/, 'board should expose the status dimension for boardable sections');
+assert.match(html, /<span>Trusted<\/span>/, 'board should render status-set lanes from the registry');
 assert.match(html, /id="comp-iframe" srcdoc="/, 'rendered HTML should embed compositor iframe');
 assert.match(html, /Living Doc Compositor/, 'rendered HTML should include embedded compositor source');
 
