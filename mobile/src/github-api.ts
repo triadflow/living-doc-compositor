@@ -343,10 +343,13 @@ export type RepoFeedSyncResult = {
 
 export async function syncRepoDeliveryFeed(
   token: string,
-  opts: { perRepoLimit?: number } = {}
+  opts: { perRepoLimit?: number; discoverWhenEmpty?: boolean } = {}
 ): Promise<RepoFeedSyncResult> {
   const connections = await getRepoConnectionModes().catch(() => ({}));
-  const fullNames = Object.keys(connections).sort();
+  let fullNames = Object.keys(connections).sort();
+  if (fullNames.length === 0 && opts.discoverWhenEmpty !== false) {
+    fullNames = await discoverFeedRepos(token);
+  }
   const perRepoLimit = Math.max(1, opts.perRepoLimit ?? DELIVERY_FEED_PER_REPO_LIMIT);
   let repos = 0;
   let events = 0;
@@ -403,6 +406,23 @@ export async function syncRepoDeliveryFeed(
   }
 
   return { repos, events };
+}
+
+async function discoverFeedRepos(token: string): Promise<string[]> {
+  const repos = await listAdminRepos(token).catch(() => []);
+  const discovered: string[] = [];
+
+  await Promise.all(
+    repos.map(async (repo) => {
+      const status = await getConnectionStatus(token, repo.owner, repo.name, {
+        preferContents: true,
+      }).catch(() => null);
+      if (!status?.workflow) return;
+      discovered.push(repo.fullName);
+    })
+  );
+
+  return discovered.sort();
 }
 
 function parseRepoFullName(fullName: string): { owner: string; repo: string } | null {
