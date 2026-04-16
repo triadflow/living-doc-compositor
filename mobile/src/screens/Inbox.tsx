@@ -20,6 +20,10 @@ export default function Inbox({ navigation }: any) {
   const { token } = useAuth();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncNote, setSyncNote] = useState<{
+    tone: 'neutral' | 'warning' | 'success';
+    text: string;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setItems(await list());
@@ -71,8 +75,22 @@ export default function Inbox({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    if (token) {
-      await syncRepoDeliveryFeed(token).catch(() => {});
+    if (!token) {
+      setSyncNote({
+        tone: 'warning',
+        text: 'Sign in with GitHub in Settings to sync repo updates.',
+      });
+    } else {
+      const result = await syncRepoDeliveryFeed(token).catch((err: any) => {
+        setSyncNote({
+          tone: 'warning',
+          text: `Sync failed: ${err?.message ?? 'Unknown error'}`,
+        });
+        return null;
+      });
+      if (result) {
+        setSyncNote(syncNoteFromResult(result.repos, result.events));
+      }
     }
     await refresh();
     setRefreshing(false);
@@ -94,6 +112,31 @@ export default function Inbox({ navigation }: any) {
             </Pressable>
           ) : null}
         </View>
+        {syncNote ? (
+          <View
+            style={[
+              styles.syncNote,
+              syncNote.tone === 'success'
+                ? styles.syncNoteSuccess
+                : syncNote.tone === 'warning'
+                  ? styles.syncNoteWarning
+                  : styles.syncNoteNeutral,
+            ]}
+          >
+            <Text
+              style={[
+                styles.syncNoteText,
+                syncNote.tone === 'success'
+                  ? styles.syncNoteTextSuccess
+                  : syncNote.tone === 'warning'
+                    ? styles.syncNoteTextWarning
+                    : styles.syncNoteTextNeutral,
+              ]}
+            >
+              {syncNote.text}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <FlatList
@@ -170,6 +213,28 @@ function DeleteAction() {
   );
 }
 
+function syncNoteFromResult(
+  repos: number,
+  events: number
+): { tone: 'neutral' | 'warning' | 'success'; text: string } {
+  if (repos === 0) {
+    return {
+      tone: 'warning',
+      text: 'No connected repo feeds found. Open Repos to verify the workflow is installed.',
+    };
+  }
+  if (events === 0) {
+    return {
+      tone: 'neutral',
+      text: `Checked ${repos} repo${repos === 1 ? '' : 's'}; no feed events found.`,
+    };
+  }
+  return {
+    tone: 'success',
+    text: `Synced ${events} event${events === 1 ? '' : 's'} from ${repos} repo${repos === 1 ? '' : 's'}.`,
+  };
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
@@ -184,6 +249,19 @@ const styles = StyleSheet.create({
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerTitle: { ...type.h2, color: colors.text },
   headerSub: { ...type.small, color: colors.textMuted },
+  syncNote: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+    borderRadius: radii.md,
+  },
+  syncNoteNeutral: { backgroundColor: colors.neutralBg },
+  syncNoteWarning: { backgroundColor: colors.warningBg },
+  syncNoteSuccess: { backgroundColor: colors.successBg },
+  syncNoteText: { ...type.small, fontSize: 12.5, lineHeight: 17.5 },
+  syncNoteTextNeutral: { color: colors.neutralInk },
+  syncNoteTextWarning: { color: colors.warning },
+  syncNoteTextSuccess: { color: colors.success },
   clearBtn: {
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
