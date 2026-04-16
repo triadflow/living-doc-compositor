@@ -89,7 +89,7 @@ export default function Inbox({ navigation }: any) {
         return null;
       });
       if (result) {
-        setSyncNote(syncNoteFromResult(result.repos, result.events));
+        setSyncNote(syncNoteFromResult(result.repoNames, result.events));
       }
     }
     await refresh();
@@ -214,9 +214,10 @@ function DeleteAction() {
 }
 
 function syncNoteFromResult(
-  repos: number,
+  repoNames: string[],
   events: number
 ): { tone: 'neutral' | 'warning' | 'success'; text: string } {
+  const repos = repoNames.length;
   if (repos === 0) {
     return {
       tone: 'warning',
@@ -226,13 +227,19 @@ function syncNoteFromResult(
   if (events === 0) {
     return {
       tone: 'neutral',
-      text: `Checked ${repos} repo${repos === 1 ? '' : 's'}; no feed events found.`,
+      text: `Checked ${formatRepoNames(repoNames)}; no feed events found.`,
     };
   }
   return {
     tone: 'success',
-    text: `Synced ${events} event${events === 1 ? '' : 's'} from ${repos} repo${repos === 1 ? '' : 's'}.`,
+    text: `Synced ${events} event${events === 1 ? '' : 's'} from ${formatRepoNames(repoNames)}.`,
   };
+}
+
+function formatRepoNames(repoNames: string[]): string {
+  if (repoNames.length === 1) return repoNames[0];
+  if (repoNames.length === 2) return `${repoNames[0]} and ${repoNames[1]}`;
+  return `${repoNames[0]}, ${repoNames[1]}, and ${repoNames.length - 2} more repos`;
 }
 
 const styles = StyleSheet.create({

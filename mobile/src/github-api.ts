@@ -339,6 +339,7 @@ export async function disconnectRepo(
 export type RepoFeedSyncResult = {
   repos: number;
   events: number;
+  repoNames: string[];
 };
 
 export async function syncRepoDeliveryFeed(
@@ -346,18 +347,22 @@ export async function syncRepoDeliveryFeed(
   opts: { perRepoLimit?: number; discoverWhenEmpty?: boolean } = {}
 ): Promise<RepoFeedSyncResult> {
   const connections = await getRepoConnectionModes().catch(() => ({}));
-  let fullNames = Object.keys(connections).sort();
-  if (fullNames.length === 0 && opts.discoverWhenEmpty !== false) {
-    fullNames = await discoverFeedRepos(token);
+  const fullNameSet = new Set(Object.keys(connections));
+  if (opts.discoverWhenEmpty !== false) {
+    const discovered = await discoverFeedRepos(token);
+    for (const fullName of discovered) fullNameSet.add(fullName);
   }
+  const fullNames = Array.from(fullNameSet).sort();
   const perRepoLimit = Math.max(1, opts.perRepoLimit ?? DELIVERY_FEED_PER_REPO_LIMIT);
   let repos = 0;
   let events = 0;
+  const repoNames: string[] = [];
 
   for (const fullName of fullNames) {
     const parsed = parseRepoFullName(fullName);
     if (!parsed) continue;
     repos += 1;
+    repoNames.push(fullName);
 
     const entries = await listDirectory(
       token,
@@ -405,7 +410,7 @@ export async function syncRepoDeliveryFeed(
     }
   }
 
-  return { repos, events };
+  return { repos, events, repoNames };
 }
 
 async function discoverFeedRepos(token: string): Promise<string[]> {
@@ -418,6 +423,16 @@ async function discoverFeedRepos(token: string): Promise<string[]> {
         preferContents: true,
       }).catch(() => null);
       if (!status?.workflow || !status?.secret || status.workflowOutdated) return;
+      const entries = await listDirectory(
+        token,
+        repo.owner,
+        repo.name,
+        DELIVERY_FEED_DIR,
+        { ref: DELIVERY_FEED_BRANCH }
+      ).catch(() => null);
+      const hasFeedFiles = Array.isArray(entries)
+        && entries.some((entry) => entry.type === 'file' && entry.name.endsWith('.json'));
+      if (!hasFeedFiles) return;
       discovered.push(repo.fullName);
     })
   );
