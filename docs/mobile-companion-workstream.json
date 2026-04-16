@@ -1,23 +1,23 @@
 {
   "docId": "living-doc-compositor:mobile-companion-workstream",
   "title": "Mobile Companion Workstream",
-  "subtitle": "Repo-connect, in-app delivery feed, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.",
+  "subtitle": "Repo-connect, transport feed, subscription/refinement UX, push runtime, EAS, disconnect, and persistence plan for the Living Docs mobile app.",
   "brand": "MO",
-  "scope": "Mobile companion implementation work across tickets #19-#24 and #36, with #18 retained as closed historical context.",
+  "scope": "Mobile companion implementation work across tickets #19-#24, #27, #28, #31, #32, #33, #35, and #36, with #18 retained as closed historical context.",
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T13:28:00.000Z",
+  "sourceCoverage": "GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.",
+  "updated": "2026-04-16T14:12:00.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
-  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed in-app delivery, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
   "callouts": [
     {
       "tone": "info",
       "title": "How to use this doc",
       "items": [
-        "Use #19-#24 and #36 as the active implementation source of truth. Treat #18 as closed context only.",
+        "Use #19-#24 and #36 as the current transport/runtime implementation source of truth, and #27/#28/#31/#32/#33/#35 as the target subscription/refinement direction. Treat #18 as closed context only.",
         "Before editing `mobile/src/navigation.tsx` or `mobile/src/screens/Repos.tsx`, inspect the existing local worktree changes so unrelated edits are not overwritten."
       ]
     }
@@ -27,9 +27,9 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T13:28:00.000Z",
+      "updated": "2026-04-16T14:12:00.000Z",
       "stats": [
-        { "label": "Open child tickets", "value": "7" },
+        { "label": "Open child tickets", "value": "13" },
         { "label": "Closed context ticket", "value": "1" },
         { "label": "Blocking verification gates", "value": "4" },
         { "label": "Open decisions", "value": "0" }
@@ -51,7 +51,10 @@
           "When real push is unavailable, Settings can now trigger a local preview notification that exercises inbox capture and, when a doc is already known on-device, the tap-to-open doc flow without waiting for paid-team provisioning; this remains scaffolding, not the target delivery model.",
           "The remaining work now splits into two lanes: verification of the existing mobile surface, and phone-side verification plus hardening of the repo-backed in-app delivery feed.",
           "A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow template now reacts to `push` on the default branch by checking changed manifest-backed doc paths.",
-          "The remaining delivery proof is end-to-end verification that a normal commit affecting a tracked living doc in a connected repo automatically writes the expected feed event without manual dispatch."
+          "The remaining delivery proof is end-to-end verification that a normal commit affecting a tracked living doc in a connected repo automatically writes the expected feed event without manual dispatch.",
+          "That automatic push path is now proven in `triadflow/living-doc-compositor`: commit `6861d5a` triggered workflow run `24512708555`, which wrote feed file `2026-04-16T13-23-31Z--triadflow-living-doc-compositor-24512708555-1-1.json`.",
+          "The newer UX target is no longer a plain Inbox of doc updates. The subscription mockup branch shows a prioritized refinement feed with block-level claims, evidence, intent, grounding warnings, and inline actions like Watch, Mute, Pin, and Disagree.",
+          "So the current Inbox should now be treated as a transport/debug surface that proves delivery, not as the final product UX."
         ]
       },
       "data": []
@@ -60,7 +63,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T12:44:10.000Z",
+      "updated": "2026-04-16T14:12:00.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -199,7 +202,7 @@
           "id": "repo-delivery-feed",
           "name": "Repo-backed in-app delivery feed",
           "status": "partial",
-          "updated": "2026-04-16T13:28:00.000Z",
+          "updated": "2026-04-16T14:12:00.000Z",
           "codePaths": [
             "mobile/src/delivery-feed.ts",
             "mobile/src/delivery-manifest.ts",
@@ -233,14 +236,53 @@
             "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
             "Repo-side verification now exists against `triadflow/mobile-connect-test`: workflow run `24510668921` created branch `living-docs-feed` and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
             "The current workflow now also triggers on `push` and inspects changed manifest-backed doc paths on the default branch, so commit-driven delivery no longer depends on a separate dispatcher for the common case.",
-            "Phone-side verification is proven for manual feed sync, but commit-driven delivery still needs a real connected-repo verification pass and likely some cursor or batching hardening before the feed should be treated as production-stable."
+            "Phone-side verification is proven for manual feed sync, and automatic push-triggered delivery is now also proven in `triadflow/living-doc-compositor` via workflow run `24512708555` from commit `6861d5a`.",
+            "This transport feed is now good enough to serve as the spine for the next UX layer, but its payload is still doc-level and message-centric rather than block-level and claim-centric."
+          ]
+        },
+        {
+          "id": "subscription-refinement-surface",
+          "name": "Subscription and refinement feed surface",
+          "status": "gap",
+          "updated": "2026-04-16T14:12:00.000Z",
+          "codePaths": [
+            "origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            },
+            {
+              "issueNumber": "35",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/35"
+            }
+          ],
+          "notes": [
+            "The pushed mockup branch defines the real target surface: a prioritized feed of architectural claims, not a simple inbox of repo/doc updates.",
+            "Cards are block-level and carry origin strip, status transition, evidence, intent, optional grounding warning, and inline actions such as See diff, Watch, Mute, Pin, and Disagree.",
+            "The broader model includes onboarding from role/package assignment, block-detail consensus vs contested states, and a `My map` screen that visualizes inherited, chosen, pinned, and muted attention.",
+            "This means the current Inbox and Home surfaces are transport proofs and persistence sinks, not the end-state UX. The next build steps need grounded block events and refinement writes, not more polish on commit-centric copy.",
+            "`implementation-knowledge` from #35 should be treated as one future source of feed-worthy events once the subscription surface exists."
           ]
         },
         {
           "id": "inbox-audit-log",
           "name": "Persistent inbox and notification audit trail",
           "status": "partial",
-          "updated": "2026-04-16T01:13:30.000Z",
+          "updated": "2026-04-16T14:12:00.000Z",
           "codePaths": [
             "mobile/App.tsx",
             "mobile/src/inbox-store.ts",
@@ -262,7 +304,8 @@
             "Notification capture has moved to `mobile/App.tsx`, while the Inbox screen subscribes to the store and renders the event log.",
             "Rows support read state, swipe-to-delete, and a clear-all action with confirmation.",
             "The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata.",
-            "#36 will extend this store from a push-only sink into the destination for synced GitHub feed events, so app-visible updates no longer depend on OS notification delivery."
+            "#36 has now extended this store into the destination for synced GitHub feed events, so app-visible updates no longer depend on OS notification delivery.",
+            "The persisted Inbox should now be understood as transport and audit infrastructure. Under the newer subscription UX, the eventual primary feed will sit on top of richer block-level events and refinement state rather than exposing raw doc-update messages directly."
           ]
         }
       ]
@@ -642,7 +685,7 @@
           "name": "Repo-backed in-app delivery sync",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T12:44:10.000Z",
+          "updated": "2026-04-16T14:12:00.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -657,12 +700,13 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is now also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh.",
-          "nextStep": "Update a connected repo to the new workflow plus manifest contract, push a tracked living-doc change on its default branch, and verify that the feed event appears in the app without any manual dispatch step.",
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in `triadflow/living-doc-compositor`, where push commit `6861d5a` triggered workflow run `24512708555` and wrote a new feed event file without any manual dispatch.",
+          "nextStep": "Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
-            "No end-to-end proof has been recorded yet that a normal Git commit in a connected repo automatically emits the feed event through the new push path.",
-            "There is not yet a helper to derive or refresh the repo-local manifest automatically from the richer central registry."
+            "The current feed payload is still doc-level and commit-centric, which does not match the subscription mockup's block-level claim/evidence/refinement cards.",
+            "There is not yet a helper to derive or refresh the repo-local manifest automatically from the richer central registry.",
+            "The refinement overlay and user-scoped write path from #27 do not exist yet."
           ]
         },
         {
@@ -751,7 +795,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T13:28:00.000Z",
+      "updated": "2026-04-16T14:12:00.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -796,7 +840,7 @@
           "id": "repo-feed-source-of-truth",
           "name": "GitHub feed is the delivery source of truth; push is optional acceleration",
           "status": "ground-truth",
-          "updated": "2026-04-16T13:28:00.000Z",
+          "updated": "2026-04-16T14:12:00.000Z",
           "ticketIds": [
             {
               "issueNumber": "22",
@@ -818,7 +862,37 @@
             "The central living-doc registry should remain the richer cross-system catalog, but commit-time automation cannot depend on a local `~/.gtd` file or other central-only state.",
             "Each connected repo therefore needs a minimal repo-local manifest that mirrors delivery-critical fields from the central registry, such as doc id, tracked JSON/HTML paths, title, and public URL.",
             "The central registry remains authoritative for semantic identity and broader system discovery, while the repo-local manifest becomes authoritative for resolving changed files into delivery events during GitHub `push` workflows.",
-            "That repo-local manifest contract now exists in this repo at `.living-docs/manifest.json`, and the workflow template now consumes it on `push`."
+            "That repo-local manifest contract now exists in this repo at `.living-docs/manifest.json`, and the workflow template now consumes it on `push`.",
+            "The current Inbox proves this transport layer, but the newer subscription UX makes clear that the final product surface is a refinement feed of grounded block events, not a raw list of doc-update messages."
+          ]
+        },
+        {
+          "id": "transport-inbox-vs-subscription-feed",
+          "name": "Current Inbox is transport proof; target UX is the subscription refinement feed",
+          "status": "ground-truth",
+          "updated": "2026-04-16T14:12:00.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The mockup branch `mockup/subscription-ux` defines a prioritized feed of block-level architectural claims with evidence, intent, grounding warnings, and inline refinement actions.",
+            "That means the current persisted Inbox should remain as a sink, audit trail, and debugging surface, but not as the final interaction model.",
+            "Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy."
           ]
         },
         {
