@@ -319,7 +319,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T00:05:12.000Z",
+  "updated": "2026-04-16T00:46:30.000Z",
   "pills": [
     "Mobile",
     "Workstream",
@@ -342,7 +342,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "stats": [
         {
           "label": "Open child tickets",
@@ -367,7 +367,8 @@
         "items": [
           "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
           "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.",
-          "#20 and #23 depend on real GitHub behavior, especially around write-only secrets and idempotent cleanup.",
+          "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
+          "#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.",
           "#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure."
         ]
       },
@@ -377,7 +378,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -485,8 +486,8 @@
         {
           "id": "disconnect-repo",
           "name": "Disconnect repo flow",
-          "status": "not-built",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "partial",
+          "updated": "2026-04-16T00:46:30.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/screens/Repos.tsx"
@@ -498,8 +499,9 @@
             }
           ],
           "notes": [
-            "#23 should remove the GitHub Actions workflow and secret idempotently, including the case where one artifact is already missing.",
-            "If #21 introduces a readable preview marker or local connection metadata, disconnect should clear that state too."
+            "`mobile/src/github-api.ts` now exposes `deleteRepoSecret`, `deleteWorkflowFile`, and `disconnectRepo` with missing-secret and missing-workflow cases treated idempotently.",
+            "Connected and preview-connected rows now expose an ellipsis action that can remove only the secret or remove both the secret and workflow file.",
+            "The row refreshes connection status after a successful disconnect, so secret-only removal should show `Partial` when the workflow remains."
           ]
         },
         {
@@ -535,7 +537,7 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-15T15:14:23.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "web-runtime",
@@ -582,7 +584,7 @@
           "id": "eas-runtime",
           "name": "EAS/dev-build runtime",
           "status": "not-built",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "codePaths": [
             "mobile/app.json",
             "mobile/eas.json",
@@ -607,7 +609,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -623,8 +625,9 @@
             }
           ],
           "notes": [
-            "Repo status should distinguish missing workflow, missing secret, partial setup, and ready setup where possible.",
-            "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation."
+            "Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.",
+            "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.",
+            "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`."
           ]
         },
         {
@@ -657,13 +660,13 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "github-api-client",
           "name": "GitHub API client",
           "status": "prototype",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "scriptPaths": [
             "mobile/src/github-api.ts"
           ],
@@ -685,7 +688,8 @@
           "whenToUse": "Use when implementing or verifying connect, status refresh, or disconnect behavior.",
           "invocation": "Called by the mobile app screens, not directly from the CLI.",
           "notes": [
-            "The API surface should be verified against a real throwaway repository before being treated as trusted."
+            "The API surface should be verified against a real throwaway repository before being treated as trusted.",
+            "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -817,7 +821,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -913,20 +917,20 @@
         {
           "id": "disconnect-verification",
           "name": "Disconnect repo verification",
-          "status": "planned",
+          "status": "partial",
           "priority": "informational",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "ticketIds": [
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
             }
           ],
-          "currentCoverage": "No disconnect implementation exists yet in the inspected code paths.",
-          "nextStep": "Implement secret and workflow cleanup, then verify idempotent disconnect against a test repository.",
+          "currentCoverage": "`disconnectRepo()` exists, connected rows open a destructive action sheet, secret-only removal and secret-plus-workflow removal are implemented, and `npm run typecheck` passes.",
+          "nextStep": "Verify both disconnect modes against a throwaway GitHub repo after the connect end-to-end path in #20 is proven.",
           "gaps": [
-            "The ticket should decide whether workflow removal or secret-only removal is the intended normal path.",
-            "If #21 creates preview metadata, disconnect must remove that state too."
+            "No real GitHub repository verification has been recorded yet.",
+            "Manual workflow-run behavior after secret-only disconnect still needs to be checked for the expected missing-secret failure."
           ]
         },
         {
@@ -11156,7 +11160,7 @@
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-16T00:06:11.977Z" title="2026-04-16T00:06:11.977Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T00:06:11.977Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-16T00:47:42.563Z" title="2026-04-16T00:47:42.563Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T00:47:42.563Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -11197,11 +11201,11 @@
 
 
     <section class="section" id="status-snapshot">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:05:12Z" title="2026-04-16T00:05:12Z" data-relative-to-snapshot="true">2026-04-16T00:05:12Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></h2>
 
     <section class="callout callout-warning">
       <h3 class="callout-title">Current pressure pattern</h3>
-      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.</span></p><p><span class="callout-line">#20 and #23 depend on real GitHub behavior, especially around write-only secrets and idempotent cleanup.</span></p><p><span class="callout-line">#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure.</span></p>
+      <p><span class="callout-line">#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.</span></p><p><span class="callout-line">#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.</span></p><p><span class="callout-line">#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.</span></p><p><span class="callout-line">#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.</span></p><p><span class="callout-line">#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure.</span></p>
 
     </section>
       <div class="summary-grid">
@@ -11225,7 +11229,7 @@
       <div class="card-grid" style="--grid-cols:2"></div>
     </section>
     <section class="section" id="mobile-capabilities">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:05:12Z" title="2026-04-16T00:05:12Z" data-relative-to-snapshot="true">2026-04-16T00:05:12Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></h2>
 
 
 
@@ -11298,14 +11302,14 @@
       <header class="flow-card-header">
         <div>
           <h3>Disconnect repo flow</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Not Built</span></div>
+        <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/screens/Repos.tsx"><code>mobile/src/screens/Repos.tsx</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">#23 should remove the GitHub Actions workflow and secret idempotently, including the case where one artifact is already missing.</span></p><p class="note-description"><span class="note-line">If #21 introduces a readable preview marker or local connection metadata, disconnect should clear that state too.</span></p>
+      <p class="note-description"><span class="note-line"><code>mobile/src/github-api.ts</code> now exposes <code>deleteRepoSecret</code>, <code>deleteWorkflowFile</code>, and <code>disconnectRepo</code> with missing-secret and missing-workflow cases treated idempotently.</span></p><p class="note-description"><span class="note-line">Connected and preview-connected rows now expose an ellipsis action that can remove only the secret or remove both the secret and workflow file.</span></p><p class="note-description"><span class="note-line">The row refreshes connection status after a successful disconnect, so secret-only removal should show <code>Partial</code> when the workflow remains.</span></p>
     </div>
 
 
@@ -11328,7 +11332,7 @@
     </article></div>
     </section>
     <section class="section" id="runtime-state-model">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0891b2"><rect x='4' y='5' width='16' height='14' rx='2' opacity='.22'/><path d='M7 9h10v2H7zm0 4h6v2H7z'/><circle cx='17' cy='14' r='2.5'/></svg> Runtime and Connection State Model<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-15T15:14:23Z" title="2026-04-15T15:14:23Z" data-relative-to-snapshot="true">2026-04-15T15:14:23Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0891b2"><rect x='4' y='5' width='16' height='14' rx='2' opacity='.22'/><path d='M7 9h10v2H7zm0 4h6v2H7z'/><circle cx='17' cy='14' r='2.5'/></svg> Runtime and Connection State Model<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></h2>
 
 
 
@@ -11369,7 +11373,7 @@
       <header class="flow-card-header">
         <div>
           <h3>EAS/dev-build runtime</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Not Built</span></div>
       </header>
@@ -11385,14 +11389,14 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub repo artifact status</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
       </header>
       <div class="flow-meta"><strong>Code</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Repo status should distinguish missing workflow, missing secret, partial setup, and ready setup where possible.</span></p><p class="note-description"><span class="note-line">GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.</span></p>
+      <p class="note-description"><span class="note-line">Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.</span></p><p class="note-description"><span class="note-line">GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.</span></p><p class="note-description"><span class="note-line">Disconnect now reuses the same status refresh path after removing the secret and optionally deleting <code>.github/workflows/living-doc-notify.yml</code>.</span></p>
     </div>
 
 
@@ -11415,7 +11419,7 @@
     </article></div>
     </section>
     <section class="section" id="operational-tools">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#7c3aed"><path opacity='.24' d='M13.8 2l.6 2.46c.59.14 1.15.36 1.68.64L18.3 4l1.7 1.7-1.1 2.2c.28.53.5 1.09.64 1.68l2.46.62v2.6l-2.46.62c-.14.59-.36 1.15-.64 1.68l1.1 2.2-1.7 1.7-2.2-1.1c-.53.28-1.09.5-1.68.64L13.8 22h-2.6l-.62-2.46a7 7 0 01-1.68-.64L6.7 20l-1.7-1.7 1.1-2.2a7 7 0 01-.64-1.68L3 12.8v-2.6l2.46-.62c.14-.59.36-1.15.64-1.68L5 5.7 6.7 4l2.2 1.1c.53-.28 1.09-.5 1.68-.64L11.2 2z'/><circle cx='12' cy='12' r='3'/><path d='M16.8 16.8l3.2 3.2-1.2 1.2-3.2-3.2z'/></svg> Operational Tools and Artifacts<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:05:12Z" title="2026-04-16T00:05:12Z" data-relative-to-snapshot="true">2026-04-16T00:05:12Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#7c3aed"><path opacity='.24' d='M13.8 2l.6 2.46c.59.14 1.15.36 1.68.64L18.3 4l1.7 1.7-1.1 2.2c.28.53.5 1.09.64 1.68l2.46.62v2.6l-2.46.62c-.14.59-.36 1.15-.64 1.68l1.1 2.2-1.7 1.7-2.2-1.1c-.53.28-1.09.5-1.68.64L13.8 22h-2.6l-.62-2.46a7 7 0 01-1.68-.64L6.7 20l-1.7-1.7 1.1-2.2a7 7 0 01-.64-1.68L3 12.8v-2.6l2.46-.62c.14-.59.36-1.15.64-1.68L5 5.7 6.7 4l2.2 1.1c.53-.28 1.09-.5 1.68-.64L11.2 2z'/><circle cx='12' cy='12' r='3'/><path d='M16.8 16.8l3.2 3.2-1.2 1.2-3.2-3.2z'/></svg> Operational Tools and Artifacts<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></h2>
 
 
 
@@ -11424,14 +11428,14 @@
       <header class="flow-card-header">
         <div>
           <h3>GitHub API client</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
       </header>
       <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p>
+      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p>
     </div>
       <p class="code-refs"><strong>Purpose</strong> Create, inspect, and eventually remove GitHub repository artifacts for the mobile companion connection.</p><p class="code-refs"><strong>When to use</strong> Use when implementing or verifying connect, status refresh, or disconnect behavior.</p><p class="code-refs"><strong>Invocation</strong> Called by the mobile app screens, not directly from the CLI.</p>
 
@@ -11545,7 +11549,7 @@
     </article></div>
     </section>
     <section class="section" id="verification-plan">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:05:12Z" title="2026-04-16T00:05:12Z" data-relative-to-snapshot="true">2026-04-16T00:05:12Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></h2>
 
 
 
@@ -11637,19 +11641,19 @@
       <header class="flow-card-header">
         <div>
           <h3>Disconnect repo verification</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-16T00:46:30Z" title="2026-04-16T00:46:30Z" data-relative-to-snapshot="true">2026-04-16T00:46:30Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span> <span class="badge badge-neutral">Informational</span></div>
+        <div class="badge-row"><span class="badge badge-warning">Partial</span> <span class="badge badge-neutral">Informational</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> No disconnect implementation exists yet in the inspected code paths.</p><p class="code-refs"><strong>Next step</strong> Implement secret and workflow cleanup, then verify idempotent disconnect against a test repository.</p>
+      <p class="code-refs"><strong>Current coverage</strong> <code>disconnectRepo()</code> exists, connected rows open a destructive action sheet, secret-only removal and secret-plus-workflow removal are implemented, and <code>npm run typecheck</code> passes.</p><p class="code-refs"><strong>Next step</strong> Verify both disconnect modes against a throwaway GitHub repo after the connect end-to-end path in #20 is proven.</p>
 
     <details class="details-block">
       <summary>Current gaps (2)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The ticket should decide whether workflow removal or secret-only removal is the intended normal path.</span></p><p class="note-description"><span class="note-line">If #21 creates preview metadata, disconnect must remove that state too.</span></p>
+      <p class="note-description"><span class="note-line">No real GitHub repository verification has been recorded yet.</span></p><p class="note-description"><span class="note-line">Manual workflow-run behavior after secret-only disconnect still needs to be checked for the expected missing-secret failure.</span></p>
     </div>
     </details>
     </article>
@@ -11763,7 +11767,7 @@
     </section>
 
 
-        <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-e849182 (2026-04-16)</p>
+        <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-3e2eb99 (2026-04-16)</p>
       </div>
     </div>
 

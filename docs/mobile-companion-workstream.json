@@ -8,7 +8,7 @@
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
   "sourceCoverage": "GitHub issues #18-#24 inspected through GitHub tooling on 2026-04-15, plus repo-local mobile source tree.",
-  "updated": "2026-04-16T00:05:12.000Z",
+  "updated": "2026-04-16T00:46:30.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
   "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, push-token runtime behavior, EAS setup, disconnect, and inbox persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
@@ -27,7 +27,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "6" },
         { "label": "Closed context ticket", "value": "1" },
@@ -40,7 +40,8 @@
         "items": [
           "#21 now has an implemented code path for runtime detection, Settings messaging, and preview-vs-real repo connect UI; it still needs manual runtime verification.",
           "#24 now has an implemented code path for SQLite persistence, app-level notification capture, read state, swipe delete, and clear-all; it still needs device/runtime verification.",
-          "#20 and #23 depend on real GitHub behavior, especially around write-only secrets and idempotent cleanup.",
+          "#23 now has an implemented disconnect code path for secret-only and secret-plus-workflow removal; it still needs real GitHub repo verification.",
+          "#20 remains the primary real-GitHub end-to-end gate because connect must be proven before disconnect can be trusted.",
           "#19 is the visual foundation; several later tickets depend on stable navigation, spacing, and screen structure."
         ]
       },
@@ -50,7 +51,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -158,8 +159,8 @@
         {
           "id": "disconnect-repo",
           "name": "Disconnect repo flow",
-          "status": "not-built",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "status": "partial",
+          "updated": "2026-04-16T00:46:30.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/screens/Repos.tsx"
@@ -171,8 +172,9 @@
             }
           ],
           "notes": [
-            "#23 should remove the GitHub Actions workflow and secret idempotently, including the case where one artifact is already missing.",
-            "If #21 introduces a readable preview marker or local connection metadata, disconnect should clear that state too."
+            "`mobile/src/github-api.ts` now exposes `deleteRepoSecret`, `deleteWorkflowFile`, and `disconnectRepo` with missing-secret and missing-workflow cases treated idempotently.",
+            "Connected and preview-connected rows now expose an ellipsis action that can remove only the secret or remove both the secret and workflow file.",
+            "The row refreshes connection status after a successful disconnect, so secret-only removal should show `Partial` when the workflow remains."
           ]
         },
         {
@@ -208,7 +210,7 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-15T15:14:23.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "web-runtime",
@@ -255,7 +257,7 @@
           "id": "eas-runtime",
           "name": "EAS/dev-build runtime",
           "status": "not-built",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "codePaths": [
             "mobile/app.json",
             "mobile/eas.json",
@@ -280,7 +282,7 @@
           "id": "repo-artifact-status",
           "name": "GitHub repo artifact status",
           "status": "partial",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/workflow-template.ts"
@@ -296,8 +298,9 @@
             }
           ],
           "notes": [
-            "Repo status should distinguish missing workflow, missing secret, partial setup, and ready setup where possible.",
-            "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation."
+            "Repo status distinguishes missing workflow, missing secret, partial setup, and ready setup where possible.",
+            "GitHub secrets are write-only, so secret presence and secret value cannot be treated as a reliable readable source of truth after creation.",
+            "Disconnect now reuses the same status refresh path after removing the secret and optionally deleting `.github/workflows/living-doc-notify.yml`."
           ]
         },
         {
@@ -330,13 +333,13 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "github-api-client",
           "name": "GitHub API client",
           "status": "prototype",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "scriptPaths": [
             "mobile/src/github-api.ts"
           ],
@@ -358,7 +361,8 @@
           "whenToUse": "Use when implementing or verifying connect, status refresh, or disconnect behavior.",
           "invocation": "Called by the mobile app screens, not directly from the CLI.",
           "notes": [
-            "The API surface should be verified against a real throwaway repository before being treated as trusted."
+            "The API surface should be verified against a real throwaway repository before being treated as trusted.",
+            "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -490,7 +494,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T00:05:12.000Z",
+      "updated": "2026-04-16T00:46:30.000Z",
       "data": [
         {
           "id": "pixel-match-393",
@@ -582,20 +586,20 @@
         {
           "id": "disconnect-verification",
           "name": "Disconnect repo verification",
-          "status": "planned",
+          "status": "partial",
           "priority": "informational",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-16T00:46:30.000Z",
           "ticketIds": [
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
             }
           ],
-          "currentCoverage": "No disconnect implementation exists yet in the inspected code paths.",
-          "nextStep": "Implement secret and workflow cleanup, then verify idempotent disconnect against a test repository.",
+          "currentCoverage": "`disconnectRepo()` exists, connected rows open a destructive action sheet, secret-only removal and secret-plus-workflow removal are implemented, and `npm run typecheck` passes.",
+          "nextStep": "Verify both disconnect modes against a throwaway GitHub repo after the connect end-to-end path in #20 is proven.",
           "gaps": [
-            "The ticket should decide whether workflow removal or secret-only removal is the intended normal path.",
-            "If #21 creates preview metadata, disconnect must remove that state too."
+            "No real GitHub repository verification has been recorded yet.",
+            "Manual workflow-run behavior after secret-only disconnect still needs to be checked for the expected missing-secret failure."
           ]
         },
         {

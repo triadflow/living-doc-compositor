@@ -1,15 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, RefreshControl,
-  ActivityIndicator,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
-import { listAdminRepos, getConnectionStatus, connectRepo, AdminRepo, ConnectionStatus } from '../github-api';
+import {
+  listAdminRepos,
+  getConnectionStatus,
+  connectRepo,
+  disconnectRepo,
+  AdminRepo,
+  ConnectionStatus,
+} from '../github-api';
 import {
   PREVIEW_PUSH_TOKEN,
-  PushRuntime,
   pushRuntime,
   pushRuntimeLabel,
   registerForPushNotifications,
@@ -25,6 +31,7 @@ type RepoState = AdminRepo & {
   connectionMode?: ConnectionMode;
   loadingStatus?: boolean;
   connecting?: boolean;
+  disconnecting?: boolean;
 };
 
 export default function Repos() {
@@ -123,6 +130,62 @@ export default function Repos() {
     }
   };
 
+  const onDisconnect = async (repo: RepoState, removeWorkflow: boolean) => {
+    if (!token) return;
+
+    setRepos((prev) =>
+      prev ? prev.map((p) => (p.id === repo.id ? { ...p, disconnecting: true } : p)) : prev
+    );
+    showToast({ kind: 'progress', text: 'Disconnecting...' });
+
+    try {
+      await disconnectRepo(token, repo.owner, repo.name, { removeWorkflow });
+      const status = await getConnectionStatus(token, repo.owner, repo.name);
+      setRepos((prev) =>
+        prev
+          ? prev.map((p) =>
+              p.id === repo.id
+                ? { ...p, status, connectionMode: undefined, disconnecting: false }
+                : p
+            )
+          : prev
+      );
+      showToast({ kind: 'success', text: 'Disconnected.' }, 3500);
+    } catch (err: any) {
+      setRepos((prev) =>
+        prev ? prev.map((p) => (p.id === repo.id ? { ...p, disconnecting: false } : p)) : prev
+      );
+      showToast(
+        { kind: 'error', text: `Disconnect failed: ${err.message ?? 'Unknown error'}` },
+        4500
+      );
+    }
+  };
+
+  const openRepoActions = (repo: RepoState) => {
+    Alert.alert(
+      `Disconnect ${repo.fullName}?`,
+      'Choose how much of the Living Docs connection to remove.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: () => {
+            void onDisconnect(repo, false);
+          },
+        },
+        {
+          text: 'Remove workflow file',
+          style: 'destructive',
+          onPress: () => {
+            void onDisconnect(repo, true);
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
@@ -151,9 +214,9 @@ export default function Repos() {
           renderItem={({ item }) => (
             <RepoRow
               item={item}
-              runtime={runtime}
               hasRealPushToken={Boolean(pushToken)}
               onConnect={() => onConnect(item)}
+              onActions={() => openRepoActions(item)}
             />
           )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -188,22 +251,20 @@ function ToastBanner({ toast, onClose }: { toast: NonNullable<Toast>; onClose: (
 
 function RepoRow({
   item,
-  runtime,
   hasRealPushToken,
   onConnect,
+  onActions,
 }: {
   item: RepoState;
-  runtime: PushRuntime;
   hasRealPushToken: boolean;
   onConnect: () => void;
+  onActions: () => void;
 }) {
   const connected = item.status?.secret && item.status?.workflow && !item.status?.workflowOutdated;
   const partial = !connected && (item.status?.secret || item.status?.workflow);
   const needsUpdate = item.status?.workflow && item.status?.workflowOutdated;
   const previewConnected = connected && (item.connectionMode === 'preview' || !hasRealPushToken);
-  const disableConnectedPreview = previewConnected && !hasRealPushToken && !needsUpdate;
-  const disableRealConnected = connected && !needsUpdate && item.connectionMode === 'real';
-  const disabled = item.connecting || disableConnectedPreview || disableRealConnected;
+  const showActions = connected && !needsUpdate;
 
   return (
     <View style={styles.row}>
@@ -238,21 +299,19 @@ function RepoRow({
         </View>
       </View>
       <Pressable
-        onPress={onConnect}
-        disabled={disabled}
+        onPress={showActions ? onActions : onConnect}
+        disabled={item.connecting || item.disconnecting}
         style={({ pressed }) => [
           styles.btn,
-          disabled && connected && !needsUpdate && styles.btnGhost,
-          pressed && !item.connecting && { opacity: 0.7 },
-          item.connecting && { opacity: 0.6 },
+          showActions && styles.btnGhost,
+          pressed && !item.connecting && !item.disconnecting && { opacity: 0.7 },
+          (item.connecting || item.disconnecting) && { opacity: 0.6 },
         ]}
       >
-        {item.connecting ? (
+        {item.connecting || item.disconnecting ? (
           <ActivityIndicator size="small" color="#fff" />
-        ) : disableConnectedPreview ? (
-          <Text style={styles.btnPreviewText}>{runtime === 'eas' ? 'Denied' : 'Preview'}</Text>
-        ) : disableRealConnected ? (
-          <Ionicons name="checkmark" size={14} color={colors.success} />
+        ) : showActions ? (
+          <Ionicons name="ellipsis-horizontal" size={16} color={colors.accent} />
         ) : (
           <Text style={styles.btnText}>
             {needsUpdate ? 'Update' : connected ? 'Reconnect' : 'Connect'}
@@ -309,7 +368,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successBg,
   },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  btnPreviewText: { color: colors.warning, fontWeight: '700', fontSize: 13 },
 
   toast: {
     position: 'absolute',

@@ -90,6 +90,21 @@ async function putRepoSecret(
   }
 }
 
+export async function deleteRepoSecret(
+  token: string, owner: string, repo: string, name = PUSH_TOKEN_SECRET_NAME
+): Promise<void> {
+  const res = await fetch(
+    `${API}/repos/${owner}/${repo}/actions/secrets/${encodeURIComponent(name)}`,
+    {
+      method: 'DELETE',
+      headers: headers(token),
+    }
+  );
+  if (res.status !== 204 && res.status !== 404) {
+    throw new Error(`Delete secret failed: ${res.status}`);
+  }
+}
+
 // Lists all secrets in a repo and checks for the one we care about. We use the
 // list endpoint (not the per-name GET) so missing secrets don't pollute the
 // browser console with 404 errors.
@@ -144,6 +159,38 @@ async function putFile(
   if (res.status !== 200 && res.status !== 201) {
     throw new Error(`Write file failed: ${res.status}`);
   }
+}
+
+async function deleteFile(
+  token: string, owner: string, repo: string, path: string,
+  message: string, sha: string
+): Promise<void> {
+  const res = await fetch(
+    `${API}/repos/${owner}/${repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,
+    {
+      method: 'DELETE',
+      headers: { ...headers(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, sha }),
+    }
+  );
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Delete file failed: ${res.status}`);
+  }
+}
+
+export async function deleteWorkflowFile(
+  token: string, owner: string, repo: string
+): Promise<void> {
+  const existing = await getFile(token, owner, repo, WORKFLOW_PATH);
+  if (!existing) return;
+  await deleteFile(
+    token,
+    owner,
+    repo,
+    WORKFLOW_PATH,
+    'Remove Living Docs notify workflow',
+    existing.sha
+  );
 }
 
 // ─── High-level: connect / status ───────────────────────────────────────────
@@ -201,4 +248,13 @@ export async function connectRepo(
     WORKFLOW_TEMPLATE,
     existing?.sha
   );
+}
+
+export async function disconnectRepo(
+  token: string, owner: string, repo: string, opts: { removeWorkflow: boolean }
+): Promise<void> {
+  await deleteRepoSecret(token, owner, repo, PUSH_TOKEN_SECRET_NAME);
+  if (opts.removeWorkflow) {
+    await deleteWorkflowFile(token, owner, repo);
+  }
 }
