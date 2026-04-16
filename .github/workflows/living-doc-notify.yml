@@ -6,15 +6,27 @@
 # Optional repo secret:
 #   EXPO_PUSH_TOKEN — optional for Expo push; repo-feed writing does not depend on it.
 #
+# Repo-local manifest:
+#   .living-docs/manifest.json — minimal mirror of delivery-critical living-doc
+#   metadata. The workflow reads this file on push so changed JSON or HTML paths
+#   can be resolved into doc ids, titles, and public URLs without depending on a
+#   central local registry.
+#
 # Triggered by:
+#   - push on the default branch when manifest-backed doc paths change
 #   - workflow_dispatch with title/body/doc inputs (for manual testing)
 #   - repository_dispatch with event_type=living-doc-updated (for skills)
 
 name: Living Doc Notify
 
 on:
+  push:
   workflow_dispatch:
     inputs:
+      docId:
+        description: "Optional doc id"
+        required: false
+        type: string
       title:
         description: "Notification title"
         required: true
@@ -45,11 +57,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Write repo delivery feed event
+      - name: Collect delivery events
+        id: collect-events
         env:
-          FEED_BRANCH: living-docs-feed
-          FEED_DIR: .living-docs/feed
+          EVENT_NAME: ${{ github.event_name }}
           REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BEFORE_SHA: ${{ github.event.before }}
+          MANIFEST_PATH: .living-docs/manifest.json
+          DOC_ID: ${{ inputs.docId || github.event.client_payload.docId }}
           TITLE: ${{ inputs.title || github.event.client_payload.title }}
           BODY: ${{ inputs.body || github.event.client_payload.body }}
           URL: ${{ inputs.url || github.event.client_payload.url }}
@@ -57,30 +74,80 @@ jobs:
         run: |
           set -euo pipefail
 
-          EVENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          EVENT_ID="${REPO//\//-}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          EVENT_FILE="${EVENT_TIME//:/-}--${EVENT_ID}.json"
-          TMP_EVENT=$(mktemp)
+          EVENTS_FILE="$RUNNER_TEMP/living-doc-events.json"
+          CHANGED_FILE="$RUNNER_TEMP/living-doc-changed.txt"
 
-          jq -n \
-            --arg id "$EVENT_ID" \
-            --arg title "$TITLE" \
-            --arg body "$BODY" \
-            --arg url "$URL" \
-            --arg status "$STATUS" \
-            --arg source "$REPO" \
-            --arg createdAt "$EVENT_TIME" \
-            --arg repo "$REPO" \
-            '{
-              id: $id,
-              title: $title,
-              body: $body,
-              createdAt: $createdAt,
-              repo: $repo,
-              source: $source
-            }
-            + (if $url == "" then {} else { url: $url } end)
-            + (if $status == "" then {} else { status: $status } end)' > "$TMP_EVENT"
+          case "$EVENT_NAME" in
+            workflow_dispatch|repository_dispatch)
+              jq -n \
+                --arg docId "$DOC_ID" \
+                --arg title "$TITLE" \
+                --arg body "$BODY" \
+                --arg url "$URL" \
+                --arg status "$STATUS" \
+                --arg repo "$REPO" \
+                '[{
+                  title: $title,
+                  body: $body,
+                  repo: $repo,
+                  source: $repo
+                }
+                + (if $docId == "" then {} else { docId: $docId } end)
+                + (if $url == "" then {} else { url: $url } end)
+                + (if $status == "" then {} else { status: $status } end)]' > "$EVENTS_FILE"
+              ;;
+            push)
+              if [ "$REF_NAME" != "$DEFAULT_BRANCH" ]; then
+                echo '[]' > "$EVENTS_FILE"
+              elif [ ! -f "$MANIFEST_PATH" ]; then
+                echo '[]' > "$EVENTS_FILE"
+              else
+                if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+                  git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" > "$CHANGED_FILE"
+                else
+                  git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" > "$CHANGED_FILE"
+                fi
+
+                jq \
+                  --rawfile changed "$CHANGED_FILE" \
+                  --arg repo "$REPO" \
+                  --arg sha "$GITHUB_SHA" \
+                  '($changed | split("\n") | map(select(length > 0))) as $changedPaths
+                   | (.docs // .entries // [])
+                   | map(select((.docId // "") != "" and (.title // "") != "" and (.publicUrl // "") != ""))
+                   | map(. + {
+                       trackedPaths: ((.trackedPaths // []) | map(select(type == "string" and length > 0)))
+                     })
+                   | map(select((.trackedPaths | length) > 0))
+                   | map(select(any(.trackedPaths[]; $changedPaths | index(.) != null)))
+                   | map({
+                       docId: .docId,
+                       title: (.title + " updated"),
+                       body: ("Commit " + ($sha[0:7]) + " updated " + .title + " in " + $repo + "."),
+                       url: .publicUrl,
+                       status: "updated",
+                       repo: $repo,
+                       source: $repo
+                     })' "$MANIFEST_PATH" > "$EVENTS_FILE"
+              fi
+              ;;
+            *)
+              echo '[]' > "$EVENTS_FILE"
+              ;;
+          esac
+
+          echo "count=$(jq 'length' "$EVENTS_FILE")" >> "$GITHUB_OUTPUT"
+          echo "path=$EVENTS_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Write repo delivery feed events
+        if: ${{ steps.collect-events.outputs.count != '0' }}
+        env:
+          EVENTS_FILE: ${{ steps.collect-events.outputs.path }}
+          FEED_BRANCH: living-docs-feed
+          FEED_DIR: .living-docs/feed
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -95,22 +162,46 @@ jobs:
           fi
 
           mkdir -p "$FEED_DIR"
-          cp "$TMP_EVENT" "$FEED_DIR/$EVENT_FILE"
 
-          git add "$FEED_DIR/$EVENT_FILE"
-          git commit -m "Living Docs feed event $EVENT_ID"
+          index=0
+          jq -c '.[]' "$EVENTS_FILE" | while IFS= read -r event; do
+            index=$((index + 1))
+            event_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            event_id="${REPO//\//-}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${index}"
+            event_file="${event_time//:/-}--${event_id}.json"
+
+            printf '%s' "$event" | jq \
+              --arg id "$event_id" \
+              --arg createdAt "$event_time" \
+              --arg repo "$REPO" \
+              --arg source "$REPO" \
+              '. + {
+                id: $id,
+                createdAt: $createdAt,
+                repo: (.repo // $repo),
+                source: (.source // $source)
+              }' > "$FEED_DIR/$event_file"
+
+            git add "$FEED_DIR/$event_file"
+          done
+
+          if git diff --cached --quiet; then
+            echo "No feed events staged."
+            exit 0
+          fi
+
+          git commit -m "Living Docs feed events ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git push origin "HEAD:$FEED_BRANCH"
 
       - name: Send Expo push
+        if: ${{ steps.collect-events.outputs.count != '0' }}
         continue-on-error: true
         env:
-          REPO: ${{ github.repository }}
+          EVENTS_FILE: ${{ steps.collect-events.outputs.path }}
           EXPO_PUSH_TOKEN: ${{ secrets.EXPO_PUSH_TOKEN }}
-          TITLE: ${{ inputs.title || github.event.client_payload.title }}
-          BODY: ${{ inputs.body || github.event.client_payload.body }}
-          URL: ${{ inputs.url || github.event.client_payload.url }}
-          STATUS: ${{ inputs.status || github.event.client_payload.status }}
         run: |
+          set -euo pipefail
+
           if [ -z "$EXPO_PUSH_TOKEN" ]; then
             echo "No Expo push token configured; repo feed written without push delivery."
             exit 0
@@ -123,26 +214,24 @@ jobs:
               ;;
           esac
 
-          payload=$(jq -n \
-            --arg to "$EXPO_PUSH_TOKEN" \
-            --arg title "$TITLE" \
-            --arg body "$BODY" \
-            --arg url "$URL" \
-            --arg status "$STATUS" \
-            --arg source "$REPO" \
-            '{
-              to: $to,
-              title: $title,
-              body: $body,
-              sound: "default",
-              data: (
-                { source: $source, repo: $source } |
-                (if $url == "" then . else . + { url: $url, title: $title } end) |
-                (if $status == "" then . else . + { status: $status } end)
-              )
-            }')
+          jq -c '.[]' "$EVENTS_FILE" | while IFS= read -r event; do
+            payload=$(printf '%s' "$event" | jq -c \
+              --arg to "$EXPO_PUSH_TOKEN" \
+              '{
+                to: $to,
+                title: .title,
+                body: .body,
+                sound: "default",
+                data: (
+                  { source: (.source // .repo), repo: (.repo // .source) }
+                  + (if (.url // "") == "" then {} else { url: .url, title: .title } end)
+                  + (if (.status // "") == "" then {} else { status: .status } end)
+                  + (if (.docId // "") == "" then {} else { docId: .docId } end)
+                )
+              }')
 
-          curl --fail-with-body -sS -X POST https://exp.host/--/api/v2/push/send \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            -d "$payload"
+            curl --fail-with-body -sS -X POST https://exp.host/--/api/v2/push/send \
+              -H "Accept: application/json" \
+              -H "Content-Type: application/json" \
+              -d "$payload"
+          done

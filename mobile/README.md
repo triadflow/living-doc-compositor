@@ -11,9 +11,17 @@ Current baseline: Expo SDK 54, React Native 0.81, React 19.1, TypeScript 5.9. Us
 3. The app silently installs two things into that repo:
    - An `EXPO_PUSH_TOKEN` secret (your device's push address, encrypted with the repo's public key)
    - A `.github/workflows/living-doc-notify.yml` workflow (the sender + feed writer)
-4. Any time that workflow fires (manually, via `repository_dispatch`, or later via the `/living-doc` skill), it writes a structured event into the repo's `living-docs-feed` branch.
-5. On app launch, foreground, or pull-to-refresh, the mobile app syncs those repo events into Inbox and the local doc registry.
-6. If a real Expo push token is also available, the workflow sends a push notification as best-effort acceleration. Tapping the notification opens the referenced doc.
+4. Each connected repo can also carry a minimal `.living-docs/manifest.json` file that mirrors delivery-critical living-doc metadata from the central registry:
+   - `docId`
+   - `title`
+   - `publicUrl`
+   - `trackedPaths`
+5. Any time the workflow fires, it writes a structured event into the repo's `living-docs-feed` branch:
+   - manually via `workflow_dispatch`
+   - programmatically via `repository_dispatch`
+   - automatically on `push` to the default branch when changed files match manifest-backed living-doc paths
+6. On app launch, foreground, or pull-to-refresh, the mobile app syncs those repo events into Inbox and the local doc registry.
+7. If a real Expo push token is also available, the workflow sends a push notification as best-effort acceleration. Tapping the notification opens the referenced doc.
 
 No backend, no server, no copy-paste.
 
@@ -60,6 +68,7 @@ mobile/
     ├── storage.ts                # SecureStore on native, localStorage on web
     ├── registry.ts               # Registered docs store (persisted)
     ├── delivery-feed.ts          # Feed branch/path contract shared by app + workflow
+    ├── delivery-manifest.ts      # Repo-local manifest path contract
     ├── delivery-ingest.ts        # Shared event -> inbox/doc-registry ingestion
     ├── notifications.ts          # Expo push registration
     ├── sealed-box.ts             # crypto_box_seal via tweetnacl + blakejs
@@ -74,6 +83,9 @@ mobile/
         ├── Inbox.tsx             # Raw notification log
         ├── Settings.tsx          # Profile + link to Repos
         └── Repos.tsx             # Connect/disconnect any admin repo
+
+repo root
+├── .living-docs/manifest.json    # Minimal delivery mirror used by push-triggered feed generation
 ```
 
 ## GitHub OAuth app
@@ -91,6 +103,8 @@ The `githubClientId` in `app.json` is a public identifier (device flow doesn't u
 Expo Go and the web preview can run the app UI, but browser preview does not support GitHub sign-in yet and neither browser preview nor Expo Go can hold the native Expo push token that GitHub Actions needs for real delivery. Use a native build when you need actual sign-in and use an EAS development build when you need actual push notifications on a phone.
 
 Repo-backed delivery no longer depends on that push path. A connected repo can write feed events into GitHub, and the app can pull them into Inbox and the doc registry on refresh. Real native push is still useful, but it is now optional acceleration rather than the only way for docs to become visible in the app.
+
+Automatic commit-driven delivery now depends on a repo-local `.living-docs/manifest.json`. The central living-doc registry remains the richer cross-system catalog, but GitHub Actions can only inspect files inside the connected repo, so this minimal mirror is the contract that lets `push` events resolve changed doc paths into titles and public URLs.
 
 Until that paid-team EAS path is available, **Settings → Trigger preview notification** can mimic delivery locally. On native runtimes it schedules a local notification; on web or when notification permission is unavailable it writes directly to Inbox. If the device already knows a doc, the preview notification points back into that doc so tap-to-open behavior can still be tested.
 
