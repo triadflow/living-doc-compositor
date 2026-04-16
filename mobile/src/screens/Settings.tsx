@@ -116,16 +116,17 @@ const styles = StyleSheet.create({
     ...type.tiny,
     color: colors.textMuted,
     textTransform: 'uppercase',
-    marginTop: spacing.lg,
+    letterSpacing: 0.8,
+    marginTop: spacing.sm,
     marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
 
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    padding: 14,
     backgroundColor: colors.surface,
     borderRadius: radii.md,
   },
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   rowTitle: { ...type.bodyStrong, color: colors.text },
-  rowSub: { ...type.small, color: colors.textMuted, marginTop: 2, lineHeight: 18 },
+  rowSub: { ...type.small, fontSize: 12.5, color: colors.textMuted, marginTop: 2, lineHeight: 17.5 },
 
   infoCard: {
     marginTop: spacing.sm,
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
   },
   infoCardSuccess: { borderColor: colors.successBg },
   infoCardWarning: { borderColor: colors.warningBg },
-  infoLabel: { ...type.tiny, color: colors.textMuted, textTransform: 'uppercase' },
+  infoLabel: { ...type.tiny, fontSize: 10, color: colors.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
   infoValue: { ...type.small, color: colors.text, marginTop: 4, lineHeight: 18 },
 
   signOut: {

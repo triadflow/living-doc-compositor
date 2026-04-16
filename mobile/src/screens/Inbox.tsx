@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '../components';
 import {
   clear,
@@ -86,6 +87,7 @@ export default function Inbox({ navigation }: any) {
         <EmptyState
           title="No notifications yet"
           body="When a GitHub Action from a connected repo fires, the notification shows up here."
+          icon={<Ionicons name="notifications-outline" size={34} color={colors.neutralInk} />}
           style={{ flex: 1 }}
         />
       ) : (
@@ -110,7 +112,7 @@ export default function Inbox({ navigation }: any) {
                   <Text style={styles.itemBody} numberOfLines={2}>
                     {item.body}
                   </Text>
-                  <Text style={styles.itemMeta}>{new Date(item.receivedAt).toLocaleString()}</Text>
+                  <Text style={styles.itemMeta}>{itemMeta(item)}</Text>
                 </View>
                 <View style={styles.dotSlot}>{item.read ? null : <View style={styles.dot} />}</View>
               </Pressable>
@@ -120,6 +122,31 @@ export default function Inbox({ navigation }: any) {
       )}
     </SafeAreaView>
   );
+}
+
+function itemMeta(item: InboxItem): string {
+  return [formatRelative(item.receivedAt), sourceLabel(item)].filter(Boolean).join(' · ');
+}
+
+function formatRelative(ts: number): string {
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+function sourceLabel(item: InboxItem): string | undefined {
+  if (typeof item.data?.source === 'string' && item.data.source) return item.data.source;
+  if (typeof item.data?.url !== 'string') return undefined;
+  try {
+    return new URL(item.data.url).host;
+  } catch {
+    return undefined;
+  }
 }
 
 function DeleteAction() {
@@ -133,9 +160,9 @@ function DeleteAction() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 12,
     gap: 2,
     backgroundColor: colors.bg,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -155,16 +182,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     backgroundColor: colors.bg,
   },
-  itemTitle: { ...type.bodyStrong, color: colors.text },
-  itemBody: { ...type.small, color: colors.textMuted, lineHeight: 18 },
-  itemMeta: { ...type.tiny, color: colors.textSubtle, marginTop: 4 },
+  itemTitle: { ...type.bodyStrong, fontSize: 14.5, color: colors.text },
+  itemBody: { ...type.small, fontSize: 12.5, color: colors.textMuted, lineHeight: 18, marginTop: 3 },
+  itemMeta: {
+    ...type.tiny,
+    fontSize: 10.5,
+    color: colors.textSubtle,
+    marginTop: 6,
+    fontWeight: '600',
+  },
   dotSlot: {
     width: 8,
     alignItems: 'center',

@@ -61,7 +61,9 @@ export default function Home({ navigation }: any) {
         <View style={styles.emptyWrap}>
           <EmptyState
             title="No docs yet"
-            body="Docs appear here when a GitHub Action pushes to this device. Connect a repository from Settings to get started."
+            body="Docs appear here when a GitHub Action pushes to this device. Connect a repository to get started."
+            icon={<Ionicons name="book-outline" size={34} color={colors.accent} />}
+            iconTone="accent"
           />
           <Pressable
             style={styles.primaryBtn}
@@ -110,9 +112,9 @@ function formatRelative(ts: number): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 12,
     gap: 2,
     backgroundColor: colors.bg,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -122,7 +124,14 @@ const styles = StyleSheet.create({
   headerSub: { ...type.small, color: colors.textMuted },
 
   loading: { flex: 1 },
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xl },
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 28,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
 
   primaryBtn: {
     flexDirection: 'row',

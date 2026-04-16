@@ -72,14 +72,23 @@ function statusTone(raw: string): 'neutral' | 'accent' | 'success' | 'warning' |
 export function EmptyState({
   title,
   body,
+  icon,
+  iconTone = 'neutral',
   style,
 }: {
   title: string;
   body?: string;
+  icon?: React.ReactNode;
+  iconTone?: 'neutral' | 'accent';
   style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View style={[styles.empty, style]}>
+      {icon ? (
+        <View style={[styles.emptyIcon, iconTone === 'accent' ? styles.emptyIconAccent : styles.emptyIconNeutral]}>
+          {icon}
+        </View>
+      ) : null}
       <Text style={styles.emptyTitle}>{title}</Text>
       {body ? <Text style={styles.emptyBody}>{body}</Text> : null}
     </View>
@@ -99,8 +108,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
   },
   cardRow: {
     flexDirection: 'row',
@@ -109,7 +118,7 @@ const styles = StyleSheet.create({
   },
   cardTitleWrap: { flex: 1, gap: 4 },
   cardTitle: { ...type.bodyStrong, color: colors.text },
-  cardMeta: { ...type.small, color: colors.textMuted },
+  cardMeta: { ...type.small, fontSize: 12.5, color: colors.textMuted },
 
   empty: {
     alignItems: 'center',
@@ -117,6 +126,23 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.sm,
   },
-  emptyTitle: { ...type.h3, color: colors.text, textAlign: 'center' },
-  emptyBody: { ...type.body, color: colors.textMuted, textAlign: 'center', maxWidth: 320 },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  emptyIconAccent: { backgroundColor: colors.accentBg },
+  emptyIconNeutral: { backgroundColor: colors.neutralBg },
+  emptyTitle: { ...type.h3, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  emptyBody: {
+    ...type.body,
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    maxWidth: 280,
+    lineHeight: 21,
+  },
 });

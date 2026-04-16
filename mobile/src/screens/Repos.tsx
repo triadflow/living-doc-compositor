@@ -189,7 +189,6 @@ export default function Repos() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Connect a repository</Text>
         <Text style={styles.headerSub}>
           {pushToken
             ? 'Any repo where you are an admin. Tap Connect to install the push secret and workflow file.'
@@ -325,15 +324,12 @@ function RepoRow({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    gap: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     backgroundColor: colors.bg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  headerTitle: { ...type.h2, color: colors.text },
   headerSub: { ...type.small, color: colors.textMuted, lineHeight: 18 },
 
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -350,17 +346,17 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, gap: 4 },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rowTitle: { ...type.bodyStrong, color: colors.text, flexShrink: 1 },
-  rowDesc: { ...type.small, color: colors.textMuted, lineHeight: 18 },
+  rowTitle: { ...type.bodyStrong, fontSize: 14.5, color: colors.text, flexShrink: 1 },
+  rowDesc: { ...type.small, fontSize: 12.5, color: colors.textMuted, lineHeight: 17.5 },
   rowStatusLine: { marginTop: 4, flexDirection: 'row' },
   rowMeta: { ...type.small, color: colors.textSubtle },
 
   btn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
     backgroundColor: colors.accent,
-    minWidth: 88,
+    minWidth: 86,
     alignItems: 'center',
     justifyContent: 'center',
   },
