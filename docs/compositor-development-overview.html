@@ -1787,7 +1787,10 @@
   }
   .flow-badge-ct { background: #ecfeff; color: #155e75; margin-left: auto; }
   .flow-badge-orphan { background: #fef2f2; color: #991b1b; }
-  .flow-badge-docwide { background: #fef3c7; color: #92400e; margin-left: auto; }
+  .flow-badge-docwide { background: #fef3c7; color: #92400e; margin-left: auto; cursor: pointer; border: 1px solid #fde68a; transition: background 0.15s, border-color 0.15s; }
+  .flow-badge-docwide:hover { background: #fde68a; border-color: #f59e0b; }
+  .flow-badge-docwide.flow-badge-docwide-active { background: #d97706; color: #fff; border-color: #d97706; }
+  .flow-badge-docwide.flow-badge-docwide-active:hover { background: #b45309; border-color: #b45309; }
   .flow-node-orphan {
     background: color-mix(in srgb, #fef2f2 40%, var(--card));
     border-color: #fecaca;
@@ -10670,6 +10673,25 @@
       });
     });
 
+    // Toggle doc-wide invariant
+    canvas.querySelectorAll(&#39;[data-flow-docwide]&#39;).forEach((btn) =&gt; {
+      btn.addEventListener(&#39;click&#39;, (event) =&gt; {
+        event.stopPropagation();
+        const invId = btn.dataset.flowDocwide;
+        const invariants = [...govInvariants()];
+        const idx = invariants.findIndex((i) =&gt; i.id === invId);
+        if (idx &lt; 0) return;
+        const applies = Array.isArray(invariants[idx].appliesTo) ? [...invariants[idx].appliesTo] : [];
+        const hasStar = applies.includes(&#39;*&#39;);
+        invariants[idx] = {
+          ...invariants[idx],
+          appliesTo: hasStar ? applies.filter((a) =&gt; a !== &#39;*&#39;) : [&#39;*&#39;],
+        };
+        govSetInvariants(invariants);
+        flowRerender();
+      });
+    });
+
     // Inline-edit rationale
     canvas.querySelectorAll(&#39;.flow-rationale&#39;).forEach((el) =&gt; {
       el.addEventListener(&#39;click&#39;, (event) =&gt; {
@@ -10933,12 +10955,15 @@
     const invariantsHtml = invariants.map((inv) =&gt; {
       const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
       const docWide = applies.includes(&#39;*&#39;);
+      const docWideTitle = docWide
+        ? &#39;Doc-wide — click to scope to individual sections&#39;
+        : &#39;Click to make doc-wide (appliesTo: [&quot;*&quot;]); removes any section-specific entries&#39;;
       return `
         &lt;article class=&quot;flow-node flow-invariant&quot; data-flow-kind=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot;&gt;
           &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot; title=&quot;Remove invariant&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(inv.name || inv.id)}&lt;/h5&gt;
-            ${docWide ? `&lt;span class=&quot;flow-badge flow-badge-docwide&quot;&gt;Doc-wide&lt;/span&gt;` : &#39;&#39;}
+            &lt;button type=&quot;button&quot; class=&quot;flow-badge flow-badge-docwide${docWide ? &#39; flow-badge-docwide-active&#39; : &#39;&#39;}&quot; data-flow-docwide=&quot;${esc(inv.id)}&quot; title=&quot;${esc(docWideTitle)}&quot;&gt;Doc-wide&lt;/button&gt;
           &lt;/div&gt;
           &lt;div class=&quot;flow-node-id&quot;&gt;${esc(inv.id)}&lt;/div&gt;
           ${inv.statement ? `&lt;div class=&quot;flow-invariant-statement&quot;&gt;${esc(inv.statement)}&lt;/div&gt;` : &#39;&#39;}
@@ -13581,7 +13606,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T09:46:19.939Z" title="2026-04-17T09:46:19.939Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T09:46:19.939Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T09:55:38.026Z" title="2026-04-17T09:55:38.026Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T09:55:38.026Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -14197,7 +14222,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-6fd9565 (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-b92bfcc (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

@@ -344,7 +344,10 @@
   }
   .flow-badge-ct { background: #ecfeff; color: #155e75; margin-left: auto; }
   .flow-badge-orphan { background: #fef2f2; color: #991b1b; }
-  .flow-badge-docwide { background: #fef3c7; color: #92400e; margin-left: auto; }
+  .flow-badge-docwide { background: #fef3c7; color: #92400e; margin-left: auto; cursor: pointer; border: 1px solid #fde68a; transition: background 0.15s, border-color 0.15s; }
+  .flow-badge-docwide:hover { background: #fde68a; border-color: #f59e0b; }
+  .flow-badge-docwide.flow-badge-docwide-active { background: #d97706; color: #fff; border-color: #d97706; }
+  .flow-badge-docwide.flow-badge-docwide-active:hover { background: #b45309; border-color: #b45309; }
   .flow-node-orphan {
     background: color-mix(in srgb, #fef2f2 40%, var(--card));
     border-color: #fecaca;
@@ -9227,6 +9230,25 @@
       });
     });
 
+    // Toggle doc-wide invariant
+    canvas.querySelectorAll('[data-flow-docwide]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const invId = btn.dataset.flowDocwide;
+        const invariants = [...govInvariants()];
+        const idx = invariants.findIndex((i) => i.id === invId);
+        if (idx < 0) return;
+        const applies = Array.isArray(invariants[idx].appliesTo) ? [...invariants[idx].appliesTo] : [];
+        const hasStar = applies.includes('*');
+        invariants[idx] = {
+          ...invariants[idx],
+          appliesTo: hasStar ? applies.filter((a) => a !== '*') : ['*'],
+        };
+        govSetInvariants(invariants);
+        flowRerender();
+      });
+    });
+
     // Inline-edit rationale
     canvas.querySelectorAll('.flow-rationale').forEach((el) => {
       el.addEventListener('click', (event) => {
@@ -9490,12 +9512,15 @@
     const invariantsHtml = invariants.map((inv) => {
       const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
       const docWide = applies.includes('*');
+      const docWideTitle = docWide
+        ? 'Doc-wide — click to scope to individual sections'
+        : 'Click to make doc-wide (appliesTo: ["*"]); removes any section-specific entries';
       return `
         <article class="flow-node flow-invariant" data-flow-kind="invariant" data-flow-id="${esc(inv.id)}">
           <button type="button" class="flow-remove" data-flow-remove="invariant" data-flow-id="${esc(inv.id)}" title="Remove invariant">\u00d7</button>
           <div class="flow-node-header">
             <h5>${esc(inv.name || inv.id)}</h5>
-            ${docWide ? `<span class="flow-badge flow-badge-docwide">Doc-wide</span>` : ''}
+            <button type="button" class="flow-badge flow-badge-docwide${docWide ? ' flow-badge-docwide-active' : ''}" data-flow-docwide="${esc(inv.id)}" title="${esc(docWideTitle)}">Doc-wide</button>
           </div>
           <div class="flow-node-id">${esc(inv.id)}</div>
           ${inv.statement ? `<div class="flow-invariant-statement">${esc(inv.statement)}</div>` : ''}
