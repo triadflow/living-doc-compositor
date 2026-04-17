@@ -142,6 +142,18 @@
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 10.5px; color: var(--muted);
       }
+      .section-rationale {
+        margin-top: 10px; padding: 8px 10px; border-radius: 8px;
+        background: var(--bg); border: 1px dashed var(--line);
+        font-size: 12px; font-style: italic; color: var(--muted); line-height: 1.5;
+        cursor: pointer; transition: border-color 0.15s, color 0.15s;
+      }
+      .section-rationale:hover { border-color: var(--accent); color: var(--ink); }
+      .section-rationale-empty {
+        color: color-mix(in srgb, var(--muted) 55%, var(--card));
+        border-style: dotted;
+      }
+      .section-rationale-empty:hover { color: var(--muted); border-color: var(--accent); }
       .port {
         position: absolute; top: 50%; transform: translateY(-50%);
         width: 14px; height: 14px; border-radius: 50%;
@@ -298,12 +310,14 @@
           <div class="legend-row"><span class="legend-swatch legend-swatch-drift"></span>Drift — points to a missing section</div>
           <div class="legend-row"><span class="legend-swatch legend-swatch-invariant"></span><strong>Invariant</strong> · rule → sections it governs</div>
           <div class="legend-row"><span class="legend-swatch-orphan"></span>Orphan — facet has no carriers</div>
+          <div class="legend-row"><span style="display:inline-block;width:36px;height:14px;border:1px dashed var(--line);border-radius:4px"></span><strong>Rationale</strong> · per-section, click to edit</div>
         </div>
 
-        <h2>The two arrows</h2>
+        <h2>The three roles</h2>
         <p class="hint">
-          <strong>Coverage</strong> (gray) is a completeness check — is every facet of the objective still carried by at least one section?<br/><br/>
-          <strong>Invariant</strong> (amber) is the governance arrow — contracts the doc must keep following. Example: <em>"decisions migrate out of verification."</em> Scoped via <code>appliesTo</code>.
+          <strong>Coverage</strong> (gray wire) — is every facet of the objective still carried by at least one section?<br/><br/>
+          <strong>Invariant</strong> (amber arrow) — which contracts must the doc keep following, scoped via <code>appliesTo</code>?<br/><br/>
+          <strong>Rationale</strong> (italic line on each section) — why this convergence type, in this doc's context? Declared per section, not an edge.
         </p>
 
         <hr class="divider" />
@@ -340,10 +354,10 @@
           { id: 'subscription-seam',  name: 'Subscription seam',          description: 'Handoff into the separate subscription/refinement doc.' },
         ],
         sections: [
-          { id: 'capability-map',   title: 'Mobile Capability Map',    convergenceType: 'capability-surface',    cardIds: ['auth-sign-in','home','inbox','repos-connect','transport','push-runtime'] },
-          { id: 'runtime-state',    title: 'Runtime State Model',       convergenceType: 'operating-surface',     cardIds: ['auth-session','connect-state','feed-delivery','session-persistence','push-token'] },
+          { id: 'capability-map',   title: 'Mobile Capability Map',    convergenceType: 'capability-surface',    cardIds: ['auth-sign-in','home','inbox','repos-connect','transport','push-runtime'], rationale: 'Six subsystems need side-by-side comparability; a single narrative lane would hide drift.' },
+          { id: 'runtime-state',    title: 'Runtime State Model',       convergenceType: 'operating-surface',     cardIds: ['auth-session','connect-state','feed-delivery','session-persistence','push-token'], rationale: 'Auth → connect → deliver → persist reads as one sequence; each step gates the next.' },
           { id: 'operational-tools',title: 'Operational Tools',         convergenceType: 'tooling-surface',       cardIds: ['eas','render-cli','device-flow-debug'] },
-          { id: 'verification-plan',title: 'Verification Plan',         convergenceType: 'verification-surface',  cardIds: ['pixel-match','real-paid-team-push','disconnect-round-trip','sync-hardening'] },
+          { id: 'verification-plan',title: 'Verification Plan',         convergenceType: 'verification-surface',  cardIds: ['pixel-match','real-paid-team-push','disconnect-round-trip','sync-hardening'], rationale: 'Probes need coverage, next-step, and gaps per gate — evidence-rich, not a compact checklist.' },
           { id: 'open-decisions',   title: 'Open Decisions',            convergenceType: 'decision-record',       cardIds: ['seam-boundary','manifest-location'] },
         ],
         coverage: [
@@ -420,6 +434,10 @@
       function renderSections() {
         sectionsEl.innerHTML = state.sections.map((s) => {
           const dim = selectedNodeKey && selectedNodeKey !== `section:${s.id}` && !edgeTouchesSelection(null, s.id);
+          const rationale = (s.rationale || '').trim();
+          const rationaleHtml = rationale
+            ? `<div class="section-rationale" data-rationale-for="${esc(s.id)}" title="Click to edit rationale">${esc(rationale)}</div>`
+            : `<div class="section-rationale section-rationale-empty" data-rationale-for="${esc(s.id)}" title="Click to add rationale">\u2014 no rationale yet \u00b7 click to add \u2014</div>`;
           return `
             <article class="node ${dim ? 'dim' : ''} ${selectedNodeKey === `section:${s.id}` ? 'selected' : ''}" data-node-kind="section" data-node-id="${esc(s.id)}">
               <button class="node-remove" data-remove-section="${esc(s.id)}" title="Remove section">&times;</button>
@@ -431,6 +449,7 @@
               <div class="card-list">
                 ${(s.cardIds || []).map((c) => `<span class="card-chip">${esc(c)}</span>`).join('')}
               </div>
+              ${rationaleHtml}
               <span class="port port-in" data-port="in" data-section-id="${esc(s.id)}" title="Coverage in-port"></span>
               <span class="port port-inv-in" data-port="inv-in" data-section-id="${esc(s.id)}" title="Invariant applies-to in-port"></span>
             </article>`;
@@ -578,11 +597,13 @@
         const orphans = state.objectiveFacets.filter((f) => isOrphan(f.id)).length;
         const drifts = state.coverage.filter(isDriftedEdge).length;
         const invArrows = state.invariants.reduce((n, inv) => n + (Array.isArray(inv.appliesTo) ? inv.appliesTo.length : 0), 0);
+        const withRationale = state.sections.filter((s) => (s.rationale || '').trim().length > 0).length;
         statsEl.innerHTML = `
           <span class="stat"><strong>${state.objectiveFacets.length}</strong> facets</span>
           <span class="stat"><strong>${state.sections.length}</strong> sections</span>
           <span class="stat"><strong>${state.coverage.length}</strong> coverage edges</span>
           <span class="stat"><strong>${state.invariants.length}</strong> invariants · ${invArrows} arrows</span>
+          <span class="stat"><strong>${withRationale}/${state.sections.length}</strong> rationales declared</span>
           ${orphans > 0 ? `<span class="stat stat-orphan"><strong>${orphans}</strong> orphaned</span>` : ''}
           ${drifts > 0 ? `<span class="stat stat-drift"><strong>${drifts}</strong> drifted</span>` : ''}
         `;
@@ -646,6 +667,20 @@
             const hasStar = applies.includes('*');
             inv.appliesTo = hasStar ? applies.filter((a) => a !== '*') : ['*'];
           }
+          render();
+          return;
+        }
+        const rationaleEl = event.target.closest('[data-rationale-for]');
+        if (rationaleEl) {
+          event.stopPropagation();
+          const sid = rationaleEl.dataset.rationaleFor;
+          const section = state.sections.find((s) => s.id === sid);
+          if (!section) return;
+          const current = section.rationale || '';
+          const next = window.prompt('Rationale — why this convergence type, here:', current);
+          if (next === null) return;
+          const trimmed = next.trim();
+          if (trimmed) section.rationale = trimmed; else delete section.rationale;
           render();
           return;
         }
