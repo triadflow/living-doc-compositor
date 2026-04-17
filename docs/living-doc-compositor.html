@@ -413,6 +413,37 @@
   .flow-remove:hover { background: #fef2f2; color: #991b1b; border-color: #991b1b; }
   .flow-rationale { cursor: pointer; transition: border-color 0.15s, color 0.15s; }
   .flow-rationale:hover { border-color: var(--accent); color: var(--ink); }
+  .flow-banner {
+    display: none; gap: 14px; align-items: center; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    background: var(--card); font-size: 13px; line-height: 1.5;
+  }
+  .flow-banner[data-state="missing"] {
+    display: flex; background: var(--neutral-bg); color: var(--neutral-ink);
+    border-bottom-color: var(--line);
+  }
+  .flow-banner[data-state="stale"] {
+    display: flex;
+    background: color-mix(in srgb, #fffbeb 65%, var(--card));
+    color: #92400e;
+    border-bottom-color: #fde68a;
+  }
+  .flow-banner strong { font-weight: 700; }
+  .flow-banner-body { flex: 1; min-width: 200px; }
+  .flow-banner-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .flow-banner-btn {
+    padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--card); border-radius: 7px;
+    color: var(--ink); cursor: pointer;
+  }
+  .flow-banner-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .flow-banner-btn-primary { background: #d97706; color: #fff; border-color: #d97706; }
+  .flow-banner-btn-primary:hover { background: #b45309; border-color: #b45309; color: #fff; }
+  .flow-canvas-wrap.flow-stale .flow-wire-coverage,
+  .flow-canvas-wrap.flow-stale .flow-wire-invariant {
+    opacity: 0.4; filter: saturate(0.6);
+  }
+  .flow-canvas-wrap.flow-stale .flow-wire-coverage.flow-wire-drift { opacity: 0.5; }
   .flow-empty {
     margin: 24px; padding: 32px 36px; border-radius: 14px;
     background: var(--card); border: 1px dashed var(--line);
@@ -1285,6 +1316,17 @@
       "flowColFacets": "Objective facets",
       "flowColSections": "Sections",
       "flowColInvariants": "Invariants",
+      "flowMetaChecking": "Checking meta freshness…",
+      "flowMetaCheckingBody": "Computing the current section fingerprint.",
+      "flowMetaMissingTitle": "Meta not yet stamped.",
+      "flowMetaMissingBody": "Run /crystallize to seed objectiveFacets, coverage, invariants, and a metaFingerprint so drift becomes detectable.",
+      "flowMetaStaleTitle": "Meta is stale.",
+      "flowMetaStaleBody": "Sections have changed since the meta was derived. Coverage edges may point at the wrong cards. Run /crystallize --refresh or stamp a new fingerprint.",
+      "flowStampNow": "Stamp fingerprint now",
+      "flowStamping": "Stamping…",
+      "flowStamped": "Stamped",
+      "flowCrystallize": "Copy /crystallize prompt",
+      "flowCrystallizeCopied": "Copied",
       "templates": "Templates",
       "templatesHint": "Browse starter and advanced living doc templates",
       "templatesIntro": "Start with a simple starter template or jump straight into a fuller advanced shape.",
@@ -1563,6 +1605,17 @@
       "flowColFacets": "Doelfacetten",
       "flowColSections": "Secties",
       "flowColInvariants": "Invarianten",
+      "flowMetaChecking": "Versheid van meta controleren…",
+      "flowMetaCheckingBody": "Huidige sectievingerafdruk berekenen.",
+      "flowMetaMissingTitle": "Meta nog niet gestempeld.",
+      "flowMetaMissingBody": "Draai /crystallize om objectiveFacets, coverage, invariants en een metaFingerprint te zaaien zodat drift detecteerbaar wordt.",
+      "flowMetaStaleTitle": "Meta is verouderd.",
+      "flowMetaStaleBody": "Secties zijn gewijzigd sinds de meta werd afgeleid. Coverage-edges kunnen naar verkeerde kaarten wijzen. Draai /crystallize --refresh of stempel een nieuwe vingerafdruk.",
+      "flowStampNow": "Vingerafdruk nu stempelen",
+      "flowStamping": "Stempelen…",
+      "flowStamped": "Gestempeld",
+      "flowCrystallize": "Kopieer /crystallize-prompt",
+      "flowCrystallizeCopied": "Gekopieerd",
       "templates": "Templates",
       "templatesHint": "Blader door starter- en geavanceerde living-doc-templates",
       "templatesIntro": "Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.",
@@ -2012,6 +2065,17 @@
       "flowColFacets": "Faset tujuan",
       "flowColSections": "Seksi",
       "flowColInvariants": "Invarian",
+      "flowMetaChecking": "Memeriksa kesegaran meta…",
+      "flowMetaCheckingBody": "Menghitung sidik jari seksi saat ini.",
+      "flowMetaMissingTitle": "Meta belum disegel.",
+      "flowMetaMissingBody": "Jalankan /crystallize untuk menanam objectiveFacets, coverage, invariants, dan metaFingerprint agar drift dapat dideteksi.",
+      "flowMetaStaleTitle": "Meta basi.",
+      "flowMetaStaleBody": "Seksi berubah sejak meta diturunkan. Edge coverage mungkin menunjuk ke kartu yang salah. Jalankan /crystallize --refresh atau segel sidik jari baru.",
+      "flowStampNow": "Segel sidik jari sekarang",
+      "flowStamping": "Menyegel…",
+      "flowStamped": "Tersegel",
+      "flowCrystallize": "Salin prompt /crystallize",
+      "flowCrystallizeCopied": "Tersalin",
       "templates": "Template",
       "templatesHint": "Jelajahi template starter dan lanjutan living doc",
       "templatesIntro": "Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.",
@@ -9266,6 +9330,80 @@
       });
     });
 
+    // Freshness banner — async fingerprint check after render.
+    const banner = panel.querySelector('#flow-banner');
+    const stamp = panel.querySelector('[data-flow-stamp]');
+    const crystBtn = panel.querySelector('[data-flow-crystallize]');
+    const bannerTitle = panel.querySelector('#flow-banner-title');
+    const bannerMsg = panel.querySelector('#flow-banner-message');
+    const applyBannerState = async () => {
+      if (!banner || !wrap) return;
+      const stored = govFingerprint();
+      if (!stored) {
+        banner.dataset.state = 'missing';
+        wrap.classList.remove('flow-stale');
+        bannerTitle.textContent = t('flowMetaMissingTitle');
+        bannerMsg.textContent = t('flowMetaMissingBody');
+        return;
+      }
+      const current = await govComputeFingerprint();
+      if (!current || current === stored) {
+        banner.dataset.state = 'fresh';
+        banner.style.display = 'none';
+        wrap.classList.remove('flow-stale');
+        return;
+      }
+      banner.dataset.state = 'stale';
+      banner.style.display = '';
+      wrap.classList.add('flow-stale');
+      bannerTitle.textContent = t('flowMetaStaleTitle');
+      bannerMsg.textContent = t('flowMetaStaleBody');
+    };
+    if (banner) {
+      banner.style.display = '';
+      applyBannerState();
+    }
+
+    stamp?.addEventListener('click', async (event) => {
+      const btn = event.currentTarget;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = t('flowStamping');
+      try {
+        const fp = await govComputeFingerprint();
+        if (fp) {
+          govSetFingerprint(fp);
+          btn.textContent = t('flowStamped');
+          setTimeout(() => { btn.disabled = false; btn.textContent = original; flowRerender(); }, 900);
+        } else {
+          btn.textContent = original;
+          btn.disabled = false;
+        }
+      } catch (err) {
+        btn.textContent = original;
+        btn.disabled = false;
+      }
+    });
+
+    crystBtn?.addEventListener('click', async (event) => {
+      const btn = event.currentTarget;
+      const label = currentOriginLabel() || '<path/to/doc.json>';
+      const isStale = banner?.dataset.state === 'stale';
+      const prompt = `/crystallize ${label}${isStale ? ' --refresh' : ''}`;
+      const original = btn.textContent;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(prompt);
+          btn.textContent = t('flowCrystallizeCopied');
+        } else {
+          window.prompt('Copy this prompt:', prompt);
+        }
+      } catch (err) {
+        window.prompt('Copy this prompt:', prompt);
+      }
+      setTimeout(() => { btn.textContent = original; }, 1600);
+    });
+
     // Drag to create a wire
     canvas.querySelectorAll('[data-port="facet-out"]').forEach((port) => {
       port.addEventListener('pointerdown', (event) => {
@@ -9530,6 +9668,13 @@
 
     return `
       <div class="flow-view" id="flow-view">
+        <div class="flow-banner" id="flow-banner" data-state="checking">
+          <div class="flow-banner-body"><strong id="flow-banner-title">${esc(t('flowMetaChecking'))}</strong> <span id="flow-banner-message">${esc(t('flowMetaCheckingBody'))}</span></div>
+          <div class="flow-banner-actions">
+            <button type="button" class="flow-banner-btn" data-flow-stamp>${esc(t('flowStampNow'))}</button>
+            <button type="button" class="flow-banner-btn flow-banner-btn-primary" data-flow-crystallize>${esc(t('flowCrystallize'))}</button>
+          </div>
+        </div>
         <div class="flow-stats">${statsHtml}</div>
         <div class="flow-canvas-wrap" id="flow-canvas-wrap">
           <div class="flow-canvas" id="flow-canvas">
