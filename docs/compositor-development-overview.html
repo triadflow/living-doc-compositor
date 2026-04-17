@@ -1829,9 +1829,30 @@
     pointer-events: none; z-index: 1;
   }
   .flow-wires path { fill: none; }
+  .flow-wires path.flow-wire-coverage, .flow-wires path.flow-wire-invariant { pointer-events: none; }
   .flow-wire-coverage { stroke: #94a3b8; stroke-width: 2; }
   .flow-wire-coverage.flow-wire-drift { stroke: #b91c1c; stroke-dasharray: 4 4; }
   .flow-wire-invariant { stroke: #d97706; stroke-width: 2; }
+  .flow-wire-hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+  .flow-wire-preview { stroke-dasharray: 6 4; opacity: 0.8; pointer-events: none; }
+  .flow-port { cursor: crosshair; transition: transform 0.12s, background 0.15s, border-color 0.15s; }
+  .flow-port:hover { transform: translateY(-50%) scale(1.35); background: var(--accent); border-color: var(--accent); }
+  .flow-port-in-right:hover, .flow-port-inv-out:hover { background: #d97706; border-color: #d97706; }
+  .flow-port.flow-port-dragging { background: var(--accent); border-color: var(--accent); }
+  .flow-port.flow-port-dragging-inv { background: #d97706; border-color: #d97706; }
+  .flow-remove {
+    position: absolute; top: 6px; right: 6px;
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card);
+    color: var(--muted); font-size: 13px; line-height: 1;
+    cursor: pointer; opacity: 0; transition: opacity 0.15s;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .flow-node:hover .flow-remove { opacity: 1; }
+  .flow-remove:hover { background: #fef2f2; color: #991b1b; border-color: #991b1b; }
+  .flow-rationale { cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+  .flow-rationale:hover { border-color: var(--accent); color: var(--ink); }
   .flow-empty {
     margin: 24px; padding: 32px 36px; border-radius: 14px;
     background: var(--card); border: 1px dashed var(--line);
@@ -10578,6 +10599,7 @@
 
     if (state.previewTab === &#39;flow&#39;) {
       requestAnimationFrame(() =&gt; drawFlowWires(json));
+      wireFlowInteractions(panel);
     }
 
     syncFocusedSectionInPreview();
@@ -10593,6 +10615,153 @@
     window.addEventListener(&#39;resize&#39;, flowResizeHandler);
   }
   ensureFlowResizeHook();
+
+  function flowRerender() {
+    autoSave();
+    renderRight();
+  }
+
+  function wireFlowInteractions(panel) {
+    const canvas = panel.querySelector(&#39;#flow-canvas&#39;);
+    const wrap = panel.querySelector(&#39;#flow-canvas-wrap&#39;);
+    if (!canvas || !wrap) return;
+
+    // Remove a node (facet / section / invariant)
+    canvas.querySelectorAll(&#39;[data-flow-remove]&#39;).forEach((btn) =&gt; {
+      btn.addEventListener(&#39;click&#39;, (event) =&gt; {
+        event.stopPropagation();
+        const kind = btn.dataset.flowRemove;
+        const id = btn.dataset.flowId;
+        if (kind === &#39;facet&#39;) {
+          govSetFacets(govFacets().filter((f) =&gt; f.id !== id));
+          govSetCoverage(govCoverage().filter((c) =&gt; c.facetId !== id));
+        } else if (kind === &#39;invariant&#39;) {
+          govSetInvariants(govInvariants().filter((i) =&gt; i.id !== id));
+        } else if (kind === &#39;section&#39;) {
+          state.sections = state.sections.filter((s) =&gt; s.id !== id);
+          // coverage edges to the removed section become drift — keep them.
+        }
+        flowRerender();
+      });
+    });
+
+    // Remove a wire (coverage or invariant applies-to entry)
+    canvas.querySelectorAll(&#39;[data-flow-edge]&#39;).forEach((hit) =&gt; {
+      hit.addEventListener(&#39;click&#39;, (event) =&gt; {
+        const edgeKind = hit.dataset.flowEdge;
+        if (edgeKind === &#39;coverage&#39;) {
+          const idx = Number(hit.dataset.flowEdgeIndex);
+          const coverage = [...govCoverage()];
+          coverage.splice(idx, 1);
+          govSetCoverage(coverage);
+        } else if (edgeKind === &#39;invariant&#39;) {
+          const invIdx = Number(hit.dataset.flowInvIndex);
+          const tgtIdx = Number(hit.dataset.flowTargetIndex);
+          const invariants = [...govInvariants()];
+          if (invariants[invIdx] &amp;&amp; Array.isArray(invariants[invIdx].appliesTo)) {
+            invariants[invIdx] = {
+              ...invariants[invIdx],
+              appliesTo: invariants[invIdx].appliesTo.filter((_, i) =&gt; i !== tgtIdx),
+            };
+            govSetInvariants(invariants);
+          }
+        }
+        flowRerender();
+      });
+    });
+
+    // Inline-edit rationale
+    canvas.querySelectorAll(&#39;.flow-rationale&#39;).forEach((el) =&gt; {
+      el.addEventListener(&#39;click&#39;, (event) =&gt; {
+        event.stopPropagation();
+        const sectionNode = el.closest(&#39;[data-flow-kind=&quot;section&quot;]&#39;);
+        if (!sectionNode) return;
+        const sid = sectionNode.dataset.flowId;
+        const section = state.sections.find((s) =&gt; s.id === sid);
+        if (!section) return;
+        const next = window.prompt(&#39;Rationale \u2014 why this convergence type, here:&#39;, section.rationale || &#39;&#39;);
+        if (next === null) return;
+        const trimmed = next.trim();
+        if (trimmed) section.rationale = trimmed; else delete section.rationale;
+        flowRerender();
+      });
+    });
+
+    // Drag to create a wire
+    canvas.querySelectorAll(&#39;[data-port=&quot;facet-out&quot;]&#39;).forEach((port) =&gt; {
+      port.addEventListener(&#39;pointerdown&#39;, (event) =&gt; {
+        event.preventDefault();
+        flowDragState = { kind: &#39;coverage&#39;, fromId: port.dataset.facetId, mouseX: event.clientX, mouseY: event.clientY };
+        port.classList.add(&#39;flow-port-dragging&#39;);
+        drawFlowWires(buildJson());
+      });
+    });
+    canvas.querySelectorAll(&#39;[data-port=&quot;inv-out&quot;]&#39;).forEach((port) =&gt; {
+      port.addEventListener(&#39;pointerdown&#39;, (event) =&gt; {
+        event.preventDefault();
+        flowDragState = { kind: &#39;invariant&#39;, fromId: port.dataset.invariantId, mouseX: event.clientX, mouseY: event.clientY };
+        port.classList.add(&#39;flow-port-dragging-inv&#39;);
+        drawFlowWires(buildJson());
+      });
+    });
+  }
+
+  // Global pointer handlers for the drag — simpler to keep on document.
+  let flowGlobalPointerHandlers = null;
+  function ensureFlowGlobalPointerHandlers() {
+    if (flowGlobalPointerHandlers) return;
+    flowGlobalPointerHandlers = {
+      move: (event) =&gt; {
+        if (!flowDragState) return;
+        flowDragState.mouseX = event.clientX;
+        flowDragState.mouseY = event.clientY;
+        drawFlowWires(buildJson());
+      },
+      up: (event) =&gt; {
+        if (!flowDragState) return;
+        document.querySelectorAll(&#39;.flow-port.flow-port-dragging, .flow-port.flow-port-dragging-inv&#39;)
+          .forEach((el) =&gt; el.classList.remove(&#39;flow-port-dragging&#39;, &#39;flow-port-dragging-inv&#39;));
+        const drag = flowDragState;
+        flowDragState = null;
+        const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+        if (drag.kind === &#39;coverage&#39;) {
+          const inPort = dropTarget?.closest(&#39;[data-port=&quot;section-in&quot;]&#39;);
+          if (inPort) {
+            const sectionId = inPort.dataset.sectionId;
+            const facetId = drag.fromId;
+            const section = state.sections.find((s) =&gt; s.id === sectionId);
+            const usedCards = new Set(govCoverage().filter((c) =&gt; c.sectionId === sectionId).map((c) =&gt; c.cardId));
+            const cardId = (section?.data || []).map((d) =&gt; d?.id).filter(Boolean).find((c) =&gt; !usedCards.has(c))
+              || (section?.data || []).map((d) =&gt; d?.id).filter(Boolean)[0]
+              || &#39;&#39;;
+            const exists = govCoverage().some((c) =&gt; c.facetId === facetId &amp;&amp; c.sectionId === sectionId &amp;&amp; (c.cardId || &#39;&#39;) === cardId);
+            if (!exists) {
+              govSetCoverage([...govCoverage(), cardId ? { facetId, sectionId, cardId } : { facetId, sectionId }]);
+            }
+          }
+        } else if (drag.kind === &#39;invariant&#39;) {
+          const invInPort = dropTarget?.closest(&#39;[data-port=&quot;section-inv-in&quot;]&#39;);
+          if (invInPort) {
+            const sectionId = invInPort.dataset.sectionId;
+            const invariants = [...govInvariants()];
+            const idx = invariants.findIndex((i) =&gt; i.id === drag.fromId);
+            if (idx &gt;= 0) {
+              const applies = Array.isArray(invariants[idx].appliesTo) ? [...invariants[idx].appliesTo] : [];
+              const starIdx = applies.indexOf(&#39;*&#39;);
+              if (starIdx &gt;= 0) applies.splice(starIdx, 1);
+              if (!applies.includes(sectionId)) applies.push(sectionId);
+              invariants[idx] = { ...invariants[idx], appliesTo: applies };
+              govSetInvariants(invariants);
+            }
+          }
+        }
+        flowRerender();
+      },
+    };
+    document.addEventListener(&#39;pointermove&#39;, flowGlobalPointerHandlers.move);
+    document.addEventListener(&#39;pointerup&#39;,   flowGlobalPointerHandlers.up);
+  }
+  ensureFlowGlobalPointerHandlers();
 
   function renderTemplatesView() {
     if (!TEMPLATES.length) {
@@ -10727,13 +10896,14 @@
       const orphan = status === &#39;orphaned&#39;;
       return `
         &lt;article class=&quot;flow-node ${orphan ? &#39;flow-node-orphan&#39; : &#39;&#39;}&quot; data-flow-kind=&quot;facet&quot; data-flow-id=&quot;${esc(facet.id)}&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;facet&quot; data-flow-id=&quot;${esc(facet.id)}&quot; title=&quot;Remove facet&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(facet.name || facet.id)}&lt;/h5&gt;
             ${orphan ? `&lt;span class=&quot;flow-badge flow-badge-orphan&quot;&gt;Orphan&lt;/span&gt;` : &#39;&#39;}
           &lt;/div&gt;
           &lt;div class=&quot;flow-node-id&quot;&gt;${esc(facet.id)}&lt;/div&gt;
           ${facet.description ? `&lt;div class=&quot;flow-node-body&quot;&gt;${esc(facet.description)}&lt;/div&gt;` : &#39;&#39;}
-          &lt;span class=&quot;flow-port flow-port-out&quot; data-port=&quot;facet-out&quot; data-facet-id=&quot;${esc(facet.id)}&quot;&gt;&lt;/span&gt;
+          &lt;span class=&quot;flow-port flow-port-out&quot; data-port=&quot;facet-out&quot; data-facet-id=&quot;${esc(facet.id)}&quot; title=&quot;Drag to a section&#39;s left port to add coverage&quot;&gt;&lt;/span&gt;
         &lt;/article&gt;`;
     }).join(&#39;&#39;);
 
@@ -10747,6 +10917,7 @@
       const overflow = cards.filter((c) =&gt; c &amp;&amp; c.id).length - 8;
       return `
         &lt;article class=&quot;flow-node&quot; data-flow-kind=&quot;section&quot; data-flow-id=&quot;${esc(section.id)}&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;section&quot; data-flow-id=&quot;${esc(section.id)}&quot; title=&quot;Remove section&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(section.title || section.id)}&lt;/h5&gt;
             &lt;span class=&quot;flow-badge flow-badge-ct&quot;&gt;${esc(section.convergenceType || &#39;&#39;)}&lt;/span&gt;
@@ -10754,8 +10925,8 @@
           &lt;div class=&quot;flow-node-id&quot;&gt;${esc(section.id)}&lt;/div&gt;
           ${chips ? `&lt;div class=&quot;flow-card-chips&quot;&gt;${chips}${overflow &gt; 0 ? `&lt;span class=&quot;flow-card-chip&quot;&gt;+${overflow}&lt;/span&gt;` : &#39;&#39;}&lt;/div&gt;` : &#39;&#39;}
           ${rationaleHtml}
-          &lt;span class=&quot;flow-port flow-port-in-left&quot; data-port=&quot;section-in&quot; data-section-id=&quot;${esc(section.id)}&quot;&gt;&lt;/span&gt;
-          &lt;span class=&quot;flow-port flow-port-in-right&quot; data-port=&quot;section-inv-in&quot; data-section-id=&quot;${esc(section.id)}&quot;&gt;&lt;/span&gt;
+          &lt;span class=&quot;flow-port flow-port-in-left&quot; data-port=&quot;section-in&quot; data-section-id=&quot;${esc(section.id)}&quot; title=&quot;Coverage in-port&quot;&gt;&lt;/span&gt;
+          &lt;span class=&quot;flow-port flow-port-in-right&quot; data-port=&quot;section-inv-in&quot; data-section-id=&quot;${esc(section.id)}&quot; title=&quot;Invariant applies-to in-port&quot;&gt;&lt;/span&gt;
         &lt;/article&gt;`;
     }).join(&#39;&#39;);
 
@@ -10764,13 +10935,14 @@
       const docWide = applies.includes(&#39;*&#39;);
       return `
         &lt;article class=&quot;flow-node flow-invariant&quot; data-flow-kind=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot; title=&quot;Remove invariant&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(inv.name || inv.id)}&lt;/h5&gt;
             ${docWide ? `&lt;span class=&quot;flow-badge flow-badge-docwide&quot;&gt;Doc-wide&lt;/span&gt;` : &#39;&#39;}
           &lt;/div&gt;
           &lt;div class=&quot;flow-node-id&quot;&gt;${esc(inv.id)}&lt;/div&gt;
           ${inv.statement ? `&lt;div class=&quot;flow-invariant-statement&quot;&gt;${esc(inv.statement)}&lt;/div&gt;` : &#39;&#39;}
-          &lt;span class=&quot;flow-port flow-port-inv-out&quot; data-port=&quot;inv-out&quot; data-invariant-id=&quot;${esc(inv.id)}&quot;&gt;&lt;/span&gt;
+          &lt;span class=&quot;flow-port flow-port-inv-out&quot; data-port=&quot;inv-out&quot; data-invariant-id=&quot;${esc(inv.id)}&quot; title=&quot;Drag to a section&#39;s right port to govern it&quot;&gt;&lt;/span&gt;
         &lt;/article&gt;`;
     }).join(&#39;&#39;);
 
@@ -10803,6 +10975,8 @@
       &lt;/div&gt;`;
   }
 
+  let flowDragState = null;
+
   function drawFlowWires(doc) {
     const wrap = document.getElementById(&#39;flow-canvas-wrap&#39;);
     const wires = document.getElementById(&#39;flow-wires&#39;);
@@ -10827,16 +11001,17 @@
     };
 
     const paths = [];
+
     // Coverage wires
-    for (const edge of coverage) {
+    coverage.forEach((edge, idx) =&gt; {
       const from = canvas.querySelector(`[data-port=&quot;facet-out&quot;][data-facet-id=&quot;${cssEscape(edge.facetId)}&quot;]`);
-      if (!from) continue;
+      if (!from) return;
       const drift = !knownSectionIds.has(edge.sectionId);
       let toX, toY;
       if (!drift) {
         const sectionEl = canvas.querySelector(`[data-flow-kind=&quot;section&quot;][data-flow-id=&quot;${cssEscape(edge.sectionId)}&quot;]`);
         const toPort = sectionEl?.querySelector(&#39;[data-port=&quot;section-in&quot;]&#39;);
-        if (!toPort) continue;
+        if (!toPort) return;
         const r = toPort.getBoundingClientRect();
         toX = svgX(r); toY = svgY(r);
       } else {
@@ -10845,34 +11020,57 @@
         toY = svgY(fr);
       }
       const fr = from.getBoundingClientRect();
-      paths.push(`&lt;path class=&quot;flow-wire-coverage ${drift ? &#39;flow-wire-drift&#39; : &#39;&#39;}&quot; d=&quot;${bezier(svgX(fr), svgY(fr), toX, toY)}&quot;/&gt;`);
-    }
+      const d = bezier(svgX(fr), svgY(fr), toX, toY);
+      paths.push(`&lt;path class=&quot;flow-wire-hit&quot; d=&quot;${d}&quot; data-flow-edge=&quot;coverage&quot; data-flow-edge-index=&quot;${idx}&quot;&gt;&lt;/path&gt;`);
+      paths.push(`&lt;path class=&quot;flow-wire-coverage ${drift ? &#39;flow-wire-drift&#39; : &#39;&#39;}&quot; d=&quot;${d}&quot;/&gt;`);
+    });
 
-    // Invariant arrows
-    for (const inv of invariants) {
+    // Invariant arrows — one path per (invariantIdx, appliesToIdx) pair
+    invariants.forEach((inv, invIdx) =&gt; {
       const from = canvas.querySelector(`[data-port=&quot;inv-out&quot;][data-invariant-id=&quot;${cssEscape(inv.id)}&quot;]`);
-      if (!from) continue;
+      if (!from) return;
       const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
       const fr = from.getBoundingClientRect();
       const fromX = svgX(fr), fromY = svgY(fr);
-      for (const target of applies) {
+      applies.forEach((target, targetIdx) =&gt; {
+        let toX, toY;
         if (target === &#39;*&#39;) {
-          // doc-wide anchor — one arrow pointing above the sections column
           const sectionsCol = canvas.querySelector(&#39;.flow-col-sections&#39;)?.getBoundingClientRect();
-          const toX = sectionsCol ? sectionsCol.right - canvasRect.left + 6 : canvasRect.width * 0.62;
-          const toY = sectionsCol ? sectionsCol.top - canvasRect.top - 10 : fromY;
-          paths.push(`&lt;path class=&quot;flow-wire-invariant&quot; d=&quot;${bezier(fromX, fromY, toX, toY)}&quot; marker-end=&quot;url(#flow-arrow-inv)&quot;/&gt;`);
-          continue;
+          toX = sectionsCol ? sectionsCol.right - canvasRect.left + 6 : canvasRect.width * 0.62;
+          toY = sectionsCol ? sectionsCol.top - canvasRect.top - 10 : fromY;
+        } else {
+          const sectionEl = canvas.querySelector(`[data-flow-kind=&quot;section&quot;][data-flow-id=&quot;${cssEscape(target)}&quot;]`);
+          const toPort = sectionEl?.querySelector(&#39;[data-port=&quot;section-inv-in&quot;]&#39;);
+          if (!toPort) return;
+          const r = toPort.getBoundingClientRect();
+          toX = svgX(r); toY = svgY(r);
         }
-        const sectionEl = canvas.querySelector(`[data-flow-kind=&quot;section&quot;][data-flow-id=&quot;${cssEscape(target)}&quot;]`);
-        const toPort = sectionEl?.querySelector(&#39;[data-port=&quot;section-inv-in&quot;]&#39;);
-        if (!toPort) continue;
-        const r = toPort.getBoundingClientRect();
-        paths.push(`&lt;path class=&quot;flow-wire-invariant&quot; d=&quot;${bezier(fromX, fromY, svgX(r), svgY(r))}&quot; marker-end=&quot;url(#flow-arrow-inv)&quot;/&gt;`);
+        const d = bezier(fromX, fromY, toX, toY);
+        paths.push(`&lt;path class=&quot;flow-wire-hit&quot; d=&quot;${d}&quot; data-flow-edge=&quot;invariant&quot; data-flow-inv-index=&quot;${invIdx}&quot; data-flow-target-index=&quot;${targetIdx}&quot;&gt;&lt;/path&gt;`);
+        paths.push(`&lt;path class=&quot;flow-wire-invariant&quot; d=&quot;${d}&quot; marker-end=&quot;url(#flow-arrow-inv)&quot;/&gt;`);
+      });
+    });
+
+    // Drag preview
+    if (flowDragState) {
+      const portSel = flowDragState.kind === &#39;invariant&#39;
+        ? `[data-port=&quot;inv-out&quot;][data-invariant-id=&quot;${cssEscape(flowDragState.fromId)}&quot;]`
+        : `[data-port=&quot;facet-out&quot;][data-facet-id=&quot;${cssEscape(flowDragState.fromId)}&quot;]`;
+      const from = canvas.querySelector(portSel);
+      if (from) {
+        const fr = from.getBoundingClientRect();
+        const fromX = svgX(fr), fromY = svgY(fr);
+        const toX = flowDragState.mouseX - canvasRect.left;
+        const toY = flowDragState.mouseY - canvasRect.top;
+        const d = bezier(fromX, fromY, toX, toY);
+        const cls = flowDragState.kind === &#39;invariant&#39;
+          ? &#39;flow-wire-invariant flow-wire-preview&#39;
+          : &#39;flow-wire-coverage flow-wire-preview&#39;;
+        const marker = flowDragState.kind === &#39;invariant&#39; ? &#39; marker-end=&quot;url(#flow-arrow-inv)&quot;&#39; : &#39;&#39;;
+        paths.push(`&lt;path class=&quot;${cls}&quot; d=&quot;${d}&quot;${marker}/&gt;`);
       }
     }
 
-    // Preserve the &lt;defs&gt; marker — write paths after it.
     const defs = wires.querySelector(&#39;defs&#39;);
     wires.innerHTML = (defs ? defs.outerHTML : &#39;&#39;) + paths.join(&#39;&#39;);
   }
@@ -13383,7 +13581,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T09:31:47.126Z" title="2026-04-17T09:31:47.126Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T09:31:47.126Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T09:46:19.939Z" title="2026-04-17T09:46:19.939Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T09:46:19.939Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -13999,7 +14197,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-0eef132 (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-6fd9565 (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
