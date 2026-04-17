@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Complexity Mapping Access Ladder</title>
+  <meta
+    name="description"
+    content="A light-mode standalone page describing the trust and access ladder for mapping and working through team complexity."
+  />
+  <style>
+    :root {
+      --paper: #f8f4ec;
+      --paper-strong: #fffdf9;
+      --ink: #1f2430;
+      --muted: #5f6675;
+      --line: #ddd2bf;
+      --line-strong: #cbb99a;
+      --sand: #efe2ca;
+      --sage: #dce8dc;
+      --sky: #dfe9f6;
+      --clay: #f2d7c8;
+      --amber: #f5e5b8;
+      --teal: #2d6f6d;
+      --rust: #ad5b3d;
+      --berry: #8a4151;
+      --shadow: 0 24px 70px rgba(77, 60, 34, 0.10);
+      --radius-xl: 30px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --content: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background:
+        radial-gradient(circle at top left, rgba(242, 215, 200, 0.75), transparent 34%),
+        radial-gradient(circle at top right, rgba(220, 232, 220, 0.65), transparent 28%),
+        linear-gradient(180deg, #fbf7f0 0%, #f4eee4 48%, #f8f4ec 100%);
+      color: var(--ink);
+      font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      line-height: 1.5;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+    }
+
+    a { color: inherit; }
+
+    .page {
+      max-width: var(--content);
+      margin: 0 auto;
+      padding: 40px 24px 72px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(255, 253, 249, 0.96), rgba(248, 244, 236, 0.94)),
+        linear-gradient(160deg, rgba(239, 226, 202, 0.40), rgba(223, 233, 246, 0.16));
+      border: 1px solid rgba(203, 185, 154, 0.55);
+      border-radius: 34px;
+      box-shadow: var(--shadow);
+      padding: 48px 44px 42px;
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    .hero::before {
+      width: 380px;
+      height: 380px;
+      right: -140px;
+      top: -180px;
+      background: radial-gradient(circle, rgba(173, 91, 61, 0.16), transparent 68%);
+    }
+
+    .hero::after {
+      width: 300px;
+      height: 300px;
+      left: -120px;
+      bottom: -150px;
+      background: radial-gradient(circle, rgba(45, 111, 109, 0.14), transparent 68%);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border: 1px solid rgba(203, 185, 154, 0.7);
+      border-radius: 999px;
+      background: rgba(255, 253, 249, 0.78);
+      color: var(--rust);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--teal), #83a3a1);
+      box-shadow: 0 0 0 4px rgba(45, 111, 109, 0.10);
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.03em;
+      line-height: 1.04;
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: clamp(46px, 7vw, 76px);
+      max-width: 10.8ch;
+    }
+
+    .hero-copy {
+      margin-top: 18px;
+      max-width: 64ch;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.72;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+      gap: 28px;
+      align-items: end;
+      margin-top: 32px;
+    }
+
+    .hero-panel {
+      background: rgba(255, 253, 249, 0.82);
+      border: 1px solid rgba(203, 185, 154, 0.65);
+      border-radius: 24px;
+      padding: 22px 22px 20px;
+    }
+
+    .hero-panel h3 {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    .hero-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.72;
+    }
+
+    .principle-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .principle {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px 0 0;
+      border-top: 1px dashed rgba(203, 185, 154, 0.85);
+    }
+
+    .principle:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    .principle-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--paper-strong);
+      background: linear-gradient(135deg, var(--teal), #5d8d8b);
+    }
+
+    .principle strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 15px;
+    }
+
+    .principle span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .section {
+      margin-top: 36px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .section-head h2 {
+      font-size: clamp(30px, 4vw, 44px);
+    }
+
+    .section-head p {
+      max-width: 54ch;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .ladder {
+      display: grid;
+      gap: 18px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 22px;
+      background: rgba(255, 253, 249, 0.88);
+      border: 1px solid rgba(203, 185, 154, 0.7);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 18px 44px rgba(82, 63, 37, 0.08);
+      overflow: hidden;
+    }
+
+    .step-band {
+      padding: 24px 20px;
+      color: var(--paper-strong);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .step-band[data-tone="one"] { background: linear-gradient(180deg, #49756f, #2d5f5b); }
+    .step-band[data-tone="two"] { background: linear-gradient(180deg, #6d5a95, #524178); }
+    .step-band[data-tone="three"] { background: linear-gradient(180deg, #b86d46, #955136); }
+    .step-band[data-tone="four"] { background: linear-gradient(180deg, #8d5161, #723949); }
+
+    .step-band .kicker {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.84;
+      font-weight: 700;
+    }
+
+    .step-band .level {
+      font-size: 54px;
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .step-band .trust {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .step-body {
+      padding: 24px 26px 24px 0;
+    }
+
+    .step-body h3 {
+      font-size: 30px;
+      margin-bottom: 8px;
+    }
+
+    .step-body > p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.72;
+      max-width: 70ch;
+    }
+
+    .step-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .mini {
+      padding: 14px 14px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(203, 185, 154, 0.62);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 244, 236, 0.9));
+    }
+
+    .mini-label {
+      margin-bottom: 7px;
+      color: var(--berry);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .mini p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink);
+    }
+
+    .signals {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .panel {
+      background: rgba(255, 253, 249, 0.82);
+      border: 1px solid rgba(203, 185, 154, 0.68);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px 24px 22px;
+    }
+
+    .panel h3 {
+      font-size: 30px;
+      margin-bottom: 12px;
+    }
+
+    .panel p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .signal-list,
+    .offer-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .signal-item,
+    .offer-item {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .signal-item::before,
+    .offer-item::before {
+      content: "•";
+      color: var(--rust);
+      font-size: 24px;
+      line-height: 18px;
+      margin-top: 2px;
+    }
+
+    .signal-item strong,
+    .offer-item strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 15px;
+    }
+
+    .signal-item span,
+    .offer-item span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .footer-note {
+      margin-top: 26px;
+      padding: 18px 20px;
+      border-radius: 20px;
+      border: 1px dashed rgba(173, 91, 61, 0.45);
+      background: rgba(242, 215, 200, 0.34);
+      color: #6f4333;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .footer-note strong {
+      color: #5a3124;
+    }
+
+    .footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .signals,
+      .step {
+        grid-template-columns: 1fr;
+      }
+
+      .step-body {
+        padding: 0 22px 22px;
+      }
+
+      .step-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        padding: 20px 14px 48px;
+      }
+
+      .hero {
+        padding: 30px 20px 24px;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .section-head p {
+        margin-top: 10px;
+      }
+
+      .step-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .step-band {
+        padding: 18px 18px 16px;
+      }
+
+      .step-band .level {
+        font-size: 42px;
+      }
+    }
+
+    @media print {
+      html {
+        background: white;
+      }
+
+      body {
+        background: white;
+      }
+
+      .page {
+        max-width: none;
+        padding: 0;
+      }
+
+      .hero,
+      .panel,
+      .step {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">Complexity Practice</div>
+      <h1>Prove clarity before asking for deep access.</h1>
+      <p class="hero-copy">
+        If the goal is to help teams map and work through complexity, the opening move cannot be
+        “connect all your systems.” The right ladder earns trust in stages: first map one painful knot,
+        then tighten it into a living reasoning surface, then deepen the integration only when the value
+        is already visible.
+      </p>
+      <div class="hero-grid">
+        <div class="hero-panel">
+          <h3>The core promise</h3>
+          <p>
+            We are not selling broader access first. We are selling a way to make hidden complexity
+            legible, navigable, and actionable across people, systems, and AI.
+          </p>
+        </div>
+        <div class="hero-panel">
+          <h3>Three operating principles</h3>
+          <div class="principle-list">
+            <div class="principle">
+              <div class="principle-mark">1</div>
+              <div>
+                <strong>Map one knot, not the whole company.</strong>
+                <span>Start with one expensive seam where context keeps leaking.</span>
+              </div>
+            </div>
+            <div class="principle">
+              <div class="principle-mark">2</div>
+              <div>
+                <strong>Sell the map before the plumbing.</strong>
+                <span>Value should be visible before broad credentials are requested.</span>
+              </div>
+            </div>
+            <div class="principle">
+              <div class="principle-mark">3</div>
+              <div>
+                <strong>Keep customer trust ahead of integration depth.</strong>
+                <span>Every higher level should feel earned, scoped, and reversible.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>The Access Ladder</h2>
+        </div>
+        <p>
+          Each level increases trust, source fidelity, and operational value. The point is not to rush
+          to the top. The point is to stop asking for more access than the current problem actually needs.
+        </p>
+      </div>
+
+      <div class="ladder">
+        <article class="step">
+          <div class="step-band" data-tone="one">
+            <div>
+              <div class="kicker">Level One</div>
+              <div class="level">Zero-access map</div>
+            </div>
+            <div class="trust">Lowest trust ask</div>
+          </div>
+          <div class="step-body">
+            <h3>Workshop and exported artifacts only</h3>
+            <p>
+              Start with one high-friction workflow and just enough evidence to reconstruct the seam:
+              screenshots, exported tickets, sample documents, a screen share, and a human walkthrough.
+            </p>
+            <div class="step-grid">
+              <div class="mini">
+                <div class="mini-label">Customer gives</div>
+                <p>Screen share, screenshots, exports, one guided walkthrough of the problem surface.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">We do</div>
+                <p>Map the surfaces, hidden dependencies, drift points, and reconstruction tax.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Deliverable</div>
+                <p>A first complexity map and one draft living reasoning surface around the knot.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Why it works</div>
+                <p>It proves whether the framing is useful before system access becomes the negotiation.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="step">
+          <div class="step-band" data-tone="two">
+            <div>
+              <div class="kicker">Level Two</div>
+              <div class="level">Bounded read-only</div>
+            </div>
+            <div class="trust">Focused system proof</div>
+          </div>
+          <div class="step-body">
+            <h3>One repo, one board, one design surface</h3>
+            <p>
+              Move from exported evidence to live, read-only truth. The goal here is not broad integration.
+              It is sharper source fidelity for one bounded workflow.
+            </p>
+            <div class="step-grid">
+              <div class="mini">
+                <div class="mini-label">Customer gives</div>
+                <p>Read-only access to one repo, one ticket stream, one design/spec source, and one owner.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">We do</div>
+                <p>Build a cross-system living doc that points back to real source surfaces and exposes drift.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Deliverable</div>
+                <p>A sharper operational map tied to live artifacts rather than screenshots alone.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Why it works</div>
+                <p>Most complexity failures show up in one seam before they justify whole-organization access.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="step">
+          <div class="step-band" data-tone="three">
+            <div>
+              <div class="kicker">Level Three</div>
+              <div class="level">Customer-run local integration</div>
+            </div>
+            <div class="trust">High value, low exposure</div>
+          </div>
+          <div class="step-body">
+            <h3>Run the tooling inside their environment</h3>
+            <p>
+              Instead of sending credentials outward, the customer runs the integration locally or inside their
+              own environment. What gets shared back are share-safe projections, rendered docs, and selected outputs.
+            </p>
+            <div class="step-grid">
+              <div class="mini">
+                <div class="mini-label">Customer gives</div>
+                <p>Local execution, read tokens under their control, and sanitized snapshots or rendered docs.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">We do</div>
+                <p>Design the right convergence surfaces and operating loops without requiring broad raw-system visibility.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Deliverable</div>
+                <p>A live customer-owned reasoning surface that can already help both humans and AI.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Why it works</div>
+                <p>It lowers the trust threshold dramatically while keeping the outputs close to source truth.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="step">
+          <div class="step-band" data-tone="four">
+            <div>
+              <div class="kicker">Level Four</div>
+              <div class="level">Embedded integration</div>
+            </div>
+            <div class="trust">Earned deep access</div>
+          </div>
+          <div class="step-body">
+            <h3>Broader system access and automation</h3>
+            <p>
+              Only once the team already trusts the mapping and the living surfaces should the work expand into
+              broader sync, richer automation, and multi-system operating loops.
+            </p>
+            <div class="step-grid">
+              <div class="mini">
+                <div class="mini-label">Customer gives</div>
+                <p>Broader read access, scoped write paths, automation hooks, and agreed operating boundaries.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">We do</div>
+                <p>Connect the maps to real workflows, verification, incident loops, and learning surfaces.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Deliverable</div>
+                <p>A deeper complexity operating layer: less reconstruction, better AI context, fewer silent seams.</p>
+              </div>
+              <div class="mini">
+                <div class="mini-label">Why it works</div>
+                <p>At this point, access is no longer the leap of faith. It is the obvious next step.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="signals">
+        <div class="panel">
+          <h3>Signals to move up a level</h3>
+          <p>
+            The customer should feel the ladder tightening around a real problem. Access expands only when the
+            current level is already producing clarity.
+          </p>
+          <div class="signal-list">
+            <div class="signal-item">
+              <div>
+                <strong>Move from Level 1 to 2</strong>
+                <span>The workshop already exposed one seam that clearly needs live read-only source verification.</span>
+              </div>
+            </div>
+            <div class="signal-item">
+              <div>
+                <strong>Move from Level 2 to 3</strong>
+                <span>The bounded living doc is useful enough that the customer wants fresher local projections without widening trust.</span>
+              </div>
+            </div>
+            <div class="signal-item">
+              <div>
+                <strong>Move from Level 3 to 4</strong>
+                <span>The team wants automation, not just maps, and the operating surface already has internal champions.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Good first offer</h3>
+          <p>
+            The first sell should be specific, bounded, and visibly useful. Not “let us into all your tools.”
+            More like:
+          </p>
+          <div class="offer-list">
+            <div class="offer-item">
+              <div>
+                <strong>Map one expensive complexity knot</strong>
+                <span>One week, one high-friction workflow, one living reasoning surface.</span>
+              </div>
+            </div>
+            <div class="offer-item">
+              <div>
+                <strong>Show where reconstruction cost is hiding</strong>
+                <span>Who is re-deriving what, from which systems, and where drift enters.</span>
+              </div>
+            </div>
+            <div class="offer-item">
+              <div>
+                <strong>Leave the team with a usable artifact</strong>
+                <span>Not just findings, but a shareable, navigable, evolvable surface they can keep using.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        <strong>The rule of thumb:</strong> if you need full access to prove value, the opening offer is too heavy.
+        The ladder should make trust accumulation feel natural: prove framing, then source fidelity, then local value,
+        then broader automation.
+      </div>
+    </section>
+
+    <p class="footer">Standalone light-mode reference page for complexity mapping and operating clarity.</p>
+  </main>
+</body>
+</html>
