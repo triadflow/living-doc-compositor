@@ -1851,12 +1851,26 @@
   }
   .doc-preview-pills { margin: 0 0 18px; }
   .json-preview {
+    position: relative;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px; line-height: 1.5;
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     max-height: calc(100vh - 120px); overflow: auto;
   }
   .json-preview-lines { padding: 20px; min-width: max-content; }
+  .json-copy-btn {
+    position: sticky; float: right; top: 10px; right: 10px; margin: 10px 10px 0 0;
+    z-index: 2;
+    padding: 5px 12px; font: inherit; font-size: 11.5px; font-weight: 600;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 6px; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .json-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .json-copy-btn[data-copied=&quot;true&quot;] {
+    background: var(--positive-bg); color: var(--positive-ink); border-color: #bbf7d0;
+  }
   .json-line {
     display: block; padding: 0 10px; border-radius: 8px; white-space: pre;
     scroll-margin-top: 92px; transition: background-color 0.15s, border-color 0.15s;
@@ -2643,6 +2657,10 @@
       &quot;flowCrystallize&quot;: &quot;Copy /crystallize prompt&quot;,
       &quot;flowCrystallizeCopied&quot;: &quot;Copied&quot;,
       &quot;flowResetLayout&quot;: &quot;Reset layout&quot;,
+      &quot;jsonCopy&quot;: &quot;Copy JSON&quot;,
+      &quot;jsonCopied&quot;: &quot;Copied&quot;,
+      &quot;jsonCopyTitle&quot;: &quot;Copy the full doc JSON to the clipboard&quot;,
+      &quot;jsonCopyFallback&quot;: &quot;Copy the JSON below:&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Browse starter and advanced living doc templates&quot;,
       &quot;templatesIntro&quot;: &quot;Start with a simple starter template or jump straight into a fuller advanced shape.&quot;,
@@ -2963,6 +2981,10 @@
       &quot;flowCrystallize&quot;: &quot;Kopieer /crystallize-prompt&quot;,
       &quot;flowCrystallizeCopied&quot;: &quot;Gekopieerd&quot;,
       &quot;flowResetLayout&quot;: &quot;Layout resetten&quot;,
+      &quot;jsonCopy&quot;: &quot;JSON kopiëren&quot;,
+      &quot;jsonCopied&quot;: &quot;Gekopieerd&quot;,
+      &quot;jsonCopyTitle&quot;: &quot;Kopieer het volledige doc-JSON naar het klembord&quot;,
+      &quot;jsonCopyFallback&quot;: &quot;Kopieer de JSON hieronder:&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Blader door starter- en geavanceerde living-doc-templates&quot;,
       &quot;templatesIntro&quot;: &quot;Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.&quot;,
@@ -3454,6 +3476,10 @@
       &quot;flowCrystallize&quot;: &quot;Salin prompt /crystallize&quot;,
       &quot;flowCrystallizeCopied&quot;: &quot;Tersalin&quot;,
       &quot;flowResetLayout&quot;: &quot;Reset tata letak&quot;,
+      &quot;jsonCopy&quot;: &quot;Salin JSON&quot;,
+      &quot;jsonCopied&quot;: &quot;Tersalin&quot;,
+      &quot;jsonCopyTitle&quot;: &quot;Salin JSON dokumen lengkap ke clipboard&quot;,
+      &quot;jsonCopyFallback&quot;: &quot;Salin JSON di bawah ini:&quot;,
       &quot;templates&quot;: &quot;Template&quot;,
       &quot;templatesHint&quot;: &quot;Jelajahi template starter dan lanjutan living doc&quot;,
       &quot;templatesIntro&quot;: &quot;Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.&quot;,
@@ -10418,6 +10444,25 @@
       });
     }
 
+    if (state.previewTab === &#39;json&#39;) {
+      panel.querySelector(&#39;[data-json-copy]&#39;)?.addEventListener(&#39;click&#39;, async (event) =&gt; {
+        const btn = event.currentTarget;
+        const text = JSON.stringify(buildJson(), null, 2);
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            window.prompt(t(&#39;jsonCopyFallback&#39;), text);
+          }
+          btn.dataset.copied = &#39;true&#39;;
+          btn.textContent = t(&#39;jsonCopied&#39;);
+          setTimeout(() =&gt; { btn.dataset.copied = &#39;false&#39;; btn.textContent = t(&#39;jsonCopy&#39;); }, 1600);
+        } catch (err) {
+          window.prompt(t(&#39;jsonCopyFallback&#39;), text);
+        }
+      });
+    }
+
     if (state.previewTab === &#39;visual&#39;) {
       const bindDocField = (id, setter, afterInput) =&gt; {
         const input = panel.querySelector(`#${id}`);
@@ -11355,6 +11400,7 @@
 
     return `
       &lt;div class=&quot;json-preview&quot;&gt;
+        &lt;button type=&quot;button&quot; class=&quot;json-copy-btn&quot; data-json-copy title=&quot;${esc(t(&#39;jsonCopyTitle&#39;))}&quot;&gt;${esc(t(&#39;jsonCopy&#39;))}&lt;/button&gt;
         &lt;div class=&quot;json-preview-lines&quot;&gt;
           ${lines.map((line, index) =&gt; {
             const isFocused = focusedSectionId &amp;&amp; line.sectionId === focusedSectionId;
@@ -13846,7 +13892,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T13:00:54.328Z" title="2026-04-17T13:00:54.328Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T13:00:54.328Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T13:09:26.403Z" title="2026-04-17T13:09:26.403Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T13:09:26.403Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -14436,7 +14482,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-0103671 (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-bcfa431 (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
