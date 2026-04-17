@@ -5,7 +5,9 @@ test('boots, opens the Guide, and switches locales', async ({ page }) => {
   await openLocalCompositor(page);
 
   await openGuide(page);
-  await expect(page.locator('#guide-panel')).toContainText('What is this?');
+  await expect(page.locator('#guide-panel')).toContainText('Start Here');
+  await expect(page.locator('#guide-panel')).toContainText('The Idea');
+  await expect(page.locator('#guide-panel')).toContainText('The Governance Layer');
   await expect(page.locator('#guide-panel')).toContainText('Use the prompt builder');
   await expectNoMissingI18nKeys(page.locator('#guide-panel'));
   await page.locator('#guide-close').click();
@@ -14,14 +16,16 @@ test('boots, opens the Guide, and switches locales', async ({ page }) => {
   await openTopMenu(page);
   await page.locator('.top-menu-lang-btn[data-locale="nl"]').click();
   await openGuide(page);
-  await expect(page.locator('#guide-panel')).toContainText('Wat is dit?');
+  await expect(page.locator('#guide-panel')).toContainText('Begin Hier');
+  await expect(page.locator('#guide-panel')).toContainText('Het Idee');
   await expect(page.locator('#guide-panel')).toContainText('Gebruik de prompt builder');
   await page.locator('#guide-close').click();
 
   await openTopMenu(page);
   await page.locator('.top-menu-lang-btn[data-locale="id"]').click();
   await openGuide(page);
-  await expect(page.locator('#guide-panel')).toContainText('Apa ini?');
+  await expect(page.locator('#guide-panel')).toContainText('Mulai Di Sini');
+  await expect(page.locator('#guide-panel')).toContainText('Gagasan');
   await expect(page.locator('#guide-panel')).toContainText('Gunakan prompt builder');
   await expectNoMissingI18nKeys(page.locator('#guide-panel'));
 });

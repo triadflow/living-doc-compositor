@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncCompositorEmbeds } from './sync-compositor-embeds.mjs';
+import { checkFingerprint } from './meta-fingerprint.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
@@ -720,6 +721,71 @@ function renderBoardView(dimensions) {
     </section>`;
 }
 
+function deriveCoherenceMapItems(doc) {
+  const facets = Array.isArray(doc.objectiveFacets) ? doc.objectiveFacets : [];
+  const coverage = Array.isArray(doc.coverage) ? doc.coverage : [];
+  const invariants = Array.isArray(doc.invariants) ? doc.invariants : [];
+  const sectionIds = new Set((doc.sections ?? []).map((s) => s.id));
+
+  return facets.map((facet) => {
+    const edges = coverage.filter((c) => c.facetId === facet.id);
+    const carryingSectionIds = [...new Set(edges.map((e) => e.sectionId))];
+    const anyDrift = edges.some((e) => !sectionIds.has(e.sectionId));
+    const governingInvariants = invariants
+      .filter((inv) => {
+        const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+        return applies.includes('*') || applies.some((s) => carryingSectionIds.includes(s));
+      })
+      .map((inv) => inv.id);
+
+    let status;
+    if (anyDrift) status = 'drift';
+    else if (edges.length === 0) status = 'orphaned';
+    else status = 'covered';
+
+    return {
+      id: facet.id,
+      name: facet.name,
+      facetDescription: facet.description ?? '',
+      status,
+      sectionIds: carryingSectionIds,
+      invariantIds: governingInvariants,
+      notes: [],
+    };
+  });
+}
+
+function deriveSectionItems(section, ct, doc) {
+  const authored = Array.isArray(section.data) ? section.data : [];
+  if (!ct.derived) return authored;
+  if (authored.length > 0) return authored;
+  if (section.convergenceType === 'coherence-map') return deriveCoherenceMapItems(doc);
+  return authored;
+}
+
+function renderMetaFreshnessBanner(section, ct, doc) {
+  if (!ct.derived) return '';
+  const derivedFrom = Array.isArray(ct.derivedFrom) ? ct.derivedFrom : [];
+  const reliesOnCoverage = derivedFrom.includes('objectiveFacets') || derivedFrom.includes('coverage');
+  if (!reliesOnCoverage) return '';
+  const hasMeta = Array.isArray(doc.objectiveFacets) && doc.objectiveFacets.length > 0;
+  if (!hasMeta) return '';
+
+  const freshness = checkFingerprint(doc.metaFingerprint, doc.sections);
+  if (freshness.fresh) return '';
+
+  const reasonText = freshness.reason === 'missing'
+    ? 'No fingerprint stamped yet. Run /crystallize to seed the governance layer.'
+    : 'Sections have changed since the meta was derived. Coverage edges may point at the wrong cards. Run /crystallize --refresh to update.';
+
+  return `
+    <div class="callout callout-warning" role="alert" data-meta-stale="true">
+      <p class="callout-title">Meta layer may be stale</p>
+      <p>${escapeHtml(reasonText)}</p>
+      ${freshness.stored ? `<p style="font-size:12px;color:var(--muted);margin-top:8px"><strong>Stored:</strong> <code>${escapeHtml(freshness.stored)}</code><br/><strong>Current:</strong> <code>${escapeHtml(freshness.current)}</code></p>` : ''}
+    </div>`;
+}
+
 function renderSection(section) {
   const ct = registry.convergenceTypes[section.convergenceType];
   if (!ct) return `<!-- unknown convergence type: ${escapeHtml(section.convergenceType)} -->`;
@@ -730,7 +796,8 @@ function renderSection(section) {
     ? `<svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"${iconColorStyle}>${ct.icon}</svg>`
     : '';
 
-  const items = section.data ?? [];
+  const items = deriveSectionItems(section, ct, data);
+  const freshnessBannerHtml = renderMetaFreshnessBanner(section, ct, data);
 
   // Callout
   const calloutHtml = section.callout ? renderCallout(section.callout) : '';
@@ -765,6 +832,7 @@ function renderSection(section) {
   return `
     <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}">
       <h2>${icon} ${escapeHtml(section.title)}${sectionUpdated}</h2>
+      ${freshnessBannerHtml}
       ${calloutHtml}
       ${statsHtml}
       ${pillsHtml}
