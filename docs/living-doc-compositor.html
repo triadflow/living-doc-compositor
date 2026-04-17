@@ -2697,10 +2697,13 @@
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
   }
   function govSectionSignature() {
+    // Key names must match scripts/meta-fingerprint.mjs exactly — the Node
+    // stamper and this browser check produce different sha256 hashes otherwise,
+    // and every crystallized doc reads as stale in the Flow view. See #58.
     return JSON.stringify((state.sections || []).map((s) => ({
       id: String(s?.id || ''),
-      t: String(s?.convergenceType || ''),
-      c: (Array.isArray(s?.data) ? s.data : []).map((item) => String(item?.id || '')).filter(Boolean),
+      type: String(s?.convergenceType || ''),
+      cards: (Array.isArray(s?.data) ? s.data : []).map((item) => String(item?.id || '')).filter(Boolean),
     })));
   }
   async function govComputeFingerprint() {
