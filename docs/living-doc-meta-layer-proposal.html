@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Living Doc · Meta-Layer Proposal</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --ink: #1a2332;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --accent: #2563eb;
+        --positive-bg: #ecfdf5; --positive-ink: #166534;
+        --warning-bg: #fffbeb;  --warning-ink: #92400e;
+        --negative-bg: #fef2f2; --negative-ink: #991b1b;
+        --neutral-bg: #f1f5f9;  --neutral-ink: #475569;
+        --governance-bg: #ecfeff; --governance-ink: #155e75;
+        --radius: 12px;
+        --max: 960px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 14px rgba(0,0,0,0.06);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+      body {
+        margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+        font: 15px/1.65 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code, pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      code {
+        font-size: 0.88em; background: var(--neutral-bg);
+        border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+      }
+      pre {
+        margin: 0; padding: 18px 20px; background: #0f172a; color: #e2e8f0;
+        border-radius: 10px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+      }
+      pre code {
+        background: transparent; border: none; padding: 0; color: inherit; font-size: inherit;
+      }
+      .wrap { max-width: var(--max); margin: 0 auto; padding: 40px 28px 80px; }
+      header.page-header {
+        padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 36px;
+      }
+      .eyebrow {
+        display: inline-block; padding: 4px 10px; border-radius: 999px;
+        background: rgba(37,99,235,.12); color: var(--accent); font-size: 11px;
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+        margin-bottom: 14px;
+      }
+      h1 {
+        margin: 0 0 10px; font-size: 32px; line-height: 1.2;
+        letter-spacing: -0.025em; font-weight: 700;
+      }
+      .subtitle {
+        margin: 0 0 18px; color: var(--muted); font-size: 16px; max-width: 64ch;
+      }
+      .meta-row {
+        display: flex; flex-wrap: wrap; gap: 8px;
+      }
+      .pill {
+        display: inline-flex; padding: 5px 12px; border-radius: 999px;
+        background: var(--card); border: 1px solid var(--line);
+        color: var(--muted); font-size: 12px; font-weight: 600;
+      }
+      h2 {
+        margin: 48px 0 16px; font-size: 22px; letter-spacing: -0.015em; font-weight: 700;
+        padding-top: 8px;
+      }
+      h3 {
+        margin: 28px 0 10px; font-size: 17px; font-weight: 650; letter-spacing: -0.01em;
+      }
+      h4 {
+        margin: 20px 0 8px; font-size: 14px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+      }
+      p { margin: 0 0 14px; max-width: 72ch; }
+      ul, ol { margin: 0 0 16px; padding-left: 22px; }
+      li { margin-bottom: 6px; }
+      .callout {
+        margin: 18px 0; padding: 16px 20px; border-radius: var(--radius);
+        border: 1px solid var(--line); background: var(--card);
+        box-shadow: var(--shadow-sm);
+      }
+      .callout-info {
+        border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+        background: color-mix(in srgb, var(--accent) 5%, var(--card));
+      }
+      .callout-warning {
+        border-color: color-mix(in srgb, var(--warning-ink) 24%, var(--line));
+        background: color-mix(in srgb, var(--warning-bg) 72%, var(--card));
+      }
+      .callout-positive {
+        border-color: color-mix(in srgb, var(--positive-ink) 22%, var(--line));
+        background: color-mix(in srgb, var(--positive-bg) 70%, var(--card));
+      }
+      .callout-title {
+        margin: 0 0 8px; font-size: 13.5px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      table {
+        width: 100%; border-collapse: collapse; margin: 16px 0;
+        font-size: 14px; background: var(--card);
+        border: 1px solid var(--line); border-radius: 10px;
+        overflow: hidden;
+      }
+      th, td {
+        padding: 11px 14px; border-bottom: 1px solid var(--line);
+        text-align: left; vertical-align: top;
+      }
+      th {
+        background: var(--neutral-bg); color: var(--muted);
+        font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      tr:last-child td { border-bottom: none; }
+      .badge {
+        display: inline-flex; padding: 3px 10px; border-radius: 999px;
+        font-size: 11.5px; font-weight: 600; white-space: nowrap;
+      }
+      .badge-positive { background: var(--positive-bg); color: var(--positive-ink); }
+      .badge-warning { background: var(--warning-bg); color: var(--warning-ink); }
+      .badge-negative { background: var(--negative-bg); color: var(--negative-ink); }
+      .badge-neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+      .badge-governance { background: var(--governance-bg); color: var(--governance-ink); }
+      .two-col {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      }
+      .card {
+        padding: 16px 18px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .card h4 { margin-top: 0; }
+      .diagram {
+        margin: 24px 0; padding: 22px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .diagram-title {
+        margin: 0 0 14px; font-size: 13px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+      }
+      .tier {
+        margin: 10px 0; padding: 12px 14px; border-radius: 10px;
+        border: 1px solid var(--line); background: var(--neutral-bg);
+      }
+      .tier-root {
+        background: color-mix(in srgb, var(--governance-bg) 60%, var(--card));
+        border-color: color-mix(in srgb, var(--governance-ink) 22%, var(--line));
+      }
+      .tier-sections {
+        background: color-mix(in srgb, var(--accent) 5%, var(--card));
+        border-color: color-mix(in srgb, var(--accent) 20%, var(--line));
+      }
+      .tier-label {
+        display: inline-block; margin-bottom: 6px; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+      }
+      .tier-fields {
+        display: flex; flex-wrap: wrap; gap: 6px;
+      }
+      .tier-field {
+        display: inline-flex; padding: 4px 10px; border-radius: 6px;
+        background: var(--card); border: 1px solid var(--line);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px; color: var(--ink);
+      }
+      .tier-field.new {
+        background: color-mix(in srgb, var(--governance-bg) 50%, var(--card));
+        border-color: color-mix(in srgb, var(--governance-ink) 30%, var(--line));
+        color: var(--governance-ink); font-weight: 600;
+      }
+      .arrow {
+        text-align: center; color: var(--muted); font-size: 18px; margin: 4px 0;
+      }
+      .toc {
+        margin: 0 0 28px; padding: 18px 22px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .toc h4 {
+        margin: 0 0 10px;
+      }
+      .toc ol {
+        margin: 0; padding-left: 20px;
+      }
+      .toc li { margin-bottom: 4px; }
+      .footer {
+        margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line);
+        color: var(--muted); font-size: 13px;
+      }
+      @media (max-width: 720px) {
+        .wrap { padding: 24px 18px 56px; }
+        h1 { font-size: 26px; }
+        .two-col { grid-template-columns: 1fr; }
+        pre { font-size: 12px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="page-header">
+        <span class="eyebrow">Proposal · Living Doc Compositor</span>
+        <h1>Meta-Layer Data &amp; the Coherence-Map Convergence Type</h1>
+        <p class="subtitle">
+          Move the reasoning that drives a living doc's section choices out of silent
+          LLM re-derivation and into the document itself, as doc-root fields and one
+          new convergence type that projects them.
+        </p>
+        <div class="meta-row">
+          <span class="pill">Draft</span>
+          <span class="pill">living-doc-compositor</span>
+          <span class="pill">Architecture</span>
+        </div>
+      </header>
+
+      <div class="toc">
+        <h4>Contents</h4>
+        <ol>
+          <li><a href="#problem">The inference-time re-derivation tax</a></li>
+          <li><a href="#what">What meta-layer data captures</a></li>
+          <li><a href="#why-not-sibling">Why not a sibling convergence type</a></li>
+          <li><a href="#two-layer">The two-layer split</a></li>
+          <li><a href="#registry">Registry additions</a></li>
+          <li><a href="#doc-root">Doc-root additions</a></li>
+          <li><a href="#section-instance">The coherence-map section instance</a></li>
+          <li><a href="#gains">Inference-time gains</a></li>
+          <li><a href="#walkthrough">Worked example — mobile workstream</a></li>
+        </ol>
+      </div>
+
+      <section id="problem">
+        <h2>1. The inference-time re-derivation tax</h2>
+        <p>
+          Today, when an agent opens a living doc it reads the objective, scans the
+          sections, and silently re-derives a set of things that the document never
+          states outright:
+        </p>
+        <ul>
+          <li>Why each section uses the convergence type it uses.</li>
+          <li>Which parts of the objective each section carries.</li>
+          <li>Which cross-section contracts hold (e.g. "decisions don't live inside verification").</li>
+          <li>Whether the current set of sections actually covers the objective.</li>
+        </ul>
+        <p>
+          The registry at <code>scripts/living-doc-registry.json</code> gives every
+          convergence type a <code>structuralContract</code>, a <code>notFor</code>
+          list, and <code>promptGuidance</code>. That is a generic vocabulary —
+          useful, but the <em>document-local</em> justification (why
+          <em>this</em> type <em>here</em>) is recomputed on every pass, by every agent.
+          That recomputation is the tax.
+        </p>
+        <div class="callout callout-warning">
+          <p class="callout-title">The cost</p>
+          <p>
+            Two Codex workers looking at the same doc re-derive the section taxonomy
+            slightly differently. Coverage of the objective is assessed by re-reading
+            prose. Invariants are enforced only when a reviewer notices. Every action
+            on the doc pays the tax again.
+          </p>
+        </div>
+      </section>
+
+      <section id="what">
+        <h2>2. What meta-layer data captures</h2>
+        <p>
+          Four things that are implicit today become explicit:
+        </p>
+        <div class="two-col">
+          <div class="card">
+            <h4>Objective decomposition</h4>
+            <p>
+              The free-form <code>objective</code> string is split into typed facets.
+              Each facet has an id, name, and description. "UI fidelity",
+              "repo-connect", "push-runtime", etc. become addressable units.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Section rationale</h4>
+            <p>
+              Each section carries a <code>rationale</code> field alongside its
+              <code>convergenceType</code>: the document-local justification for why
+              this shape was chosen, once, in writing.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Coverage edges</h4>
+            <p>
+              A list of <code>{ facetId, sectionId, cardId }</code> tuples that map
+              each facet to its carriers. Coverage becomes a set-difference operation,
+              not an LLM re-read.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Local invariants</h4>
+            <p>
+              Doc-specific contracts sharper than the registry's generic
+              <code>notFor</code>. Example: "every Capability Map card must carry at
+              least one <code>codePaths</code> entry".
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="why-not-sibling">
+        <h2>3. Why not a sibling convergence type</h2>
+        <p>
+          Making meta-data <em>just</em> another convergence type — a section called
+          "Meta" sitting next to Capability Map and Verification Plan — is tempting
+          for symmetry, but it conflates data that <strong>governs interpretation</strong>
+          with data that <strong>is interpreted</strong>. Three concrete tells:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Tell</th><th>Why it matters</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Load order</strong></td>
+              <td>
+                An agent needs meta <em>before</em> sections, to know which section
+                carries what. Peer sections have no structural precedence — nothing
+                in the schema says "read me first."
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Derivation direction</strong></td>
+              <td>
+                Every existing convergence type derives state from entity sources
+                (code, tickets, figma). Meta derives state from <em>other sections</em>.
+                Circular at the projection layer, clean at the doc-root layer.
+              </td>
+            </tr>
+            <tr>
+              <td><strong><code>notFor</code> shape</strong></td>
+              <td>
+                Every type declares what it is not for. Meta isn't "not for X" — it
+                is <em>about</em> the whole doc. The contract shape doesn't fit.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Analogy: the registry itself is not a convergence type in a doc — it governs
+          docs from outside. Meta-data is a doc-local extension of the same kind of
+          governance.
+        </p>
+      </section>
+
+      <section id="two-layer">
+        <h2>4. The two-layer split</h2>
+        <p>
+          Meta-data lives at the <strong>doc root</strong>, as a peer of
+          <code>title</code>, <code>objective</code>, and <code>sections</code>.
+          A new convergence type, <code>coherence-map</code>, renders a
+          projection of that meta as a visible section. The data is authored
+          once at the root; the section is a mirror.
+        </p>
+
+        <div class="diagram">
+          <p class="diagram-title">Document shape</p>
+          <div class="tier tier-root">
+            <span class="tier-label">Tier 1 · Doc root (governance)</span>
+            <div class="tier-fields">
+              <span class="tier-field">docId</span>
+              <span class="tier-field">title</span>
+              <span class="tier-field">objective</span>
+              <span class="tier-field new">objectiveFacets</span>
+              <span class="tier-field new">coverage</span>
+              <span class="tier-field new">invariants</span>
+              <span class="tier-field">sections</span>
+            </div>
+          </div>
+          <div class="arrow">↓ renders as ↓</div>
+          <div class="tier tier-sections">
+            <span class="tier-label">Tier 2 · Sections (peers)</span>
+            <div class="tier-fields">
+              <span class="tier-field new">coherence-map</span>
+              <span class="tier-field">status-snapshot</span>
+              <span class="tier-field">capability-surface</span>
+              <span class="tier-field">operating-surface</span>
+              <span class="tier-field">tooling-surface</span>
+              <span class="tier-field">verification-surface</span>
+              <span class="tier-field">decision-record</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">The distinction</p>
+          <p>
+            The data is doc-root. The view is a convergence type. The registry's job
+            is to vocabulary-ify section shapes; adding <code>coherence-map</code>
+            extends that vocabulary in the direction it already points. Adding
+            <code>objectiveFacets</code> / <code>coverage</code> / <code>invariants</code>
+            extends the <em>schema</em>, not the vocabulary.
+          </p>
+        </div>
+      </section>
+
+      <section id="registry">
+        <h2>5. Registry additions</h2>
+        <p>
+          Three additions to <code>scripts/living-doc-registry.json</code>: new entity
+          types, a new status set, a new category, and the convergence type itself.
+        </p>
+<pre><code>{
+  "entityTypes": {
+    "objective-facet": {
+      "label": "Objective Facet",
+      "refRender": "anchor-link",
+      "hrefTemplate": "#facet-{id}",
+      "displayKey": "name",
+      "valueKey": "id",
+      "collectionKey": "objectiveFacets"
+    },
+    "section-ref": {
+      "label": "Section",
+      "refRender": "anchor-link",
+      "hrefTemplate": "#section-{id}",
+      "displayKey": "title",
+      "valueKey": "id"
+    },
+    "invariant-ref": {
+      "label": "Invariant",
+      "refRender": "anchor-link",
+      "hrefTemplate": "#invariant-{id}",
+      "displayKey": "name",
+      "valueKey": "id",
+      "collectionKey": "invariants"
+    }
+  },
+
+  "statusSets": {
+    "coherence-state": {
+      "values": ["covered", "under-covered", "over-covered", "orphaned", "drift"],
+      "tones": {
+        "covered": "positive",
+        "under-covered": "warning",
+        "over-covered": "warning",
+        "orphaned": "negative",
+        "drift": "negative"
+      }
+    }
+  },
+
+  "convergenceCategories": {
+    "governance": {
+      "label": "Governance",
+      "description": "Document-level contracts that govern how sections are interpreted.",
+      "order": 0
+    }
+  },
+
+  "convergenceTypes": {
+    "coherence-map": {
+      "name": "Coherence Map",
+      "category": "governance",
+      "description": "Projection of doc-root objective facets, coverage edges, and invariants.",
+      "structuralContract": "Two-column card grid of coherence-state items, derived from doc-root objectiveFacets, coverage, and invariants. Cards are not authored per item — the renderer computes them.",
+      "notFor": [
+        "per-section implementation work",
+        "ticket inventories",
+        "verification evidence"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Treat the section as a derived view of doc-root coherence.",
+        "keepDistinct": ["objective facet", "carrying sections", "invariants", "coverage state"],
+        "inspect": ["Recompute coverage from doc-root objectiveFacets and coverage edges before editing."],
+        "update": ["Edit doc-root objectiveFacets, coverage, or invariants — do not author coherence-map items by hand."],
+        "avoid": ["Do not put implementation state or ticket status into coherence cards."]
+      },
+      "projection": "card-grid",
+      "columns": 2,
+      "derived": true,
+      "derivedFrom": ["objectiveFacets", "coverage", "invariants"],
+      "sources": [
+        { "key": "sectionIds",    "entityType": "section-ref",    "label": "Carrying sections" },
+        { "key": "invariantIds",  "entityType": "invariant-ref",  "label": "Governing invariants", "resolve": true },
+        { "key": "notes",         "entityType": null,             "label": null }
+      ],
+      "statusFields": [
+        { "key": "status", "statusSet": "coherence-state" }
+      ],
+      "textFields": [
+        { "key": "facetDescription", "label": "Facet" }
+      ]
+    }
+  }
+}
+</code></pre>
+        <p>
+          Two fields on the type are new and load-bearing:
+          <code>derived: true</code> and <code>derivedFrom: [...]</code>. They signal
+          to the renderer and to agents that <code>data[]</code> is computed from
+          doc-root fields, not authored. That's the contract that keeps the view a mirror.
+        </p>
+      </section>
+
+      <section id="doc-root">
+        <h2>6. Doc-root additions</h2>
+        <p>
+          The document grows three top-level fields next to <code>objective</code>
+          and <code>sections</code>.
+        </p>
+<pre><code>{
+  "docId": "living-doc-compositor:mobile-companion-workstream",
+  "title": "Mobile Companion Workstream",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, push-token runtime behavior, EAS setup, disconnect, persistence, and the handoff seam into the separate subscription/refinement model.",
+
+  "objectiveFacets": [
+    { "id": "ui-fidelity",        "name": "UI fidelity",        "description": "Native surfaces match mockups at pixel level." },
+    { "id": "repo-connect",       "name": "Repo connection",    "description": "Installed workflow + manifest; connect/disconnect round-trip." },
+    { "id": "transport-delivery", "name": "Transport delivery", "description": "Feed events from living-docs-feed flow to the app." },
+    { "id": "push-runtime",       "name": "Push-token runtime", "description": "Token lifecycle; paid-team verification; registration on sign-in." },
+    { "id": "eas-setup",          "name": "EAS setup",          "description": "EAS build/submit configured and trusted." },
+    { "id": "disconnect",         "name": "Disconnect",         "description": "Clean disconnect from a repo; re-connect works." },
+    { "id": "persistence",        "name": "Persistence",        "description": "Device-flow session + synced events survive restart." },
+    { "id": "subscription-seam",  "name": "Subscription seam",  "description": "Handoff boundary into the separate subscription/refinement doc." }
+  ],
+
+  "coverage": [
+    { "facetId": "ui-fidelity",        "sectionId": "mobile-capabilities", "cardId": "auth-sign-in" },
+    { "facetId": "ui-fidelity",        "sectionId": "verification-plan",   "cardId": "pixel-match" },
+    { "facetId": "repo-connect",       "sectionId": "mobile-capabilities", "cardId": "repos-connect" },
+    { "facetId": "repo-connect",       "sectionId": "runtime-state-model", "cardId": "connect-state" },
+    { "facetId": "transport-delivery", "sectionId": "runtime-state-model", "cardId": "feed-delivery" },
+    { "facetId": "push-runtime",       "sectionId": "mobile-capabilities", "cardId": "push-runtime" },
+    { "facetId": "push-runtime",       "sectionId": "verification-plan",   "cardId": "real-paid-team-push" },
+    { "facetId": "eas-setup",          "sectionId": "operational-tools",   "cardId": "eas" },
+    { "facetId": "disconnect",         "sectionId": "verification-plan",   "cardId": "disconnect-round-trip" },
+    { "facetId": "persistence",        "sectionId": "runtime-state-model", "cardId": "session-persistence" },
+    { "facetId": "subscription-seam",  "sectionId": "open-decisions",      "cardId": "seam-boundary" }
+  ],
+
+  "invariants": [
+    {
+      "id": "decisions-migrate-out-of-verification",
+      "name": "Decisions migrate out of verification",
+      "statement": "If a Verification Plan item becomes a settled operating choice, move it to Decision Record.",
+      "appliesTo": ["verification-plan", "open-decisions"]
+    },
+    {
+      "id": "capability-needs-code-path",
+      "name": "Capabilities carry code refs",
+      "statement": "Every Mobile Capability Map card must carry at least one codePaths entry.",
+      "appliesTo": ["mobile-capabilities"]
+    },
+    {
+      "id": "facet-has-carrier",
+      "name": "Every facet has at least one carrier",
+      "statement": "No objectiveFacet may be orphaned. If orphaned, either add coverage or remove the facet.",
+      "appliesTo": ["*"]
+    }
+  ],
+
+  "sections": [ ... ]
+}
+</code></pre>
+      </section>
+
+      <section id="section-instance">
+        <h2>7. The coherence-map section instance</h2>
+        <p>
+          The section itself is small. Its <code>data</code> array can be left empty
+          (renderer derives from doc root) or explicitly materialized with
+          per-facet notes.
+        </p>
+<pre><code>{
+  "id": "coherence",
+  "title": "Objective Coherence",
+  "convergenceType": "coherence-map",
+  "updated": "2026-04-17T00:31:51.000Z",
+  "rationale": "Makes the objective's coverage computable; precedes all other sections at load time.",
+  "data": [
+    {
+      "id": "ui-fidelity",
+      "name": "UI fidelity",
+      "facetDescription": "Native surfaces match mockups at pixel level.",
+      "status": "under-covered",
+      "sectionIds": ["mobile-capabilities", "verification-plan"],
+      "invariantIds": [],
+      "notes": [
+        { "type": "warning", "text": "Carried by two sections, but pixel-match gate still open." }
+      ]
+    },
+    {
+      "id": "transport-delivery",
+      "name": "Transport delivery",
+      "facetDescription": "Feed events from living-docs-feed flow to the app.",
+      "status": "covered",
+      "sectionIds": ["runtime-state-model"],
+      "invariantIds": [],
+      "notes": []
+    },
+    {
+      "id": "subscription-seam",
+      "name": "Subscription seam",
+      "facetDescription": "Handoff boundary into the separate subscription/refinement doc.",
+      "status": "covered",
+      "sectionIds": ["open-decisions"],
+      "invariantIds": [],
+      "notes": [
+        { "type": "neutral", "text": "Boundary pinned in Decisions; detail lives in mobile-subscription-refinement-model.json." }
+      ]
+    }
+  ]
+}
+</code></pre>
+      </section>
+
+      <section id="gains">
+        <h2>8. Inference-time gains</h2>
+        <p>
+          Each new field collapses a piece of LLM re-derivation into either a
+          deterministic check or a cached read.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Worker question</th>
+              <th>Before</th>
+              <th>After</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Does this doc still cover the objective?</td>
+              <td>LLM re-reads prose, guesses.</td>
+              <td>Set-difference over <code>coverage</code> edges. Non-LLM.</td>
+            </tr>
+            <tr>
+              <td>Which section should this new fact go in?</td>
+              <td>LLM decides by shape-matching.</td>
+              <td><code>coverage</code> points directly at the right card.</td>
+            </tr>
+            <tr>
+              <td>Is my proposed edit legal?</td>
+              <td>Reviewer catches contract breaks.</td>
+              <td>Invariants checked at plan time.</td>
+            </tr>
+            <tr>
+              <td>Why is this section this shape?</td>
+              <td>LLM re-derives structural contract.</td>
+              <td><code>section.rationale</code> carries the answer.</td>
+            </tr>
+            <tr>
+              <td>Is this section stale?</td>
+              <td>Timestamp heuristic.</td>
+              <td>Semantic triggers via <code>dependsOn</code>.</td>
+            </tr>
+            <tr>
+              <td>Where do I start?</td>
+              <td>Scan all sections.</td>
+              <td>Load meta, score coverage, jump.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout callout-positive">
+          <p class="callout-title">Compounding effect</p>
+          <p>
+            The meta layer is roughly 10% of the document body. Agents can load it,
+            reason about where to work, and only expand the relevant card grid. Multi-pass
+            reasoning stays cheap. Multi-agent coherence is structural rather than
+            stochastic: two workers read the same rationale, enforce the same invariants,
+            and score the same coverage.
+          </p>
+        </div>
+      </section>
+
+      <section id="walkthrough">
+        <h2>9. Worked example — mobile workstream</h2>
+        <p>
+          Take the existing mobile companion workstream doc. Its objective names eight
+          facets. Its six sections (status snapshot, capability map, runtime state
+          model, operational tools, verification plan, open decisions) each carry a
+          subset of those facets.
+        </p>
+        <h3>Before — implicit</h3>
+        <p>
+          An agent opening the doc must:
+        </p>
+        <ol>
+          <li>Read the eight-part objective sentence and internally list the facets.</li>
+          <li>Re-read each section and decide which facets it covers.</li>
+          <li>Notice that pixel-match fidelity is mentioned in both Capability Map and Verification Plan, and conclude it is "under-covered" (gate still open) by reading prose.</li>
+          <li>Hope that the next Codex worker reaches the same conclusions.</li>
+        </ol>
+
+        <h3>After — explicit</h3>
+        <p>
+          Same agent opens the doc and:
+        </p>
+        <ol>
+          <li>Loads <code>objectiveFacets</code> (8 items) and <code>coverage</code> (11 edges) from the root.</li>
+          <li>Computes coverage in one pass: every facet has ≥1 carrier, <code>eas-setup</code> is covered by one section only, <code>ui-fidelity</code> is flagged <code>under-covered</code> because its verification gate is still open.</li>
+          <li>Sees <code>rationale</code> on each section explaining the structural choice — no re-derivation.</li>
+          <li>Validates any proposed edit against the three invariants before writing.</li>
+        </ol>
+
+        <div class="callout callout-info">
+          <p class="callout-title">The shift</p>
+          <p>
+            The document stops being only the <em>output</em> of a thought process and
+            starts carrying that process inline, where every downstream agent can read,
+            verify, and extend it without re-deriving it. Today the registry is the
+            grammar and the doc is the sentence. Meta-layer data adds the reason this
+            sentence was the right one to write — so future edits reason against
+            intent, not shape alone.
+          </p>
+        </div>
+      </section>
+
+      <div class="footer">
+        <p>
+          Proposal · <code>docs/living-doc-meta-layer-proposal.html</code> · not yet
+          implemented. When adopted, the registry grows one category
+          (<code>governance</code>), one status set (<code>coherence-state</code>),
+          three entity types (<code>objective-facet</code>, <code>section-ref</code>,
+          <code>invariant-ref</code>), and one convergence type
+          (<code>coherence-map</code>). The doc schema grows three root fields
+          (<code>objectiveFacets</code>, <code>coverage</code>, <code>invariants</code>)
+          and one per-section field (<code>rationale</code>).
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

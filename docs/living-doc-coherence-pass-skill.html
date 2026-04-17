@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Living Doc · Coherence Pass Skill</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --ink: #1a2332;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --accent: #2563eb;
+        --positive-bg: #ecfdf5; --positive-ink: #166534;
+        --warning-bg: #fffbeb;  --warning-ink: #92400e;
+        --negative-bg: #fef2f2; --negative-ink: #991b1b;
+        --neutral-bg: #f1f5f9;  --neutral-ink: #475569;
+        --governance-bg: #ecfeff; --governance-ink: #155e75;
+        --radius: 12px;
+        --max: 960px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 14px rgba(0,0,0,0.06);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+      body {
+        margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+        font: 15px/1.65 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+      code {
+        font-size: 0.88em; background: var(--neutral-bg);
+        border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+      }
+      pre {
+        margin: 0; padding: 18px 20px; background: #0f172a; color: #e2e8f0;
+        border-radius: 10px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+      }
+      pre code { background: transparent; border: none; padding: 0; color: inherit; font-size: inherit; }
+      .wrap { max-width: var(--max); margin: 0 auto; padding: 40px 28px 80px; }
+      header.page-header {
+        padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 36px;
+      }
+      .eyebrow {
+        display: inline-block; padding: 4px 10px; border-radius: 999px;
+        background: rgba(37,99,235,.12); color: var(--accent); font-size: 11px;
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+        margin-bottom: 14px;
+      }
+      h1 { margin: 0 0 10px; font-size: 32px; line-height: 1.2; letter-spacing: -0.025em; font-weight: 700; }
+      .subtitle { margin: 0 0 18px; color: var(--muted); font-size: 16px; max-width: 64ch; }
+      .meta-row { display: flex; flex-wrap: wrap; gap: 8px; }
+      .pill {
+        display: inline-flex; padding: 5px 12px; border-radius: 999px;
+        background: var(--card); border: 1px solid var(--line);
+        color: var(--muted); font-size: 12px; font-weight: 600;
+      }
+      h2 { margin: 48px 0 16px; font-size: 22px; letter-spacing: -0.015em; font-weight: 700; padding-top: 8px; }
+      h3 { margin: 28px 0 10px; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+      h4 {
+        margin: 20px 0 8px; font-size: 13px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+      }
+      p { margin: 0 0 14px; max-width: 72ch; }
+      ul, ol { margin: 0 0 16px; padding-left: 22px; }
+      li { margin-bottom: 6px; }
+      .callout {
+        margin: 18px 0; padding: 16px 20px; border-radius: var(--radius);
+        border: 1px solid var(--line); background: var(--card);
+        box-shadow: var(--shadow-sm);
+      }
+      .callout-info {
+        border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+        background: color-mix(in srgb, var(--accent) 5%, var(--card));
+      }
+      .callout-warning {
+        border-color: color-mix(in srgb, var(--warning-ink) 24%, var(--line));
+        background: color-mix(in srgb, var(--warning-bg) 72%, var(--card));
+      }
+      .callout-positive {
+        border-color: color-mix(in srgb, var(--positive-ink) 22%, var(--line));
+        background: color-mix(in srgb, var(--positive-bg) 70%, var(--card));
+      }
+      .callout-negative {
+        border-color: color-mix(in srgb, var(--negative-ink) 26%, var(--line));
+        background: color-mix(in srgb, var(--negative-bg) 78%, var(--card));
+      }
+      .callout-title {
+        margin: 0 0 8px; font-size: 13.5px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      table {
+        width: 100%; border-collapse: collapse; margin: 16px 0;
+        font-size: 14px; background: var(--card);
+        border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+      }
+      th, td {
+        padding: 11px 14px; border-bottom: 1px solid var(--line);
+        text-align: left; vertical-align: top;
+      }
+      th {
+        background: var(--neutral-bg); color: var(--muted);
+        font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      tr:last-child td { border-bottom: none; }
+      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .card {
+        padding: 16px 18px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .card h4 { margin-top: 0; }
+      .stat-card {
+        padding: 18px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .stat-card h4 { margin: 0 0 8px; }
+      .stat-value {
+        display: block; font-size: 28px; font-weight: 700;
+        letter-spacing: -0.02em; line-height: 1.1; color: var(--ink);
+      }
+      .stat-caption { display: block; margin-top: 6px; color: var(--muted); font-size: 12.5px; }
+      .flow {
+        margin: 20px 0; padding: 18px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .flow-step {
+        display: flex; gap: 14px; align-items: flex-start;
+        padding: 10px 0; border-bottom: 1px dashed var(--line);
+      }
+      .flow-step:last-child { border-bottom: none; }
+      .flow-num {
+        flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+        background: var(--accent); color: #fff; font-size: 13px; font-weight: 700;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .flow-body { flex: 1; }
+      .flow-body strong { display: block; margin-bottom: 4px; }
+      .flow-body p { margin: 0; color: var(--muted); font-size: 13.5px; }
+      .mitigation {
+        margin: 12px 0; padding: 16px 18px; border-radius: var(--radius);
+        border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .mitigation-strength {
+        display: inline-block; margin-bottom: 8px; padding: 3px 10px;
+        border-radius: 999px; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .strength-1 { background: var(--warning-bg); color: var(--warning-ink); }
+      .strength-2 { background: color-mix(in srgb, var(--accent) 14%, var(--card)); color: var(--accent); }
+      .strength-3 { background: var(--positive-bg); color: var(--positive-ink); }
+      .toc {
+        margin: 0 0 28px; padding: 18px 22px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .toc h4 { margin: 0 0 10px; }
+      .toc ol { margin: 0; padding-left: 20px; }
+      .toc li { margin-bottom: 4px; }
+      .footer {
+        margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line);
+        color: var(--muted); font-size: 13px;
+      }
+      .link-row {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px;
+        background: var(--card); color: var(--ink); font-size: 13.5px;
+        box-shadow: var(--shadow-sm);
+      }
+      .link-row:hover { text-decoration: none; background: var(--neutral-bg); }
+      @media (max-width: 720px) {
+        .wrap { padding: 24px 18px 56px; }
+        h1 { font-size: 26px; }
+        .two-col, .three-col { grid-template-columns: 1fr; }
+        pre { font-size: 12px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="page-header">
+        <span class="eyebrow">Proposal · Living Doc Compositor</span>
+        <h1>Second-Pass Refinement: The Coherence Pass Skill</h1>
+        <p class="subtitle">
+          Adopt the meta-layer as a refinement skill invoked after a doc has
+          stabilized, not as an authoring-time burden. Capture most of the
+          inference-quality gain without calcifying early shape discovery.
+        </p>
+        <div class="meta-row">
+          <span class="pill">Draft</span>
+          <span class="pill">Skill</span>
+          <span class="pill">/crystallize</span>
+          <a class="link-row" href="living-doc-meta-layer-proposal.html">← Meta-Layer Proposal</a>
+        </div>
+      </header>
+
+      <div class="toc">
+        <h4>Contents</h4>
+        <ol>
+          <li><a href="#framing">The framing: not all inference is equal</a></li>
+          <li><a href="#modes">Reading inference vs. editing inference</a></li>
+          <li><a href="#why-second-pass">Why a second-pass skill is the right move</a></li>
+          <li><a href="#skill-shape">The <code>/crystallize</code> skill shape</a></li>
+          <li><a href="#freshness">The freshness risk and three mitigations</a></li>
+          <li><a href="#numbers">What the gain actually is, numerically</a></li>
+          <li><a href="#schema">Schema implications and backward compatibility</a></li>
+          <li><a href="#lifecycle">When to run the skill in a doc's lifecycle</a></li>
+        </ol>
+      </div>
+
+      <section id="framing">
+        <h2>1. The framing: not all inference is equal</h2>
+        <p>
+          The meta-layer proposal describes a set of structural gains — coverage
+          checks, invariant enforcement, multi-agent coherence, deterministic section
+          targeting. Those gains are real, but their <em>value</em> depends on what
+          the LLM is actually doing on the doc at any given moment.
+        </p>
+        <p>
+          A doc is touched by two very different kinds of inference work, and they
+          benefit from meta unequally. Recognizing that asymmetry is what makes the
+          second-pass approach attractive rather than a compromise.
+        </p>
+      </section>
+
+      <section id="modes">
+        <h2>2. Reading inference vs. editing inference</h2>
+        <div class="two-col">
+          <div class="card">
+            <h4>Reading</h4>
+            <p>
+              The LLM answers questions, reports state, summarizes sections,
+              surfaces blockers. Structural re-derivation from prose is something
+              LLMs already do well — the gap between "with meta" and "without meta"
+              is small. Mostly you save tokens and tighten consistency across agents.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Editing</h4>
+            <p>
+              The LLM proposes a change — add a fact, move a card, update status,
+              split a section. This is where meta earns itself back: section
+              targeting becomes deterministic, invariants are pre-checked, and
+              coverage gaps surface before an edit rather than after.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout-info">
+          <p class="callout-title">The honest split</p>
+          <p>
+            Without meta, read inference sits at roughly 90% of its realistic ceiling;
+            edit inference sits closer to 60–70%. Most of the gain lives at edit time.
+            That is why shipping meta as a refinement step — rather than as an
+            authoring gate — loses very little while avoiding a real cost at the most
+            creative phase of a doc's life.
+          </p>
+        </div>
+      </section>
+
+      <section id="why-second-pass">
+        <h2>3. Why a second-pass skill is the right move</h2>
+        <p>
+          Four reasons to make this a skill you invoke, not a schema the author has
+          to fill in:
+        </p>
+        <div class="two-col">
+          <div class="card">
+            <h4>Early iteration is shape-discovery</h4>
+            <p>
+              Facets haven't crystallized. Forcing <code>objectiveFacets</code> at
+              authoring time risks calcifying a bad decomposition before the doc
+              knows its own shape.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Meta is a projection of stable structure</h4>
+            <p>
+              You cannot distill what has not settled. A skill pass after the doc's
+              shape is recognizable gets a better decomposition than any template
+              forced upfront.
+            </p>
+          </div>
+          <div class="card">
+            <h4>The skill works from real data</h4>
+            <p>
+              It reads existing sections, extracts candidate facets from prose +
+              titles + card IDs, proposes coverage edges from what is already there,
+              and spots invariants from observed patterns.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Idempotent re-runs solve drift</h4>
+            <p>
+              The same skill becomes the freshness mechanism. Re-run after
+              significant edits; recompute coverage; flag orphaned facets or drifted
+              rationale.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="skill-shape">
+        <h2>4. The <code>/crystallize</code> skill shape</h2>
+        <p>
+          Call it <code>/crystallize</code>, <code>/coherence-pass</code>, or
+          whatever fits. The shape is the same:
+        </p>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">1</span>
+            <div class="flow-body">
+              <strong>Read the doc</strong>
+              <p>Parse <code>objective</code>, <code>sections</code>, and every card's references.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">2</span>
+            <div class="flow-body">
+              <strong>Propose <code>objectiveFacets</code></strong>
+              <p>Decompose the free-form objective sentence into typed facets. Hints from section titles and card IDs.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">3</span>
+            <div class="flow-body">
+              <strong>Propose <code>coverage</code> edges</strong>
+              <p>Scan section cards. For each facet, emit the <code>{facetId, sectionId, cardId}</code> tuples where the facet is actually carried.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">4</span>
+            <div class="flow-body">
+              <strong>Detect <code>invariants</code></strong>
+              <p>Observe patterns. If every Capability Map card has <code>codePaths</code>, propose that as an invariant. Don't fabricate rules — surface the ones the doc already follows.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">5</span>
+            <div class="flow-body">
+              <strong>Propose per-section <code>rationale</code></strong>
+              <p>For each section, write one sentence on why this convergence type was picked, derived from the type's <code>structuralContract</code> and the section's content.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">6</span>
+            <div class="flow-body">
+              <strong>Write and confirm</strong>
+              <p>Emit doc-root fields + the coherence-map section. Ask the author to accept, tune, or reject the decomposition. Store the accepted version.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">7</span>
+            <div class="flow-body">
+              <strong>Stamp a freshness fingerprint</strong>
+              <p>Record a hash of the sections the meta was derived from. The renderer and any downstream agent can later check: is this meta still current with the content it describes?</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="freshness">
+        <h2>5. The freshness risk and three mitigations</h2>
+        <p>
+          The second-pass approach has one real weakness. Once edit agents rely on
+          <code>coverage</code> edges for targeting, <strong>stale meta is worse
+          than no meta</strong> — it confidently points the wrong way. Three
+          mitigations, in increasing strength:
+        </p>
+
+        <div class="mitigation">
+          <span class="mitigation-strength strength-1">Convention</span>
+          <h4>Pre-flight before editing</h4>
+          <p>
+            Any edit session begins with <code>/crystallize --refresh</code>. Fast,
+            cheap, but it depends on discipline. Works for solo use; fragile in
+            multi-agent settings.
+          </p>
+        </div>
+
+        <div class="mitigation">
+          <span class="mitigation-strength strength-3">Enforcement</span>
+          <h4>Staleness fingerprint + refuse-to-trust</h4>
+          <p>
+            Meta carries a hash of the sections it was derived from. The renderer and
+            any consuming agent refuse to trust <code>coverage</code> if the hash
+            doesn't match the current sections, forcing a refresh. Failure is loud,
+            not silent. Recommended default.
+          </p>
+        </div>
+
+        <div class="mitigation">
+          <span class="mitigation-strength strength-2">Integration</span>
+          <h4>Pre-edit hook in the existing <code>/living-doc</code> skill</h4>
+          <p>
+            The bootstrap skill already connects a session to a doc. It gains a step:
+            verify meta freshness, run <code>/crystallize --refresh</code> if stale,
+            then proceed. Invisible to the author in the common case.
+          </p>
+        </div>
+
+        <div class="callout callout-warning">
+          <p class="callout-title">The failure mode we are avoiding</p>
+          <p>
+            Silent drift. An agent looks at stale coverage edges, targets the wrong
+            card for an edit, writes a confident-looking change, and neither the
+            author nor the reviewer notices that the doc's meta stopped matching
+            reality three edits ago. Fingerprints make this noisy instead of silent.
+          </p>
+        </div>
+      </section>
+
+      <section id="numbers">
+        <h2>6. What the gain actually is, numerically</h2>
+        <p>
+          Rough order-of-magnitude for agent-assisted work on a mature doc with
+          meta present and fresh:
+        </p>
+        <div class="three-col">
+          <div class="stat-card">
+            <h4>Section targeting</h4>
+            <span class="stat-value">~75% → ~95%+</span>
+            <span class="stat-caption">Coverage edges point at exact card instead of the LLM guessing.</span>
+          </div>
+          <div class="stat-card">
+            <h4>Invariant breaks</h4>
+            <span class="stat-value">real → near-zero</span>
+            <span class="stat-caption">Contracts checked at plan time, not review time.</span>
+          </div>
+          <div class="stat-card">
+            <h4>Multi-agent drift</h4>
+            <span class="stat-value">slow → prevented</span>
+            <span class="stat-caption">Rationale + invariants make interpretation structural.</span>
+          </div>
+          <div class="stat-card">
+            <h4>Tokens per edit</h4>
+            <span class="stat-value">meaningful drop</span>
+            <span class="stat-caption">Agent skips re-deriving taxonomy on every pass.</span>
+          </div>
+          <div class="stat-card">
+            <h4>Time-to-productive</h4>
+            <span class="stat-value">biggest win</span>
+            <span class="stat-caption">A new Codex worker loads meta and knows where things live.</span>
+          </div>
+          <div class="stat-card">
+            <h4>Read-quality</h4>
+            <span class="stat-value">5–15% softer</span>
+            <span class="stat-caption">LLMs already re-derive structure well in read mode.</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Without meta</th>
+              <th>With meta (fresh)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Section-targeting correctness</td>
+              <td>Probabilistic from prose</td>
+              <td>Deterministic from coverage edges</td>
+            </tr>
+            <tr>
+              <td>Coverage assessment cost</td>
+              <td>Full doc read</td>
+              <td>Set difference</td>
+            </tr>
+            <tr>
+              <td>Invariant enforcement</td>
+              <td>Uneven, reviewer-dependent</td>
+              <td>Rigorous at plan time</td>
+            </tr>
+            <tr>
+              <td>Rationale for section shape</td>
+              <td>Re-derived per agent</td>
+              <td>Cached in <code>section.rationale</code></td>
+            </tr>
+            <tr>
+              <td>New-agent ramp-up</td>
+              <td>Read all sections</td>
+              <td>Load meta, expand on demand</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="schema">
+        <h2>7. Schema implications and backward compatibility</h2>
+        <p>
+          This is a schema evolution, not just a data addition. But the evolution
+          is clean:
+        </p>
+        <ul>
+          <li><strong>Every new root field is optional.</strong> Docs without <code>objectiveFacets</code>, <code>coverage</code>, or <code>invariants</code> render exactly as today.</li>
+          <li><strong>The <code>coherence-map</code> convergence type is opt-in.</strong> A section only appears if the doc declares one.</li>
+          <li><strong>The free-form <code>objective</code> string stays.</strong> <code>objectiveFacets</code> is a structured companion, not a replacement. Prose remains human-readable; facets become agent-addressable.</li>
+          <li><strong>Reconciliation rule.</strong> If the two drift, the skill treats <code>objectiveFacets</code> as canonical once authored and rewrites the free-form <code>objective</code> as a human-readable restatement on next refresh.</li>
+        </ul>
+
+        <pre><code>// Doc schema today
+{
+  objective: string,
+  sections: Section[]
+}
+
+// Doc schema after adoption (all additions optional)
+{
+  objective:        string,          // unchanged — stays as human prose
+  objectiveFacets?: Facet[],         // structured decomposition (skill-authored)
+  coverage?:        CoverageEdge[],  // facet → section/card mappings
+  invariants?:      Invariant[],     // doc-local contracts
+  metaFingerprint?: string,          // hash of sections at meta-derivation time
+  sections: Section[] {
+    rationale?: string,              // why this convergence type here
+    ... existing fields
+  }
+}</code></pre>
+
+        <div class="callout callout-positive">
+          <p class="callout-title">Clean migration</p>
+          <p>
+            Every existing doc continues to work untouched. New docs can opt in
+            immediately. Docs that matter most — long-lived references, cross-team
+            workstreams — are the first candidates to crystallize. Early drafts can
+            stay uncrystallized until their shape is recognizable.
+          </p>
+        </div>
+      </section>
+
+      <section id="lifecycle">
+        <h2>8. When to run the skill in a doc's lifecycle</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Doc phase</th>
+              <th>Meta state</th>
+              <th>Recommended action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Early authoring — shape unknown</td>
+              <td>None</td>
+              <td>Don't crystallize yet. Let sections settle. Meta would calcify premature choices.</td>
+            </tr>
+            <tr>
+              <td>First stable shape recognized</td>
+              <td>None → fresh</td>
+              <td>Run <code>/crystallize</code> once. Author accepts decomposition.</td>
+            </tr>
+            <tr>
+              <td>Active editing — small changes</td>
+              <td>Fresh</td>
+              <td>Edit normally. Fingerprint stays valid for minor section edits that don't shift coverage.</td>
+            </tr>
+            <tr>
+              <td>Structural change — new section or new facet</td>
+              <td>Fresh → stale</td>
+              <td>Fingerprint invalidates. Re-run <code>/crystallize --refresh</code>.</td>
+            </tr>
+            <tr>
+              <td>Archived / deprecated</td>
+              <td>Frozen</td>
+              <td>Leave meta as-is. It becomes historical context.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout callout-info">
+          <p class="callout-title">Mental model</p>
+          <p>
+            Crystallization is like a git commit on the doc's meaning. You do it when
+            you want a stable snapshot of "here is what this doc is about and how the
+            pieces cover it." Between commits, the fingerprint tells you whether the
+            snapshot is still valid.
+          </p>
+        </div>
+      </section>
+
+      <div class="footer">
+        <p>
+          Companion to
+          <a href="living-doc-meta-layer-proposal.html">living-doc-meta-layer-proposal.html</a>.
+          Adopt the meta-layer as a second-pass refinement skill guarded by a
+          freshness fingerprint. Capture the large edit-time inference gains without
+          the authoring-time friction. Backward compatible and opt-in.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
