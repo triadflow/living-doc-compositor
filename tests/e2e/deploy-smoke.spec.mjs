@@ -38,7 +38,7 @@ test.describe('published GitHub Pages smoke', () => {
     expect(response?.ok(), 'living-doc-compositor.html should return a successful response').toBeTruthy();
     await expect(page.locator('#top-bar')).toContainText('Living Doc Compositor');
     await page.locator('[data-rail-mode="guide"]').click();
-    await expect(page.locator('#guide-panel')).toContainText('What is this?');
+    await expect(page.locator('#guide-panel')).toContainText('Start Here');
     await expect(page.locator('#guide-panel')).not.toContainText(/guide[A-Z][A-Za-z0-9]*/);
 
     expect(pageErrors).toEqual([]);
