@@ -553,12 +553,26 @@
   }
   .doc-preview-pills { margin: 0 0 18px; }
   .json-preview {
+    position: relative;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12.5px; line-height: 1.5;
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     max-height: calc(100vh - 120px); overflow: auto;
   }
   .json-preview-lines { padding: 20px; min-width: max-content; }
+  .json-copy-btn {
+    position: sticky; float: right; top: 10px; right: 10px; margin: 10px 10px 0 0;
+    z-index: 2;
+    padding: 5px 12px; font: inherit; font-size: 11.5px; font-weight: 600;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 6px; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .json-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .json-copy-btn[data-copied="true"] {
+    background: var(--positive-bg); color: var(--positive-ink); border-color: #bbf7d0;
+  }
   .json-line {
     display: block; padding: 0 10px; border-radius: 8px; white-space: pre;
     scroll-margin-top: 92px; transition: background-color 0.15s, border-color 0.15s;
@@ -1345,6 +1359,10 @@
       "flowCrystallize": "Copy /crystallize prompt",
       "flowCrystallizeCopied": "Copied",
       "flowResetLayout": "Reset layout",
+      "jsonCopy": "Copy JSON",
+      "jsonCopied": "Copied",
+      "jsonCopyTitle": "Copy the full doc JSON to the clipboard",
+      "jsonCopyFallback": "Copy the JSON below:",
       "templates": "Templates",
       "templatesHint": "Browse starter and advanced living doc templates",
       "templatesIntro": "Start with a simple starter template or jump straight into a fuller advanced shape.",
@@ -1665,6 +1683,10 @@
       "flowCrystallize": "Kopieer /crystallize-prompt",
       "flowCrystallizeCopied": "Gekopieerd",
       "flowResetLayout": "Layout resetten",
+      "jsonCopy": "JSON kopiëren",
+      "jsonCopied": "Gekopieerd",
+      "jsonCopyTitle": "Kopieer het volledige doc-JSON naar het klembord",
+      "jsonCopyFallback": "Kopieer de JSON hieronder:",
       "templates": "Templates",
       "templatesHint": "Blader door starter- en geavanceerde living-doc-templates",
       "templatesIntro": "Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.",
@@ -2156,6 +2178,10 @@
       "flowCrystallize": "Salin prompt /crystallize",
       "flowCrystallizeCopied": "Tersalin",
       "flowResetLayout": "Reset tata letak",
+      "jsonCopy": "Salin JSON",
+      "jsonCopied": "Tersalin",
+      "jsonCopyTitle": "Salin JSON dokumen lengkap ke clipboard",
+      "jsonCopyFallback": "Salin JSON di bawah ini:",
       "templates": "Template",
       "templatesHint": "Jelajahi template starter dan lanjutan living doc",
       "templatesIntro": "Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.",
@@ -9120,6 +9146,25 @@
       });
     }
 
+    if (state.previewTab === 'json') {
+      panel.querySelector('[data-json-copy]')?.addEventListener('click', async (event) => {
+        const btn = event.currentTarget;
+        const text = JSON.stringify(buildJson(), null, 2);
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            window.prompt(t('jsonCopyFallback'), text);
+          }
+          btn.dataset.copied = 'true';
+          btn.textContent = t('jsonCopied');
+          setTimeout(() => { btn.dataset.copied = 'false'; btn.textContent = t('jsonCopy'); }, 1600);
+        } catch (err) {
+          window.prompt(t('jsonCopyFallback'), text);
+        }
+      });
+    }
+
     if (state.previewTab === 'visual') {
       const bindDocField = (id, setter, afterInput) => {
         const input = panel.querySelector(`#${id}`);
@@ -10057,6 +10102,7 @@
 
     return `
       <div class="json-preview">
+        <button type="button" class="json-copy-btn" data-json-copy title="${esc(t('jsonCopyTitle'))}">${esc(t('jsonCopy'))}</button>
         <div class="json-preview-lines">
           ${lines.map((line, index) => {
             const isFocused = focusedSectionId && line.sectionId === focusedSectionId;
