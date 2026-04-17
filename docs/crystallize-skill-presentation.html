@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>/crystallize — Presentation</title>
+<meta name="description" content="A slide presentation of the /crystallize skill: second-pass governance for living docs." />
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --ink: #1a2332; --muted: #64748b;
+    --line: #e2e8f0; --accent: #2563eb; --accent-light: #dbeafe;
+    --warning-bg: #fff7ed; --warning-ink: #9a3412;
+    --positive-bg: #ecfdf5; --positive-ink: #166534;
+    --neutral-bg: #f1f5f9; --neutral-ink: #475569;
+    --radius: 12px; --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 20px 50px rgba(15,23,42,0.10), 0 4px 12px rgba(15,23,42,0.05);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body {
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  em { font-style: normal; color: var(--accent); font-weight: 600; }
+
+  /* ── Progress bar ── */
+  .progress {
+    position: fixed; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--line); z-index: 10;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent);
+    transition: width 0.3s ease; width: 0;
+  }
+
+  /* ── Deck ── */
+  .deck { position: relative; width: 100%; height: 100%; overflow: hidden; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 64px 88px; opacity: 0; pointer-events: none;
+    transform: translateX(24px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    overflow-y: auto;
+  }
+  .slide.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
+  .slide-inner { max-width: 1080px; margin: 0 auto; width: 100%; }
+
+  /* ── Slide chrome ── */
+  .slide-counter {
+    position: fixed; bottom: 24px; right: 32px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.04em; z-index: 5;
+  }
+  .slide-counter strong { color: var(--ink); }
+  .nav {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 5;
+  }
+  .nav-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--card); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--ink); font-size: 14px;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .brand {
+    position: fixed; top: 24px; left: 32px;
+    display: flex; align-items: center; gap: 10px; z-index: 5;
+  }
+  .brand .logo {
+    width: 26px; height: 26px; border-radius: 6px; background: var(--accent);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 12px;
+  }
+  .brand span { font-size: 12.5px; font-weight: 600; color: var(--muted); letter-spacing: -0.01em; }
+
+  /* ── Typography ── */
+  .eyebrow {
+    display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent);
+    background: var(--accent-light); padding: 5px 11px; border-radius: 999px; margin-bottom: 24px;
+  }
+  h1.deck-title {
+    font-size: clamp(44px, 5.5vw, 72px); line-height: 1.02; font-weight: 800;
+    letter-spacing: -0.035em; margin-bottom: 24px;
+  }
+  h1.deck-title .cmd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+  h2 {
+    font-size: clamp(32px, 3.5vw, 46px); line-height: 1.1; font-weight: 800;
+    letter-spacing: -0.03em; margin-bottom: 20px; max-width: 900px;
+  }
+  p.lede { font-size: 20px; color: var(--muted); max-width: 780px; line-height: 1.55; }
+  p.body { font-size: 17px; color: var(--ink); max-width: 780px; line-height: 1.6; margin-bottom: 14px; }
+  .deck-sub {
+    font-size: 20px; color: var(--muted); max-width: 760px; line-height: 1.5;
+    margin-bottom: 32px;
+  }
+
+  /* ── Cards ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 28px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 24px; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 28px; }
+
+  .card {
+    padding: 22px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  }
+  .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .card p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+  .card .label {
+    display: inline-block; width: 26px; height: 26px; border-radius: 6px;
+    background: var(--accent-light); color: var(--accent);
+    font-weight: 800; font-size: 12px; text-align: center; line-height: 26px;
+    margin-bottom: 10px;
+  }
+  .card-dark {
+    background: var(--ink); color: #f1f5f9;
+    border-color: var(--ink);
+  }
+  .card-dark h3 { color: #f8fafc; }
+  .card-dark p { color: #cbd5e1; }
+  .card-dark code { color: #93c5fd; }
+
+  /* ── Derivations cards (slide 3) ── */
+  .derivation {
+    padding: 20px 18px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+  }
+  .derivation .slot {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .derivation h3 {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14.5px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .derivation p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* ── Usage block ── */
+  .usage-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .usage-row {
+    display: grid; grid-template-columns: 360px 1fr; gap: 20px;
+    padding: 14px 18px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); align-items: center;
+  }
+  .usage-row .cmd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px; color: var(--accent); font-weight: 700;
+  }
+  .usage-row .desc { font-size: 14px; color: var(--muted); }
+
+  /* ── Step rail ── */
+  .step-rail { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+  .step-row {
+    display: grid; grid-template-columns: 56px 1fr; gap: 16px;
+    padding: 16px 18px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); align-items: flex-start;
+  }
+  .step-num {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; flex-shrink: 0;
+  }
+  .step-body h3 {
+    font-size: 15.5px; font-weight: 700; margin-bottom: 3px; letter-spacing: -0.01em;
+  }
+  .step-body p { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .step-body .tag {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 4px;
+    background: var(--accent-light); color: var(--accent);
+    margin-right: 6px; vertical-align: middle;
+  }
+
+  /* ── Mode cards ── */
+  .mode-card {
+    padding: 22px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .mode-card .mode-flag {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px; font-weight: 700; color: var(--accent);
+    background: var(--accent-light); padding: 5px 10px; border-radius: 6px;
+    align-self: flex-start;
+  }
+  .mode-card h3 { font-size: 16px; font-weight: 700; }
+  .mode-card p { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .mode-card ul { padding-left: 18px; margin-top: 4px; }
+  .mode-card li { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── Principles ── */
+  .principles { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+  .principle {
+    display: grid; grid-template-columns: 38px 1fr; gap: 14px; align-items: flex-start;
+    padding: 16px 20px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  }
+  .principle .num {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--accent-light); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px;
+  }
+  .principle h3 { font-size: 15px; font-weight: 700; margin-bottom: 3px; letter-spacing: -0.01em; }
+  .principle p { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+
+  /* ── Sample output block ── */
+  .output-block {
+    margin-top: 24px; padding: 22px 26px;
+    background: var(--ink); color: #e2e8f0;
+    border-radius: var(--radius-lg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px; line-height: 1.65;
+    box-shadow: var(--shadow-lg);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .output-block .k { color: #93c5fd; }
+  .output-block .v { color: #e2e8f0; }
+  .output-block .c { color: #64748b; }
+
+  /* ── Hint + kbd ── */
+  .hint {
+    position: fixed; bottom: 24px; left: 32px;
+    font-size: 11.5px; color: var(--muted); z-index: 5;
+    display: flex; gap: 10px; align-items: center;
+  }
+  kbd {
+    display: inline-block; padding: 2px 7px;
+    border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; background: var(--card);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; color: var(--ink); font-weight: 600;
+  }
+
+  /* ── Title slide ── */
+  .title-slide h1 {
+    font-size: clamp(56px, 7vw, 92px); line-height: 1.0; font-weight: 800;
+    letter-spacing: -0.04em; margin-bottom: 28px;
+  }
+  .title-slide h1 .cmd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--accent);
+  }
+  .title-slide .subtitle {
+    font-size: clamp(20px, 2.2vw, 28px); line-height: 1.3; font-weight: 600;
+    color: var(--ink); max-width: 780px; letter-spacing: -0.01em;
+    margin-bottom: 24px;
+  }
+  .title-slide .tag-strip {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px;
+  }
+  .title-slide .tag-strip .pill {
+    padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 12.5px; font-weight: 600; color: var(--ink); background: var(--card);
+  }
+
+  /* ── Spotlight (slide 2) ── */
+  .spotlight {
+    margin-top: 32px; padding: 32px 36px;
+    border-left: 4px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 5%, var(--card));
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 20px; line-height: 1.5; font-weight: 600; color: var(--ink);
+    max-width: 820px;
+  }
+  .spotlight em { font-weight: 700; }
+
+  /* ── Schema example (slide 3 bottom) ── */
+  .schema-example {
+    margin-top: 28px; padding: 18px 22px;
+    background: var(--neutral-bg); border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; color: var(--ink); line-height: 1.6;
+    white-space: pre; overflow-x: auto;
+  }
+  .schema-example .k { color: var(--accent); }
+  .schema-example .s { color: var(--positive-ink); }
+
+  @media (max-width: 900px) {
+    .slide { padding: 56px 36px 80px; }
+    .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr 1fr; }
+    .usage-row { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="brand">
+  <div class="logo">L</div>
+  <span>Living Doc Compositor · Skill brief</span>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <section class="slide active title-slide" data-slide="1">
+    <div class="slide-inner">
+      <div class="eyebrow">Skill</div>
+      <h1><span class="cmd">/crystallize</span></h1>
+      <div class="subtitle">Second-pass governance for living docs. Move silent reasoning into structured data inside the document.</div>
+      <div class="tag-strip">
+        <span class="pill">Derives facets · coverage · invariants · rationale</span>
+        <span class="pill">Stamps a metaFingerprint</span>
+        <span class="pill">Not an authoring gate</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 2: What it does + when -->
+  <section class="slide" data-slide="2">
+    <div class="slide-inner">
+      <div class="eyebrow">What it does</div>
+      <h2>Every LLM pass re-derives the same reasoning silently. Crystallize captures it.</h2>
+      <p class="lede">
+        A living doc's objective, invariants, and coverage exist implicitly — rebuilt by every reader, every agent, every review. Crystallize moves that reasoning out of the reader's head and into the document's structure.
+      </p>
+      <div class="spotlight">
+        Run it <em>after a doc's shape has stabilized</em>, not while sections are still being discovered. If there is no <code>objective</code>, the doc is too early — crystallize will stop and say so.
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 3: What gets derived -->
+  <section class="slide" data-slide="3">
+    <div class="slide-inner">
+      <div class="eyebrow">Derivations</div>
+      <h2>Five fields written to the doc root.</h2>
+      <p class="lede">Each one traceable to content that already lives in the doc. Meta is derived, never invented.</p>
+      <div class="grid-5">
+        <div class="derivation">
+          <div class="slot">01</div>
+          <h3>objectiveFacets</h3>
+          <p>Decompose the free-form objective into typed, named facets (~5–10).</p>
+        </div>
+        <div class="derivation">
+          <div class="slot">02</div>
+          <h3>coverage</h3>
+          <p>Edges from each facet to the sections and cards that carry it.</p>
+        </div>
+        <div class="derivation">
+          <div class="slot">03</div>
+          <h3>invariants</h3>
+          <p>Observed regularities the doc already follows — not new contracts.</p>
+        </div>
+        <div class="derivation">
+          <div class="slot">04</div>
+          <h3>section.rationale</h3>
+          <p>One sentence per section: why this convergenceType fits this content.</p>
+        </div>
+        <div class="derivation">
+          <div class="slot">05</div>
+          <h3>metaFingerprint</h3>
+          <p>SHA pin over the current sections. Written last, after governance fields.</p>
+        </div>
+      </div>
+      <div class="schema-example">{
+  <span class="k">"objectiveFacets"</span>: [{ <span class="k">"id"</span>: <span class="s">"ui-fidelity"</span>, <span class="k">"name"</span>: <span class="s">"UI fidelity"</span>, <span class="k">"description"</span>: <span class="s">"..."</span> }],
+  <span class="k">"coverage"</span>:        [{ <span class="k">"facetId"</span>: <span class="s">"ui-fidelity"</span>, <span class="k">"sectionId"</span>: <span class="s">"mobile-capabilities"</span>, <span class="k">"cardId"</span>: <span class="s">"auth-sign-in"</span> }],
+  <span class="k">"invariants"</span>:      [{ <span class="k">"id"</span>: <span class="s">"capability-needs-code-path"</span>, <span class="k">"appliesTo"</span>: [<span class="s">"mobile-capabilities"</span>] }],
+  <span class="k">"metaFingerprint"</span>: <span class="s">"sha256:7c4a…"</span>
+}</div>
+    </div>
+  </section>
+
+  <!-- Slide 4: Usage -->
+  <section class="slide" data-slide="4">
+    <div class="slide-inner">
+      <div class="eyebrow">Usage</div>
+      <h2>Four invocations. One idempotent mode. One safe-to-try mode.</h2>
+      <div class="usage-list">
+        <div class="usage-row">
+          <div class="cmd">/crystallize</div>
+          <div class="desc">Interactive. Picks the most relevant doc.</div>
+        </div>
+        <div class="usage-row">
+          <div class="cmd">/crystallize &lt;path/to/doc.json&gt;</div>
+          <div class="desc">Crystallize a specific doc.</div>
+        </div>
+        <div class="usage-row">
+          <div class="cmd">/crystallize &lt;path&gt; --refresh</div>
+          <div class="desc">Idempotent re-run. Preserves author-edited meta.</div>
+        </div>
+        <div class="usage-row">
+          <div class="cmd">/crystallize &lt;path&gt; --dry-run</div>
+          <div class="desc">Print proposals without writing to the file.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 5: Execution steps 1-4 -->
+  <section class="slide" data-slide="5">
+    <div class="slide-inner">
+      <div class="eyebrow">Execution · 1–4</div>
+      <h2>Read the doc. Propose the meta.</h2>
+      <div class="step-rail">
+        <div class="step-row">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3><span class="tag">Read</span>Load JSON, inspect every section and card</h3>
+            <p>Parse <code>objective</code>, <code>successCondition</code>, and each section's <code>id</code>, <code>title</code>, <code>convergenceType</code>, cards. No <code>objective</code> → stop.</p>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3><span class="tag">Propose</span>objectiveFacets</h3>
+            <p>Decompose the objective sentence into typed facets. Enumerated nouns and section titles are strong candidates. Target ~5–10. Fewer than 3 or more than 15 signals under- or over-specification.</p>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3><span class="tag">Propose</span>coverage edges</h3>
+            <p>For each facet, emit <code>{facetId, sectionId, cardId}</code> only where card content clearly relates. A facet can be carried by many sections. Missing carrier? Flag as orphan, don't fabricate.</p>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3><span class="tag">Detect</span>invariants</h3>
+            <p>Observe patterns the doc already follows — every capability card has <code>codePaths</code>, every verification card has a ticket. Zero invariants is a valid outcome.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 6: Execution steps 5-8 -->
+  <section class="slide" data-slide="6">
+    <div class="slide-inner">
+      <div class="eyebrow">Execution · 5–8</div>
+      <h2>Write rationale. Confirm. Stamp. Re-render.</h2>
+      <div class="step-rail">
+        <div class="step-row">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h3><span class="tag">Propose</span>per-section rationale</h3>
+            <p>One sentence per section explaining why <em>this</em> data wanted <em>this</em> convergenceType. Not the registry description — the contextual fit.</p>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <h3><span class="tag">Write</span>show summary, ask to accept or edit</h3>
+            <p>Print facets, coverage edges, invariants, rationale counts, orphans, drift. On accept, write root fields in order: <code>objective → objectiveFacets → coverage → invariants → metaFingerprint → sections</code>.</p>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <h3><span class="tag">Stamp</span>metaFingerprint</h3>
+            <p>Compute via <code>computeSectionFingerprint(doc.sections)</code> from <code>scripts/meta-fingerprint.mjs</code>. Write last so it pins the exact sections inspected.</p>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">8</div>
+          <div class="step-body">
+            <h3><span class="tag">Re-render</span>node scripts/render-living-doc.mjs &lt;path&gt;</h3>
+            <p>The coherence-map section picks up derived items automatically. The freshness banner disappears.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 7: Modes -->
+  <section class="slide" data-slide="7">
+    <div class="slide-inner">
+      <div class="eyebrow">Modes</div>
+      <h2>Three ways to run. Each preserves something different.</h2>
+      <div class="grid-3">
+        <div class="mode-card">
+          <div class="mode-flag">default</div>
+          <h3>Interactive propose → accept</h3>
+          <p>Shows a full summary: facets, coverage, invariants, rationale counts, orphans, drift. User accepts, rejects, or edits before write.</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-flag">--refresh</div>
+          <h3>Idempotent re-run</h3>
+          <ul>
+            <li>Uses existing facets, invariants, rationale as priors</li>
+            <li>Recomputes coverage from current sections</li>
+            <li>Preserves ids unless explicitly removed</li>
+            <li>No-ops if nothing changed: "meta is current."</li>
+          </ul>
+        </div>
+        <div class="mode-card">
+          <div class="mode-flag">--dry-run</div>
+          <h3>Inspect without writing</h3>
+          <p>Prints all proposals. Reports what would change. No file modification. Safe to try on any doc to see what crystallization would propose.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 8: Sample output -->
+  <section class="slide" data-slide="8">
+    <div class="slide-inner">
+      <div class="eyebrow">Sample output</div>
+      <h2>What you see after a successful run.</h2>
+      <div class="output-block"><span class="c">Proposed crystallization for</span> <span class="k">Mobile Companion Workstream</span>:
+
+<span class="k">Objective facets</span> (7):
+  - ui-fidelity         UI fidelity
+  - repo-connect        Repo connection
+  - push-runtime        Push runtime
+  - sign-in-flow        Sign-in flow
+  - verification-gate   Verification gate
+  - release-channel     Release channel
+  - telemetry-shape     Telemetry shape
+
+<span class="k">Coverage</span> (14 edges):
+  ui-fidelity       -&gt; mobile-capabilities/auth-sign-in
+  ui-fidelity       -&gt; verification-plan/pixel-match
+  repo-connect      -&gt; mobile-capabilities/repo-list
+  ...
+
+<span class="k">Invariants</span> (2):
+  - capability-needs-code-path        applies to [mobile-capabilities]
+  - verification-has-ticket           applies to [verification-plan]
+
+<span class="k">Section rationale updates</span>: 4 sections
+<span class="k">Orphaned facets</span>: none
+<span class="k">Dropped coverage</span>: none
+
+<span class="c">Accept? (y / edit / n)</span> _</div>
+    </div>
+  </section>
+
+  <!-- Slide 9: Principles -->
+  <section class="slide" data-slide="9">
+    <div class="slide-inner">
+      <div class="eyebrow">Key principles</div>
+      <h2>Five rules that shape every crystallization.</h2>
+      <div class="principles">
+        <div class="principle">
+          <div class="num">1</div>
+          <div>
+            <h3>Meta is derived, not invented</h3>
+            <p>Every facet, edge, invariant, and rationale must trace to something already in the doc.</p>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="num">2</div>
+          <div>
+            <h3>Preserve author intent on refresh</h3>
+            <p>Explicit edits to rationale, invariants, or facet descriptions survive re-crystallization unless structure forces a change.</p>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="num">3</div>
+          <div>
+            <h3>Surface orphans, don't paper over them</h3>
+            <p>An orphan facet is a signal — either the objective has a gap or the sections do. Either way, show it.</p>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="num">4</div>
+          <div>
+            <h3>Stamp the fingerprint last</h3>
+            <p>It pins the meta to the exact sections that were inspected. Write it after everything else is in place.</p>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="num">5</div>
+          <div>
+            <h3>Crystallize when the shape is stable</h3>
+            <p>If the user is still shaping the doc, say so and wait. Premature crystallization bakes in the wrong structure.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="hint">
+  <span>Navigate with</span>
+  <kbd>←</kbd> <kbd>→</kbd>
+  <span>or</span>
+  <kbd>Space</kbd>
+</div>
+
+<div class="slide-counter">
+  <strong id="currentSlide">1</strong> <span id="totalSlides">/ 9</span>
+</div>
+
+<div class="nav">
+  <button class="nav-btn" id="prevBtn" aria-label="Previous slide">←</button>
+  <button class="nav-btn" id="nextBtn" aria-label="Next slide">→</button>
+</div>
+
+<script>
+  (function () {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const total = slides.length;
+    const progressFill = document.getElementById('progressFill');
+    const currentEl = document.getElementById('currentSlide');
+    const totalEl = document.getElementById('totalSlides');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    let idx = 0;
+
+    totalEl.textContent = '/ ' + total;
+
+    function render() {
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      progressFill.style.width = ((idx + 1) / total * 100) + '%';
+      currentEl.textContent = String(idx + 1);
+      prevBtn.disabled = idx === 0;
+      nextBtn.disabled = idx === total - 1;
+      history.replaceState(null, '', '#' + (idx + 1));
+    }
+
+    function go(n) {
+      idx = Math.max(0, Math.min(total - 1, n));
+      render();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(idx + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(idx - 1); }
+      else if (e.key === 'Home') { go(0); }
+      else if (e.key === 'End') { go(total - 1); }
+    });
+
+    prevBtn.addEventListener('click', () => go(idx - 1));
+    nextBtn.addEventListener('click', () => go(idx + 1));
+
+    const fromHash = parseInt((location.hash || '#1').slice(1), 10);
+    if (!Number.isNaN(fromHash) && fromHash >= 1 && fromHash <= total) idx = fromHash - 1;
+    render();
+  })();
+</script>
+
+</body>
+</html>
