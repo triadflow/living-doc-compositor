@@ -444,6 +444,15 @@
     opacity: 0.4; filter: saturate(0.6);
   }
   .flow-canvas-wrap.flow-stale .flow-wire-coverage.flow-wire-drift { opacity: 0.5; }
+  .flow-node[data-flow-positioned="true"] { position: absolute; z-index: 2; width: 260px; }
+  .flow-node.flow-node-dragging { opacity: 0.85; box-shadow: 0 4px 14px rgba(0,0,0,0.12); cursor: grabbing; z-index: 3; }
+  .flow-node .flow-node-header h5 { cursor: grab; user-select: none; }
+  .flow-reset-layout-btn {
+    margin-left: auto; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--card); border-radius: 7px;
+    color: var(--muted); cursor: pointer;
+  }
+  .flow-reset-layout-btn:hover { border-color: var(--accent); color: var(--accent); }
   .flow-empty {
     margin: 24px; padding: 32px 36px; border-radius: 14px;
     background: var(--card); border: 1px dashed var(--line);
@@ -1327,6 +1336,7 @@
       "flowStamped": "Stamped",
       "flowCrystallize": "Copy /crystallize prompt",
       "flowCrystallizeCopied": "Copied",
+      "flowResetLayout": "Reset layout",
       "templates": "Templates",
       "templatesHint": "Browse starter and advanced living doc templates",
       "templatesIntro": "Start with a simple starter template or jump straight into a fuller advanced shape.",
@@ -1616,6 +1626,7 @@
       "flowStamped": "Gestempeld",
       "flowCrystallize": "Kopieer /crystallize-prompt",
       "flowCrystallizeCopied": "Gekopieerd",
+      "flowResetLayout": "Layout resetten",
       "templates": "Templates",
       "templatesHint": "Blader door starter- en geavanceerde living-doc-templates",
       "templatesIntro": "Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.",
@@ -2076,6 +2087,7 @@
       "flowStamped": "Tersegel",
       "flowCrystallize": "Salin prompt /crystallize",
       "flowCrystallizeCopied": "Tersalin",
+      "flowResetLayout": "Reset tata letak",
       "templates": "Template",
       "templatesHint": "Jelajahi template starter dan lanjutan living doc",
       "templatesIntro": "Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.",
@@ -9404,6 +9416,85 @@
       setTimeout(() => { btn.textContent = original; }, 1600);
     });
 
+    // Reset-layout button
+    panel.querySelector('[data-flow-reset-layout]')?.addEventListener('click', () => {
+      const facets = govFacets().map(({ flowPosition, ...rest }) => rest);
+      const invariants = govInvariants().map(({ flowPosition, ...rest }) => rest);
+      govSetFacets(facets);
+      govSetInvariants(invariants);
+      state.sections = state.sections.map(({ flowPosition, ...rest }) => rest);
+      flowRerender();
+    });
+
+    // Double-click a node to clear its flowPosition
+    canvas.querySelectorAll('.flow-node').forEach((node) => {
+      node.addEventListener('dblclick', (event) => {
+        if (event.target.closest('.flow-port, .flow-remove, [data-flow-docwide], .flow-rationale, [data-flow-reset-layout]')) return;
+        const kind = node.dataset.flowKind;
+        const id = node.dataset.flowId;
+        if (kind === 'facet') {
+          govSetFacets(govFacets().map((f) => f.id === id ? (({ flowPosition, ...r }) => r)(f) : f));
+        } else if (kind === 'invariant') {
+          govSetInvariants(govInvariants().map((i) => i.id === id ? (({ flowPosition, ...r }) => r)(i) : i));
+        } else if (kind === 'section') {
+          state.sections = state.sections.map((s) => s.id === id ? (({ flowPosition, ...r }) => r)(s) : s);
+        }
+        flowRerender();
+      });
+    });
+
+    // Drag a node body to reposition. Threshold distinguishes drag from click.
+    canvas.querySelectorAll('.flow-node').forEach((node) => {
+      node.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('.flow-port, .flow-remove, [data-flow-docwide], .flow-rationale, [data-flow-reset-layout]')) return;
+        if (event.target.closest('[data-flow-edge]')) return;
+        event.preventDefault();
+        const canvasRect = canvas.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const offX = event.clientX - nodeRect.left;
+        const offY = event.clientY - nodeRect.top;
+        const startClientX = event.clientX;
+        const startClientY = event.clientY;
+        let dragging = false;
+        const onMove = (ev) => {
+          const dx = ev.clientX - startClientX;
+          const dy = ev.clientY - startClientY;
+          if (!dragging && Math.hypot(dx, dy) < 4) return;
+          dragging = true;
+          const currentCanvasRect = canvas.getBoundingClientRect();
+          const x = Math.max(0, ev.clientX - currentCanvasRect.left - offX);
+          const y = Math.max(0, ev.clientY - currentCanvasRect.top - offY);
+          node.classList.add('flow-node-dragging');
+          node.dataset.flowPositioned = 'true';
+          node.style.left = x + 'px';
+          node.style.top = y + 'px';
+          requestAnimationFrame(() => drawFlowWires(buildJson()));
+        };
+        const onUp = (ev) => {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          node.classList.remove('flow-node-dragging');
+          if (!dragging) return;
+          const finalRect = node.getBoundingClientRect();
+          const finalCanvasRect = canvas.getBoundingClientRect();
+          const x = Math.round(finalRect.left - finalCanvasRect.left);
+          const y = Math.round(finalRect.top - finalCanvasRect.top);
+          const kind = node.dataset.flowKind;
+          const id = node.dataset.flowId;
+          if (kind === 'facet') {
+            govSetFacets(govFacets().map((f) => f.id === id ? { ...f, flowPosition: { x, y } } : f));
+          } else if (kind === 'invariant') {
+            govSetInvariants(govInvariants().map((i) => i.id === id ? { ...i, flowPosition: { x, y } } : i));
+          } else if (kind === 'section') {
+            state.sections = state.sections.map((s) => s.id === id ? { ...s, flowPosition: { x, y } } : s);
+          }
+          flowRerender();
+        };
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+      });
+    });
+
     // Drag to create a wire
     canvas.querySelectorAll('[data-port="facet-out"]').forEach((port) => {
       port.addEventListener('pointerdown', (event) => {
@@ -9599,6 +9690,11 @@
     const rationalesDeclared = sections.filter((s) => (s.rationale || '').trim().length > 0).length;
     const invArrows = invariants.reduce((n, inv) => n + (Array.isArray(inv.appliesTo) ? inv.appliesTo.length : 0), 0);
 
+    const anyPositioned =
+      facets.some((f) => f.flowPosition) ||
+      sections.some((s) => s.flowPosition) ||
+      invariants.some((i) => i.flowPosition);
+
     const statsHtml = `
       <span class="flow-stat"><strong>${facets.length}</strong> facets</span>
       <span class="flow-stat"><strong>${sections.length}</strong> sections</span>
@@ -9606,13 +9702,22 @@
       <span class="flow-stat"><strong>${invariants.length}</strong> invariants \u00b7 ${invArrows} arrows</span>
       <span class="flow-stat"><strong>${rationalesDeclared}/${sections.length}</strong> rationales</span>
       ${orphanCount > 0 ? `<span class="flow-stat flow-stat-bad"><strong>${orphanCount}</strong> orphaned</span>` : ''}
-      ${driftCount > 0 ? `<span class="flow-stat flow-stat-warn"><strong>${driftCount}</strong> drifted</span>` : ''}`;
+      ${driftCount > 0 ? `<span class="flow-stat flow-stat-warn"><strong>${driftCount}</strong> drifted</span>` : ''}
+      ${anyPositioned ? `<button type="button" class="flow-reset-layout-btn" data-flow-reset-layout title="Clear all flowPosition values">${esc(t('flowResetLayout'))}</button>` : ''}`;
+
+    const positionStyle = (node) => {
+      const p = node?.flowPosition;
+      if (!p || typeof p !== 'object') return '';
+      const x = Number.isFinite(p.x) ? p.x : 0;
+      const y = Number.isFinite(p.y) ? p.y : 0;
+      return ` data-flow-positioned="true" style="left:${x}px;top:${y}px"`;
+    };
 
     const facetsHtml = facets.map((facet) => {
       const { status } = state.facetStatus.get(facet.id) || { status: 'orphaned' };
       const orphan = status === 'orphaned';
       return `
-        <article class="flow-node ${orphan ? 'flow-node-orphan' : ''}" data-flow-kind="facet" data-flow-id="${esc(facet.id)}">
+        <article class="flow-node ${orphan ? 'flow-node-orphan' : ''}" data-flow-kind="facet" data-flow-id="${esc(facet.id)}"${positionStyle(facet)}>
           <button type="button" class="flow-remove" data-flow-remove="facet" data-flow-id="${esc(facet.id)}" title="Remove facet">\u00d7</button>
           <div class="flow-node-header">
             <h5>${esc(facet.name || facet.id)}</h5>
@@ -9633,7 +9738,7 @@
       const chips = cards.filter((c) => c && c.id).slice(0, 8).map((c) => `<span class="flow-card-chip">${esc(c.id)}</span>`).join('');
       const overflow = cards.filter((c) => c && c.id).length - 8;
       return `
-        <article class="flow-node" data-flow-kind="section" data-flow-id="${esc(section.id)}">
+        <article class="flow-node" data-flow-kind="section" data-flow-id="${esc(section.id)}"${positionStyle(section)}>
           <button type="button" class="flow-remove" data-flow-remove="section" data-flow-id="${esc(section.id)}" title="Remove section">\u00d7</button>
           <div class="flow-node-header">
             <h5>${esc(section.title || section.id)}</h5>
@@ -9654,7 +9759,7 @@
         ? 'Doc-wide — click to scope to individual sections'
         : 'Click to make doc-wide (appliesTo: ["*"]); removes any section-specific entries';
       return `
-        <article class="flow-node flow-invariant" data-flow-kind="invariant" data-flow-id="${esc(inv.id)}">
+        <article class="flow-node flow-invariant" data-flow-kind="invariant" data-flow-id="${esc(inv.id)}"${positionStyle(inv)}>
           <button type="button" class="flow-remove" data-flow-remove="invariant" data-flow-id="${esc(inv.id)}" title="Remove invariant">\u00d7</button>
           <div class="flow-node-header">
             <h5>${esc(inv.name || inv.id)}</h5>

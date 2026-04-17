@@ -1887,6 +1887,15 @@
     opacity: 0.4; filter: saturate(0.6);
   }
   .flow-canvas-wrap.flow-stale .flow-wire-coverage.flow-wire-drift { opacity: 0.5; }
+  .flow-node[data-flow-positioned=&quot;true&quot;] { position: absolute; z-index: 2; width: 260px; }
+  .flow-node.flow-node-dragging { opacity: 0.85; box-shadow: 0 4px 14px rgba(0,0,0,0.12); cursor: grabbing; z-index: 3; }
+  .flow-node .flow-node-header h5 { cursor: grab; user-select: none; }
+  .flow-reset-layout-btn {
+    margin-left: auto; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--card); border-radius: 7px;
+    color: var(--muted); cursor: pointer;
+  }
+  .flow-reset-layout-btn:hover { border-color: var(--accent); color: var(--accent); }
   .flow-empty {
     margin: 24px; padding: 32px 36px; border-radius: 14px;
     background: var(--card); border: 1px dashed var(--line);
@@ -2770,6 +2779,7 @@
       &quot;flowStamped&quot;: &quot;Stamped&quot;,
       &quot;flowCrystallize&quot;: &quot;Copy /crystallize prompt&quot;,
       &quot;flowCrystallizeCopied&quot;: &quot;Copied&quot;,
+      &quot;flowResetLayout&quot;: &quot;Reset layout&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Browse starter and advanced living doc templates&quot;,
       &quot;templatesIntro&quot;: &quot;Start with a simple starter template or jump straight into a fuller advanced shape.&quot;,
@@ -3059,6 +3069,7 @@
       &quot;flowStamped&quot;: &quot;Gestempeld&quot;,
       &quot;flowCrystallize&quot;: &quot;Kopieer /crystallize-prompt&quot;,
       &quot;flowCrystallizeCopied&quot;: &quot;Gekopieerd&quot;,
+      &quot;flowResetLayout&quot;: &quot;Layout resetten&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Blader door starter- en geavanceerde living-doc-templates&quot;,
       &quot;templatesIntro&quot;: &quot;Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.&quot;,
@@ -3519,6 +3530,7 @@
       &quot;flowStamped&quot;: &quot;Tersegel&quot;,
       &quot;flowCrystallize&quot;: &quot;Salin prompt /crystallize&quot;,
       &quot;flowCrystallizeCopied&quot;: &quot;Tersalin&quot;,
+      &quot;flowResetLayout&quot;: &quot;Reset tata letak&quot;,
       &quot;templates&quot;: &quot;Template&quot;,
       &quot;templatesHint&quot;: &quot;Jelajahi template starter dan lanjutan living doc&quot;,
       &quot;templatesIntro&quot;: &quot;Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.&quot;,
@@ -10847,6 +10859,85 @@
       setTimeout(() =&gt; { btn.textContent = original; }, 1600);
     });
 
+    // Reset-layout button
+    panel.querySelector(&#39;[data-flow-reset-layout]&#39;)?.addEventListener(&#39;click&#39;, () =&gt; {
+      const facets = govFacets().map(({ flowPosition, ...rest }) =&gt; rest);
+      const invariants = govInvariants().map(({ flowPosition, ...rest }) =&gt; rest);
+      govSetFacets(facets);
+      govSetInvariants(invariants);
+      state.sections = state.sections.map(({ flowPosition, ...rest }) =&gt; rest);
+      flowRerender();
+    });
+
+    // Double-click a node to clear its flowPosition
+    canvas.querySelectorAll(&#39;.flow-node&#39;).forEach((node) =&gt; {
+      node.addEventListener(&#39;dblclick&#39;, (event) =&gt; {
+        if (event.target.closest(&#39;.flow-port, .flow-remove, [data-flow-docwide], .flow-rationale, [data-flow-reset-layout]&#39;)) return;
+        const kind = node.dataset.flowKind;
+        const id = node.dataset.flowId;
+        if (kind === &#39;facet&#39;) {
+          govSetFacets(govFacets().map((f) =&gt; f.id === id ? (({ flowPosition, ...r }) =&gt; r)(f) : f));
+        } else if (kind === &#39;invariant&#39;) {
+          govSetInvariants(govInvariants().map((i) =&gt; i.id === id ? (({ flowPosition, ...r }) =&gt; r)(i) : i));
+        } else if (kind === &#39;section&#39;) {
+          state.sections = state.sections.map((s) =&gt; s.id === id ? (({ flowPosition, ...r }) =&gt; r)(s) : s);
+        }
+        flowRerender();
+      });
+    });
+
+    // Drag a node body to reposition. Threshold distinguishes drag from click.
+    canvas.querySelectorAll(&#39;.flow-node&#39;).forEach((node) =&gt; {
+      node.addEventListener(&#39;pointerdown&#39;, (event) =&gt; {
+        if (event.target.closest(&#39;.flow-port, .flow-remove, [data-flow-docwide], .flow-rationale, [data-flow-reset-layout]&#39;)) return;
+        if (event.target.closest(&#39;[data-flow-edge]&#39;)) return;
+        event.preventDefault();
+        const canvasRect = canvas.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const offX = event.clientX - nodeRect.left;
+        const offY = event.clientY - nodeRect.top;
+        const startClientX = event.clientX;
+        const startClientY = event.clientY;
+        let dragging = false;
+        const onMove = (ev) =&gt; {
+          const dx = ev.clientX - startClientX;
+          const dy = ev.clientY - startClientY;
+          if (!dragging &amp;&amp; Math.hypot(dx, dy) &lt; 4) return;
+          dragging = true;
+          const currentCanvasRect = canvas.getBoundingClientRect();
+          const x = Math.max(0, ev.clientX - currentCanvasRect.left - offX);
+          const y = Math.max(0, ev.clientY - currentCanvasRect.top - offY);
+          node.classList.add(&#39;flow-node-dragging&#39;);
+          node.dataset.flowPositioned = &#39;true&#39;;
+          node.style.left = x + &#39;px&#39;;
+          node.style.top = y + &#39;px&#39;;
+          requestAnimationFrame(() =&gt; drawFlowWires(buildJson()));
+        };
+        const onUp = (ev) =&gt; {
+          document.removeEventListener(&#39;pointermove&#39;, onMove);
+          document.removeEventListener(&#39;pointerup&#39;, onUp);
+          node.classList.remove(&#39;flow-node-dragging&#39;);
+          if (!dragging) return;
+          const finalRect = node.getBoundingClientRect();
+          const finalCanvasRect = canvas.getBoundingClientRect();
+          const x = Math.round(finalRect.left - finalCanvasRect.left);
+          const y = Math.round(finalRect.top - finalCanvasRect.top);
+          const kind = node.dataset.flowKind;
+          const id = node.dataset.flowId;
+          if (kind === &#39;facet&#39;) {
+            govSetFacets(govFacets().map((f) =&gt; f.id === id ? { ...f, flowPosition: { x, y } } : f));
+          } else if (kind === &#39;invariant&#39;) {
+            govSetInvariants(govInvariants().map((i) =&gt; i.id === id ? { ...i, flowPosition: { x, y } } : i));
+          } else if (kind === &#39;section&#39;) {
+            state.sections = state.sections.map((s) =&gt; s.id === id ? { ...s, flowPosition: { x, y } } : s);
+          }
+          flowRerender();
+        };
+        document.addEventListener(&#39;pointermove&#39;, onMove);
+        document.addEventListener(&#39;pointerup&#39;, onUp);
+      });
+    });
+
     // Drag to create a wire
     canvas.querySelectorAll(&#39;[data-port=&quot;facet-out&quot;]&#39;).forEach((port) =&gt; {
       port.addEventListener(&#39;pointerdown&#39;, (event) =&gt; {
@@ -11042,6 +11133,11 @@
     const rationalesDeclared = sections.filter((s) =&gt; (s.rationale || &#39;&#39;).trim().length &gt; 0).length;
     const invArrows = invariants.reduce((n, inv) =&gt; n + (Array.isArray(inv.appliesTo) ? inv.appliesTo.length : 0), 0);
 
+    const anyPositioned =
+      facets.some((f) =&gt; f.flowPosition) ||
+      sections.some((s) =&gt; s.flowPosition) ||
+      invariants.some((i) =&gt; i.flowPosition);
+
     const statsHtml = `
       &lt;span class=&quot;flow-stat&quot;&gt;&lt;strong&gt;${facets.length}&lt;/strong&gt; facets&lt;/span&gt;
       &lt;span class=&quot;flow-stat&quot;&gt;&lt;strong&gt;${sections.length}&lt;/strong&gt; sections&lt;/span&gt;
@@ -11049,13 +11145,22 @@
       &lt;span class=&quot;flow-stat&quot;&gt;&lt;strong&gt;${invariants.length}&lt;/strong&gt; invariants \u00b7 ${invArrows} arrows&lt;/span&gt;
       &lt;span class=&quot;flow-stat&quot;&gt;&lt;strong&gt;${rationalesDeclared}/${sections.length}&lt;/strong&gt; rationales&lt;/span&gt;
       ${orphanCount &gt; 0 ? `&lt;span class=&quot;flow-stat flow-stat-bad&quot;&gt;&lt;strong&gt;${orphanCount}&lt;/strong&gt; orphaned&lt;/span&gt;` : &#39;&#39;}
-      ${driftCount &gt; 0 ? `&lt;span class=&quot;flow-stat flow-stat-warn&quot;&gt;&lt;strong&gt;${driftCount}&lt;/strong&gt; drifted&lt;/span&gt;` : &#39;&#39;}`;
+      ${driftCount &gt; 0 ? `&lt;span class=&quot;flow-stat flow-stat-warn&quot;&gt;&lt;strong&gt;${driftCount}&lt;/strong&gt; drifted&lt;/span&gt;` : &#39;&#39;}
+      ${anyPositioned ? `&lt;button type=&quot;button&quot; class=&quot;flow-reset-layout-btn&quot; data-flow-reset-layout title=&quot;Clear all flowPosition values&quot;&gt;${esc(t(&#39;flowResetLayout&#39;))}&lt;/button&gt;` : &#39;&#39;}`;
+
+    const positionStyle = (node) =&gt; {
+      const p = node?.flowPosition;
+      if (!p || typeof p !== &#39;object&#39;) return &#39;&#39;;
+      const x = Number.isFinite(p.x) ? p.x : 0;
+      const y = Number.isFinite(p.y) ? p.y : 0;
+      return ` data-flow-positioned=&quot;true&quot; style=&quot;left:${x}px;top:${y}px&quot;`;
+    };
 
     const facetsHtml = facets.map((facet) =&gt; {
       const { status } = state.facetStatus.get(facet.id) || { status: &#39;orphaned&#39; };
       const orphan = status === &#39;orphaned&#39;;
       return `
-        &lt;article class=&quot;flow-node ${orphan ? &#39;flow-node-orphan&#39; : &#39;&#39;}&quot; data-flow-kind=&quot;facet&quot; data-flow-id=&quot;${esc(facet.id)}&quot;&gt;
+        &lt;article class=&quot;flow-node ${orphan ? &#39;flow-node-orphan&#39; : &#39;&#39;}&quot; data-flow-kind=&quot;facet&quot; data-flow-id=&quot;${esc(facet.id)}&quot;${positionStyle(facet)}&gt;
           &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;facet&quot; data-flow-id=&quot;${esc(facet.id)}&quot; title=&quot;Remove facet&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(facet.name || facet.id)}&lt;/h5&gt;
@@ -11076,7 +11181,7 @@
       const chips = cards.filter((c) =&gt; c &amp;&amp; c.id).slice(0, 8).map((c) =&gt; `&lt;span class=&quot;flow-card-chip&quot;&gt;${esc(c.id)}&lt;/span&gt;`).join(&#39;&#39;);
       const overflow = cards.filter((c) =&gt; c &amp;&amp; c.id).length - 8;
       return `
-        &lt;article class=&quot;flow-node&quot; data-flow-kind=&quot;section&quot; data-flow-id=&quot;${esc(section.id)}&quot;&gt;
+        &lt;article class=&quot;flow-node&quot; data-flow-kind=&quot;section&quot; data-flow-id=&quot;${esc(section.id)}&quot;${positionStyle(section)}&gt;
           &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;section&quot; data-flow-id=&quot;${esc(section.id)}&quot; title=&quot;Remove section&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(section.title || section.id)}&lt;/h5&gt;
@@ -11097,7 +11202,7 @@
         ? &#39;Doc-wide — click to scope to individual sections&#39;
         : &#39;Click to make doc-wide (appliesTo: [&quot;*&quot;]); removes any section-specific entries&#39;;
       return `
-        &lt;article class=&quot;flow-node flow-invariant&quot; data-flow-kind=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot;&gt;
+        &lt;article class=&quot;flow-node flow-invariant&quot; data-flow-kind=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot;${positionStyle(inv)}&gt;
           &lt;button type=&quot;button&quot; class=&quot;flow-remove&quot; data-flow-remove=&quot;invariant&quot; data-flow-id=&quot;${esc(inv.id)}&quot; title=&quot;Remove invariant&quot;&gt;\u00d7&lt;/button&gt;
           &lt;div class=&quot;flow-node-header&quot;&gt;
             &lt;h5&gt;${esc(inv.name || inv.id)}&lt;/h5&gt;
@@ -13751,7 +13856,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T09:58:32.204Z" title="2026-04-17T09:58:32.204Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T09:58:32.204Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T10:06:41.960Z" title="2026-04-17T10:06:41.960Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T10:06:41.960Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -14367,7 +14472,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-9ea6306 (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-80a27ff (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
