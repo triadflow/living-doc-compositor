@@ -720,6 +720,48 @@ function renderBoardView(dimensions) {
     </section>`;
 }
 
+function deriveCoherenceMapItems(doc) {
+  const facets = Array.isArray(doc.objectiveFacets) ? doc.objectiveFacets : [];
+  const coverage = Array.isArray(doc.coverage) ? doc.coverage : [];
+  const invariants = Array.isArray(doc.invariants) ? doc.invariants : [];
+  const sectionIds = new Set((doc.sections ?? []).map((s) => s.id));
+
+  return facets.map((facet) => {
+    const edges = coverage.filter((c) => c.facetId === facet.id);
+    const carryingSectionIds = [...new Set(edges.map((e) => e.sectionId))];
+    const anyDrift = edges.some((e) => !sectionIds.has(e.sectionId));
+    const governingInvariants = invariants
+      .filter((inv) => {
+        const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+        return applies.includes('*') || applies.some((s) => carryingSectionIds.includes(s));
+      })
+      .map((inv) => inv.id);
+
+    let status;
+    if (anyDrift) status = 'drift';
+    else if (edges.length === 0) status = 'orphaned';
+    else status = 'covered';
+
+    return {
+      id: facet.id,
+      name: facet.name,
+      facetDescription: facet.description ?? '',
+      status,
+      sectionIds: carryingSectionIds,
+      invariantIds: governingInvariants,
+      notes: [],
+    };
+  });
+}
+
+function deriveSectionItems(section, ct, doc) {
+  const authored = Array.isArray(section.data) ? section.data : [];
+  if (!ct.derived) return authored;
+  if (authored.length > 0) return authored;
+  if (section.convergenceType === 'coherence-map') return deriveCoherenceMapItems(doc);
+  return authored;
+}
+
 function renderSection(section) {
   const ct = registry.convergenceTypes[section.convergenceType];
   if (!ct) return `<!-- unknown convergence type: ${escapeHtml(section.convergenceType)} -->`;
@@ -730,7 +772,7 @@ function renderSection(section) {
     ? `<svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"${iconColorStyle}>${ct.icon}</svg>`
     : '';
 
-  const items = section.data ?? [];
+  const items = deriveSectionItems(section, ct, data);
 
   // Callout
   const calloutHtml = section.callout ? renderCallout(section.callout) : '';
