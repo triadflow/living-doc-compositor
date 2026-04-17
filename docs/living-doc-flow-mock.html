@@ -22,6 +22,8 @@
         --wire-hover: #2563eb;
         --wire-orphan: #991b1b;
         --wire-drift: #991b1b;
+        --wire-invariant: #d97706;
+        --wire-invariant-hover: #b45309;
         --radius: 12px;
         --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
         --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
@@ -72,10 +74,10 @@
       .canvas {
         position: relative;
         display: grid;
-        grid-template-columns: 340px 1fr 340px;
-        gap: 80px;
+        grid-template-columns: 300px 1fr 300px;
+        gap: 90px;
         padding: 32px 40px 64px;
-        min-width: 960px;
+        min-width: 1060px;
       }
       .canvas-col h2 {
         margin: 0 0 14px; font-size: 13px; font-weight: 700;
@@ -150,7 +152,12 @@
       .port:hover { transform: translateY(-50%) scale(1.35); border-color: var(--accent); background: var(--accent); }
       .port-out { right: -9px; }
       .port-in { left: -9px; }
+      .port-inv-in { right: -9px; border-color: var(--wire-invariant); }
+      .port-inv-in:hover { border-color: var(--wire-invariant); background: var(--wire-invariant); }
+      .port-inv-out { left: -9px; border-color: var(--wire-invariant); }
+      .port-inv-out:hover { border-color: var(--wire-invariant); background: var(--wire-invariant); }
       .port.dragging { border-color: var(--accent); background: var(--accent); }
+      .port.dragging-inv { border-color: var(--wire-invariant); background: var(--wire-invariant); }
       svg.wires {
         position: absolute; inset: 0; width: 100%; height: 100%;
         pointer-events: none; z-index: 1;
@@ -164,6 +171,10 @@
       path.wire.drift { stroke: var(--wire-drift); stroke-dasharray: 4 4; }
       path.wire.preview { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; opacity: 0.8; }
       path.wire.highlight { stroke: var(--accent); stroke-width: 3; }
+      path.wire.invariant { stroke: var(--wire-invariant); stroke-width: 2; }
+      path.wire.invariant:hover { stroke: var(--wire-invariant-hover); stroke-width: 3; }
+      path.wire.invariant.preview { stroke: var(--wire-invariant); stroke-dasharray: 6 4; opacity: 0.9; }
+      path.wire.invariant.highlight { stroke: var(--wire-invariant); stroke-width: 3; }
       path.wire-hit {
         stroke: transparent; stroke-width: 16; fill: none;
         pointer-events: stroke; cursor: pointer;
@@ -190,26 +201,28 @@
         display: inline-block; width: 36px; height: 2px; background: var(--wire);
       }
       .legend-swatch-drift { height: 0; border-top: 2px dashed var(--wire-drift); }
+      .legend-swatch-invariant { background: var(--wire-invariant); }
       .legend-swatch-orphan {
         width: 14px; height: 14px; border-radius: 4px;
         background: color-mix(in srgb, var(--negative-bg) 40%, var(--card));
         border: 1px solid var(--negative-line);
       }
-      .invariant-stack { display: flex; flex-direction: column; gap: 8px; }
-      .invariant-card {
-        padding: 10px 12px; border-radius: 10px; background: var(--bg);
-        border: 1px solid var(--line); font-size: 12.5px;
+      .node-invariant {
+        border-color: var(--warning-line);
+        background: color-mix(in srgb, var(--warning-bg) 40%, var(--card));
       }
-      .invariant-name {
-        font-size: 13px; font-weight: 700; margin-bottom: 2px;
-        color: var(--ink);
+      .node-invariant .node-id { color: var(--warning-ink); }
+      .node-invariant .invariant-statement {
+        margin-top: 6px; font-size: 12.5px; color: var(--muted); line-height: 1.5;
       }
-      .invariant-statement { color: var(--muted); line-height: 1.5; }
-      .invariant-applies { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px; }
-      .invariant-chip {
-        display: inline-flex; padding: 2px 8px; border-radius: 999px;
-        background: var(--card); border: 1px solid var(--line); font-size: 10.5px;
+      .node-invariant .doc-wide-toggle {
+        display: inline-flex; padding: 2px 10px; border-radius: 999px;
+        background: var(--warning-bg); color: var(--warning-ink); font-size: 10.5px;
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        cursor: pointer; border: 1px solid var(--warning-line);
       }
+      .node-invariant .doc-wide-toggle:hover { background: #fde68a; }
+      .node-invariant .doc-wide-toggle.active { background: var(--wire-invariant); color: #fff; border-color: var(--wire-invariant); }
       .divider {
         margin: 22px 0 14px; border: 0; border-top: 1px solid var(--line);
       }
@@ -232,10 +245,10 @@
         background: #0f172a; color: #e2e8f0; font-size: 11.5px;
         max-height: 240px; overflow: auto;
       }
-      @media (max-width: 920px) {
+      @media (max-width: 1100px) {
         main.workspace { grid-template-columns: 1fr; }
         .inspector { border-left: none; border-top: 1px solid var(--line); min-height: 0; }
-        .canvas { grid-template-columns: 1fr 1fr; gap: 40px; min-width: 0; }
+        .canvas { grid-template-columns: repeat(3, minmax(240px, 1fr)); gap: 40px; min-width: 780px; }
       }
     </style>
   </head>
@@ -256,12 +269,24 @@
             <button class="add-node-btn" id="add-facet">+ Add facet</button>
           </section>
 
-          <svg class="wires" id="wires" aria-hidden="true"></svg>
+          <svg class="wires" id="wires" aria-hidden="true">
+            <defs>
+              <marker id="arrow-inv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706" />
+              </marker>
+            </defs>
+          </svg>
 
-          <section class="canvas-col" style="grid-column: 3">
+          <section class="canvas-col">
             <h2>Sections</h2>
             <div class="node-list" id="sections"></div>
             <button class="add-node-btn" id="add-section">+ Add section</button>
+          </section>
+
+          <section class="canvas-col">
+            <h2>Invariants</h2>
+            <div class="node-list" id="invariants"></div>
+            <button class="add-node-btn" id="add-invariant">+ Add invariant</button>
           </section>
         </div>
       </div>
@@ -269,24 +294,26 @@
       <aside class="inspector">
         <h2>Legend</h2>
         <div class="legend">
-          <div class="legend-row"><span class="legend-swatch"></span>Coverage edge</div>
+          <div class="legend-row"><span class="legend-swatch"></span><strong>Coverage</strong> · facet → section (is-carried-by)</div>
           <div class="legend-row"><span class="legend-swatch legend-swatch-drift"></span>Drift — points to a missing section</div>
+          <div class="legend-row"><span class="legend-swatch legend-swatch-invariant"></span><strong>Invariant</strong> · rule → sections it governs</div>
           <div class="legend-row"><span class="legend-swatch-orphan"></span>Orphan — facet has no carriers</div>
         </div>
 
-        <h2>How to use this mock</h2>
+        <h2>The two arrows</h2>
         <p class="hint">
-          1. <strong>Drag</strong> from any facet's right port across to a section's left port to add a coverage edge.<br/>
-          2. <strong>Click</strong> a wire to remove it.<br/>
-          3. <strong>Click a node</strong> to highlight its connections — click the background to deselect.<br/>
-          4. <strong>Remove</strong> a facet or section with the × that appears on hover. Coverage edges follow.
+          <strong>Coverage</strong> (gray) is a completeness check — is every facet of the objective still carried by at least one section?<br/><br/>
+          <strong>Invariant</strong> (amber) is the governance arrow — contracts the doc must keep following. Example: <em>"decisions migrate out of verification."</em> Scoped via <code>appliesTo</code>.
         </p>
 
         <hr class="divider" />
 
-        <h2>Invariants</h2>
-        <p class="hint">Scoped to one or more sections. They'd render as stickies attached to those sections in the real build; shown here as a sidebar list.</p>
-        <div class="invariant-stack" id="invariants"></div>
+        <h2>How to use this mock</h2>
+        <p class="hint">
+          Drag a facet's right port to a section's left port → coverage edge.<br/>
+          Drag an invariant's left port to a section's right port → governance arrow.<br/>
+          Click any wire to remove it. Click a node to focus its connections. Click "Doc-wide" on an invariant to toggle <code>appliesTo: ["*"]</code>.
+        </p>
 
         <hr class="divider" />
 
@@ -404,20 +431,28 @@
               <div class="card-list">
                 ${(s.cardIds || []).map((c) => `<span class="card-chip">${esc(c)}</span>`).join('')}
               </div>
-              <span class="port port-in" data-port="in" data-section-id="${esc(s.id)}"></span>
+              <span class="port port-in" data-port="in" data-section-id="${esc(s.id)}" title="Coverage in-port"></span>
+              <span class="port port-inv-in" data-port="inv-in" data-section-id="${esc(s.id)}" title="Invariant applies-to in-port"></span>
             </article>`;
         }).join('');
       }
 
       function renderInvariants() {
         invEl.innerHTML = state.invariants.map((inv) => {
-          const chips = (inv.appliesTo || []).map((a) => `<span class="invariant-chip">${esc(a === '*' ? 'doc-wide' : (state.sections.find((s) => s.id === a)?.title || a))}</span>`).join('');
+          const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+          const docWide = applies.includes('*');
+          const dim = selectedNodeKey && selectedNodeKey !== `invariant:${inv.id}` && !edgeTouchesSelection(null, null, inv.id);
           return `
-            <div class="invariant-card">
-              <div class="invariant-name">${esc(inv.name)}</div>
-              <div class="invariant-statement">${esc(inv.statement)}</div>
-              <div class="invariant-applies">${chips}</div>
-            </div>`;
+            <article class="node node-invariant ${dim ? 'dim' : ''} ${selectedNodeKey === `invariant:${inv.id}` ? 'selected' : ''}" data-node-kind="invariant" data-node-id="${esc(inv.id)}">
+              <button class="node-remove" data-remove-invariant="${esc(inv.id)}" title="Remove invariant">&times;</button>
+              <div class="node-title">
+                <h3>${esc(inv.name || '(unnamed)')}</h3>
+                <span class="doc-wide-toggle ${docWide ? 'active' : ''}" data-docwide-toggle="${esc(inv.id)}" title="Toggle appliesTo: [&quot;*&quot;]">Doc-wide</span>
+              </div>
+              <div class="node-id">${esc(inv.id)}</div>
+              <div class="invariant-statement">${esc(inv.statement || '—')}</div>
+              <span class="port port-inv-out" data-port="inv-out" data-invariant-id="${esc(inv.id)}" title="Drag to a section's right port to add to appliesTo"></span>
+            </article>`;
         }).join('');
       }
 
@@ -452,8 +487,46 @@
             <path class="wire-hit" d="${d}" data-edge-idx="${i}"></path>
             <path class="wire ${drift ? 'drift' : ''} ${highlight ? 'highlight' : ''}" d="${d}" data-edge-idx="${i}"></path>`);
         });
+        // invariant → section arrows
+        state.invariants.forEach((inv, invIdx) => {
+          const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+          const from = document.querySelector(`[data-port="inv-out"][data-invariant-id="${cssEscape(inv.id)}"]`);
+          if (!from) return;
+          const fr = from.getBoundingClientRect();
+          const fromX = fr.left + fr.width / 2 - svgRect.left;
+          const fromY = fr.top  + fr.height / 2 - svgRect.top;
+          applies.forEach((target, targetIdx) => {
+            if (target === '*') {
+              // doc-wide: draw a single wire to a virtual anchor on the sections column
+              const sectionsCol = sectionsEl.getBoundingClientRect();
+              const toX = sectionsCol.right - svgRect.left + 8;
+              const toY = sectionsCol.top - svgRect.top - 14;
+              const midX = (fromX + toX) / 2;
+              paths.push(`
+                <path class="wire-hit" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}" data-inv-edge="${invIdx}:${targetIdx}"></path>
+                <path class="wire invariant preview" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}" marker-end="url(#arrow-inv)" data-inv-edge="${invIdx}:${targetIdx}"></path>`);
+              return;
+            }
+            const sectionEl = document.querySelector(`[data-node-kind="section"][data-node-id="${cssEscape(target)}"]`);
+            if (!sectionEl) return;
+            const toPort = sectionEl.querySelector('[data-port="inv-in"]');
+            if (!toPort) return;
+            const tp = toPort.getBoundingClientRect();
+            const toX = tp.left + tp.width / 2 - svgRect.left;
+            const toY = tp.top  + tp.height / 2 - svgRect.top;
+            const midX = (fromX + toX) / 2;
+            const highlight = selectedNodeKey === `invariant:${inv.id}` || selectedNodeKey === `section:${target}`;
+            paths.push(`
+              <path class="wire-hit" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}" data-inv-edge="${invIdx}:${targetIdx}"></path>
+              <path class="wire invariant ${highlight ? 'highlight' : ''}" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}" marker-end="url(#arrow-inv)" data-inv-edge="${invIdx}:${targetIdx}"></path>`);
+          });
+        });
+
         if (dragWire) {
-          const from = document.querySelector(`[data-port="out"][data-facet-id="${cssEscape(dragWire.fromFacetId)}"]`);
+          const portSel = dragWire.kind === 'invariant'
+            ? `[data-port="inv-out"][data-invariant-id="${cssEscape(dragWire.fromId)}"]`
+            : `[data-port="out"][data-facet-id="${cssEscape(dragWire.fromId)}"]`;
+          const from = document.querySelector(portSel);
           if (from) {
             const fr = from.getBoundingClientRect();
             const fromX = fr.left + fr.width / 2 - svgRect.left;
@@ -461,10 +534,16 @@
             const toX = dragWire.mouseX - svgRect.left;
             const toY = dragWire.mouseY - svgRect.top;
             const midX = (fromX + toX) / 2;
-            paths.push(`<path class="wire preview" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}"></path>`);
+            const cls = dragWire.kind === 'invariant' ? 'wire invariant preview' : 'wire preview';
+            const marker = dragWire.kind === 'invariant' ? ' marker-end="url(#arrow-inv)"' : '';
+            paths.push(`<path class="${cls}" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}"${marker}></path>`);
           }
         }
         wiresEl.innerHTML = paths.join('');
+        // re-append defs since innerHTML wipe clears them
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        defs.innerHTML = '<marker id="arrow-inv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/></marker>';
+        wiresEl.insertBefore(defs, wiresEl.firstChild);
         wiresEl.setAttribute('width',  String(svgRect.width));
         wiresEl.setAttribute('height', String(svgRect.height));
       }
@@ -473,12 +552,24 @@
         return String(s).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
       }
 
-      function edgeTouchesSelection(facetId, sectionId) {
+      function edgeTouchesSelection(facetId, sectionId, invariantId) {
         if (!selectedNodeKey) return false;
         const [kind, id] = selectedNodeKey.split(':');
-        return state.coverage.some((c) => {
+        const coverageHit = state.coverage.some((c) => {
           if (kind === 'facet' && c.facetId === id && ((facetId && c.facetId === facetId) || (sectionId && c.sectionId === sectionId))) return true;
           if (kind === 'section' && c.sectionId === id && ((facetId && c.facetId === facetId) || (sectionId && c.sectionId === sectionId))) return true;
+          return false;
+        });
+        if (coverageHit) return true;
+        // invariant applies-to edges
+        return state.invariants.some((inv) => {
+          const applies = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+          const touchesHere =
+            (invariantId && inv.id === invariantId) ||
+            (sectionId && applies.includes(sectionId));
+          if (!touchesHere) return false;
+          if (kind === 'invariant' && inv.id === id) return true;
+          if (kind === 'section' && applies.includes(id)) return true;
           return false;
         });
       }
@@ -486,11 +577,12 @@
       function renderStats() {
         const orphans = state.objectiveFacets.filter((f) => isOrphan(f.id)).length;
         const drifts = state.coverage.filter(isDriftedEdge).length;
+        const invArrows = state.invariants.reduce((n, inv) => n + (Array.isArray(inv.appliesTo) ? inv.appliesTo.length : 0), 0);
         statsEl.innerHTML = `
           <span class="stat"><strong>${state.objectiveFacets.length}</strong> facets</span>
           <span class="stat"><strong>${state.sections.length}</strong> sections</span>
           <span class="stat"><strong>${state.coverage.length}</strong> coverage edges</span>
-          <span class="stat"><strong>${state.invariants.length}</strong> invariants</span>
+          <span class="stat"><strong>${state.invariants.length}</strong> invariants · ${invArrows} arrows</span>
           ${orphans > 0 ? `<span class="stat stat-orphan"><strong>${orphans}</strong> orphaned</span>` : ''}
           ${drifts > 0 ? `<span class="stat stat-drift"><strong>${drifts}</strong> drifted</span>` : ''}
         `;
@@ -498,6 +590,16 @@
 
       /* ── Interactions ── */
       document.addEventListener('click', (event) => {
+        const invEdge = event.target.closest('[data-inv-edge]');
+        if (invEdge) {
+          const [invIdx, targetIdx] = invEdge.dataset.invEdge.split(':').map(Number);
+          const inv = state.invariants[invIdx];
+          if (inv && Array.isArray(inv.appliesTo)) {
+            inv.appliesTo = inv.appliesTo.filter((_, i) => i !== targetIdx);
+          }
+          render();
+          return;
+        }
         const wire = event.target.closest('[data-edge-idx]');
         if (wire) {
           const idx = Number(wire.dataset.edgeIdx);
@@ -525,6 +627,28 @@
           render();
           return;
         }
+        const removeInvBtn = event.target.closest('[data-remove-invariant]');
+        if (removeInvBtn) {
+          event.stopPropagation();
+          const iid = removeInvBtn.dataset.removeInvariant;
+          state.invariants = state.invariants.filter((i) => i.id !== iid);
+          if (selectedNodeKey === `invariant:${iid}`) selectedNodeKey = null;
+          render();
+          return;
+        }
+        const docWideBtn = event.target.closest('[data-docwide-toggle]');
+        if (docWideBtn) {
+          event.stopPropagation();
+          const iid = docWideBtn.dataset.docwideToggle;
+          const inv = state.invariants.find((i) => i.id === iid);
+          if (inv) {
+            const applies = Array.isArray(inv.appliesTo) ? [...inv.appliesTo] : [];
+            const hasStar = applies.includes('*');
+            inv.appliesTo = hasStar ? applies.filter((a) => a !== '*') : ['*'];
+          }
+          render();
+          return;
+        }
         const node = event.target.closest('.node');
         if (node) {
           const key = `${node.dataset.nodeKind}:${node.dataset.nodeId}`;
@@ -537,12 +661,22 @@
       });
 
       document.addEventListener('pointerdown', (event) => {
-        const port = event.target.closest('[data-port="out"]');
-        if (!port) return;
-        event.preventDefault();
-        dragWire = { fromFacetId: port.dataset.facetId, mouseX: event.clientX, mouseY: event.clientY };
-        port.classList.add('dragging');
-        renderWires();
+        const facetPort = event.target.closest('[data-port="out"]');
+        const invPort   = event.target.closest('[data-port="inv-out"]');
+        if (facetPort) {
+          event.preventDefault();
+          dragWire = { kind: 'coverage', fromId: facetPort.dataset.facetId, mouseX: event.clientX, mouseY: event.clientY };
+          facetPort.classList.add('dragging');
+          renderWires();
+          return;
+        }
+        if (invPort) {
+          event.preventDefault();
+          dragWire = { kind: 'invariant', fromId: invPort.dataset.invariantId, mouseX: event.clientX, mouseY: event.clientY };
+          invPort.classList.add('dragging-inv');
+          renderWires();
+          return;
+        }
       });
       document.addEventListener('pointermove', (event) => {
         if (!dragWire) return;
@@ -552,20 +686,35 @@
       });
       document.addEventListener('pointerup', (event) => {
         if (!dragWire) return;
-        document.querySelectorAll('.port.dragging').forEach((el) => el.classList.remove('dragging'));
+        document.querySelectorAll('.port.dragging, .port.dragging-inv').forEach((el) => el.classList.remove('dragging', 'dragging-inv'));
         const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
-        const inPort = dropTarget?.closest('[data-port="in"]');
-        const sectionEl = dropTarget?.closest('[data-node-kind="section"]');
-        if (inPort && sectionEl) {
-          const sectionId = inPort.dataset.sectionId;
-          const facetId = dragWire.fromFacetId;
-          // find a representative card — first unused if possible
-          const section = state.sections.find((s) => s.id === sectionId);
-          const usedCards = new Set(state.coverage.filter((c) => c.sectionId === sectionId).map((c) => c.cardId));
-          const cardId = (section?.cardIds || []).find((c) => !usedCards.has(c)) || section?.cardIds?.[0] || '';
-          const exists = state.coverage.some((c) => c.facetId === facetId && c.sectionId === sectionId && (c.cardId || '') === cardId);
-          if (!exists) {
-            state.coverage.push(cardId ? { facetId, sectionId, cardId } : { facetId, sectionId });
+        if (dragWire.kind === 'coverage') {
+          const inPort = dropTarget?.closest('[data-port="in"]');
+          const sectionEl = dropTarget?.closest('[data-node-kind="section"]');
+          if (inPort && sectionEl) {
+            const sectionId = inPort.dataset.sectionId;
+            const facetId = dragWire.fromId;
+            const section = state.sections.find((s) => s.id === sectionId);
+            const usedCards = new Set(state.coverage.filter((c) => c.sectionId === sectionId).map((c) => c.cardId));
+            const cardId = (section?.cardIds || []).find((c) => !usedCards.has(c)) || section?.cardIds?.[0] || '';
+            const exists = state.coverage.some((c) => c.facetId === facetId && c.sectionId === sectionId && (c.cardId || '') === cardId);
+            if (!exists) {
+              state.coverage.push(cardId ? { facetId, sectionId, cardId } : { facetId, sectionId });
+            }
+          }
+        } else if (dragWire.kind === 'invariant') {
+          const invInPort = dropTarget?.closest('[data-port="inv-in"]');
+          const sectionEl = dropTarget?.closest('[data-node-kind="section"]');
+          if (invInPort && sectionEl) {
+            const sectionId = invInPort.dataset.sectionId;
+            const inv = state.invariants.find((i) => i.id === dragWire.fromId);
+            if (inv) {
+              const applies = Array.isArray(inv.appliesTo) ? [...inv.appliesTo] : [];
+              const starIdx = applies.indexOf('*');
+              if (starIdx >= 0) applies.splice(starIdx, 1);
+              if (!applies.includes(sectionId)) applies.push(sectionId);
+              inv.appliesTo = applies;
+            }
           }
         }
         dragWire = null;
@@ -585,6 +734,14 @@
         if (!title) return;
         const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `section-${Date.now()}`;
         state.sections.push({ id, title, convergenceType: 'capability-surface', cardIds: [] });
+        render();
+      });
+      document.getElementById('add-invariant').addEventListener('click', () => {
+        const name = window.prompt('Invariant name', 'New invariant');
+        if (!name) return;
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `invariant-${Date.now()}`;
+        const statement = window.prompt('Statement', 'Describe the contract this invariant asserts.') || '';
+        state.invariants.push({ id, name, statement, appliesTo: [] });
         render();
       });
       document.getElementById('show-json').addEventListener('click', () => {
