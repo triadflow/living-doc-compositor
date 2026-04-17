@@ -394,14 +394,14 @@
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.",
-  "updated": "2026-04-16T14:25:00.000Z",
+  "sourceCoverage": "GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-17, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.",
+  "updated": "2026-04-17T00:18:02.000Z",
   "pills": [
     "Mobile",
     "Workstream",
     "GitHub Issues"
   ],
-  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, refinement-to-package learning, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
   "callouts": [
     {
@@ -418,7 +418,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T14:25:00.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "stats": [
         {
           "label": "Open child tickets",
@@ -445,7 +445,7 @@
           "The current Inbox is a transport and audit surface only. It proves delivery and sync, but it is not the product UX we are aiming for.",
           "The product target has moved to the subscription/refinement model from `mockup/subscription-ux`: prioritized block-level cards with origin, evidence, intent, grounding warnings, and inline actions such as Watch, Mute, Pin, and Disagree.",
           "Delivery now depends on a small repo-local manifest at `.living-docs/manifest.json`, while the central library remains the richer cross-system catalog. The two need shared document identity rather than pretending one can replace the other.",
-          "The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), and the feed/card surface itself (#28, #33, #35).",
+          "The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), the feed/card surface itself (#28, #33, #35), and the refinement-to-package learning loop that lets aggregate user refinements propose package revisions (#32).",
           "The remaining hard gates are real paid-team push verification, disconnect verification against a real repo, and sync hardening such as per-repo cursors or watermarks."
         ]
       },
@@ -455,7 +455,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T14:12:00.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -654,6 +654,10 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
             },
             {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
               "issueNumber": "33",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
             },
@@ -666,6 +670,7 @@
             "The pushed mockup branch defines the real target surface: a prioritized feed of architectural claims, not a simple inbox of repo/doc updates.",
             "Cards are block-level and carry origin strip, status transition, evidence, intent, optional grounding warning, and inline actions such as See diff, Watch, Mute, Pin, and Disagree.",
             "The broader model includes onboarding from role/package assignment, block-detail consensus vs contested states, and a `My map` screen that visualizes inherited, chosen, pinned, and muted attention.",
+            "#32 adds the learning loop above that surface: accumulated user refinements should become aggregate-by-role package revision proposals, reviewed as PRs instead of silently mutating defaults.",
             "This means the current Inbox and Home surfaces are transport proofs and persistence sinks, not the end-state UX. The next build steps need grounded block events and refinement writes, not more polish on commit-centric copy.",
             "`implementation-knowledge` from #35 should be treated as one future source of feed-worthy events once the subscription surface exists."
           ]
@@ -846,7 +851,7 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-16T01:09:31.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "data": [
         {
           "id": "github-api-client",
@@ -881,7 +886,7 @@
             "The API surface should be verified against a real throwaway repository before being treated as trusted.",
             "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.",
             "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint.",
-            "#36 will extend this client from connect/disconnect/status work into reading unseen feed artifacts from connected repositories."
+            "The client now extends beyond connect/disconnect/status work into reading unseen feed artifacts from connected repositories."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -917,7 +922,7 @@
           "id": "workflow-template",
           "name": "Living-doc notification workflow template",
           "status": "prototype",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-17T00:18:02.000Z",
           "scriptPaths": [
             "mobile/src/workflow-template.ts"
           ],
@@ -942,12 +947,12 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.",
+          "purpose": "Install the GitHub Actions workflow that writes repo-backed delivery events and optionally attempts Expo Push acceleration when a living document changes.",
           "whenToUse": "Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.",
           "invocation": "Written through GitHub Contents API by the mobile app.",
           "caveats": [
             "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.",
-            "The current workflow still only sends Expo Push; #36 will add the GitHub-backed feed-writing side of the contract."
+            "The workflow now writes GitHub-backed feed events, but its payload is still doc-level and commit-shaped rather than the grounded block/event schema needed for the subscription UX."
           ]
         },
         {
@@ -991,7 +996,7 @@
           "invocation": "`cd mobile && npx eas-cli build --profile development --platform ios` or `npx eas-cli build --profile development --platform android`.",
           "caveats": [
             "Requires an Expo account and `npx eas-cli init` before a contributor can build.",
-            "No successful device build has been recorded in `mobile/README.md` yet."
+            "No successful paid-team push-capable device build has been recorded in `mobile/README.md` yet."
           ]
         },
         {
@@ -1097,7 +1102,7 @@
             }
           ],
           "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in `triadflow/living-doc-compositor`, where push commit `6861d5a` triggered workflow run `24512708555` and wrote a new feed event file without any manual dispatch.",
-          "nextStep": "Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33.",
+          "nextStep": "Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33 while preserving enough refinement data to inform the package-learning loop in #32.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
             "The current feed payload is still doc-level and commit-centric, which does not match the subscription mockup's block-level claim/evidence/refinement cards.",
@@ -1191,7 +1196,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T14:12:00.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -1281,6 +1286,10 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
             },
             {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
               "issueNumber": "33",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
             }
@@ -1288,7 +1297,30 @@
           "notes": [
             "The mockup branch `mockup/subscription-ux` defines a prioritized feed of block-level architectural claims with evidence, intent, grounding warnings, and inline refinement actions.",
             "That means the current persisted Inbox should remain as a sink, audit trail, and debugging surface, but not as the final interaction model.",
-            "Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy."
+            "Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy.",
+            "As refinements accumulate, aggregate mute/add/pin patterns should become inputs to package revision proposals rather than being trapped as per-user local state only."
+          ]
+        },
+        {
+          "id": "refinement-package-learning-loop",
+          "name": "Refinements should feed aggregate package revision proposals",
+          "status": "reference",
+          "updated": "2026-04-17T00:18:02.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            }
+          ],
+          "notes": [
+            "Per-user refinements from the subscription layer should remain user-scoped at write time, but the system should also aggregate them by role or package to propose revisions to the shared default subscriptions.",
+            "Those revisions should surface as reviewable diffs or PRs against `subscriptions.json`, not as silent automatic mutation of defaults.",
+            "The privacy boundary is aggregate only: individual user refinements should not be exposed outside their local overlay.",
+            "The unresolved mechanics are sample-size thresholds, handling conflicting signals, and whether any aggregate hints should surface in the mobile UI."
           ]
         },
         {
@@ -11952,7 +11984,7 @@
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-16T13:42:26.920Z" title="2026-04-16T13:42:26.920Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-16T13:42:26.920Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T00:20:12.585Z" title="2026-04-17T00:20:12.585Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T00:20:12.585Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -11972,14 +12004,14 @@
 
     <div class="snapshot-item snapshot-item-wide">
       <span class="snapshot-label">Source Coverage</span>
-      <span class="snapshot-value">GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.</span>
+      <span class="snapshot-value">GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-17, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.</span>
     </div>
       </div>
     </section>
 
 
           <section class="callout" style="border-left:3px solid var(--accent)">
-            <p><strong>Objective</strong> Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.</p>
+            <p><strong>Objective</strong> Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, refinement-to-package learning, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.</p>
             <p style="color:var(--muted)"><strong>Success condition</strong> A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.</p>
 
           </section>
@@ -11993,11 +12025,11 @@
 
 
     <section class="section" id="status-snapshot">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T14:25:00Z" title="2026-04-16T14:25:00Z" data-relative-to-snapshot="true">2026-04-16T14:25:00Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-17T00:18:02Z" title="2026-04-17T00:18:02Z" data-relative-to-snapshot="true">2026-04-17T00:18:02Z</time></span></h2>
 
     <section class="callout callout-info">
       <h3 class="callout-title">Current state</h3>
-      <p><span class="callout-line">The repo-backed delivery spine is now proven end to end: a connected repo can install the workflow, write feed events to <code>living-docs-feed</code>, and the phone can sync those events into the app without depending on Apple push.</span></p><p><span class="callout-line">The current Inbox is a transport and audit surface only. It proves delivery and sync, but it is not the product UX we are aiming for.</span></p><p><span class="callout-line">The product target has moved to the subscription/refinement model from <code>mockup/subscription-ux</code>: prioritized block-level cards with origin, evidence, intent, grounding warnings, and inline actions such as Watch, Mute, Pin, and Disagree.</span></p><p><span class="callout-line">Delivery now depends on a small repo-local manifest at <code>.living-docs/manifest.json</code>, while the central library remains the richer cross-system catalog. The two need shared document identity rather than pretending one can replace the other.</span></p><p><span class="callout-line">The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), and the feed/card surface itself (#28, #33, #35).</span></p><p><span class="callout-line">The remaining hard gates are real paid-team push verification, disconnect verification against a real repo, and sync hardening such as per-repo cursors or watermarks.</span></p>
+      <p><span class="callout-line">The repo-backed delivery spine is now proven end to end: a connected repo can install the workflow, write feed events to <code>living-docs-feed</code>, and the phone can sync those events into the app without depending on Apple push.</span></p><p><span class="callout-line">The current Inbox is a transport and audit surface only. It proves delivery and sync, but it is not the product UX we are aiming for.</span></p><p><span class="callout-line">The product target has moved to the subscription/refinement model from <code>mockup/subscription-ux</code>: prioritized block-level cards with origin, evidence, intent, grounding warnings, and inline actions such as Watch, Mute, Pin, and Disagree.</span></p><p><span class="callout-line">Delivery now depends on a small repo-local manifest at <code>.living-docs/manifest.json</code>, while the central library remains the richer cross-system catalog. The two need shared document identity rather than pretending one can replace the other.</span></p><p><span class="callout-line">The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), the feed/card surface itself (#28, #33, #35), and the refinement-to-package learning loop that lets aggregate user refinements propose package revisions (#32).</span></p><p><span class="callout-line">The remaining hard gates are real paid-team push verification, disconnect verification against a real repo, and sync hardening such as per-repo cursors or watermarks.</span></p>
 
     </section>
       <div class="summary-grid">
@@ -12021,7 +12053,7 @@
       <div class="card-grid" style="--grid-cols:2"></div>
     </section>
     <section class="section" id="mobile-capabilities">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T14:12:00Z" title="2026-04-16T14:12:00Z" data-relative-to-snapshot="true">2026-04-16T14:12:00Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#2563eb"><rect x='4' y='4' width='7' height='7' rx='1.5' opacity='.3'/><rect x='13' y='4' width='7' height='7' rx='1.5' opacity='.55'/><rect x='4' y='13' width='7' height='7' rx='1.5' opacity='.55'/><path d='M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z'/></svg> Mobile Capability Map<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-17T00:18:02Z" title="2026-04-17T00:18:02Z" data-relative-to-snapshot="true">2026-04-17T00:18:02Z</time></span></h2>
 
 
 
@@ -12130,10 +12162,10 @@
         </div>
         <div class="badge-row"><span class="badge badge-negative">Gap</span></div>
       </header>
-      <div class="flow-meta"><strong>Code</strong> <a href="../origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"><code>origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/35" class="ticket-link"><span class="ticket-badge badge badge-neutral">#35</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"><code>origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/35" class="ticket-link"><span class="ticket-badge badge badge-neutral">#35</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The pushed mockup branch defines the real target surface: a prioritized feed of architectural claims, not a simple inbox of repo/doc updates.</span></p><p class="note-description"><span class="note-line">Cards are block-level and carry origin strip, status transition, evidence, intent, optional grounding warning, and inline actions such as See diff, Watch, Mute, Pin, and Disagree.</span></p><p class="note-description"><span class="note-line">The broader model includes onboarding from role/package assignment, block-detail consensus vs contested states, and a <code>My map</code> screen that visualizes inherited, chosen, pinned, and muted attention.</span></p><p class="note-description"><span class="note-line">This means the current Inbox and Home surfaces are transport proofs and persistence sinks, not the end-state UX. The next build steps need grounded block events and refinement writes, not more polish on commit-centric copy.</span></p><p class="note-description"><span class="note-line"><code>implementation-knowledge</code> from #35 should be treated as one future source of feed-worthy events once the subscription surface exists.</span></p>
+      <p class="note-description"><span class="note-line">The pushed mockup branch defines the real target surface: a prioritized feed of architectural claims, not a simple inbox of repo/doc updates.</span></p><p class="note-description"><span class="note-line">Cards are block-level and carry origin strip, status transition, evidence, intent, optional grounding warning, and inline actions such as See diff, Watch, Mute, Pin, and Disagree.</span></p><p class="note-description"><span class="note-line">The broader model includes onboarding from role/package assignment, block-detail consensus vs contested states, and a <code>My map</code> screen that visualizes inherited, chosen, pinned, and muted attention.</span></p><p class="note-description"><span class="note-line">#32 adds the learning loop above that surface: accumulated user refinements should become aggregate-by-role package revision proposals, reviewed as PRs instead of silently mutating defaults.</span></p><p class="note-description"><span class="note-line">This means the current Inbox and Home surfaces are transport proofs and persistence sinks, not the end-state UX. The next build steps need grounded block events and refinement writes, not more polish on commit-centric copy.</span></p><p class="note-description"><span class="note-line"><code>implementation-knowledge</code> from #35 should be treated as one future source of feed-worthy events once the subscription surface exists.</span></p>
     </div>
 
 
@@ -12243,7 +12275,7 @@
     </article></div>
     </section>
     <section class="section" id="operational-tools">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#7c3aed"><path opacity='.24' d='M13.8 2l.6 2.46c.59.14 1.15.36 1.68.64L18.3 4l1.7 1.7-1.1 2.2c.28.53.5 1.09.64 1.68l2.46.62v2.6l-2.46.62c-.14.59-.36 1.15-.64 1.68l1.1 2.2-1.7 1.7-2.2-1.1c-.53.28-1.09.5-1.68.64L13.8 22h-2.6l-.62-2.46a7 7 0 01-1.68-.64L6.7 20l-1.7-1.7 1.1-2.2a7 7 0 01-.64-1.68L3 12.8v-2.6l2.46-.62c.14-.59.36-1.15.64-1.68L5 5.7 6.7 4l2.2 1.1c.53-.28 1.09-.5 1.68-.64L11.2 2z'/><circle cx='12' cy='12' r='3'/><path d='M16.8 16.8l3.2 3.2-1.2 1.2-3.2-3.2z'/></svg> Operational Tools and Artifacts<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T01:09:31Z" title="2026-04-16T01:09:31Z" data-relative-to-snapshot="true">2026-04-16T01:09:31Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#7c3aed"><path opacity='.24' d='M13.8 2l.6 2.46c.59.14 1.15.36 1.68.64L18.3 4l1.7 1.7-1.1 2.2c.28.53.5 1.09.64 1.68l2.46.62v2.6l-2.46.62c-.14.59-.36 1.15-.64 1.68l1.1 2.2-1.7 1.7-2.2-1.1c-.53.28-1.09.5-1.68.64L13.8 22h-2.6l-.62-2.46a7 7 0 01-1.68-.64L6.7 20l-1.7-1.7 1.1-2.2a7 7 0 01-.64-1.68L3 12.8v-2.6l2.46-.62c.14-.59.36-1.15.64-1.68L5 5.7 6.7 4l2.2 1.1c.53-.28 1.09-.5 1.68-.64L11.2 2z'/><circle cx='12' cy='12' r='3'/><path d='M16.8 16.8l3.2 3.2-1.2 1.2-3.2-3.2z'/></svg> Operational Tools and Artifacts<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-17T00:18:02Z" title="2026-04-17T00:18:02Z" data-relative-to-snapshot="true">2026-04-17T00:18:02Z</time></span></h2>
 
 
 
@@ -12259,7 +12291,7 @@
       <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/github-api.ts"><code>mobile/src/github-api.ts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p><p class="note-description"><span class="note-line">Workflow status now comes from the Contents API file at <code>.github/workflows/living-doc-notify.yml</code>, which avoids eventual-consistency lag in the Actions workflow-list endpoint.</span></p><p class="note-description"><span class="note-line">#36 will extend this client from connect/disconnect/status work into reading unseen feed artifacts from connected repositories.</span></p>
+      <p class="note-description"><span class="note-line">The API surface should be verified against a real throwaway repository before being treated as trusted.</span></p><p class="note-description"><span class="note-line">The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.</span></p><p class="note-description"><span class="note-line">Workflow status now comes from the Contents API file at <code>.github/workflows/living-doc-notify.yml</code>, which avoids eventual-consistency lag in the Actions workflow-list endpoint.</span></p><p class="note-description"><span class="note-line">The client now extends beyond connect/disconnect/status work into reading unseen feed artifacts from connected repositories.</span></p>
     </div>
       <p class="code-refs"><strong>Purpose</strong> Create, inspect, remove, and eventually sync GitHub repository artifacts for the mobile companion connection and delivery feed.</p><p class="code-refs"><strong>When to use</strong> Use when implementing or verifying connect, status refresh, disconnect behavior, or repo-backed feed sync.</p><p class="code-refs"><strong>Invocation</strong> Called by the mobile app screens, not directly from the CLI.</p>
 
@@ -12295,19 +12327,19 @@
       <header class="flow-card-header">
         <div>
           <h3>Living-doc notification workflow template</h3>
-          <div class="meta-row"><span><time datetime="2026-04-15T14:55:21Z" title="2026-04-15T14:55:21Z" data-relative-to-snapshot="true">2026-04-15T14:55:21Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-04-17T00:18:02Z" title="2026-04-17T00:18:02Z" data-relative-to-snapshot="true">2026-04-17T00:18:02Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
       </header>
       <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="flow-meta"><strong>Workflows</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/18" class="ticket-link"><span class="ticket-badge badge badge-neutral">#18</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/20" class="ticket-link"><span class="ticket-badge badge badge-neutral">#20</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/23" class="ticket-link"><span class="ticket-badge badge badge-neutral">#23</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
-      <p class="code-refs"><strong>Purpose</strong> Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.</p><p class="code-refs"><strong>When to use</strong> Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.</p><p class="code-refs"><strong>Invocation</strong> Written through GitHub Contents API by the mobile app.</p>
+      <p class="code-refs"><strong>Purpose</strong> Install the GitHub Actions workflow that writes repo-backed delivery events and optionally attempts Expo Push acceleration when a living document changes.</p><p class="code-refs"><strong>When to use</strong> Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.</p><p class="code-refs"><strong>Invocation</strong> Written through GitHub Contents API by the mobile app.</p>
 
     <details class="details-block">
       <summary>Caveats and gaps (2)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.</span></p><p class="note-description"><span class="note-line">The current workflow still only sends Expo Push; #36 will add the GitHub-backed feed-writing side of the contract.</span></p>
+      <p class="note-description"><span class="note-line">Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.</span></p><p class="note-description"><span class="note-line">The workflow now writes GitHub-backed feed events, but its payload is still doc-level and commit-shaped rather than the grounded block/event schema needed for the subscription UX.</span></p>
     </div>
     </details>
     </article>
@@ -12347,7 +12379,7 @@
       <summary>Caveats and gaps (2)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Requires an Expo account and <code>npx eas-cli init</code> before a contributor can build.</span></p><p class="note-description"><span class="note-line">No successful device build has been recorded in <code>mobile/README.md</code> yet.</span></p>
+      <p class="note-description"><span class="note-line">Requires an Expo account and <code>npx eas-cli init</code> before a contributor can build.</span></p><p class="note-description"><span class="note-line">No successful paid-team push-capable device build has been recorded in <code>mobile/README.md</code> yet.</span></p>
     </div>
     </details>
     </article>
@@ -12431,7 +12463,7 @@
       </header>
       <div class="flow-meta"><strong>Automation</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div><div class="flow-meta"><strong>APIs</strong> <code>GitHub REST: Contents API</code></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/36" class="ticket-link"><span class="ticket-badge badge badge-neutral">#36</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. A repo-local delivery manifest contract now exists at <code>.living-docs/manifest.json</code>, and the workflow reacts to <code>push</code> on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in <code>triadflow/living-doc-compositor</code>, where push commit <code>6861d5a</code> triggered workflow run <code>24512708555</code> and wrote a new feed event file without any manual dispatch.</p><p class="code-refs"><strong>Next step</strong> Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33.</p>
+      <p class="code-refs"><strong>Current coverage</strong> The workflow template now writes one JSON event per run into <code>.living-docs/feed/</code> on the <code>living-docs-feed</code> branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. <code>npm run typecheck</code> passes. A repo-local delivery manifest contract now exists at <code>.living-docs/manifest.json</code>, and the workflow reacts to <code>push</code> on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against <code>triadflow/mobile-connect-test</code>, where workflow run <code>24510668921</code> created the feed branch and file <code>2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json</code> with the expected payload. Phone-side verification is also proven against <code>triadflow/trackandback-lead</code>, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in <code>triadflow/living-doc-compositor</code>, where push commit <code>6861d5a</code> triggered workflow run <code>24512708555</code> and wrote a new feed event file without any manual dispatch.</p><p class="code-refs"><strong>Next step</strong> Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33 while preserving enough refinement data to inform the package-learning loop in #32.</p>
 
     <details class="details-block">
       <summary>Current gaps (4)</summary>
@@ -12523,7 +12555,7 @@
     </article></div>
     </section>
     <section class="section" id="open-decisions">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Open Decisions<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-16T14:12:00Z" title="2026-04-16T14:12:00Z" data-relative-to-snapshot="true">2026-04-16T14:12:00Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Open Decisions<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-17T00:18:02Z" title="2026-04-17T00:18:02Z" data-relative-to-snapshot="true">2026-04-17T00:18:02Z</time></span></h2>
 
 
 
@@ -12568,10 +12600,26 @@
         </div>
         <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
       </header>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The mockup branch <code>mockup/subscription-ux</code> defines a prioritized feed of block-level architectural claims with evidence, intent, grounding warnings, and inline refinement actions.</span></p><p class="note-description"><span class="note-line">That means the current persisted Inbox should remain as a sink, audit trail, and debugging surface, but not as the final interaction model.</span></p><p class="note-description"><span class="note-line">Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy.</span></p>
+      <p class="note-description"><span class="note-line">The mockup branch <code>mockup/subscription-ux</code> defines a prioritized feed of block-level architectural claims with evidence, intent, grounding warnings, and inline refinement actions.</span></p><p class="note-description"><span class="note-line">That means the current persisted Inbox should remain as a sink, audit trail, and debugging surface, but not as the final interaction model.</span></p><p class="note-description"><span class="note-line">Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy.</span></p><p class="note-description"><span class="note-line">As refinements accumulate, aggregate mute/add/pin patterns should become inputs to package revision proposals rather than being trapped as per-user local state only.</span></p>
+    </div>
+
+
+    </article>
+    <article class="flow-card" id="refinement-package-learning-loop">
+      <header class="flow-card-header">
+        <div>
+          <h3>Refinements should feed aggregate package revision proposals</h3>
+          <div class="meta-row"><span><time datetime="2026-04-17T00:18:02Z" title="2026-04-17T00:18:02Z" data-relative-to-snapshot="true">2026-04-17T00:18:02Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Reference</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a></div></div>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">Per-user refinements from the subscription layer should remain user-scoped at write time, but the system should also aggregate them by role or package to propose revisions to the shared default subscriptions.</span></p><p class="note-description"><span class="note-line">Those revisions should surface as reviewable diffs or PRs against <code>subscriptions.json</code>, not as silent automatic mutation of defaults.</span></p><p class="note-description"><span class="note-line">The privacy boundary is aggregate only: individual user refinements should not be exposed outside their local overlay.</span></p><p class="note-description"><span class="note-line">The unresolved mechanics are sample-size thresholds, handling conflicting signals, and whether any aggregate hints should surface in the mobile UI.</span></p>
     </div>
 
 
@@ -12643,7 +12691,7 @@
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-8bd82a6 (2026-04-16)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-8b29317 (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -12792,7 +12840,7 @@
       <h3>Subscription and refinement feed surface</h3>
       <div class="badge-row"><span class="badge badge-negative">Gap</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"><code>origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/35" class="ticket-link"><span class="ticket-badge badge badge-neutral">#35</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"><code>origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/35" class="ticket-link"><span class="ticket-badge badge badge-neutral">#35</span></a></div></div>
     </article>
       </div>
     </section>
@@ -12904,7 +12952,7 @@
       <h3>Subscription and refinement feed surface</h3>
       <div class="badge-row"><span class="badge badge-negative">Gap</span></div>
 
-      <div class="flow-meta"><strong>Code</strong> <a href="../origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"><code>origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/35" class="ticket-link"><span class="ticket-badge badge badge-neutral">#35</span></a></div></div>
+      <div class="flow-meta"><strong>Code</strong> <a href="../origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"><code>origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/35" class="ticket-link"><span class="ticket-badge badge badge-neutral">#35</span></a></div></div>
     </article>
       </div>
     </section>
@@ -13076,7 +13124,7 @@
       <div class="board-card-kicker">Operational Tools and Artifacts · Tooling Surface</div>
       <h3>Living-doc notification workflow template</h3>
       <div class="badge-row"><span class="badge badge-neutral">Prototype</span></div>
-      <p class="board-card-note"><strong>Purpose</strong> Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.</p>
+      <p class="board-card-note"><strong>Purpose</strong> Install the GitHub Actions workflow that writes repo-backed delivery events and optionally attempts Expo Push acceleration when a living document changes.</p>
       <div class="flow-meta"><strong>Scripts</strong> <a href="../mobile/src/workflow-template.ts"><code>mobile/src/workflow-template.ts</code></a></div><div class="flow-meta"><strong>Workflows</strong> <a href="../.github/workflows/living-doc-notify.yml"><code>.github/workflows/living-doc-notify.yml</code></a></div>
     </article>
     <article class="board-card" data-section-id="operational-tools">
@@ -13317,7 +13365,7 @@
       <h3>Current Inbox is transport proof; target UX is the subscription refinement feed</h3>
       <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
 
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/28" class="ticket-link"><span class="ticket-badge badge badge-neutral">#28</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/31" class="ticket-link"><span class="ticket-badge badge badge-neutral">#31</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/33" class="ticket-link"><span class="ticket-badge badge badge-neutral">#33</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="open-decisions">
       <div class="board-card-kicker">Open Decisions · Decision Record</div>
@@ -13345,10 +13393,17 @@
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Reference</span>
-        <span class="board-count">1</span>
+        <span class="board-count">2</span>
       </header>
       <div class="board-lane-cards">
 
+    <article class="board-card" data-section-id="open-decisions">
+      <div class="board-card-kicker">Open Decisions · Decision Record</div>
+      <h3>Refinements should feed aggregate package revision proposals</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Reference</span></div>
+
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/27" class="ticket-link"><span class="ticket-badge badge badge-neutral">#27</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/32" class="ticket-link"><span class="ticket-badge badge badge-neutral">#32</span></a></div></div>
+    </article>
     <article class="board-card" data-section-id="open-decisions">
       <div class="board-card-kicker">Open Decisions · Decision Record</div>
       <h3>A single GitHub secret models one active mobile endpoint</h3>

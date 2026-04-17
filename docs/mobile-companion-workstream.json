@@ -7,10 +7,10 @@
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-16, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.",
-  "updated": "2026-04-16T14:25:00.000Z",
+  "sourceCoverage": "GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-17, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.",
+  "updated": "2026-04-17T00:18:02.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
-  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, refinement-to-package learning, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
   "callouts": [
     {
@@ -27,7 +27,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-16T14:25:00.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "stats": [
         { "label": "Open child tickets", "value": "13" },
         { "label": "Closed context ticket", "value": "1" },
@@ -42,7 +42,7 @@
           "The current Inbox is a transport and audit surface only. It proves delivery and sync, but it is not the product UX we are aiming for.",
           "The product target has moved to the subscription/refinement model from `mockup/subscription-ux`: prioritized block-level cards with origin, evidence, intent, grounding warnings, and inline actions such as Watch, Mute, Pin, and Disagree.",
           "Delivery now depends on a small repo-local manifest at `.living-docs/manifest.json`, while the central library remains the richer cross-system catalog. The two need shared document identity rather than pretending one can replace the other.",
-          "The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), and the feed/card surface itself (#28, #33, #35).",
+          "The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), the feed/card surface itself (#28, #33, #35), and the refinement-to-package learning loop that lets aggregate user refinements propose package revisions (#32).",
           "The remaining hard gates are real paid-team push verification, disconnect verification against a real repo, and sync hardening such as per-repo cursors or watermarks."
         ]
       },
@@ -52,7 +52,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-16T14:12:00.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -251,6 +251,10 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
             },
             {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
               "issueNumber": "33",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
             },
@@ -263,6 +267,7 @@
             "The pushed mockup branch defines the real target surface: a prioritized feed of architectural claims, not a simple inbox of repo/doc updates.",
             "Cards are block-level and carry origin strip, status transition, evidence, intent, optional grounding warning, and inline actions such as See diff, Watch, Mute, Pin, and Disagree.",
             "The broader model includes onboarding from role/package assignment, block-detail consensus vs contested states, and a `My map` screen that visualizes inherited, chosen, pinned, and muted attention.",
+            "#32 adds the learning loop above that surface: accumulated user refinements should become aggregate-by-role package revision proposals, reviewed as PRs instead of silently mutating defaults.",
             "This means the current Inbox and Home surfaces are transport proofs and persistence sinks, not the end-state UX. The next build steps need grounded block events and refinement writes, not more polish on commit-centric copy.",
             "`implementation-knowledge` from #35 should be treated as one future source of feed-worthy events once the subscription surface exists."
           ]
@@ -443,7 +448,7 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-16T01:09:31.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "data": [
         {
           "id": "github-api-client",
@@ -478,7 +483,7 @@
             "The API surface should be verified against a real throwaway repository before being treated as trusted.",
             "The client now includes the disconnect side of the lifecycle: delete secret, delete workflow file, and refresh status.",
             "Workflow status now comes from the Contents API file at `.github/workflows/living-doc-notify.yml`, which avoids eventual-consistency lag in the Actions workflow-list endpoint.",
-            "#36 will extend this client from connect/disconnect/status work into reading unseen feed artifacts from connected repositories."
+            "The client now extends beyond connect/disconnect/status work into reading unseen feed artifacts from connected repositories."
           ],
           "caveats": [
             "GitHub secret values are not readable after write, so status logic needs a separate source for preview or real-token state."
@@ -514,7 +519,7 @@
           "id": "workflow-template",
           "name": "Living-doc notification workflow template",
           "status": "prototype",
-          "updated": "2026-04-15T14:55:21.000Z",
+          "updated": "2026-04-17T00:18:02.000Z",
           "scriptPaths": [
             "mobile/src/workflow-template.ts"
           ],
@@ -539,12 +544,12 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "purpose": "Install the GitHub Actions workflow that notifies the mobile companion and will become the repo-backed event-writer when a living document changes.",
+          "purpose": "Install the GitHub Actions workflow that writes repo-backed delivery events and optionally attempts Expo Push acceleration when a living document changes.",
           "whenToUse": "Use in connect, status refresh, disconnect, and delivery-feed work where workflow contents or path behavior matter.",
           "invocation": "Written through GitHub Contents API by the mobile app.",
           "caveats": [
             "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.",
-            "The current workflow still only sends Expo Push; #36 will add the GitHub-backed feed-writing side of the contract."
+            "The workflow now writes GitHub-backed feed events, but its payload is still doc-level and commit-shaped rather than the grounded block/event schema needed for the subscription UX."
           ]
         },
         {
@@ -588,7 +593,7 @@
           "invocation": "`cd mobile && npx eas-cli build --profile development --platform ios` or `npx eas-cli build --profile development --platform android`.",
           "caveats": [
             "Requires an Expo account and `npx eas-cli init` before a contributor can build.",
-            "No successful device build has been recorded in `mobile/README.md` yet."
+            "No successful paid-team push-capable device build has been recorded in `mobile/README.md` yet."
           ]
         },
         {
@@ -690,7 +695,7 @@
             }
           ],
           "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in `triadflow/living-doc-compositor`, where push commit `6861d5a` triggered workflow run `24512708555` and wrote a new feed event file without any manual dispatch.",
-          "nextStep": "Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33.",
+          "nextStep": "Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33 while preserving enough refinement data to inform the package-learning loop in #32.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
             "The current feed payload is still doc-level and commit-centric, which does not match the subscription mockup's block-level claim/evidence/refinement cards.",
@@ -784,7 +789,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-16T14:12:00.000Z",
+      "updated": "2026-04-17T00:18:02.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -874,6 +879,10 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
             },
             {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
               "issueNumber": "33",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
             }
@@ -881,7 +890,30 @@
           "notes": [
             "The mockup branch `mockup/subscription-ux` defines a prioritized feed of block-level architectural claims with evidence, intent, grounding warnings, and inline refinement actions.",
             "That means the current persisted Inbox should remain as a sink, audit trail, and debugging surface, but not as the final interaction model.",
-            "Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy."
+            "Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy.",
+            "As refinements accumulate, aggregate mute/add/pin patterns should become inputs to package revision proposals rather than being trapped as per-user local state only."
+          ]
+        },
+        {
+          "id": "refinement-package-learning-loop",
+          "name": "Refinements should feed aggregate package revision proposals",
+          "status": "reference",
+          "updated": "2026-04-17T00:18:02.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            }
+          ],
+          "notes": [
+            "Per-user refinements from the subscription layer should remain user-scoped at write time, but the system should also aggregate them by role or package to propose revisions to the shared default subscriptions.",
+            "Those revisions should surface as reviewable diffs or PRs against `subscriptions.json`, not as silent automatic mutation of defaults.",
+            "The privacy boundary is aggregate only: individual user refinements should not be exposed outside their local overlay.",
+            "The unresolved mechanics are sample-size thresholds, handling conflicting signals, and whether any aggregate hints should surface in the mobile UI."
           ]
         },
         {
