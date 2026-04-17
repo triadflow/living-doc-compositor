@@ -49,6 +49,7 @@ For each discovered doc, read the JSON and assess:
   git log --oneline --since="24 hours ago" -- .
   ```
 - **Staleness** — flag sections where the timestamp is older than the most recent relevant commit
+- **Meta-layer freshness** — if the doc carries `objectiveFacets`, check `metaFingerprint` against the current sections.
 
 Present a summary:
 
@@ -60,9 +61,33 @@ Objective: <objective>
 Sections: <N> (<list with convergence types>)
 Last updated: <timestamp> (<relative>)
 Stale sections: <list or "none">
+Governance layer: <present | absent>
+Meta fingerprint: <fresh | stale: reason | missing>
 ```
 
-### 3. UPDATE DURING WORK
+### 3. VERIFY META FRESHNESS BEFORE EDITING
+
+If the doc carries governance data (`objectiveFacets`, `coverage`, `invariants`) and the session intends to edit the doc, run a freshness check before using any coverage edge for section targeting:
+
+```bash
+node -e "import('./scripts/meta-fingerprint.mjs').then(async m => {
+  const fs=await import('node:fs');
+  const doc=JSON.parse(await fs.promises.readFile('<path>','utf8'));
+  console.log(JSON.stringify(m.checkFingerprint(doc.metaFingerprint, doc.sections), null, 2));
+})"
+```
+
+**On mismatch:**
+
+- Surface the staleness to the user. Example: *"Meta fingerprint on <doc.title> no longer matches its sections — coverage edges may point at the wrong cards."*
+- Offer to run `/crystallize --refresh <path>`. If the session is non-interactive, run it automatically and note that it happened.
+- **Do not trust `coverage` edges for deterministic section targeting until the fingerprint is current.** Fall back to prose re-derivation and explicitly note in your reasoning that you did so.
+
+**On missing:** the doc has governance data but has never been crystallized. Offer `/crystallize <path>` before continuing.
+
+**On fresh:** proceed normally. Coverage edges are trusted for targeting.
+
+### 4. UPDATE DURING WORK
 
 When working in the domain and you notice the living doc is stale or incomplete:
 
@@ -76,7 +101,7 @@ When working in the domain and you notice the living doc is stale or incomplete:
   node scripts/render-living-doc.mjs <doc-path>
   ```
 
-### 4. REPORT
+### 5. REPORT
 
 After any updates, show what changed:
 
@@ -93,3 +118,4 @@ Updated <doc title>:
 3. **Full-precision timestamps.** Always write ISO timestamps with time, not just dates. Freshness matters at hour level.
 4. **The registry is the vocabulary.** Look up convergence types in `scripts/living-doc-registry.json` to know what entity types each section expects.
 5. **Render after updating.** If `render-living-doc.mjs` exists, re-render the HTML so the human-readable view stays in sync.
+6. **Refresh the meta layer before trusting it.** If a doc has `objectiveFacets` but its fingerprint is stale, `coverage` is a liar — do not use it for section targeting until `/crystallize --refresh` runs.
