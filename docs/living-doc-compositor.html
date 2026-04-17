@@ -602,9 +602,51 @@
   }
   .guide-overlay.open { opacity: 1; pointer-events: all; }
   .guide-panel {
-    width: 90vw; max-width: 780px; max-height: 88vh;
-    background: var(--bg); border-radius: 16px; overflow-y: auto;
+    width: 94vw; max-width: 1040px; max-height: 88vh;
+    background: var(--bg); border-radius: 16px; overflow: hidden;
     box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+    display: grid; grid-template-columns: 240px 1fr;
+  }
+  .guide-toc {
+    border-right: 1px solid var(--line); background: var(--card);
+    padding: 24px 18px 24px 24px; overflow-y: auto; max-height: 88vh;
+  }
+  .guide-toc-label {
+    display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); margin: 0 0 14px;
+  }
+  .guide-toc-list { display: flex; flex-direction: column; gap: 4px; }
+  .guide-toc-link {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 12px; border-radius: 10px;
+    color: var(--ink); text-decoration: none; font-size: 13.5px;
+    border: 1px solid transparent; line-height: 1.35;
+  }
+  .guide-toc-link:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--card));
+    border-color: color-mix(in srgb, var(--accent) 20%, var(--line));
+    text-decoration: none;
+  }
+  .guide-toc-link.active {
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+    color: var(--accent);
+  }
+  .guide-toc-num {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    color: var(--accent); display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 11px;
+  }
+  .guide-toc-link.active .guide-toc-num {
+    background: var(--accent); color: #fff;
+  }
+  .guide-toc-title { font-weight: 700; display: block; }
+  .guide-toc-tagline { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .guide-toc-link.active .guide-toc-tagline { color: var(--ink); }
+  .guide-content {
+    position: relative;
+    overflow-y: auto; max-height: 88vh;
     padding: 36px 40px 48px;
   }
   .guide-close {
@@ -615,27 +657,6 @@
     cursor: pointer; z-index: 1;
   }
   .guide-close:hover { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-ink); }
-  .guide-index {
-    position: sticky; top: 0; z-index: 2; margin: -8px -4px 24px; padding: 10px 14px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    display: flex; flex-wrap: wrap; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  }
-  .guide-index-label {
-    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--muted); margin-right: 6px; align-self: center;
-  }
-  .guide-index a {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
-    background: var(--bg); color: var(--ink); border: 1px solid var(--line);
-    text-decoration: none; transition: border-color 0.15s, background 0.15s;
-  }
-  .guide-index a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-  .guide-index-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
-  }
   .guide-layer {
     margin-bottom: 44px; padding: 24px 26px 26px;
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
@@ -694,6 +715,14 @@
     background: var(--neutral-bg); color: var(--neutral-ink);
   }
   .guide-badge-new { background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--accent); }
+  @media (max-width: 820px) {
+    .guide-panel { grid-template-columns: 1fr; }
+    .guide-toc { max-height: none; border-right: none; border-bottom: 1px solid var(--line); padding: 16px 20px; }
+    .guide-toc-list { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .guide-toc-link { padding: 6px 10px; font-size: 12.5px; }
+    .guide-toc-tagline { display: none; }
+    .guide-content { max-height: none; padding: 24px 22px 36px; }
+  }
 
   /* ── Action bar ── */
   .action-bar { display: flex; gap: 6px; }
@@ -9662,17 +9691,28 @@
         </div>`;
     }).join('');
 
-    return `
-      <div style="max-width:760px;font-size:14.5px;line-height:1.7;color:var(--ink)">
+    const tocLink = (num, titleKey, taglineKey) => `
+      <a class="guide-toc-link" href="#guide-layer-${num}" data-guide-toc="${num}">
+        <span class="guide-toc-num">${num}</span>
+        <span>
+          <span class="guide-toc-title">${esc(t(titleKey))}</span>
+          <span class="guide-toc-tagline">${esc(t(taglineKey))}</span>
+        </span>
+      </a>`;
 
-        <nav class="guide-index" aria-label="Guide layers">
-          <span class="guide-index-label">${esc(t('guideLayerIndexLabel'))}</span>
-          <a href="#guide-layer-1"><span class="guide-index-num">1</span>${esc(t('guideLayer1Title'))}</a>
-          <a href="#guide-layer-2"><span class="guide-index-num">2</span>${esc(t('guideLayer2Title'))}</a>
-          <a href="#guide-layer-3"><span class="guide-index-num">3</span>${esc(t('guideLayer3Title'))}</a>
-          <a href="#guide-layer-4"><span class="guide-index-num">4</span>${esc(t('guideLayer4Title'))}</a>
-          <a href="#guide-layer-5"><span class="guide-index-num">5</span>${esc(t('guideLayer5Title'))}</a>
-        </nav>
+    return `
+      <aside class="guide-toc" aria-label="Guide chapters">
+        <span class="guide-toc-label">${esc(t('guideLayerIndexLabel'))}</span>
+        <div class="guide-toc-list">
+          ${tocLink(1, 'guideLayer1Title', 'guideLayer1Tagline')}
+          ${tocLink(2, 'guideLayer2Title', 'guideLayer2Tagline')}
+          ${tocLink(3, 'guideLayer3Title', 'guideLayer3Tagline')}
+          ${tocLink(4, 'guideLayer4Title', 'guideLayer4Tagline')}
+          ${tocLink(5, 'guideLayer5Title', 'guideLayer5Tagline')}
+        </div>
+      </aside>
+      <div class="guide-content" id="guide-content">
+      <div style="font-size:14.5px;line-height:1.7;color:var(--ink)">
 
         <section class="guide-layer" id="guide-layer-1">
           ${layerHead(1, t('guideLayer1Title'), t('guideLayer1Tagline'))}
@@ -9789,6 +9829,7 @@
           </div>
         </section>
 
+      </div>
       </div>`;
   }
 
@@ -11258,10 +11299,48 @@
   function openGuide() {
     const overlay = document.getElementById('guide-overlay');
     const panel = document.getElementById('guide-panel');
-    panel.innerHTML = `<button class="guide-close" id="guide-close">\u00d7</button>` + renderHelp();
+    panel.innerHTML = renderHelp();
+    // inject close button into the content column so it sticks with scrolling text
+    const content = panel.querySelector('#guide-content');
+    if (content) {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'guide-close';
+      closeBtn.id = 'guide-close';
+      closeBtn.textContent = '\u00d7';
+      content.insertBefore(closeBtn, content.firstChild);
+    }
     overlay.classList.add('open');
     document.getElementById('guide-close').addEventListener('click', closeGuide);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeGuide(); });
+
+    // active-chapter highlighting + scroll-margin for in-content anchors
+    const tocLinks = Array.from(panel.querySelectorAll('.guide-toc-link'));
+    const layers = Array.from(panel.querySelectorAll('.guide-layer'));
+    const setActive = (id) => {
+      const num = id?.replace('guide-layer-', '');
+      tocLinks.forEach((link) => {
+        link.classList.toggle('active', link.dataset.guideToc === num);
+      });
+    };
+    if (layers.length) setActive(layers[0].id);
+    if (content && layers.length && typeof IntersectionObserver === 'function') {
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.target.offsetTop - b.target.offsetTop);
+        if (visible.length > 0) setActive(visible[0].target.id);
+      }, { root: content, rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+      layers.forEach((layer) => observer.observe(layer));
+    }
+    tocLinks.forEach((link) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const num = link.dataset.guideToc;
+        const target = panel.querySelector(`#guide-layer-${num}`);
+        if (target && content) content.scrollTo({ top: target.offsetTop - 24, behavior: 'smooth' });
+        setActive(`guide-layer-${num}`);
+      });
+    });
   }
   function closeGuide() {
     document.getElementById('guide-overlay').classList.remove('open');
