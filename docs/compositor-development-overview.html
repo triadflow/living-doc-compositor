@@ -1710,6 +1710,30 @@
     background: var(--card); font-size: 12.5px; font-weight: 600; color: var(--muted);
   }
   .preview-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .flow-placeholder {
+    margin: 24px; padding: 32px 36px; border-radius: 14px;
+    background: var(--card); border: 1px dashed var(--line);
+    max-width: 720px;
+  }
+  .flow-placeholder-eyebrow {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    color: var(--accent); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+  }
+  .flow-placeholder h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -0.01em; }
+  .flow-placeholder p { margin: 0 0 16px; color: var(--muted); line-height: 1.6; font-size: 13.5px; }
+  .flow-placeholder-summary {
+    padding: 10px 14px; border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 6%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+    font-size: 12.5px; color: var(--ink);
+  }
+  .flow-placeholder-summary-empty {
+    background: color-mix(in srgb, #f59e0b 10%, var(--card));
+    border-color: color-mix(in srgb, #f59e0b 30%, var(--line));
+    color: #92400e;
+  }
   .preview-content { padding: 24px; scroll-behavior: smooth; }
   .preview-iframe { width: 100%; border: none; border-radius: var(--radius); background: #fff; min-height: calc(100vh - 80px); }
   .doc-editor-card {
@@ -2567,7 +2591,11 @@
       &quot;preview&quot;: &quot;Preview&quot;,
       &quot;visual&quot;: &quot;Visual&quot;,
       &quot;board&quot;: &quot;Board&quot;,
+      &quot;flow&quot;: &quot;Flow&quot;,
       &quot;json&quot;: &quot;JSON&quot;,
+      &quot;flowEmptyTitle&quot;: &quot;Governance canvas&quot;,
+      &quot;flowEmptyBody&quot;: &quot;The Flow view renders the doc&#39;s governance layer — objective facets, coverage edges, invariants, and rationale — as a canvas. Canvas rendering lands in #47. Tab is in place; data-flow wiring follows.&quot;,
+      &quot;flowMissingGovernance&quot;: &quot;This doc has no governance data yet. Run /crystallize on the JSON to populate objectiveFacets, coverage, and invariants.&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Browse starter and advanced living doc templates&quot;,
       &quot;templatesIntro&quot;: &quot;Start with a simple starter template or jump straight into a fuller advanced shape.&quot;,
@@ -2838,7 +2866,11 @@
       &quot;preview&quot;: &quot;Voorbeeld&quot;,
       &quot;visual&quot;: &quot;Visueel&quot;,
       &quot;board&quot;: &quot;Bord&quot;,
+      &quot;flow&quot;: &quot;Flow&quot;,
       &quot;json&quot;: &quot;JSON&quot;,
+      &quot;flowEmptyTitle&quot;: &quot;Governance-canvas&quot;,
+      &quot;flowEmptyBody&quot;: &quot;De Flow-weergave rendert de governance-laag van het document — doelfacetten, coverage-edges, invarianten en rationale — als canvas. Canvasrendering landt in #47. Het tabblad staat; datastromen volgen.&quot;,
+      &quot;flowMissingGovernance&quot;: &quot;Dit document heeft nog geen governance-data. Draai /crystallize op de JSON om objectiveFacets, coverage en invariants te vullen.&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Blader door starter- en geavanceerde living-doc-templates&quot;,
       &quot;templatesIntro&quot;: &quot;Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.&quot;,
@@ -3280,7 +3312,11 @@
       &quot;preview&quot;: &quot;Pratinjau&quot;,
       &quot;visual&quot;: &quot;Visual&quot;,
       &quot;board&quot;: &quot;Papan&quot;,
+      &quot;flow&quot;: &quot;Flow&quot;,
       &quot;json&quot;: &quot;JSON&quot;,
+      &quot;flowEmptyTitle&quot;: &quot;Kanvas governance&quot;,
+      &quot;flowEmptyBody&quot;: &quot;Tampilan Flow merender lapisan governance dokumen — faset tujuan, edge coverage, invarian, dan rationale — sebagai kanvas. Rendering kanvas mendarat di #47. Tab sudah ada; aliran data menyusul.&quot;,
+      &quot;flowMissingGovernance&quot;: &quot;Dokumen ini belum memiliki data governance. Jalankan /crystallize pada JSON untuk mengisi objectiveFacets, coverage, dan invariants.&quot;,
       &quot;templates&quot;: &quot;Template&quot;,
       &quot;templatesHint&quot;: &quot;Jelajahi template starter dan lanjutan living doc&quot;,
       &quot;templatesIntro&quot;: &quot;Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.&quot;,
@@ -10167,7 +10203,7 @@
     autoSave();
     const panel = document.getElementById(&#39;right-panel&#39;);
 
-    if (![&#39;visual&#39;, &#39;board&#39;, &#39;json&#39;].includes(state.previewTab)) state.previewTab = &#39;visual&#39;;
+    if (![&#39;visual&#39;, &#39;board&#39;, &#39;flow&#39;, &#39;json&#39;].includes(state.previewTab)) state.previewTab = &#39;visual&#39;;
     const json = buildJson();
     const title = t(&#39;preview&#39;);
 
@@ -10177,6 +10213,7 @@
         &lt;div class=&quot;preview-tabs&quot;&gt;
           &lt;button class=&quot;preview-tab${state.previewTab === &#39;visual&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-tab=&quot;visual&quot;&gt;${esc(t(&#39;visual&#39;))}&lt;/button&gt;
           &lt;button class=&quot;preview-tab${state.previewTab === &#39;board&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-tab=&quot;board&quot;&gt;${esc(t(&#39;board&#39;))}&lt;/button&gt;
+          &lt;button class=&quot;preview-tab${state.previewTab === &#39;flow&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-tab=&quot;flow&quot;&gt;${esc(t(&#39;flow&#39;))}&lt;/button&gt;
           &lt;button class=&quot;preview-tab${state.previewTab === &#39;json&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-tab=&quot;json&quot;&gt;${esc(t(&#39;json&#39;))}&lt;/button&gt;
         &lt;/div&gt;
       &lt;/div&gt;
@@ -10185,7 +10222,9 @@
           ? renderJsonPreview(json)
           : state.previewTab === &#39;board&#39;
             ? renderBoardPreview(json)
-            : renderVisualPreview(json)}
+            : state.previewTab === &#39;flow&#39;
+              ? renderFlowPreview(json)
+              : renderVisualPreview(json)}
       &lt;/div&gt;`;
 
     panel.querySelectorAll(&#39;.preview-tab&#39;).forEach(tab =&gt; {
@@ -10504,6 +10543,23 @@
       &lt;div class=&quot;template-groups&quot;&gt;
         ${renderTemplateGroup(&#39;starterTemplates&#39;, &#39;starterTemplatesIntro&#39;, starterTemplates)}
         ${renderTemplateGroup(&#39;advancedTemplates&#39;, &#39;advancedTemplatesIntro&#39;, advancedTemplates)}
+      &lt;/div&gt;`;
+  }
+
+  function renderFlowPreview(json) {
+    const facets = Array.isArray(json.objectiveFacets) ? json.objectiveFacets : [];
+    const coverage = Array.isArray(json.coverage) ? json.coverage : [];
+    const invariants = Array.isArray(json.invariants) ? json.invariants : [];
+    const hasGovernance = facets.length &gt; 0 || coverage.length &gt; 0 || invariants.length &gt; 0;
+    const summaryLine = hasGovernance
+      ? `&lt;div class=&quot;flow-placeholder-summary&quot;&gt;${facets.length} facets \u00b7 ${coverage.length} coverage edges \u00b7 ${invariants.length} invariants \u00b7 ${(json.sections || []).filter((s) =&gt; (s.rationale || &#39;&#39;).trim()).length}/${(json.sections || []).length} rationales declared&lt;/div&gt;`
+      : `&lt;div class=&quot;flow-placeholder-summary flow-placeholder-summary-empty&quot;&gt;${esc(t(&#39;flowMissingGovernance&#39;))}&lt;/div&gt;`;
+    return `
+      &lt;div class=&quot;flow-placeholder&quot; data-flow-placeholder&gt;
+        &lt;div class=&quot;flow-placeholder-eyebrow&quot;&gt;#46 scaffolding \u00b7 canvas lands in #47&lt;/div&gt;
+        &lt;h3&gt;${esc(t(&#39;flowEmptyTitle&#39;))}&lt;/h3&gt;
+        &lt;p&gt;${esc(t(&#39;flowEmptyBody&#39;))}&lt;/p&gt;
+        ${summaryLine}
       &lt;/div&gt;`;
   }
 
@@ -13013,7 +13069,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T07:28:32.319Z" title="2026-04-17T07:28:32.319Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T07:28:32.319Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T09:26:50.549Z" title="2026-04-17T09:26:50.549Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T09:26:50.549Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -13629,7 +13685,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-68b3cb4 (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-32fc080 (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

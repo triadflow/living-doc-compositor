@@ -267,6 +267,30 @@
     background: var(--card); font-size: 12.5px; font-weight: 600; color: var(--muted);
   }
   .preview-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .flow-placeholder {
+    margin: 24px; padding: 32px 36px; border-radius: 14px;
+    background: var(--card); border: 1px dashed var(--line);
+    max-width: 720px;
+  }
+  .flow-placeholder-eyebrow {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    color: var(--accent); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+  }
+  .flow-placeholder h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -0.01em; }
+  .flow-placeholder p { margin: 0 0 16px; color: var(--muted); line-height: 1.6; font-size: 13.5px; }
+  .flow-placeholder-summary {
+    padding: 10px 14px; border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 6%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+    font-size: 12.5px; color: var(--ink);
+  }
+  .flow-placeholder-summary-empty {
+    background: color-mix(in srgb, #f59e0b 10%, var(--card));
+    border-color: color-mix(in srgb, #f59e0b 30%, var(--line));
+    color: #92400e;
+  }
   .preview-content { padding: 24px; scroll-behavior: smooth; }
   .preview-iframe { width: 100%; border: none; border-radius: var(--radius); background: #fff; min-height: calc(100vh - 80px); }
   .doc-editor-card {
@@ -1124,7 +1148,11 @@
       "preview": "Preview",
       "visual": "Visual",
       "board": "Board",
+      "flow": "Flow",
       "json": "JSON",
+      "flowEmptyTitle": "Governance canvas",
+      "flowEmptyBody": "The Flow view renders the doc's governance layer — objective facets, coverage edges, invariants, and rationale — as a canvas. Canvas rendering lands in #47. Tab is in place; data-flow wiring follows.",
+      "flowMissingGovernance": "This doc has no governance data yet. Run /crystallize on the JSON to populate objectiveFacets, coverage, and invariants.",
       "templates": "Templates",
       "templatesHint": "Browse starter and advanced living doc templates",
       "templatesIntro": "Start with a simple starter template or jump straight into a fuller advanced shape.",
@@ -1395,7 +1423,11 @@
       "preview": "Voorbeeld",
       "visual": "Visueel",
       "board": "Bord",
+      "flow": "Flow",
       "json": "JSON",
+      "flowEmptyTitle": "Governance-canvas",
+      "flowEmptyBody": "De Flow-weergave rendert de governance-laag van het document — doelfacetten, coverage-edges, invarianten en rationale — als canvas. Canvasrendering landt in #47. Het tabblad staat; datastromen volgen.",
+      "flowMissingGovernance": "Dit document heeft nog geen governance-data. Draai /crystallize op de JSON om objectiveFacets, coverage en invariants te vullen.",
       "templates": "Templates",
       "templatesHint": "Blader door starter- en geavanceerde living-doc-templates",
       "templatesIntro": "Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.",
@@ -1837,7 +1869,11 @@
       "preview": "Pratinjau",
       "visual": "Visual",
       "board": "Papan",
+      "flow": "Flow",
       "json": "JSON",
+      "flowEmptyTitle": "Kanvas governance",
+      "flowEmptyBody": "Tampilan Flow merender lapisan governance dokumen — faset tujuan, edge coverage, invarian, dan rationale — sebagai kanvas. Rendering kanvas mendarat di #47. Tab sudah ada; aliran data menyusul.",
+      "flowMissingGovernance": "Dokumen ini belum memiliki data governance. Jalankan /crystallize pada JSON untuk mengisi objectiveFacets, coverage, dan invariants.",
       "templates": "Template",
       "templatesHint": "Jelajahi template starter dan lanjutan living doc",
       "templatesIntro": "Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.",
@@ -8724,7 +8760,7 @@
     autoSave();
     const panel = document.getElementById('right-panel');
 
-    if (!['visual', 'board', 'json'].includes(state.previewTab)) state.previewTab = 'visual';
+    if (!['visual', 'board', 'flow', 'json'].includes(state.previewTab)) state.previewTab = 'visual';
     const json = buildJson();
     const title = t('preview');
 
@@ -8734,6 +8770,7 @@
         <div class="preview-tabs">
           <button class="preview-tab${state.previewTab === 'visual' ? ' active' : ''}" data-tab="visual">${esc(t('visual'))}</button>
           <button class="preview-tab${state.previewTab === 'board' ? ' active' : ''}" data-tab="board">${esc(t('board'))}</button>
+          <button class="preview-tab${state.previewTab === 'flow' ? ' active' : ''}" data-tab="flow">${esc(t('flow'))}</button>
           <button class="preview-tab${state.previewTab === 'json' ? ' active' : ''}" data-tab="json">${esc(t('json'))}</button>
         </div>
       </div>
@@ -8742,7 +8779,9 @@
           ? renderJsonPreview(json)
           : state.previewTab === 'board'
             ? renderBoardPreview(json)
-            : renderVisualPreview(json)}
+            : state.previewTab === 'flow'
+              ? renderFlowPreview(json)
+              : renderVisualPreview(json)}
       </div>`;
 
     panel.querySelectorAll('.preview-tab').forEach(tab => {
@@ -9061,6 +9100,23 @@
       <div class="template-groups">
         ${renderTemplateGroup('starterTemplates', 'starterTemplatesIntro', starterTemplates)}
         ${renderTemplateGroup('advancedTemplates', 'advancedTemplatesIntro', advancedTemplates)}
+      </div>`;
+  }
+
+  function renderFlowPreview(json) {
+    const facets = Array.isArray(json.objectiveFacets) ? json.objectiveFacets : [];
+    const coverage = Array.isArray(json.coverage) ? json.coverage : [];
+    const invariants = Array.isArray(json.invariants) ? json.invariants : [];
+    const hasGovernance = facets.length > 0 || coverage.length > 0 || invariants.length > 0;
+    const summaryLine = hasGovernance
+      ? `<div class="flow-placeholder-summary">${facets.length} facets \u00b7 ${coverage.length} coverage edges \u00b7 ${invariants.length} invariants \u00b7 ${(json.sections || []).filter((s) => (s.rationale || '').trim()).length}/${(json.sections || []).length} rationales declared</div>`
+      : `<div class="flow-placeholder-summary flow-placeholder-summary-empty">${esc(t('flowMissingGovernance'))}</div>`;
+    return `
+      <div class="flow-placeholder" data-flow-placeholder>
+        <div class="flow-placeholder-eyebrow">#46 scaffolding \u00b7 canvas lands in #47</div>
+        <h3>${esc(t('flowEmptyTitle'))}</h3>
+        <p>${esc(t('flowEmptyBody'))}</p>
+        ${summaryLine}
       </div>`;
   }
 
