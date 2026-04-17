@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Living Doc Flow · Level 1 Mock</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --ink: #1a2332;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --accent: #2563eb;
+        --positive-bg: #ecfdf5;  --positive-ink: #166534; --positive-line: #bbf7d0;
+        --warning-bg: #fffbeb;   --warning-ink: #92400e;  --warning-line: #fde68a;
+        --negative-bg: #fef2f2;  --negative-ink: #991b1b; --negative-line: #fecaca;
+        --governance-bg: #ecfeff; --governance-ink: #155e75;
+        --wire: #94a3b8;
+        --wire-hover: #2563eb;
+        --wire-orphan: #991b1b;
+        --wire-drift: #991b1b;
+        --radius: 12px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+        font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      header.page-header {
+        padding: 24px 32px 16px; background: var(--card); border-bottom: 1px solid var(--line);
+      }
+      .eyebrow {
+        display: inline-block; padding: 3px 10px; border-radius: 999px;
+        background: rgba(37,99,235,.12); color: var(--accent);
+        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+        margin-bottom: 10px;
+      }
+      h1 {
+        margin: 0 0 6px; font-size: 22px; letter-spacing: -0.02em;
+      }
+      header p {
+        margin: 0; color: var(--muted); font-size: 13.5px; max-width: 64ch;
+      }
+      .stats-bar {
+        display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+      }
+      .stat {
+        display: inline-flex; gap: 8px; padding: 5px 12px; border-radius: 999px;
+        background: var(--bg); border: 1px solid var(--line);
+        font-size: 12.5px;
+      }
+      .stat strong { color: var(--ink); font-weight: 700; }
+      .stat-orphan { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-line); }
+      .stat-orphan strong { color: var(--negative-ink); }
+      .stat-drift { background: var(--warning-bg); color: var(--warning-ink); border-color: var(--warning-line); }
+      .stat-drift strong { color: var(--warning-ink); }
+      main.workspace {
+        display: grid; grid-template-columns: 1fr 280px;
+        gap: 0; padding: 0;
+      }
+      .canvas-wrap {
+        position: relative;
+        min-height: calc(100vh - 160px);
+        overflow: auto;
+      }
+      .canvas {
+        position: relative;
+        display: grid;
+        grid-template-columns: 340px 1fr 340px;
+        gap: 80px;
+        padding: 32px 40px 64px;
+        min-width: 960px;
+      }
+      .canvas-col h2 {
+        margin: 0 0 14px; font-size: 13px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+      }
+      .node-list { display: flex; flex-direction: column; gap: 14px; }
+      .add-node-btn {
+        margin-top: 14px; padding: 8px 14px; background: var(--card);
+        border: 1px dashed #cbd5e1; border-radius: 10px;
+        font: inherit; font-size: 13px; color: var(--muted);
+        cursor: pointer; width: 100%;
+      }
+      .add-node-btn:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--card)); }
+      .node {
+        position: relative; padding: 14px 16px 14px 18px;
+        background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow 0.15s, border-color 0.15s;
+        cursor: default;
+      }
+      .node.selected { box-shadow: 0 0 0 2px var(--accent), var(--shadow-md); border-color: var(--accent); }
+      .node.dim { opacity: 0.3; }
+      .node-title {
+        display: flex; gap: 8px; align-items: center;
+        margin: 0 0 4px;
+      }
+      .node-title h3 {
+        margin: 0; font-size: 14px; font-weight: 700;
+      }
+      .node-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px; color: var(--muted);
+      }
+      .node-body {
+        font-size: 12.5px; color: var(--muted); line-height: 1.5;
+      }
+      .node-remove {
+        position: absolute; top: 8px; right: 8px;
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 1px solid var(--line); background: var(--card);
+        color: var(--muted); font-size: 14px; line-height: 1;
+        cursor: pointer; opacity: 0; transition: opacity 0.15s;
+      }
+      .node:hover .node-remove { opacity: 1; }
+      .node-remove:hover { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-ink); }
+      .node-orphan {
+        border-color: var(--negative-line); background: color-mix(in srgb, var(--negative-bg) 40%, var(--card));
+      }
+      .node-orphan .node-id { color: var(--negative-ink); font-weight: 600; }
+      .badge {
+        display: inline-flex; padding: 2px 8px; border-radius: 999px;
+        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      }
+      .badge-ct { background: var(--governance-bg); color: var(--governance-ink); margin-left: auto; }
+      .badge-orphan { background: var(--negative-bg); color: var(--negative-ink); }
+      .card-list {
+        display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;
+      }
+      .card-chip {
+        display: inline-flex; padding: 2px 8px; border-radius: 6px;
+        background: var(--bg); border: 1px solid var(--line);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 10.5px; color: var(--muted);
+      }
+      .port {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--card); border: 2px solid var(--wire);
+        z-index: 3; cursor: crosshair;
+        transition: transform 0.12s, border-color 0.15s, background 0.15s;
+      }
+      .port:hover { transform: translateY(-50%) scale(1.35); border-color: var(--accent); background: var(--accent); }
+      .port-out { right: -9px; }
+      .port-in { left: -9px; }
+      .port.dragging { border-color: var(--accent); background: var(--accent); }
+      svg.wires {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 1;
+      }
+      svg.wires path { pointer-events: stroke; fill: none; }
+      path.wire {
+        stroke: var(--wire); stroke-width: 2;
+        cursor: pointer; transition: stroke 0.15s, stroke-width 0.15s;
+      }
+      path.wire:hover { stroke: var(--wire-hover); stroke-width: 3; }
+      path.wire.drift { stroke: var(--wire-drift); stroke-dasharray: 4 4; }
+      path.wire.preview { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; opacity: 0.8; }
+      path.wire.highlight { stroke: var(--accent); stroke-width: 3; }
+      path.wire-hit {
+        stroke: transparent; stroke-width: 16; fill: none;
+        pointer-events: stroke; cursor: pointer;
+      }
+      .inspector {
+        border-left: 1px solid var(--line); background: var(--card);
+        padding: 24px 22px; min-height: calc(100vh - 160px);
+        overflow-y: auto;
+      }
+      .inspector h2 {
+        margin: 0 0 12px; font-size: 13px; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--muted); font-weight: 700;
+      }
+      .legend {
+        display: flex; flex-direction: column; gap: 8px;
+        padding: 14px; background: var(--bg); border: 1px solid var(--line);
+        border-radius: 10px; margin-bottom: 18px;
+      }
+      .legend-row {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 12.5px; color: var(--ink);
+      }
+      .legend-swatch {
+        display: inline-block; width: 36px; height: 2px; background: var(--wire);
+      }
+      .legend-swatch-drift { height: 0; border-top: 2px dashed var(--wire-drift); }
+      .legend-swatch-orphan {
+        width: 14px; height: 14px; border-radius: 4px;
+        background: color-mix(in srgb, var(--negative-bg) 40%, var(--card));
+        border: 1px solid var(--negative-line);
+      }
+      .invariant-stack { display: flex; flex-direction: column; gap: 8px; }
+      .invariant-card {
+        padding: 10px 12px; border-radius: 10px; background: var(--bg);
+        border: 1px solid var(--line); font-size: 12.5px;
+      }
+      .invariant-name {
+        font-size: 13px; font-weight: 700; margin-bottom: 2px;
+        color: var(--ink);
+      }
+      .invariant-statement { color: var(--muted); line-height: 1.5; }
+      .invariant-applies { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px; }
+      .invariant-chip {
+        display: inline-flex; padding: 2px 8px; border-radius: 999px;
+        background: var(--card); border: 1px solid var(--line); font-size: 10.5px;
+      }
+      .divider {
+        margin: 22px 0 14px; border: 0; border-top: 1px solid var(--line);
+      }
+      .hint {
+        color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0 0 14px;
+      }
+      .actions {
+        display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+      }
+      .action-btn {
+        padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 600;
+        border: 1px solid var(--line); background: var(--card); border-radius: 8px;
+        color: var(--ink); cursor: pointer;
+      }
+      .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .action-btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .action-btn-primary:hover { background: #1d4ed8; color: #fff; }
+      pre.json-out {
+        margin: 10px 0 0; padding: 12px 14px; border-radius: 8px;
+        background: #0f172a; color: #e2e8f0; font-size: 11.5px;
+        max-height: 240px; overflow: auto;
+      }
+      @media (max-width: 920px) {
+        main.workspace { grid-template-columns: 1fr; }
+        .inspector { border-left: none; border-top: 1px solid var(--line); min-height: 0; }
+        .canvas { grid-template-columns: 1fr 1fr; gap: 40px; min-width: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-header">
+      <span class="eyebrow">Mock · Level 1 · Governance Canvas</span>
+      <h1>Flow editor for the governance layer</h1>
+      <p>Facets on the left, sections on the right. Drag from a facet's right port onto a section's left port to create a coverage edge. Click a wire to remove it. Facets with no coverage go red.</p>
+      <div class="stats-bar" id="stats-bar"></div>
+    </header>
+
+    <main class="workspace">
+      <div class="canvas-wrap">
+        <div class="canvas" id="canvas">
+          <section class="canvas-col">
+            <h2>Objective facets</h2>
+            <div class="node-list" id="facets"></div>
+            <button class="add-node-btn" id="add-facet">+ Add facet</button>
+          </section>
+
+          <svg class="wires" id="wires" aria-hidden="true"></svg>
+
+          <section class="canvas-col" style="grid-column: 3">
+            <h2>Sections</h2>
+            <div class="node-list" id="sections"></div>
+            <button class="add-node-btn" id="add-section">+ Add section</button>
+          </section>
+        </div>
+      </div>
+
+      <aside class="inspector">
+        <h2>Legend</h2>
+        <div class="legend">
+          <div class="legend-row"><span class="legend-swatch"></span>Coverage edge</div>
+          <div class="legend-row"><span class="legend-swatch legend-swatch-drift"></span>Drift — points to a missing section</div>
+          <div class="legend-row"><span class="legend-swatch-orphan"></span>Orphan — facet has no carriers</div>
+        </div>
+
+        <h2>How to use this mock</h2>
+        <p class="hint">
+          1. <strong>Drag</strong> from any facet's right port across to a section's left port to add a coverage edge.<br/>
+          2. <strong>Click</strong> a wire to remove it.<br/>
+          3. <strong>Click a node</strong> to highlight its connections — click the background to deselect.<br/>
+          4. <strong>Remove</strong> a facet or section with the × that appears on hover. Coverage edges follow.
+        </p>
+
+        <hr class="divider" />
+
+        <h2>Invariants</h2>
+        <p class="hint">Scoped to one or more sections. They'd render as stickies attached to those sections in the real build; shown here as a sidebar list.</p>
+        <div class="invariant-stack" id="invariants"></div>
+
+        <hr class="divider" />
+
+        <h2>Export</h2>
+        <p class="hint">The graph round-trips to the same JSON shape the compositor already stores. Drag a wire → new edge in <code>coverage[]</code>.</p>
+        <div class="actions">
+          <button class="action-btn action-btn-primary" id="show-json">Show JSON</button>
+          <button class="action-btn" id="reset-demo">Reset demo</button>
+        </div>
+        <pre class="json-out" id="json-out" style="display:none"></pre>
+      </aside>
+    </main>
+
+    <script>
+      /* ── Seed data (the mobile companion workstream, trimmed) ── */
+      const SEED = {
+        objectiveFacets: [
+          { id: 'ui-fidelity',        name: 'UI fidelity',                description: 'Native surfaces match mockups at pixel level.' },
+          { id: 'repo-connect',       name: 'Repo connection',            description: 'Installed workflow + manifest, connect/disconnect round-trip.' },
+          { id: 'transport-delivery', name: 'Transport delivery',         description: 'Feed events from living-docs-feed flow to the app.' },
+          { id: 'push-runtime',       name: 'Push-token runtime',         description: 'Token lifecycle, paid-team verification.' },
+          { id: 'eas-setup',          name: 'EAS setup',                  description: 'EAS build/submit configured and trusted.' },
+          { id: 'persistence',        name: 'Persistence',                description: 'Device-flow session + synced events survive restart.' },
+          { id: 'subscription-seam',  name: 'Subscription seam',          description: 'Handoff into the separate subscription/refinement doc.' },
+        ],
+        sections: [
+          { id: 'capability-map',   title: 'Mobile Capability Map',    convergenceType: 'capability-surface',    cardIds: ['auth-sign-in','home','inbox','repos-connect','transport','push-runtime'] },
+          { id: 'runtime-state',    title: 'Runtime State Model',       convergenceType: 'operating-surface',     cardIds: ['auth-session','connect-state','feed-delivery','session-persistence','push-token'] },
+          { id: 'operational-tools',title: 'Operational Tools',         convergenceType: 'tooling-surface',       cardIds: ['eas','render-cli','device-flow-debug'] },
+          { id: 'verification-plan',title: 'Verification Plan',         convergenceType: 'verification-surface',  cardIds: ['pixel-match','real-paid-team-push','disconnect-round-trip','sync-hardening'] },
+          { id: 'open-decisions',   title: 'Open Decisions',            convergenceType: 'decision-record',       cardIds: ['seam-boundary','manifest-location'] },
+        ],
+        coverage: [
+          { facetId: 'ui-fidelity',        sectionId: 'capability-map',    cardId: 'auth-sign-in' },
+          { facetId: 'ui-fidelity',        sectionId: 'verification-plan', cardId: 'pixel-match' },
+          { facetId: 'repo-connect',       sectionId: 'capability-map',    cardId: 'repos-connect' },
+          { facetId: 'repo-connect',       sectionId: 'runtime-state',     cardId: 'connect-state' },
+          { facetId: 'transport-delivery', sectionId: 'runtime-state',     cardId: 'feed-delivery' },
+          { facetId: 'push-runtime',       sectionId: 'capability-map',    cardId: 'push-runtime' },
+          { facetId: 'push-runtime',       sectionId: 'verification-plan', cardId: 'real-paid-team-push' },
+          { facetId: 'persistence',        sectionId: 'runtime-state',     cardId: 'session-persistence' },
+          { facetId: 'subscription-seam',  sectionId: 'open-decisions',    cardId: 'seam-boundary' },
+          // Note: eas-setup deliberately has NO coverage — it should render as an orphan.
+          // Note: a drifted edge is injected below on first render (pointing at a removed section) to illustrate the drift state.
+        ],
+        invariants: [
+          { id: 'decisions-migrate',       name: 'Decisions migrate out of verification', statement: 'If a Verification Plan item becomes a settled operating choice, move it to Decision Record.', appliesTo: ['verification-plan','open-decisions'] },
+          { id: 'capability-needs-code',   name: 'Capabilities carry code refs',          statement: 'Every Mobile Capability Map card must carry at least one codePaths entry.',                     appliesTo: ['capability-map'] },
+          { id: 'facet-has-carrier',       name: 'Every facet has at least one carrier',  statement: 'No objectiveFacet may be orphaned. Either add coverage or remove the facet.',                  appliesTo: ['*'] },
+        ],
+      };
+
+      /* ── State ── */
+      let state = JSON.parse(JSON.stringify(SEED));
+      let selectedNodeKey = null; // "facet:id" or "section:id"
+      let dragWire = null; // { fromFacetId, mouseX, mouseY }
+
+      /* ── DOM refs ── */
+      const facetsEl  = document.getElementById('facets');
+      const sectionsEl = document.getElementById('sections');
+      const wiresEl   = document.getElementById('wires');
+      const statsEl   = document.getElementById('stats-bar');
+      const invEl     = document.getElementById('invariants');
+      const canvasEl  = document.getElementById('canvas');
+
+      /* ── Render ── */
+      function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+      function isOrphan(facetId) {
+        return !state.coverage.some((c) => c.facetId === facetId);
+      }
+      function isDriftedEdge(edge) {
+        return !state.sections.some((s) => s.id === edge.sectionId);
+      }
+
+      function render() {
+        renderFacets();
+        renderSections();
+        renderInvariants();
+        requestAnimationFrame(() => {
+          renderWires();
+          renderStats();
+        });
+      }
+
+      function renderFacets() {
+        facetsEl.innerHTML = state.objectiveFacets.map((f) => {
+          const orphan = isOrphan(f.id);
+          const dim = selectedNodeKey && selectedNodeKey !== `facet:${f.id}` && !edgeTouchesSelection(f.id, null);
+          return `
+            <article class="node ${orphan ? 'node-orphan' : ''} ${dim ? 'dim' : ''} ${selectedNodeKey === `facet:${f.id}` ? 'selected' : ''}" data-node-kind="facet" data-node-id="${esc(f.id)}">
+              <button class="node-remove" data-remove-facet="${esc(f.id)}" title="Remove facet">&times;</button>
+              <div class="node-title">
+                <h3>${esc(f.name || '(unnamed)')}</h3>
+                ${orphan ? '<span class="badge badge-orphan">Orphan</span>' : ''}
+              </div>
+              <div class="node-id">${esc(f.id)}</div>
+              <div class="node-body">${esc(f.description || '—')}</div>
+              <span class="port port-out" data-port="out" data-facet-id="${esc(f.id)}" title="Drag to a section's left port to add coverage"></span>
+            </article>`;
+        }).join('');
+      }
+
+      function renderSections() {
+        sectionsEl.innerHTML = state.sections.map((s) => {
+          const dim = selectedNodeKey && selectedNodeKey !== `section:${s.id}` && !edgeTouchesSelection(null, s.id);
+          return `
+            <article class="node ${dim ? 'dim' : ''} ${selectedNodeKey === `section:${s.id}` ? 'selected' : ''}" data-node-kind="section" data-node-id="${esc(s.id)}">
+              <button class="node-remove" data-remove-section="${esc(s.id)}" title="Remove section">&times;</button>
+              <div class="node-title">
+                <h3>${esc(s.title)}</h3>
+                <span class="badge badge-ct">${esc(s.convergenceType)}</span>
+              </div>
+              <div class="node-id">${esc(s.id)}</div>
+              <div class="card-list">
+                ${(s.cardIds || []).map((c) => `<span class="card-chip">${esc(c)}</span>`).join('')}
+              </div>
+              <span class="port port-in" data-port="in" data-section-id="${esc(s.id)}"></span>
+            </article>`;
+        }).join('');
+      }
+
+      function renderInvariants() {
+        invEl.innerHTML = state.invariants.map((inv) => {
+          const chips = (inv.appliesTo || []).map((a) => `<span class="invariant-chip">${esc(a === '*' ? 'doc-wide' : (state.sections.find((s) => s.id === a)?.title || a))}</span>`).join('');
+          return `
+            <div class="invariant-card">
+              <div class="invariant-name">${esc(inv.name)}</div>
+              <div class="invariant-statement">${esc(inv.statement)}</div>
+              <div class="invariant-applies">${chips}</div>
+            </div>`;
+        }).join('');
+      }
+
+      function renderWires() {
+        const svgRect = wiresEl.getBoundingClientRect();
+        const paths = [];
+        state.coverage.forEach((edge, i) => {
+          const from = document.querySelector(`[data-port="out"][data-facet-id="${cssEscape(edge.facetId)}"]`);
+          const toSectionEl = document.querySelector(`[data-node-kind="section"][data-node-id="${cssEscape(edge.sectionId)}"]`);
+          if (!from) return;
+          const drift = isDriftedEdge(edge);
+          let toX, toY;
+          if (!drift && toSectionEl) {
+            const toPort = toSectionEl.querySelector('[data-port="in"]');
+            const r = toPort.getBoundingClientRect();
+            toX = r.left + r.width / 2 - svgRect.left;
+            toY = r.top  + r.height / 2 - svgRect.top;
+          } else {
+            // drifted: point into the void (the right column's left edge)
+            const rightColumnLeft = document.querySelector('.canvas-col[style*="grid-column: 3"]')?.getBoundingClientRect();
+            toX = rightColumnLeft ? rightColumnLeft.left - svgRect.left : svgRect.width * 0.7;
+            const fr = from.getBoundingClientRect();
+            toY = fr.top + fr.height / 2 - svgRect.top;
+          }
+          const fr = from.getBoundingClientRect();
+          const fromX = fr.left + fr.width / 2 - svgRect.left;
+          const fromY = fr.top  + fr.height / 2 - svgRect.top;
+          const midX = (fromX + toX) / 2;
+          const d = `M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`;
+          const highlight = selectedNodeKey === `facet:${edge.facetId}` || selectedNodeKey === `section:${edge.sectionId}`;
+          paths.push(`
+            <path class="wire-hit" d="${d}" data-edge-idx="${i}"></path>
+            <path class="wire ${drift ? 'drift' : ''} ${highlight ? 'highlight' : ''}" d="${d}" data-edge-idx="${i}"></path>`);
+        });
+        if (dragWire) {
+          const from = document.querySelector(`[data-port="out"][data-facet-id="${cssEscape(dragWire.fromFacetId)}"]`);
+          if (from) {
+            const fr = from.getBoundingClientRect();
+            const fromX = fr.left + fr.width / 2 - svgRect.left;
+            const fromY = fr.top  + fr.height / 2 - svgRect.top;
+            const toX = dragWire.mouseX - svgRect.left;
+            const toY = dragWire.mouseY - svgRect.top;
+            const midX = (fromX + toX) / 2;
+            paths.push(`<path class="wire preview" d="M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}"></path>`);
+          }
+        }
+        wiresEl.innerHTML = paths.join('');
+        wiresEl.setAttribute('width',  String(svgRect.width));
+        wiresEl.setAttribute('height', String(svgRect.height));
+      }
+
+      function cssEscape(s) {
+        return String(s).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
+      }
+
+      function edgeTouchesSelection(facetId, sectionId) {
+        if (!selectedNodeKey) return false;
+        const [kind, id] = selectedNodeKey.split(':');
+        return state.coverage.some((c) => {
+          if (kind === 'facet' && c.facetId === id && ((facetId && c.facetId === facetId) || (sectionId && c.sectionId === sectionId))) return true;
+          if (kind === 'section' && c.sectionId === id && ((facetId && c.facetId === facetId) || (sectionId && c.sectionId === sectionId))) return true;
+          return false;
+        });
+      }
+
+      function renderStats() {
+        const orphans = state.objectiveFacets.filter((f) => isOrphan(f.id)).length;
+        const drifts = state.coverage.filter(isDriftedEdge).length;
+        statsEl.innerHTML = `
+          <span class="stat"><strong>${state.objectiveFacets.length}</strong> facets</span>
+          <span class="stat"><strong>${state.sections.length}</strong> sections</span>
+          <span class="stat"><strong>${state.coverage.length}</strong> coverage edges</span>
+          <span class="stat"><strong>${state.invariants.length}</strong> invariants</span>
+          ${orphans > 0 ? `<span class="stat stat-orphan"><strong>${orphans}</strong> orphaned</span>` : ''}
+          ${drifts > 0 ? `<span class="stat stat-drift"><strong>${drifts}</strong> drifted</span>` : ''}
+        `;
+      }
+
+      /* ── Interactions ── */
+      document.addEventListener('click', (event) => {
+        const wire = event.target.closest('[data-edge-idx]');
+        if (wire) {
+          const idx = Number(wire.dataset.edgeIdx);
+          state.coverage.splice(idx, 1);
+          render();
+          return;
+        }
+        const removeFacetBtn = event.target.closest('[data-remove-facet]');
+        if (removeFacetBtn) {
+          event.stopPropagation();
+          const fid = removeFacetBtn.dataset.removeFacet;
+          state.objectiveFacets = state.objectiveFacets.filter((f) => f.id !== fid);
+          state.coverage = state.coverage.filter((c) => c.facetId !== fid);
+          if (selectedNodeKey === `facet:${fid}`) selectedNodeKey = null;
+          render();
+          return;
+        }
+        const removeSectionBtn = event.target.closest('[data-remove-section]');
+        if (removeSectionBtn) {
+          event.stopPropagation();
+          const sid = removeSectionBtn.dataset.removeSection;
+          state.sections = state.sections.filter((s) => s.id !== sid);
+          // coverage edges to the removed section become drifted — keep them to demonstrate the state.
+          if (selectedNodeKey === `section:${sid}`) selectedNodeKey = null;
+          render();
+          return;
+        }
+        const node = event.target.closest('.node');
+        if (node) {
+          const key = `${node.dataset.nodeKind}:${node.dataset.nodeId}`;
+          selectedNodeKey = (selectedNodeKey === key) ? null : key;
+          render();
+          return;
+        }
+        // background
+        if (selectedNodeKey) { selectedNodeKey = null; render(); }
+      });
+
+      document.addEventListener('pointerdown', (event) => {
+        const port = event.target.closest('[data-port="out"]');
+        if (!port) return;
+        event.preventDefault();
+        dragWire = { fromFacetId: port.dataset.facetId, mouseX: event.clientX, mouseY: event.clientY };
+        port.classList.add('dragging');
+        renderWires();
+      });
+      document.addEventListener('pointermove', (event) => {
+        if (!dragWire) return;
+        dragWire.mouseX = event.clientX;
+        dragWire.mouseY = event.clientY;
+        renderWires();
+      });
+      document.addEventListener('pointerup', (event) => {
+        if (!dragWire) return;
+        document.querySelectorAll('.port.dragging').forEach((el) => el.classList.remove('dragging'));
+        const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+        const inPort = dropTarget?.closest('[data-port="in"]');
+        const sectionEl = dropTarget?.closest('[data-node-kind="section"]');
+        if (inPort && sectionEl) {
+          const sectionId = inPort.dataset.sectionId;
+          const facetId = dragWire.fromFacetId;
+          // find a representative card — first unused if possible
+          const section = state.sections.find((s) => s.id === sectionId);
+          const usedCards = new Set(state.coverage.filter((c) => c.sectionId === sectionId).map((c) => c.cardId));
+          const cardId = (section?.cardIds || []).find((c) => !usedCards.has(c)) || section?.cardIds?.[0] || '';
+          const exists = state.coverage.some((c) => c.facetId === facetId && c.sectionId === sectionId && (c.cardId || '') === cardId);
+          if (!exists) {
+            state.coverage.push(cardId ? { facetId, sectionId, cardId } : { facetId, sectionId });
+          }
+        }
+        dragWire = null;
+        render();
+      });
+
+      /* ── Add buttons (prompt-based for the mock) ── */
+      document.getElementById('add-facet').addEventListener('click', () => {
+        const name = window.prompt('Facet name', 'New facet');
+        if (!name) return;
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `facet-${Date.now()}`;
+        state.objectiveFacets.push({ id, name, description: '' });
+        render();
+      });
+      document.getElementById('add-section').addEventListener('click', () => {
+        const title = window.prompt('Section title', 'New section');
+        if (!title) return;
+        const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `section-${Date.now()}`;
+        state.sections.push({ id, title, convergenceType: 'capability-surface', cardIds: [] });
+        render();
+      });
+      document.getElementById('show-json').addEventListener('click', () => {
+        const out = document.getElementById('json-out');
+        if (out.style.display === 'none') {
+          out.style.display = '';
+          out.textContent = JSON.stringify({
+            objectiveFacets: state.objectiveFacets,
+            coverage: state.coverage,
+            invariants: state.invariants,
+          }, null, 2);
+        } else {
+          out.style.display = 'none';
+        }
+      });
+      document.getElementById('reset-demo').addEventListener('click', () => {
+        state = JSON.parse(JSON.stringify(SEED));
+        selectedNodeKey = null;
+        render();
+      });
+
+      /* ── Seed a drifted edge so the state is visible on load ── */
+      state.coverage.push({ facetId: 'subscription-seam', sectionId: 'removed-section', cardId: 'ghost' });
+
+      window.addEventListener('resize', () => requestAnimationFrame(renderWires));
+      render();
+    </script>
+  </body>
+</html>
