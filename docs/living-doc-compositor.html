@@ -310,9 +310,10 @@
   }
   .flow-canvas {
     position: relative; display: grid;
-    grid-template-columns: 260px 1fr 260px;
+    grid-template-columns: 260px 260px 260px;
     gap: 72px; padding: 24px 28px 48px;
-    min-width: 920px;
+    min-width: 924px;
+    justify-content: start;
   }
   .flow-col h4 {
     margin: 0 0 10px; font-size: 11px; font-weight: 700;
@@ -444,9 +445,16 @@
     opacity: 0.4; filter: saturate(0.6);
   }
   .flow-canvas-wrap.flow-stale .flow-wire-coverage.flow-wire-drift { opacity: 0.5; }
+  .flow-node { cursor: grab; }
+  .flow-node:active { cursor: grabbing; }
+  .flow-node .flow-port,
+  .flow-node .flow-remove,
+  .flow-node .flow-badge-docwide,
+  .flow-node .flow-rationale { cursor: pointer; }
   .flow-node[data-flow-positioned="true"] { position: absolute; z-index: 2; width: 260px; }
-  .flow-node.flow-node-dragging { opacity: 0.85; box-shadow: 0 4px 14px rgba(0,0,0,0.12); cursor: grabbing; z-index: 3; }
-  .flow-node .flow-node-header h5 { cursor: grab; user-select: none; }
+  .flow-node.flow-node-dragging { opacity: 0.85; box-shadow: 0 4px 14px rgba(0,0,0,0.12); cursor: grabbing; z-index: 3; user-select: none; }
+  .flow-node.flow-node-dragging * { user-select: none; }
+  .flow-node .flow-node-header h5 { user-select: none; }
   .flow-reset-layout-btn {
     margin-left: auto; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600;
     border: 1px solid var(--line); background: var(--card); border-radius: 7px;
@@ -9281,29 +9289,30 @@
       });
     });
 
-    // Remove a wire (coverage or invariant applies-to entry)
-    canvas.querySelectorAll('[data-flow-edge]').forEach((hit) => {
-      hit.addEventListener('click', (event) => {
-        const edgeKind = hit.dataset.flowEdge;
-        if (edgeKind === 'coverage') {
-          const idx = Number(hit.dataset.flowEdgeIndex);
-          const coverage = [...govCoverage()];
-          coverage.splice(idx, 1);
-          govSetCoverage(coverage);
-        } else if (edgeKind === 'invariant') {
-          const invIdx = Number(hit.dataset.flowInvIndex);
-          const tgtIdx = Number(hit.dataset.flowTargetIndex);
-          const invariants = [...govInvariants()];
-          if (invariants[invIdx] && Array.isArray(invariants[invIdx].appliesTo)) {
-            invariants[invIdx] = {
-              ...invariants[invIdx],
-              appliesTo: invariants[invIdx].appliesTo.filter((_, i) => i !== tgtIdx),
-            };
-            govSetInvariants(invariants);
-          }
+    // Remove a wire (coverage or invariant applies-to entry) via delegation,
+    // because wires are drawn async via requestAnimationFrame after this runs.
+    canvas.addEventListener('click', (event) => {
+      const hit = event.target.closest('[data-flow-edge]');
+      if (!hit) return;
+      const edgeKind = hit.dataset.flowEdge;
+      if (edgeKind === 'coverage') {
+        const idx = Number(hit.dataset.flowEdgeIndex);
+        const coverage = [...govCoverage()];
+        coverage.splice(idx, 1);
+        govSetCoverage(coverage);
+      } else if (edgeKind === 'invariant') {
+        const invIdx = Number(hit.dataset.flowInvIndex);
+        const tgtIdx = Number(hit.dataset.flowTargetIndex);
+        const invariants = [...govInvariants()];
+        if (invariants[invIdx] && Array.isArray(invariants[invIdx].appliesTo)) {
+          invariants[invIdx] = {
+            ...invariants[invIdx],
+            appliesTo: invariants[invIdx].appliesTo.filter((_, i) => i !== tgtIdx),
+          };
+          govSetInvariants(invariants);
         }
-        flowRerender();
-      });
+      }
+      flowRerender();
     });
 
     // Toggle doc-wide invariant

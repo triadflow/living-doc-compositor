@@ -1753,9 +1753,10 @@
   }
   .flow-canvas {
     position: relative; display: grid;
-    grid-template-columns: 260px 1fr 260px;
+    grid-template-columns: 260px 260px 260px;
     gap: 72px; padding: 24px 28px 48px;
-    min-width: 920px;
+    min-width: 924px;
+    justify-content: start;
   }
   .flow-col h4 {
     margin: 0 0 10px; font-size: 11px; font-weight: 700;
@@ -1887,9 +1888,16 @@
     opacity: 0.4; filter: saturate(0.6);
   }
   .flow-canvas-wrap.flow-stale .flow-wire-coverage.flow-wire-drift { opacity: 0.5; }
+  .flow-node { cursor: grab; }
+  .flow-node:active { cursor: grabbing; }
+  .flow-node .flow-port,
+  .flow-node .flow-remove,
+  .flow-node .flow-badge-docwide,
+  .flow-node .flow-rationale { cursor: pointer; }
   .flow-node[data-flow-positioned=&quot;true&quot;] { position: absolute; z-index: 2; width: 260px; }
-  .flow-node.flow-node-dragging { opacity: 0.85; box-shadow: 0 4px 14px rgba(0,0,0,0.12); cursor: grabbing; z-index: 3; }
-  .flow-node .flow-node-header h5 { cursor: grab; user-select: none; }
+  .flow-node.flow-node-dragging { opacity: 0.85; box-shadow: 0 4px 14px rgba(0,0,0,0.12); cursor: grabbing; z-index: 3; user-select: none; }
+  .flow-node.flow-node-dragging * { user-select: none; }
+  .flow-node .flow-node-header h5 { user-select: none; }
   .flow-reset-layout-btn {
     margin-left: auto; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600;
     border: 1px solid var(--line); background: var(--card); border-radius: 7px;
@@ -10724,29 +10732,30 @@
       });
     });
 
-    // Remove a wire (coverage or invariant applies-to entry)
-    canvas.querySelectorAll(&#39;[data-flow-edge]&#39;).forEach((hit) =&gt; {
-      hit.addEventListener(&#39;click&#39;, (event) =&gt; {
-        const edgeKind = hit.dataset.flowEdge;
-        if (edgeKind === &#39;coverage&#39;) {
-          const idx = Number(hit.dataset.flowEdgeIndex);
-          const coverage = [...govCoverage()];
-          coverage.splice(idx, 1);
-          govSetCoverage(coverage);
-        } else if (edgeKind === &#39;invariant&#39;) {
-          const invIdx = Number(hit.dataset.flowInvIndex);
-          const tgtIdx = Number(hit.dataset.flowTargetIndex);
-          const invariants = [...govInvariants()];
-          if (invariants[invIdx] &amp;&amp; Array.isArray(invariants[invIdx].appliesTo)) {
-            invariants[invIdx] = {
-              ...invariants[invIdx],
-              appliesTo: invariants[invIdx].appliesTo.filter((_, i) =&gt; i !== tgtIdx),
-            };
-            govSetInvariants(invariants);
-          }
+    // Remove a wire (coverage or invariant applies-to entry) via delegation,
+    // because wires are drawn async via requestAnimationFrame after this runs.
+    canvas.addEventListener(&#39;click&#39;, (event) =&gt; {
+      const hit = event.target.closest(&#39;[data-flow-edge]&#39;);
+      if (!hit) return;
+      const edgeKind = hit.dataset.flowEdge;
+      if (edgeKind === &#39;coverage&#39;) {
+        const idx = Number(hit.dataset.flowEdgeIndex);
+        const coverage = [...govCoverage()];
+        coverage.splice(idx, 1);
+        govSetCoverage(coverage);
+      } else if (edgeKind === &#39;invariant&#39;) {
+        const invIdx = Number(hit.dataset.flowInvIndex);
+        const tgtIdx = Number(hit.dataset.flowTargetIndex);
+        const invariants = [...govInvariants()];
+        if (invariants[invIdx] &amp;&amp; Array.isArray(invariants[invIdx].appliesTo)) {
+          invariants[invIdx] = {
+            ...invariants[invIdx],
+            appliesTo: invariants[invIdx].appliesTo.filter((_, i) =&gt; i !== tgtIdx),
+          };
+          govSetInvariants(invariants);
         }
-        flowRerender();
-      });
+      }
+      flowRerender();
     });
 
     // Toggle doc-wide invariant
@@ -13856,7 +13865,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T10:06:41.960Z" title="2026-04-17T10:06:41.960Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T10:06:41.960Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-17T12:05:55.889Z" title="2026-04-17T12:05:55.889Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T12:05:55.889Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -14472,7 +14481,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-80a27ff (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-99274ff (2026-04-17)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
