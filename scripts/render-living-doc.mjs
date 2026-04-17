@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncCompositorEmbeds } from './sync-compositor-embeds.mjs';
+import { checkFingerprint } from './meta-fingerprint.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
@@ -762,6 +763,29 @@ function deriveSectionItems(section, ct, doc) {
   return authored;
 }
 
+function renderMetaFreshnessBanner(section, ct, doc) {
+  if (!ct.derived) return '';
+  const derivedFrom = Array.isArray(ct.derivedFrom) ? ct.derivedFrom : [];
+  const reliesOnCoverage = derivedFrom.includes('objectiveFacets') || derivedFrom.includes('coverage');
+  if (!reliesOnCoverage) return '';
+  const hasMeta = Array.isArray(doc.objectiveFacets) && doc.objectiveFacets.length > 0;
+  if (!hasMeta) return '';
+
+  const freshness = checkFingerprint(doc.metaFingerprint, doc.sections);
+  if (freshness.fresh) return '';
+
+  const reasonText = freshness.reason === 'missing'
+    ? 'No fingerprint stamped yet. Run /crystallize to seed the governance layer.'
+    : 'Sections have changed since the meta was derived. Coverage edges may point at the wrong cards. Run /crystallize --refresh to update.';
+
+  return `
+    <div class="callout callout-warning" role="alert" data-meta-stale="true">
+      <p class="callout-title">Meta layer may be stale</p>
+      <p>${escapeHtml(reasonText)}</p>
+      ${freshness.stored ? `<p style="font-size:12px;color:var(--muted);margin-top:8px"><strong>Stored:</strong> <code>${escapeHtml(freshness.stored)}</code><br/><strong>Current:</strong> <code>${escapeHtml(freshness.current)}</code></p>` : ''}
+    </div>`;
+}
+
 function renderSection(section) {
   const ct = registry.convergenceTypes[section.convergenceType];
   if (!ct) return `<!-- unknown convergence type: ${escapeHtml(section.convergenceType)} -->`;
@@ -773,6 +797,7 @@ function renderSection(section) {
     : '';
 
   const items = deriveSectionItems(section, ct, data);
+  const freshnessBannerHtml = renderMetaFreshnessBanner(section, ct, data);
 
   // Callout
   const calloutHtml = section.callout ? renderCallout(section.callout) : '';
@@ -807,6 +832,7 @@ function renderSection(section) {
   return `
     <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}">
       <h2>${icon} ${escapeHtml(section.title)}${sectionUpdated}</h2>
+      ${freshnessBannerHtml}
       ${calloutHtml}
       ${statsHtml}
       ${pillsHtml}
