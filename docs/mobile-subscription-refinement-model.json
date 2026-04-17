@@ -1,0 +1,605 @@
+{
+  "docId": "living-doc-compositor:mobile-subscription-refinement-model",
+  "title": "Mobile Subscription Refinement Model",
+  "subtitle": "Target feed, subscription overlay, grounded event schema, and package-learning loop for Living Docs mobile.",
+  "brand": "MS",
+  "scope": "Subscription/refinement product model across tickets #27, #28, #31, #32, #33, and #35. Current runtime and transport implementation are tracked separately in `docs/mobile-companion-workstream.json`.",
+  "owner": "Triadflow",
+  "version": "2026-q2-model",
+  "canonicalOrigin": "docs/mobile-subscription-refinement-model.json",
+  "sourceCoverage": "GitHub issues #27, #28, #31, #32, #33, and #35 inspected through GitHub tooling on 2026-04-17, plus `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux` and the coupled implementation/runtime doc `docs/mobile-companion-workstream.json`.",
+  "updated": "2026-04-17T00:31:51.000Z",
+  "pills": ["Mobile", "Model", "GitHub Issues"],
+  "objective": "Keep the target subscription/refinement model coherent across package defaults, user-scoped refinements, grounded commit-time events, feed interaction mechanics, privacy boundaries, and the learning loop back into package revisions.",
+  "successCondition": "A worker can understand the intended product behavior, data flow, coupled implementation seam, and unresolved architectural choices without re-deriving the vision sessions.",
+  "callouts": [
+    {
+      "tone": "info",
+      "title": "How to use this doc",
+      "items": [
+        "Use this doc for the target subscription/refinement model across #27/#28/#31/#32/#33/#35.",
+        "Use `docs/mobile-companion-workstream.json` for current runtime, repo artifacts, transport delivery, and verification gates.",
+        "When implementation constraints conflict with target behavior, keep the model sharp here and record the compromise explicitly in the implementation doc instead of blending the two."
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "updated": "2026-04-17T00:31:51.000Z",
+      "stats": [
+        { "label": "Open model tickets", "value": "6" },
+        { "label": "Reference mockups", "value": "1" },
+        { "label": "Coupled implementation docs", "value": "1" },
+        { "label": "Open architecture questions", "value": "5" }
+      ],
+      "callout": {
+        "tone": "info",
+        "title": "Current model state",
+        "items": [
+          "The mobile product is a refinement interface that happens to show events, not a feed reader with subscription settings attached.",
+          "The subscription surface sits as a sibling JSON overlay to living-doc structure: role packages generate defaults, user refinements stay user-scoped, and deleting the refinement layer falls back cleanly to role defaults.",
+          "Grounded claim generation at commit time is the semantic spine: session memory explains intent, the diff proves evidence, and only their grounded intersection becomes a claim.",
+          "The feed is prioritized, block-level, and evidence-first. Cards carry origin, transition, evidence, intent, disagreement affordances, and optional grounding warnings.",
+          "Aggregate mute/add/pin patterns should improve default packages over time, but only through reviewable proposals and aggregate statistics, never by silently mutating shared defaults.",
+          "The current transport implementation is already strong enough to carry this model, but it still emits doc-level messages rather than the block-level artifacts this document describes."
+        ]
+      },
+      "data": []
+    },
+    {
+      "id": "subscription-model-capabilities",
+      "title": "Subscription Model Capability Map",
+      "convergenceType": "capability-surface",
+      "updated": "2026-04-17T00:31:51.000Z",
+      "data": [
+        {
+          "id": "role-packages-and-user-refinements",
+          "name": "Role packages and user-scoped refinement overlay",
+          "status": "reference-only",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "subscriptions.json",
+            "docs/mobile-subscription-refinement-model.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            }
+          ],
+          "notes": [
+            "Subscription JSON structure must stay in sync with living doc structure, because blocks can be added, removed, renamed, split, or merged over time.",
+            "Mobile writes are scoped to the acting user's refinement surface only. A user can mutate their own `mutes[]`, `adds[]`, `last_active`, and `last_refined`, but cannot mutate package definitions, assignments, or another user's refinements.",
+            "Generated defaults are computed on the fly from the living doc and assigned role and are not persisted; only user-authored refinements persist.",
+            "Removed or renamed blocks should not silently erase historical refinements, because those refinements are signal for future package revision proposals."
+          ]
+        },
+        {
+          "id": "prioritized-feed-and-inline-refinement",
+          "name": "Prioritized feed and inline refinement mechanics",
+          "status": "reference-only",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The feed is prioritized rather than chronological: regression at the top, then blocked, then digest cards, then progress.",
+            "Every card should carry origin strip, project/block/audience/timestamp header, transition tokens, diff-backed evidence, session-backed intent, grounding warnings when claim exceeds evidence, and one-tap actions such as See diff, Watch, Mute, Disagree, and Pin.",
+            "Refinement is cheap: swipe-left=mute, swipe-right=pin, with undo behavior and no settings detour required.",
+            "The unresolved interaction questions live here, not in the transport doc: digest density, undo behavior, inherited-vs-chosen visual grammar, passive signal versus explicit interaction, and disagreement mechanics."
+          ]
+        },
+        {
+          "id": "grounded-claim-event-model",
+          "name": "Grounded claim event model",
+          "status": "reference-only",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            ".living-doc/commits/<sha>.json",
+            "mobile/src/delivery-feed.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "At commit time, AI sees a unique window where session working memory, living-doc pre-state, and the diff align. After the commit, session memory decays fast.",
+            "The grounding rule is load-bearing: the diff is the arbiter of block status, the session is the arbiter of intent, and only the grounded claim writes to the living doc.",
+            "The target output is structured per block, with before/after, evidence, honest status, and open questions. That output should then feed both the mobile surface and a separate living-doc update pass.",
+            "This model is not asking for richer copy on doc-level messages; it is asking for a different artifact shape."
+          ]
+        },
+        {
+          "id": "contested-dialogue-and-my-map",
+          "name": "Contested-state dialogue and My map",
+          "status": "reference-only",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "Block detail has two designed states: consensus and contested. A disagreement should turn a block into dialogue over an architectural claim, not just append a comment.",
+            "The user's own subscription surface should be visible through `My map`, with pinned, inherited, chosen, and muted counts grouped by project.",
+            "Passive signal counts as refinement signal, but it should not quietly become visible product behavior without an explicit architectural choice.",
+            "Watcher counts are aggregate-only and public; individual refinements stay private."
+          ]
+        },
+        {
+          "id": "package-learning-loop",
+          "name": "Aggregate refinement to package-learning loop",
+          "status": "reference-only",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "subscriptions.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "Refinements should not die as personal preference noise. Aggregated mute/add/pin patterns should become proposals for improving default role packages.",
+            "The output should be a diff or PR against `subscriptions.json`, reviewed like any other code change.",
+            "The privacy boundary is aggregate only: team-level attention patterns are visible, but individual refinements are not exposed.",
+            "Minimum sample size, conflicting signals, and whether aggregate hints belong in the mobile UI remain explicit open questions."
+          ]
+        },
+        {
+          "id": "implementation-knowledge-event-source",
+          "name": "Implementation-knowledge as a feed-worthy source",
+          "status": "reference-only",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "scripts/living-doc-registry.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "35",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/35"
+            }
+          ],
+          "notes": [
+            "The proposed `implementation-knowledge` convergence type carries prior-project intelligence with provenance: constraints, scripts, pitfalls, references, and recipes.",
+            "Its status progression is itself feed-worthy: `unacknowledged`, `acknowledged`, `incorporated`, or `dismissed` could all matter to the right subscriber.",
+            "This gives the subscription model a future class of events that are neither raw code updates nor generic notifications, but structured organizational memory becoming actionable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "model-state-and-data-flow",
+      "title": "Model State and Data Flow",
+      "convergenceType": "operating-surface",
+      "updated": "2026-04-17T00:31:51.000Z",
+      "data": [
+        {
+          "id": "commit-to-feed-pipeline",
+          "name": "Commit-time grounded event pipeline",
+          "status": "partial",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "mobile/src/delivery-feed.ts",
+            ".living-docs/manifest.json",
+            ".github/workflows/living-doc-notify.yml"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            },
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "notes": [
+            "The current transport spine already exists: repo-local manifest, workflow trigger, feed branch, and mobile sync.",
+            "What is still missing is the semantic step between commit and feed item: a grounded event artifact per block, carrying intent, evidence, and honest status rather than doc-level prose.",
+            "This is the main coupling seam between the implementation workstream and this model doc."
+          ]
+        },
+        {
+          "id": "subscription-storage-boundary",
+          "name": "Subscription storage and multi-writer boundary",
+          "status": "gap",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "subscriptions.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The model wants one multi-tenant file or surface that holds packages, assignments, and per-user refinements, but the storage location is still unresolved.",
+            "That choice determines conflict handling, write latency, and whether the source of truth can remain repo-local or needs a sidecar service."
+          ]
+        },
+        {
+          "id": "routing-location",
+          "name": "Subscription routing location",
+          "status": "gap",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "subscriptions.json",
+            "mobile/src/delivery-feed.ts"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "Routing can live client-side, server-side, or as a hybrid pre-computed per-user feed. Each option changes cost, privacy, offline-first behavior, and latency.",
+            "The model does not need this answered before it is legible, but implementation work should not quietly decide it by accident."
+          ]
+        },
+        {
+          "id": "block-identity-and-rename-semantics",
+          "name": "Block identity and rename semantics",
+          "status": "gap",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "subscriptions.json",
+            ".living-docs/manifest.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            }
+          ],
+          "notes": [
+            "Rename semantics depend on block identity. A stable opaque ID makes rename a no-op; a path-like slug makes rename look like remove plus add.",
+            "This decision is load-bearing for both subscription durability and grounded event routing."
+          ]
+        },
+        {
+          "id": "privacy-and-aggregate-stats",
+          "name": "Privacy boundary and aggregate watcher model",
+          "status": "partial",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "codePaths": [
+            "subscriptions.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The intended privacy line is already clear: individual refinements stay private, aggregate stats can be public.",
+            "What remains open is where those aggregates are computed, how watcher counts are materialized, and whether any aggregate nudge belongs inside the mobile UI."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "model-proof-plan",
+      "title": "Model Proof Plan",
+      "convergenceType": "verification-surface",
+      "updated": "2026-04-17T00:31:51.000Z",
+      "data": [
+        {
+          "id": "subscription-mockup-proof",
+          "name": "Subscription mockup and card grammar proof",
+          "status": "planned",
+          "priority": "blocking",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "automationPaths": [
+            "origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "currentCoverage": "The mockup branch defines the feed, onboarding, block detail, and My map surfaces with the intended visual grammar and inline interactions.",
+          "nextStep": "Turn the mockup into a canonical set of model states: card anatomy, digest behavior, disagreement state, and origin grammar.",
+          "gaps": [
+            "Swipe vocabulary, undo behavior, digest density, and passive-signal effects remain open exploration areas.",
+            "The model still lacks a canonical card-level JSON shape that matches the mockup exactly."
+          ]
+        },
+        {
+          "id": "grounded-event-schema-proof",
+          "name": "Grounded event schema proof",
+          "status": "planned",
+          "priority": "blocking",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "automationPaths": [
+            ".living-doc/commits/<sha>.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "currentCoverage": "The grounding rule and a sample artifact shape exist in issue form, but not yet as a canonical schema consumed by the feed.",
+          "nextStep": "Define one concrete JSON or YAML contract for grounded block events and test it against a real living doc touched by a commit.",
+          "gaps": [
+            "Where the artifact lives is still undecided.",
+            "The deterministic handoff from structured event to living-doc update is still only a leaning, not a fixed rule."
+          ]
+        },
+        {
+          "id": "subscription-overlay-proof",
+          "name": "Subscription overlay and user-write boundary proof",
+          "status": "planned",
+          "priority": "blocking",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            }
+          ],
+          "currentCoverage": "The invariants are defined: defaults derive from role packages, refinements are additive, user writes are scoped, and orphaned refinements should not be silently discarded.",
+          "nextStep": "Choose block identity and storage location, then write one reference `subscriptions.json` example that demonstrates rename, orphan, and user-write behavior.",
+          "gaps": [
+            "Storage location is unresolved.",
+            "Rename-safe identity is unresolved."
+          ]
+        },
+        {
+          "id": "package-learning-proof",
+          "name": "Package-learning loop proof",
+          "status": "planned",
+          "priority": "informational",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "currentCoverage": "The model and privacy boundary are clear: aggregate only, role-grouped, and emitted as reviewable proposals rather than silent changes.",
+          "nextStep": "Define minimum sample size, conflicting-signal handling, and one canonical proposal output shape.",
+          "gaps": [
+            "No threshold policy exists.",
+            "No policy exists yet for whether aggregate hints appear in the mobile UI."
+          ]
+        },
+        {
+          "id": "implementation-knowledge-type-proof",
+          "name": "Implementation-knowledge convergence proof",
+          "status": "planned",
+          "priority": "informational",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "35",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/35"
+            }
+          ],
+          "currentCoverage": "The proposed convergence type has item kinds, status progression, and provenance rules defined in issue form.",
+          "nextStep": "Add the convergence type to `scripts/living-doc-registry.json` and render one sample section so its events can be reasoned about concretely.",
+          "gaps": [
+            "The type is not yet in the registry.",
+            "No rendered example exists yet."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "open-decisions",
+      "title": "Open Decisions",
+      "convergenceType": "decision-record",
+      "updated": "2026-04-17T00:31:51.000Z",
+      "data": [
+        {
+          "id": "model-doc-separate-from-implementation",
+          "name": "Keep the subscription model separate from the implementation workstream",
+          "status": "ground-truth",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
+            }
+          ],
+          "notes": [
+            "This document carries the target model; `docs/mobile-companion-workstream.json` carries current code, runtime, transport, and verification truth.",
+            "The split is deliberate so the living doc stays a sharper reasoning surface instead of collapsing target model and implementation status into one mixed artifact."
+          ]
+        },
+        {
+          "id": "grounding-rule-is-authoritative",
+          "name": "Diff is arbiter of evidence; session is arbiter of intent",
+          "status": "ground-truth",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            }
+          ],
+          "notes": [
+            "Only the grounded intersection of session memory and diff evidence should become the block-level claim written into the living doc or surfaced in the feed.",
+            "Intent and evidence still travel with the event, but they are not interchangeable."
+          ]
+        },
+        {
+          "id": "choose-block-identity-scheme",
+          "name": "Choose block identity scheme for rename-safe subscriptions",
+          "status": "reference",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            }
+          ],
+          "notes": [
+            "Opaque IDs make rename mostly a no-op; path-like slugs make rename look like delete plus add.",
+            "This choice affects subscriptions, event routing, and whether historical refinements survive ordinary document evolution."
+          ]
+        },
+        {
+          "id": "choose-event-store-location",
+          "name": "Choose where grounded event artifacts live",
+          "status": "reference",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "31",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The current candidate locations are extended commit trailers, repo files under `.living-doc/commits/`, or an external store.",
+            "The tradeoff is between offline-first simplicity, push capability, privacy, and multi-repo aggregation."
+          ]
+        },
+        {
+          "id": "choose-routing-location",
+          "name": "Choose where subscription routing runs",
+          "status": "reference",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "28",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "Routing can happen client-side, server-side, or as a hybrid pre-computed feed.",
+            "The right answer depends on team size, push requirements, infrastructure appetite, and how hard we want to preserve offline-first behavior."
+          ]
+        },
+        {
+          "id": "choose-refinement-writeback-path",
+          "name": "Choose the refinement write-back path",
+          "status": "reference",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "27",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The viable options are direct git commits from mobile, a sidecar store, or a thin API layer that syncs back to `subscriptions.json`.",
+            "That choice determines merge-conflict behavior, latency, and whether `subscriptions.json` remains the practical source of truth."
+          ]
+        },
+        {
+          "id": "set-learning-thresholds-and-conflict-rules",
+          "name": "Set thresholds and conflict rules for package-learning proposals",
+          "status": "reference",
+          "updated": "2026-04-17T00:31:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "32",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
+            },
+            {
+              "issueNumber": "33",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+            }
+          ],
+          "notes": [
+            "The model needs an explicit minimum sample size and a policy for conflicting signals such as 50 percent muted and 50 percent pinned.",
+            "It also needs a decision on whether aggregate hints are visible only in review tooling or can subtly appear in the mobile product itself."
+          ]
+        }
+      ]
+    }
+  ]
+}

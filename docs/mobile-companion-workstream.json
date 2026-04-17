@@ -1,23 +1,24 @@
 {
   "docId": "living-doc-compositor:mobile-companion-workstream",
   "title": "Mobile Companion Workstream",
-  "subtitle": "Repo-connect, transport feed, subscription/refinement UX, push runtime, EAS, disconnect, and persistence plan for the Living Docs mobile app.",
+  "subtitle": "Repo-connect, repo-backed transport delivery, push runtime, EAS, disconnect, and persistence plan for the Living Docs mobile app.",
   "brand": "MO",
-  "scope": "Mobile companion implementation work across tickets #19-#24, #27, #28, #31, #32, #33, #35, and #36, with #18 retained as closed historical context.",
+  "scope": "Mobile companion implementation work across tickets #19-#24 and #36, with #18 retained as closed historical context. The subscription/refinement product model is tracked separately in `docs/mobile-subscription-refinement-model.json`.",
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24, #27, #28, #31, #32, #33, #35, and #36 inspected through GitHub tooling on 2026-04-17, plus repo-local mobile source tree and `docs/mobile-mockups-subscription.html` from branch `mockup/subscription-ux`.",
-  "updated": "2026-04-17T00:18:02.000Z",
+  "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-17, plus repo-local mobile source tree, `docs/mobile-mockups.html`, and the coupled subscription/refinement model tracked in `docs/mobile-subscription-refinement-model.json`.",
+  "updated": "2026-04-17T00:31:51.000Z",
   "pills": ["Mobile", "Workstream", "GitHub Issues"],
-  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, subscription/refinement feed direction, refinement-to-package learning, grounded event generation, push-token runtime behavior, EAS setup, disconnect, and persistence.",
+  "objective": "Keep the mobile companion implementation coherent across UI fidelity, repo connection, repo-backed transport delivery, push-token runtime behavior, EAS setup, disconnect, persistence, and the handoff seam into the separate subscription/refinement model.",
   "successCondition": "A Codex worker can pick up the next ticket with dependencies, open decisions, affected files, and verification expectations visible in one document.",
   "callouts": [
     {
       "tone": "info",
       "title": "How to use this doc",
       "items": [
-        "Use #19-#24 and #36 as the current transport/runtime implementation source of truth, and #27/#28/#31/#32/#33/#35 as the target subscription/refinement direction. Treat #18 as closed context only.",
+        "Use #19-#24 and #36 as the current transport/runtime implementation source of truth. Treat #18 as closed context only.",
+        "Use `docs/mobile-subscription-refinement-model.json` for the target subscription/refinement model across #27/#28/#31/#32/#33/#35.",
         "Before editing `mobile/src/navigation.tsx` or `mobile/src/screens/Repos.tsx`, inspect the existing local worktree changes so unrelated edits are not overwritten."
       ]
     }
@@ -27,11 +28,11 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-17T00:18:02.000Z",
+      "updated": "2026-04-17T00:31:51.000Z",
       "stats": [
-        { "label": "Open child tickets", "value": "13" },
+        { "label": "Open child tickets", "value": "7" },
         { "label": "Closed context ticket", "value": "1" },
-        { "label": "Blocking verification gates", "value": "4" },
+        { "label": "Blocking verification gates", "value": "5" },
         { "label": "Open decisions", "value": "0" }
       ],
       "callout": {
@@ -39,11 +40,11 @@
         "title": "Current state",
         "items": [
           "The repo-backed delivery spine is now proven end to end: a connected repo can install the workflow, write feed events to `living-docs-feed`, and the phone can sync those events into the app without depending on Apple push.",
-          "The current Inbox is a transport and audit surface only. It proves delivery and sync, but it is not the product UX we are aiming for.",
-          "The product target has moved to the subscription/refinement model from `mockup/subscription-ux`: prioritized block-level cards with origin, evidence, intent, grounding warnings, and inline actions such as Watch, Mute, Pin, and Disagree.",
+          "This document is now the implementation and runtime snapshot only. The detailed subscription/refinement product model lives in `docs/mobile-subscription-refinement-model.json`.",
+          "The current Inbox and Home surfaces should be treated as transport and audit infrastructure until the separate subscription model is implemented.",
           "Delivery now depends on a small repo-local manifest at `.living-docs/manifest.json`, while the central library remains the richer cross-system catalog. The two need shared document identity rather than pretending one can replace the other.",
-          "The next implementation slice is not better commit-shaped copy. It is grounded event generation and subscription state: richer event schema (#31), user-scoped overlay and subscriptions (#27), the feed/card surface itself (#28, #33, #35), and the refinement-to-package learning loop that lets aggregate user refinements propose package revisions (#32).",
-          "The remaining hard gates are real paid-team push verification, disconnect verification against a real repo, and sync hardening such as per-repo cursors or watermarks."
+          "The next implementation slice is to consume the separate model more cleanly: richer block/event payloads at the transport boundary, real repo verification, and sync hardening such as per-repo cursors or watermarks.",
+          "The remaining hard gates are pixel-match verification, real paid-team push verification, connect/disconnect verification against a real repo, and sync hardening."
         ]
       },
       "data": []
@@ -52,7 +53,7 @@
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-17T00:18:02.000Z",
+      "updated": "2026-04-17T00:31:51.000Z",
       "data": [
         {
           "id": "auth-sign-in",
@@ -227,49 +228,6 @@
             "The current workflow now also triggers on `push` and inspects changed manifest-backed doc paths on the default branch, so commit-driven delivery no longer depends on a separate dispatcher for the common case.",
             "Phone-side verification is proven for manual feed sync, and automatic push-triggered delivery is now also proven in `triadflow/living-doc-compositor` via workflow run `24512708555` from commit `6861d5a`.",
             "This transport feed is now good enough to serve as the spine for the next UX layer, but its payload is still doc-level and message-centric rather than block-level and claim-centric."
-          ]
-        },
-        {
-          "id": "subscription-refinement-surface",
-          "name": "Subscription and refinement feed surface",
-          "status": "gap",
-          "updated": "2026-04-16T14:12:00.000Z",
-          "codePaths": [
-            "origin/mockup/subscription-ux:docs/mobile-mockups-subscription.html"
-          ],
-          "ticketIds": [
-            {
-              "issueNumber": "27",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
-            },
-            {
-              "issueNumber": "28",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
-            },
-            {
-              "issueNumber": "31",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
-            },
-            {
-              "issueNumber": "32",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
-            },
-            {
-              "issueNumber": "33",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
-            },
-            {
-              "issueNumber": "35",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/35"
-            }
-          ],
-          "notes": [
-            "The pushed mockup branch defines the real target surface: a prioritized feed of architectural claims, not a simple inbox of repo/doc updates.",
-            "Cards are block-level and carry origin strip, status transition, evidence, intent, optional grounding warning, and inline actions such as See diff, Watch, Mute, Pin, and Disagree.",
-            "The broader model includes onboarding from role/package assignment, block-detail consensus vs contested states, and a `My map` screen that visualizes inherited, chosen, pinned, and muted attention.",
-            "#32 adds the learning loop above that surface: accumulated user refinements should become aggregate-by-role package revision proposals, reviewed as PRs instead of silently mutating defaults.",
-            "This means the current Inbox and Home surfaces are transport proofs and persistence sinks, not the end-state UX. The next build steps need grounded block events and refinement writes, not more polish on commit-centric copy.",
-            "`implementation-knowledge` from #35 should be treated as one future source of feed-worthy events once the subscription surface exists."
           ]
         },
         {
@@ -448,7 +406,7 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-17T00:18:02.000Z",
+      "updated": "2026-04-17T00:31:51.000Z",
       "data": [
         {
           "id": "github-api-client",
@@ -695,7 +653,7 @@
             }
           ],
           "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in `triadflow/living-doc-compositor`, where push commit `6861d5a` triggered workflow run `24512708555` and wrote a new feed event file without any manual dispatch.",
-          "nextStep": "Stop treating doc-update messages as the final UX. Extend the event schema toward #31 so commits produce grounded block-status events with evidence and intent, then let the mobile surface consume those richer events in the subscription feed model from #28/#33 while preserving enough refinement data to inform the package-learning loop in #32.",
+          "nextStep": "Keep the transport spine stable while the richer block/event model lands in the separate subscription doc. Then update this implementation surface to consume that model without regressing connect, sync, or persistence behavior.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
             "The current feed payload is still doc-level and commit-centric, which does not match the subscription mockup's block-level claim/evidence/refinement cards.",
@@ -789,7 +747,7 @@
       "id": "open-decisions",
       "title": "Open Decisions",
       "convergenceType": "decision-record",
-      "updated": "2026-04-17T00:18:02.000Z",
+      "updated": "2026-04-17T00:31:51.000Z",
       "data": [
         {
           "id": "issue-18-context-only",
@@ -861,59 +819,20 @@
           ]
         },
         {
-          "id": "transport-inbox-vs-subscription-feed",
-          "name": "Current Inbox is transport proof; target UX is the subscription refinement feed",
+          "id": "implementation-vs-model-doc",
+          "name": "Keep implementation/runtime truth separate from the subscription model",
           "status": "ground-truth",
-          "updated": "2026-04-16T14:12:00.000Z",
+          "updated": "2026-04-17T00:31:51.000Z",
           "ticketIds": [
             {
-              "issueNumber": "27",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
-            },
-            {
-              "issueNumber": "28",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/28"
-            },
-            {
-              "issueNumber": "31",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/31"
-            },
-            {
-              "issueNumber": "32",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
-            },
-            {
-              "issueNumber": "33",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/33"
+              "issueNumber": "36",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
           "notes": [
-            "The mockup branch `mockup/subscription-ux` defines a prioritized feed of block-level architectural claims with evidence, intent, grounding warnings, and inline refinement actions.",
-            "That means the current persisted Inbox should remain as a sink, audit trail, and debugging surface, but not as the final interaction model.",
-            "Future event generation should therefore optimize for grounded block transitions and refinement semantics, not for repo-level or commit-level copy.",
-            "As refinements accumulate, aggregate mute/add/pin patterns should become inputs to package revision proposals rather than being trapped as per-user local state only."
-          ]
-        },
-        {
-          "id": "refinement-package-learning-loop",
-          "name": "Refinements should feed aggregate package revision proposals",
-          "status": "reference",
-          "updated": "2026-04-17T00:18:02.000Z",
-          "ticketIds": [
-            {
-              "issueNumber": "27",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/27"
-            },
-            {
-              "issueNumber": "32",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/32"
-            }
-          ],
-          "notes": [
-            "Per-user refinements from the subscription layer should remain user-scoped at write time, but the system should also aggregate them by role or package to propose revisions to the shared default subscriptions.",
-            "Those revisions should surface as reviewable diffs or PRs against `subscriptions.json`, not as silent automatic mutation of defaults.",
-            "The privacy boundary is aggregate only: individual user refinements should not be exposed outside their local overlay.",
-            "The unresolved mechanics are sample-size thresholds, handling conflicting signals, and whether any aggregate hints should surface in the mobile UI."
+            "This workstream now tracks current code, runtime behavior, repo artifacts, and verification gates only.",
+            "The target subscription/refinement product model now lives in `docs/mobile-subscription-refinement-model.json` so the implementation doc does not collapse transport truth and target UX into one mixed surface.",
+            "Keep only enough reference here to explain the transport boundary and why Inbox remains an audit sink until the model doc lands in code."
           ]
         },
         {
