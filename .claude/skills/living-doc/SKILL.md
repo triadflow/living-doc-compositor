@@ -111,6 +111,49 @@ Updated <doc title>:
 - <section>: no changes (fresh)
 ```
 
+### 6. AI-PASS READINESS CHECK
+
+Cmd+K in the flow view fires the AI-pass palette, which needs a few prerequisites. On first `/living-doc` in a freshly cloned repo, run this check and report what's missing — the user can't use Cmd+K until these are green.
+
+Run these probes (silent failures are fine; report state, don't error out):
+
+```bash
+# 1. ai-pass server reachable?
+curl -sf http://localhost:4322/api/ai-pass/engines >/dev/null && echo "ai-pass server: up" || echo "ai-pass server: DOWN (start with: npm run ai-pass:server)"
+
+# 2. claude CLI on PATH?
+which claude >/dev/null && echo "claude CLI: ok" || echo "claude CLI: NOT FOUND"
+
+# 3. codex CLI on PATH?
+which codex >/dev/null && echo "codex CLI: ok" || echo "codex CLI: not found (optional — at least one engine needed)"
+
+# 4. gh authed?
+gh auth status >/dev/null 2>&1 && echo "gh auth: ok" || echo "gh auth: NOT AUTHENTICATED (gh auth login)"
+
+# 5. Skills globally installed? (needed when operating on docs in other repos)
+[ -e ~/.claude/skills/living-doc-ai-pass-claude ] && echo "claude skill: global install ok" || echo "claude skill: NOT GLOBAL (symlink or copy .claude/skills/living-doc-ai-pass-claude to ~/.claude/skills/)"
+[ -e ~/.claude/skills/living-doc-ai-pass-codex ] && echo "codex skill: global install ok" || echo "codex skill: not global"
+
+# 6. Config file exists?
+[ -f ~/.living-doc-compositor/ai-pass-config.json ] && echo "config: present" || echo "config: auto-creates on first server start — no action needed"
+```
+
+If anything is red, print the exact fix command next to it. Example:
+
+```
+AI-pass readiness:
+✗ ai-pass server: DOWN
+  → npm run ai-pass:server (new terminal)
+✓ claude CLI: ok
+✗ claude skill: NOT GLOBAL
+  → ln -s "$(pwd)/.claude/skills/living-doc-ai-pass-claude" ~/.claude/skills/
+✓ gh auth: ok
+
+Cmd+K will fail until the two missing pieces are fixed.
+```
+
+When everything is green, say so once in the bootstrap report and move on — don't re-probe on every subsequent call in the same session.
+
 ## Key Principles
 
 1. **The document is the instruction.** Read the convergence types, sync hints, and objective. They tell you what to find and where to look.
