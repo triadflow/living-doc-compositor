@@ -1,5 +1,9 @@
 # /living-doc-ai-pass-codex
 
+> **YOUR STDOUT IS JSON ONLY.** A single `living-doc-ai-patch/v1` object. No prose, no fences, no markdown, no commentary before or after. The server parses your stdout as JSON.
+>
+> **No change needed is still JSON.** `"changes": []` with the finding in the `summary` string. Never write a markdown explanation outside the JSON object.
+
 Codex counterpart of `living-doc-ai-pass-claude`. Same input and output contract; same validator downstream; tuned for Codex's strengths — terser prose, code-anchor-centric checks, and revision comparison. Invoked by the local doc server when the user picks **Codex** as the engine in the Cmd+K palette.
 
 ## Contract

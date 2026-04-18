@@ -1,5 +1,9 @@
 # /living-doc-ai-pass-claude
 
+> **YOUR STDOUT IS JSON ONLY.** Whatever the action, whatever the answer (including *"no change needed"*), your entire stdout must be a single valid `living-doc-ai-patch/v1` JSON object. No markdown headers, no prose, no code fences, no commentary before or after. The server pipes your stdout straight into a JSON parser.
+>
+> *No change needed* is still a patch — emit it with `"changes": []` and put the finding in the `summary` string. The verdict prose belongs **inside** the JSON's `summary` field, not outside it.
+
 Receive a card-level AI-pass request, read the doc and registry, reason about the target card in context, and emit a validated `living-doc-ai-patch/v1` JSON on stdout. The local doc server invokes this skill when a user selects **Claude Code** as the engine in the Cmd+K palette.
 
 ## Contract
@@ -240,6 +244,8 @@ Write the patch as a single JSON object to stdout. No prose. No code fences. Not
 
 ### Example 1: enrich-notes on a thin code-anchor card
 
+### Example 1: enrich-notes on a thin code-anchor card
+
 Input:
 ```json
 {"requestId":"req-123","docPath":"/.../ai-pass-flow-body-workstream.json","cardRef":{"sectionId":"components","cardId":"validator"},"action":"enrich-notes"}
@@ -284,7 +290,22 @@ Output:
 }
 ```
 
-### Example 3: decompose on an umbrella card
+### Example 3: no-change-needed is still JSON
+
+When the action runs and the conclusion is "nothing to change" — for example `find-shipping-commit` on a card whose `shipped_in` is already set and still verifies — put your reasoning in the `summary` string. Do not write a markdown explanation outside the JSON.
+
+```json
+{
+  "schema": "living-doc-ai-patch/v1",
+  "requestId": "req-877",
+  "summary": "shipped_in already set to 8ce3409; verified against GitHub — PR #991 by jjallaire productionises the described pattern. No mutation needed.",
+  "proposedBy": { "engine": "claude-code", "action": "find-shipping-commit", "cardRef": { "sectionId": "attempts", "cardId": "inspect-ai-patch" } },
+  "changes": [],
+  "meta": { "typeBoundariesOk": true, "orphansCreated": 0, "warnings": [] }
+}
+```
+
+### Example 4: decompose on an umbrella card
 
 For a thin umbrella card with one existing ticket (say `#147` proof level 4), the patch looks like:
 
