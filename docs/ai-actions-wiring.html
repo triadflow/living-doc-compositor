@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI actions — current wiring</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --panel: #f8fafc;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f1f5f9;
+    --good: #16a34a;
+    --warn: #b45309;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    margin: 0 0 32px;
+    font-size: 15px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 36px 0 12px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  h3 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 0 0 12px; }
+  code {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin: 12px 0;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 12px 0;
+  }
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 18px 0 10px;
+  }
+  .flow .step {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 12px 14px;
+    position: relative;
+  }
+  .flow .step .n {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .flow .step .t { font-weight: 600; margin-top: 4px; }
+  .flow .step .d { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .flow .step::after {
+    content: "→";
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .flow .step:last-child::after { content: ""; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  tbody tr:hover { background: var(--panel); }
+  .kbd {
+    display: inline-block;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #fff;
+  }
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  li { margin: 4px 0; }
+  .pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+  }
+  .pill.general { border-color: var(--accent-soft); background: var(--accent-soft); color: var(--accent); }
+  .pill.specific { border-color: #fde68a; background: #fef3c7; color: var(--warn); }
+  .ref { color: var(--muted); font-size: 13px; }
+  .ref code { font-size: 12px; }
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+  }
+  @media (max-width: 720px) {
+    .flow { grid-template-columns: 1fr; }
+    .flow .step::after { content: "↓"; right: 50%; top: auto; bottom: -16px; transform: translateX(50%); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI actions — current wiring</h1>
+  <p class="lede">
+    How the Cmd+K AI-pass palette on a flow-body card resolves which actions to show,
+    as it stands today in the compositor.
+  </p>
+
+  <h2>One sentence</h2>
+  <div class="callout">
+    A card's section has a <code>convergenceType</code>. The palette merges
+    <code>registry.generalAiActions</code> (shown for every card) with
+    <code>registry.convergenceTypes[type].aiActions</code> (shown only for cards whose section is that type).
+    No other linkage exists.
+  </div>
+
+  <h2>The registry is the source of truth</h2>
+  <p>
+    <code>scripts/living-doc-registry.json</code> owns the action vocabulary. Two tiers:
+  </p>
+  <pre>{
+  "generalAiActions": [
+    { "id": "decompose",         "name": "Decompose into sub-cards",    "description": "..." },
+    { "id": "enrich-notes",      "name": "Enrich notes",                "description": "..." },
+    { "id": "verify-invariants", "name": "Verify against invariants",   "description": "..." },
+    { "id": "propose-coverage",  "name": "Propose coverage edges",      "description": "..." },
+    { "id": "summarise",         "name": "Summarise",                   "description": "..." }
+  ],
+  "convergenceTypes": {
+    "capability-surface": {
+      "...": "...",
+      "aiActions": [
+        { "id": "propose-status-from-commits", "name": "...", "description": "..." }
+      ]
+    }
+  }
+}</pre>
+  <p class="ref">
+    Seeded one-shot by <code>scripts/add-ai-actions.mjs</code>. Registry fields used per action:
+    <code>id</code>, <code>name</code>, <code>description</code>. Nothing else is wired in yet.
+  </p>
+
+  <h2>Current type-specific coverage</h2>
+  <p>
+    Five general actions fire on any card. Nine convergence types carry additional type-specific actions:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Convergence type</th><th>Type-specific actions</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>attempt-log</code></td><td>propose-supersession · find-shipping-commit</td></tr>
+      <tr><td><code>code-anchor</code></td><td>check-revision-drift · propose-replacement-anchor</td></tr>
+      <tr><td><code>symptom-observation</code></td><td>suggest-environment-variants · check-contradictions</td></tr>
+      <tr><td><code>issue-orbit</code></td><td>refresh-github-state · reclassify-relationship</td></tr>
+      <tr><td><code>maintainer-stance</code></td><td>check-evolution</td></tr>
+      <tr><td><code>proof-ladder</code></td><td>check-monotonic</td></tr>
+      <tr><td><code>decision-record</code></td><td>check-if-still-current</td></tr>
+      <tr><td><code>capability-surface</code></td><td>propose-status-from-commits</td></tr>
+      <tr><td><code>investigation-findings</code></td><td>check-still-holding</td></tr>
+    </tbody>
+  </table>
+  <p class="ref">
+    All other convergence types currently show only the five general actions in the palette.
+  </p>
+
+  <h2>Runtime flow: Cmd+K on a flow-body card</h2>
+  <div class="flow">
+    <div class="step">
+      <div class="n">1 · Keybind</div>
+      <div class="t">Cmd / Ctrl + K</div>
+      <div class="d">Global listener fires when a <code>.l2-card-selected</code> card is focused.</div>
+    </div>
+    <div class="step">
+      <div class="n">2 · Resolve</div>
+      <div class="t">section → type</div>
+      <div class="d">Look up section by <code>sectionId</code> in <code>#doc-meta</code>, read its <code>convergenceType</code>.</div>
+    </div>
+    <div class="step">
+      <div class="n">3 · Merge</div>
+      <div class="t">general + type-specific</div>
+      <div class="d"><code>actionsForCard()</code> concats both arrays, tagging each with <code>scope</code>.</div>
+    </div>
+    <div class="step">
+      <div class="n">4 · Render</div>
+      <div class="t">palette opens</div>
+      <div class="d">Two groups — <span class="pill general">General</span> and <span class="pill specific">Type-specific</span>. Enter runs, Esc closes.</div>
+    </div>
+  </div>
+
+  <h3>The merge, exactly as it happens</h3>
+  <pre>// docs/living-doc-compositor.html
+function actionsForCard(sectionId) {
+  const reg     = registry();
+  const meta    = docMeta();
+  const section = (meta?.sections || []).find(s =&gt; s.id === sectionId);
+  const typeId  = section?.convergenceType;
+  const typeDef = reg.convergenceTypes?.[typeId] || {};
+
+  const general  = (reg.generalAiActions || [])
+                     .map(a =&gt; ({ ...a, scope: 'general' }));
+  const specific = (typeDef.aiActions || [])
+                     .map(a =&gt; ({ ...a, scope: 'type-specific', typeId }));
+
+  return [...general, ...specific];
+}</pre>
+
+  <h2>What picks the action up after you hit Enter</h2>
+  <ul>
+    <li>The palette posts to the local ai-pass server on <code>localhost:4322</code>.</li>
+    <li>Engine choice (<code>claude</code> or <code>codex</code>) comes from <code>GET /api/ai-pass/engines</code>; user preference is written back via <code>PUT /api/ai-pass/engines/preferred</code>.</li>
+    <li>Only the action's <code>id</code>, the card payload, and the section's <code>convergenceType</code> travel to the engine. The <code>name</code> and <code>description</code> are UI-only labels.</li>
+    <li>Result comes back as a proposed diff → rendered in the sidebar → user applies or discards.</li>
+  </ul>
+
+  <h2>Things that are <em>not</em> wired</h2>
+  <ul>
+    <li>No per-entity-type actions (actions attach to <b>convergence types</b>, not the entity types inside a card).</li>
+    <li>No per-status filtering (e.g. "only show <code>check-monotonic</code> when the rung is <code>ready</code>").</li>
+    <li>No per-card override — a card cannot add or hide an action for itself.</li>
+    <li>No conditional visibility based on available sources (e.g. hide GitHub-refresh if no ticket id).</li>
+    <li>No ordering hint — display order is insertion order from the registry.</li>
+  </ul>
+
+  <h2>Adding an action today</h2>
+  <p>
+    Edit <code>scripts/living-doc-registry.json</code> directly. Either append to
+    <code>generalAiActions</code> or add/extend <code>convergenceTypes.&lt;id&gt;.aiActions</code>.
+    No renderer change, no compositor change — the palette reads it on next load.
+  </p>
+
+  <p class="ref" style="margin-top: 40px;">
+    Key files: <code>scripts/living-doc-registry.json</code> ·
+    <code>scripts/add-ai-actions.mjs</code> (seeder) ·
+    <code>docs/living-doc-compositor.html</code> (palette + merge logic around lines 14422–14880).
+  </p>
+</div>
+</body>
+</html>

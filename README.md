@@ -100,6 +100,24 @@ Two Claude Code skills in `.claude/skills/`:
 
 The living doc itself is a plain HTML file, so any agent (Claude Code, OpenAI Codex, Cursor, etc.) can read it. The skills package is what turns the doc into a stable starting point for a session rather than rediscovery.
 
+## AI pass on a card (Cmd+K)
+
+In the flow-body view, select a card and press **Cmd+K** (or Ctrl+K) to open the AI-pass palette. Actions come from the registry — five general actions plus any type-specific actions declared under that section's convergence type. The chosen engine (`claude` or `codex`) proposes a diff in a sidebar; you review and apply.
+
+This needs the local ai-pass server on `localhost:4322`:
+
+```bash
+# In a separate terminal
+node scripts/ai-pass-server.mjs
+```
+
+Requirements:
+
+- `claude` and/or `codex` CLI on your `PATH` (the server auto-detects which engines are available)
+- Server keeps running while you use the palette; stop it with Ctrl+C
+
+If the palette shows "no engine available", the server isn't running or neither CLI is on `PATH`. See `docs/ai-actions-wiring.html` for how actions resolve from the registry per convergence type.
+
 ## Share a doc
 
 One file. The recipient gets content and tool in the same artifact.
