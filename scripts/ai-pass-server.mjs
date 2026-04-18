@@ -27,6 +27,7 @@
 
 import http from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -96,7 +97,19 @@ async function listEngines() {
 
 // ── engine invocation ─────────────────────────────────────────────────────
 
-async function invokeEngine(engineName, request) {
+// Walk up from a file path until we find a .git directory; return that
+// directory as the repo root. Falls back to the living-doc-compositor repo
+// if no .git is found (e.g. a loose doc outside any repo).
+function findRepoRoot(filePath) {
+  let dir = path.resolve(path.dirname(filePath));
+  while (dir !== path.parse(dir).root) {
+    if (existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return repoRoot;
+}
+
+async function invokeEngine(engineName, request, cwd) {
   if (MOCK_PATCH_PATH) {
     const raw = await readFile(path.resolve(MOCK_PATCH_PATH), 'utf8');
     return JSON.parse(raw);
@@ -106,13 +119,13 @@ async function invokeEngine(engineName, request) {
   const ec = cfg.engines?.[engineName];
   if (!ec) throw new Error(`unknown engine: ${engineName}`);
 
-  // The server passes the skill invocation as the engine command's argument,
-  // then writes the request JSON to stdin. The exact CLI shape varies per
-  // provider; the command array is configurable in ai-pass-config.json.
+  // Run the engine in the repo owning the doc so `gh` commands default to
+  // the right remote, relative code-anchor paths resolve, and git-backed
+  // checks (revision drift, commit searches) see the right history.
   const [bin, ...preArgs] = ec.command;
   const child = spawn(bin, [...preArgs, ec.skillPrefix], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    cwd: repoRoot,
+    cwd: cwd || repoRoot,
   });
 
   const chunks = [];
@@ -206,22 +219,42 @@ async function handlePropose(req, res) {
     return json(res, 400, { error: 'missing required: docPath, cardRef, action, engine' });
   }
 
+  // Accept .html paths by flipping to the matching .json alongside.
+  let normalizedDocPath = docPath;
+  if (normalizedDocPath.endsWith('.html')) {
+    normalizedDocPath = normalizedDocPath.replace(/\.html$/, '.json');
+  }
+  if (!existsSync(normalizedDocPath)) {
+    return json(res, 400, { error: `docPath does not exist: ${normalizedDocPath}` });
+  }
+
+  const docRepoRoot = findRepoRoot(normalizedDocPath);
+  const registry = JSON.parse(await readFile(path.join(repoRoot, 'scripts/living-doc-registry.json'), 'utf8'));
+  const doc = JSON.parse(await readFile(normalizedDocPath, 'utf8'));
+
+  // The request payload now includes the registry inline so the skill
+  // doesn't need to read from the cwd (which may not have the file).
   const requestId = 'req-' + crypto.randomBytes(6).toString('hex');
-  const engineReq = { requestId, docPath, cardRef, action, extra: extra || {} };
+  const engineReq = {
+    requestId,
+    docPath: normalizedDocPath,
+    docRepoRoot,
+    cardRef,
+    action,
+    registry,
+    extra: extra || {},
+  };
 
   let patch;
   try {
-    patch = await invokeEngine(engine, engineReq);
+    patch = await invokeEngine(engine, engineReq, docRepoRoot);
   } catch (e) {
     return json(res, 502, { error: String(e.message || e) });
   }
-
-  const registry = JSON.parse(await readFile(path.join(repoRoot, 'scripts/living-doc-registry.json'), 'utf8'));
-  const doc = JSON.parse(await readFile(docPath, 'utf8'));
   const validation = validatePatch(patch, { registry, doc });
 
   const patchId = 'ptch-' + crypto.randomBytes(6).toString('hex');
-  patchStore.set(patchId, { patch, docPath, createdAt: Date.now() });
+  patchStore.set(patchId, { patch, docPath: normalizedDocPath, docRepoRoot, createdAt: Date.now() });
   // Expire old patches (15 min) so the server memory doesn't grow forever.
   for (const [id, entry] of patchStore) {
     if (Date.now() - entry.createdAt > 15 * 60_000) patchStore.delete(id);

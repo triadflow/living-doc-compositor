@@ -33,9 +33,10 @@ Codex leans terser and code-anchor-oriented. When the action touches source code
 
 Read, in order:
 
-1. `docPath` — the full living doc JSON.
-2. `scripts/living-doc-registry.json` — convergence types, status sets, aiActions.
-3. `scripts/ai-patch-schema.json` — the contract.
+1. `input.registry` — the server passes the full registry inline. Use it. Fall back to `scripts/living-doc-registry.json` only if absent.
+2. `input.docPath` — absolute path to the doc JSON. Read it.
+3. **You run in `input.docRepoRoot`** — the repo owning the doc. `gh`, `git`, and any relative code paths resolve against it. Don't cd elsewhere.
+4. `scripts/ai-patch-schema.json` (optional, for contract reference).
 
 From the doc:
 

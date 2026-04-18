@@ -29,9 +29,10 @@ A single `living-doc-ai-patch/v1` object matching `scripts/ai-patch-schema.json`
 
 Read, in order:
 
-1. `docPath` — the full living doc JSON.
-2. `scripts/living-doc-registry.json` — convergence types, status sets, aiActions (general + per-type).
-3. `scripts/ai-patch-schema.json` — the contract you must satisfy.
+1. `input.registry` — the server passes the full registry inline so you never need to shell out to disk for it. If absent (older server), fall back to reading `scripts/living-doc-registry.json` relative to cwd.
+2. `input.docPath` — absolute path to the living doc JSON. Read it.
+3. **You are running in `input.docRepoRoot`** (the repo that owns the doc). `gh` commands default to the right remote; relative code paths on cards resolve against this cwd. Do not cd elsewhere.
+4. `scripts/ai-patch-schema.json` (relative to the living-doc-compositor repo, if you need to double-check the contract).
 
 From the doc:
 

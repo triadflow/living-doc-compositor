@@ -15146,14 +15146,21 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   // (set manually for testing).
   function resolveDocPath() {
     if (currentDocPath) return currentDocPath;
+    // 1. Dashboard injection (preferred): the server wraps the response and
+    //    sets window.LD_DOC_ABS_PATH to the absolute HTML path. The server
+    //    accepts .html and flips to .json automatically.
+    if (typeof window.LD_DOC_ABS_PATH === &#39;string&#39; &amp;&amp; window.LD_DOC_ABS_PATH) {
+      return (currentDocPath = window.LD_DOC_ABS_PATH);
+    }
+    // 2. localStorage override, for manual testing.
     const override = localStorage.getItem(&#39;ap-doc-path&#39;);
     if (override) return (currentDocPath = override);
+    // 3. Fall back to canonicalOrigin if it&#39;s already absolute.
     const meta = docMeta();
-    if (!meta) return null;
-    if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;/&#39;)) {
+    if (meta?.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;/&#39;)) {
       return (currentDocPath = meta.canonicalOrigin);
     }
-    if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;docs/&#39;)) {
+    if (meta?.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;docs/&#39;)) {
       const here = decodeURI(location.pathname);
       const repoDocs = here.substring(0, here.lastIndexOf(&#39;/&#39;));
       return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, &#39;&#39;)}`);
@@ -15461,7 +15468,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T11:20:00.716Z" title="2026-04-18T11:20:00.716Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T11:20:00.716Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T11:43:26.986Z" title="2026-04-18T11:43:26.986Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T11:43:26.986Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15576,7 +15583,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-90cfd1c (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-07fc7ad (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

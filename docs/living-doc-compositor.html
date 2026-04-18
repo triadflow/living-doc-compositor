@@ -14590,14 +14590,21 @@ open docs/living-doc-compositor.html</pre>
   // (set manually for testing).
   function resolveDocPath() {
     if (currentDocPath) return currentDocPath;
+    // 1. Dashboard injection (preferred): the server wraps the response and
+    //    sets window.LD_DOC_ABS_PATH to the absolute HTML path. The server
+    //    accepts .html and flips to .json automatically.
+    if (typeof window.LD_DOC_ABS_PATH === 'string' && window.LD_DOC_ABS_PATH) {
+      return (currentDocPath = window.LD_DOC_ABS_PATH);
+    }
+    // 2. localStorage override, for manual testing.
     const override = localStorage.getItem('ap-doc-path');
     if (override) return (currentDocPath = override);
+    // 3. Fall back to canonicalOrigin if it's already absolute.
     const meta = docMeta();
-    if (!meta) return null;
-    if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('/')) {
+    if (meta?.canonicalOrigin && meta.canonicalOrigin.startsWith('/')) {
       return (currentDocPath = meta.canonicalOrigin);
     }
-    if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('docs/')) {
+    if (meta?.canonicalOrigin && meta.canonicalOrigin.startsWith('docs/')) {
       const here = decodeURI(location.pathname);
       const repoDocs = here.substring(0, here.lastIndexOf('/'));
       return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, '')}`);
