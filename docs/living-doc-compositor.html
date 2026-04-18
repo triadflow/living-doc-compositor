@@ -2872,7 +2872,12 @@
 
   /* ── Auto-save ── */
   const STORAGE_KEY = 'living-doc-compositor-state';
+  const STORAGE_ACTIVE_KEY = STORAGE_KEY + ':active';
   const SETTINGS_STORAGE_KEY = 'living-doc-compositor-settings';
+  function getDocStorageKey() {
+    const id = state.docExtras?.docId || state.docExtras?.canonicalOrigin || '_default';
+    return STORAGE_KEY + ':' + id;
+  }
   function isLocalLibraryDiscoveryContext() {
     try {
       const { protocol, hostname } = window.location;
@@ -2891,8 +2896,13 @@
   let appSettings = loadSettings();
 
   function autoSave() {
+    // Embedded mode: block writes until the first postMessage-driven
+    // applyDocumentData has landed. Otherwise a default-empty state can
+    // shadow the doc on disk and produce a stale fingerprint banner. See #58.
+    if (state.pendingDocLoad) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      const activeId = state.docExtras?.docId || state.docExtras?.canonicalOrigin || '_default';
+      localStorage.setItem(getDocStorageKey(), JSON.stringify({
         title: state.title,
         subtitle: state.subtitle,
         brand: state.brand,
@@ -2902,12 +2912,26 @@
         sections: state.sections,
         locale,
       }));
+      localStorage.setItem(STORAGE_ACTIVE_KEY, activeId);
     } catch {}
   }
 
   function autoLoad() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      // Legacy single-key state migrates into a per-doc slot on first boot.
+      const legacy = localStorage.getItem(STORAGE_KEY);
+      if (legacy && !localStorage.getItem(STORAGE_ACTIVE_KEY)) {
+        try {
+          const parsed = JSON.parse(legacy);
+          const id = parsed?.docExtras?.docId || parsed?.docExtras?.canonicalOrigin || '_default';
+          localStorage.setItem(STORAGE_KEY + ':' + id, legacy);
+          localStorage.setItem(STORAGE_ACTIVE_KEY, id);
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {}
+      }
+      const activeId = localStorage.getItem(STORAGE_ACTIVE_KEY);
+      if (!activeId) return false;
+      const saved = localStorage.getItem(STORAGE_KEY + ':' + activeId);
       if (!saved) return false;
       const s = JSON.parse(saved);
       if (s.title || (s.sections && s.sections.length > 0)) {
@@ -9156,8 +9180,12 @@
       state.leftDrawerMode = 'structure';
       state.leftDrawerOpen = true;
       state.leftDrawerScrollTopByMode = { structure: 0 };
+      const clearKey = getDocStorageKey();
       state.sections = []; state.previewTab = 'visual'; state.boardDimensionId = '';
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      try {
+        localStorage.removeItem(clearKey);
+        localStorage.removeItem(STORAGE_ACTIVE_KEY);
+      } catch {}
       renderTopBar(); renderLeft(); renderRight();
     });
     document.getElementById('top-load')?.addEventListener('click', () => {
@@ -13388,8 +13416,17 @@ open docs/living-doc-compositor.html</pre>
     await discoverLibrary();
     state.leftDrawerOpen = !isEmbedded;
     state.leftDrawerMode = 'structure';
-    // When embedded in a living doc iframe, skip auto-load — parent will call loadDocumentData
-    const restored = isEmbedded ? false : autoLoad();
+    // Embedded mode: block autoLoad, autoSave, and referrer hydration; wait
+    // for the parent's postMessage-driven applyDocumentData so the doc on
+    // disk is the only source of truth for fingerprint checks. See #58.
+    if (isEmbedded) {
+      state.pendingDocLoad = true;
+      renderTopBar();
+      renderLeft();
+      renderRight();
+      return;
+    }
+    const restored = autoLoad();
     if (restored && state.sections.length > 0) state.previewTab = 'visual';
     // Detect if we arrived from a living doc via the pencil link
     const ref = document.referrer;
@@ -13411,6 +13448,7 @@ open docs/living-doc-compositor.html</pre>
   // Allow parent page to load document data (when embedded as iframe in a living doc)
   // Supports both direct function call and postMessage
   function applyDocumentData(json) {
+    state.pendingDocLoad = false;
     state.leftDrawerMode = 'structure';
     state.leftDrawerOpen = !isEmbedded;
     state.title = json.title || '';
