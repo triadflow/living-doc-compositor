@@ -2025,7 +2025,14 @@
     gap: 80px; padding: 24px 32px 80px;
     align-items: start; min-width: max-content;
   }
+  svg.l2-body-wires {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+  }
+  svg.l2-body-wires path { fill: none; }
+  .l2-body-wire { stroke-width: 1.5; opacity: 0.4; transition: opacity 0.15s, stroke-width 0.15s; }
   .l2-frame {
+    position: relative; z-index: 2;
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
     box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
   }
@@ -11234,10 +11241,12 @@
           renderRight();
         });
       });
-      // Governance mode keeps the existing wire + interaction hookups
-      if ((state.flowMode || &#39;governance&#39;) === &#39;governance&#39;) {
+      const mode = state.flowMode || &#39;governance&#39;;
+      if (mode === &#39;governance&#39;) {
         requestAnimationFrame(() =&gt; drawFlowWires(json));
         wireFlowInteractions(panel);
+      } else if (mode === &#39;body&#39;) {
+        requestAnimationFrame(() =&gt; drawL2BodyWires(json));
       }
     }
 
@@ -11249,7 +11258,10 @@
     if (flowResizeHandler) return;
     flowResizeHandler = () =&gt; {
       if (state.previewTab !== &#39;flow&#39;) return;
-      requestAnimationFrame(() =&gt; drawFlowWires(buildJson()));
+      const json = buildJson();
+      const mode = state.flowMode || &#39;governance&#39;;
+      if (mode === &#39;body&#39;) requestAnimationFrame(() =&gt; drawL2BodyWires(json));
+      else                 requestAnimationFrame(() =&gt; drawFlowWires(json));
     };
     window.addEventListener(&#39;resize&#39;, flowResizeHandler);
   }
@@ -11805,9 +11817,65 @@
       &lt;div class=&quot;l2-body-stats&quot;&gt;${statsHtml}&lt;/div&gt;
       &lt;div class=&quot;l2-body-canvas-wrap&quot; id=&quot;l2-body-canvas-wrap&quot;&gt;
         &lt;div class=&quot;l2-body-canvas&quot; id=&quot;l2-body-canvas&quot;&gt;
+          &lt;svg class=&quot;l2-body-wires&quot; id=&quot;l2-body-wires&quot; aria-hidden=&quot;true&quot;&gt;&lt;/svg&gt;
           ${framesHtml}
         &lt;/div&gt;
       &lt;/div&gt;`;
+  }
+
+  function drawL2BodyWires(json) {
+    const canvas = document.getElementById(&#39;l2-body-canvas&#39;);
+    const svg = document.getElementById(&#39;l2-body-wires&#39;);
+    if (!canvas || !svg) return;
+    const sections = Array.isArray(json.sections) ? json.sections : [];
+
+    const canvasRect = canvas.getBoundingClientRect();
+    svg.setAttribute(&#39;width&#39;,  String(canvasRect.width));
+    svg.setAttribute(&#39;height&#39;, String(canvasRect.height));
+
+    const cssEscape = (s) =&gt; String(s).replace(/[^a-zA-Z0-9_-]/g, (ch) =&gt; `\\${ch}`);
+    const bezier = (x1, y1, x2, y2) =&gt; {
+      const mid = (x1 + x2) / 2;
+      return `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+    };
+
+    // Group cards by ticket; skip cards inside collapsed frames.
+    const cardsByTicket = new Map();
+    sections.forEach((s) =&gt; {
+      const frame = canvas.querySelector(`[data-section-id=&quot;${cssEscape(s.id)}&quot;]`);
+      if (!frame || frame.classList.contains(&#39;l2-frame-collapsed&#39;)) return;
+      const cards = Array.isArray(s.data) ? s.data : [];
+      cards.forEach((c) =&gt; {
+        const cid = c?.id;
+        if (!cid) return;
+        (Array.isArray(c.ticketIds) ? c.ticketIds : []).forEach((raw) =&gt; {
+          const tid = flowTicketNumber(raw);
+          if (!tid) return;
+          if (!cardsByTicket.has(tid)) cardsByTicket.set(tid, []);
+          cardsByTicket.get(tid).push({ s: s.id, c: cid });
+        });
+      });
+    });
+
+    const paths = [];
+    for (const [tid, cards] of cardsByTicket.entries()) {
+      if (cards.length &lt; 2) continue;
+      const color = flowColorForTicket(tid);
+      for (let i = 0; i &lt; cards.length - 1; i++) {
+        const a = cards[i], b = cards[i + 1];
+        const aEl = canvas.querySelector(`[data-section-id=&quot;${cssEscape(a.s)}&quot;] [data-card-id=&quot;${cssEscape(a.c)}&quot;]`);
+        const bEl = canvas.querySelector(`[data-section-id=&quot;${cssEscape(b.s)}&quot;] [data-card-id=&quot;${cssEscape(b.c)}&quot;]`);
+        if (!aEl || !bEl) continue;
+        const ar = aEl.getBoundingClientRect();
+        const br = bEl.getBoundingClientRect();
+        const x1 = ar.left + ar.width / 2 - canvasRect.left;
+        const y1 = ar.top  + ar.height / 2 - canvasRect.top;
+        const x2 = br.left + br.width / 2 - canvasRect.left;
+        const y2 = br.top  + br.height / 2 - canvasRect.top;
+        paths.push(`&lt;path class=&quot;l2-body-wire&quot; stroke=&quot;${color}&quot; d=&quot;${bezier(x1, y1, x2, y2)}&quot;/&gt;`);
+      }
+    }
+    svg.innerHTML = paths.join(&#39;&#39;);
   }
 
   function renderFlowGovernancePreview(json) {
@@ -14585,7 +14653,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T02:17:33.526Z" title="2026-04-18T02:17:33.526Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T02:17:33.526Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T02:20:20.582Z" title="2026-04-18T02:20:20.582Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T02:20:20.582Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15378,7 +15446,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-a0c89a8 (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-f7882b8 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

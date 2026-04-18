@@ -325,7 +325,14 @@
     gap: 80px; padding: 24px 32px 80px;
     align-items: start; min-width: max-content;
   }
+  svg.l2-body-wires {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+  }
+  svg.l2-body-wires path { fill: none; }
+  .l2-body-wire { stroke-width: 1.5; opacity: 0.4; transition: opacity 0.15s, stroke-width 0.15s; }
   .l2-frame {
+    position: relative; z-index: 2;
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
     box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
   }
@@ -9534,10 +9541,12 @@
           renderRight();
         });
       });
-      // Governance mode keeps the existing wire + interaction hookups
-      if ((state.flowMode || 'governance') === 'governance') {
+      const mode = state.flowMode || 'governance';
+      if (mode === 'governance') {
         requestAnimationFrame(() => drawFlowWires(json));
         wireFlowInteractions(panel);
+      } else if (mode === 'body') {
+        requestAnimationFrame(() => drawL2BodyWires(json));
       }
     }
 
@@ -9549,7 +9558,10 @@
     if (flowResizeHandler) return;
     flowResizeHandler = () => {
       if (state.previewTab !== 'flow') return;
-      requestAnimationFrame(() => drawFlowWires(buildJson()));
+      const json = buildJson();
+      const mode = state.flowMode || 'governance';
+      if (mode === 'body') requestAnimationFrame(() => drawL2BodyWires(json));
+      else                 requestAnimationFrame(() => drawFlowWires(json));
     };
     window.addEventListener('resize', flowResizeHandler);
   }
@@ -10105,9 +10117,65 @@
       <div class="l2-body-stats">${statsHtml}</div>
       <div class="l2-body-canvas-wrap" id="l2-body-canvas-wrap">
         <div class="l2-body-canvas" id="l2-body-canvas">
+          <svg class="l2-body-wires" id="l2-body-wires" aria-hidden="true"></svg>
           ${framesHtml}
         </div>
       </div>`;
+  }
+
+  function drawL2BodyWires(json) {
+    const canvas = document.getElementById('l2-body-canvas');
+    const svg = document.getElementById('l2-body-wires');
+    if (!canvas || !svg) return;
+    const sections = Array.isArray(json.sections) ? json.sections : [];
+
+    const canvasRect = canvas.getBoundingClientRect();
+    svg.setAttribute('width',  String(canvasRect.width));
+    svg.setAttribute('height', String(canvasRect.height));
+
+    const cssEscape = (s) => String(s).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
+    const bezier = (x1, y1, x2, y2) => {
+      const mid = (x1 + x2) / 2;
+      return `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+    };
+
+    // Group cards by ticket; skip cards inside collapsed frames.
+    const cardsByTicket = new Map();
+    sections.forEach((s) => {
+      const frame = canvas.querySelector(`[data-section-id="${cssEscape(s.id)}"]`);
+      if (!frame || frame.classList.contains('l2-frame-collapsed')) return;
+      const cards = Array.isArray(s.data) ? s.data : [];
+      cards.forEach((c) => {
+        const cid = c?.id;
+        if (!cid) return;
+        (Array.isArray(c.ticketIds) ? c.ticketIds : []).forEach((raw) => {
+          const tid = flowTicketNumber(raw);
+          if (!tid) return;
+          if (!cardsByTicket.has(tid)) cardsByTicket.set(tid, []);
+          cardsByTicket.get(tid).push({ s: s.id, c: cid });
+        });
+      });
+    });
+
+    const paths = [];
+    for (const [tid, cards] of cardsByTicket.entries()) {
+      if (cards.length < 2) continue;
+      const color = flowColorForTicket(tid);
+      for (let i = 0; i < cards.length - 1; i++) {
+        const a = cards[i], b = cards[i + 1];
+        const aEl = canvas.querySelector(`[data-section-id="${cssEscape(a.s)}"] [data-card-id="${cssEscape(a.c)}"]`);
+        const bEl = canvas.querySelector(`[data-section-id="${cssEscape(b.s)}"] [data-card-id="${cssEscape(b.c)}"]`);
+        if (!aEl || !bEl) continue;
+        const ar = aEl.getBoundingClientRect();
+        const br = bEl.getBoundingClientRect();
+        const x1 = ar.left + ar.width / 2 - canvasRect.left;
+        const y1 = ar.top  + ar.height / 2 - canvasRect.top;
+        const x2 = br.left + br.width / 2 - canvasRect.left;
+        const y2 = br.top  + br.height / 2 - canvasRect.top;
+        paths.push(`<path class="l2-body-wire" stroke="${color}" d="${bezier(x1, y1, x2, y2)}"/>`);
+      }
+    }
+    svg.innerHTML = paths.join('');
   }
 
   function renderFlowGovernancePreview(json) {
