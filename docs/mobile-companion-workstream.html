@@ -2015,9 +2015,41 @@
     background: var(--bg); border: 1px solid var(--line); font-size: 12.5px;
   }
   .l2-body-stat strong { color: var(--ink); font-weight: 700; }
+  .l2-body-layout {
+    display: grid; grid-template-columns: 220px 1fr; flex: 1; min-height: 0;
+  }
+  .l2-body-palette {
+    border-right: 1px solid var(--line); background: var(--card);
+    padding: 16px 14px; overflow-y: auto;
+  }
+  .l2-body-palette-intro {
+    font-size: 11.5px; color: var(--muted); margin: 0 0 14px; line-height: 1.45;
+  }
+  .l2-body-palette-group { margin-bottom: 14px; }
+  .l2-body-palette-title {
+    display: block; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 0 0 6px;
+  }
+  .l2-body-palette-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; margin-bottom: 4px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-size: 12px; color: var(--ink); cursor: grab; user-select: none;
+  }
+  .l2-body-palette-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .l2-body-palette-chip:active { cursor: grabbing; }
+  .l2-body-palette-swatch {
+    display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
   .l2-body-canvas-wrap {
     position: relative; flex: 1; overflow: auto; background: var(--bg);
-    min-height: 420px;
+    min-height: 420px; min-width: 0;
+  }
+  .l2-body-canvas.l2-drag-over::after {
+    content: &quot;&quot;; position: absolute; inset: 8px;
+    border: 2px dashed var(--accent); border-radius: 14px;
+    pointer-events: none; z-index: 3;
   }
   .l2-body-canvas {
     position: relative; display: grid;
@@ -3246,6 +3278,7 @@
       &quot;flowInspectorOnlyThis&quot;: &quot;only this card&quot;,
       &quot;flowInspectorOtherCard&quot;: &quot;other card&quot;,
       &quot;flowInspectorOtherCards&quot;: &quot;other cards&quot;,
+      &quot;flowPaletteIntro&quot;: &quot;Drag a convergence type onto the canvas to insert a new empty section.&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Browse starter and advanced living doc templates&quot;,
       &quot;templatesIntro&quot;: &quot;Start with a simple starter template or jump straight into a fuller advanced shape.&quot;,
@@ -3589,6 +3622,7 @@
       &quot;flowInspectorOnlyThis&quot;: &quot;alleen deze kaart&quot;,
       &quot;flowInspectorOtherCard&quot;: &quot;andere kaart&quot;,
       &quot;flowInspectorOtherCards&quot;: &quot;andere kaarten&quot;,
+      &quot;flowPaletteIntro&quot;: &quot;Sleep een convergentietype naar het canvas om een nieuwe lege sectie in te voegen.&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Blader door starter- en geavanceerde living-doc-templates&quot;,
       &quot;templatesIntro&quot;: &quot;Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.&quot;,
@@ -4103,6 +4137,7 @@
       &quot;flowInspectorOnlyThis&quot;: &quot;hanya kartu ini&quot;,
       &quot;flowInspectorOtherCard&quot;: &quot;kartu lain&quot;,
       &quot;flowInspectorOtherCards&quot;: &quot;kartu lain&quot;,
+      &quot;flowPaletteIntro&quot;: &quot;Seret tipe konvergensi ke kanvas untuk menyisipkan seksi kosong baru.&quot;,
       &quot;templates&quot;: &quot;Template&quot;,
       &quot;templatesHint&quot;: &quot;Jelajahi template starter dan lanjutan living doc&quot;,
       &quot;templatesIntro&quot;: &quot;Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.&quot;,
@@ -11903,16 +11938,42 @@
     }).join(&#39;&#39;);
 
     const inspectorHtml = selCard ? renderL2Inspector(sections, selSid, selCard) : &#39;&#39;;
+    const paletteHtml = renderL2Palette();
 
     return `
       &lt;div class=&quot;l2-body-stats&quot;&gt;${statsHtml}&lt;/div&gt;
-      &lt;div class=&quot;l2-body-canvas-wrap&quot; id=&quot;l2-body-canvas-wrap&quot;&gt;
-        &lt;div class=&quot;l2-body-canvas&quot; id=&quot;l2-body-canvas&quot;&gt;
-          &lt;svg class=&quot;l2-body-wires&quot; id=&quot;l2-body-wires&quot; aria-hidden=&quot;true&quot;&gt;&lt;/svg&gt;
-          ${framesHtml}
+      &lt;div class=&quot;l2-body-layout&quot;&gt;
+        &lt;aside class=&quot;l2-body-palette&quot; id=&quot;l2-body-palette&quot;&gt;${paletteHtml}&lt;/aside&gt;
+        &lt;div class=&quot;l2-body-canvas-wrap&quot; id=&quot;l2-body-canvas-wrap&quot;&gt;
+          &lt;div class=&quot;l2-body-canvas&quot; id=&quot;l2-body-canvas&quot;&gt;
+            &lt;svg class=&quot;l2-body-wires&quot; id=&quot;l2-body-wires&quot; aria-hidden=&quot;true&quot;&gt;&lt;/svg&gt;
+            ${framesHtml}
+          &lt;/div&gt;
+          ${inspectorHtml}
         &lt;/div&gt;
-        ${inspectorHtml}
       &lt;/div&gt;`;
+  }
+
+  function renderL2Palette() {
+    const groups = getConvergenceGroups();
+    const chips = groups.map((group) =&gt; {
+      const items = group.items.map(([id, def]) =&gt; {
+        const color = def.iconColor || &#39;#64748b&#39;;
+        return `
+          &lt;div class=&quot;l2-body-palette-chip&quot; draggable=&quot;true&quot; data-l2-palette-type=&quot;${esc(id)}&quot; title=&quot;${esc(def.structuralContract || def.description || id)}&quot;&gt;
+            &lt;span class=&quot;l2-body-palette-swatch&quot; style=&quot;background:${color}&quot;&gt;&lt;/span&gt;
+            &lt;span&gt;${esc(def.name || id)}&lt;/span&gt;
+          &lt;/div&gt;`;
+      }).join(&#39;&#39;);
+      return `
+        &lt;div class=&quot;l2-body-palette-group&quot;&gt;
+          &lt;span class=&quot;l2-body-palette-title&quot; style=&quot;color:${esc(group.items[0]?.[1]?.iconColor || &#39;var(--muted)&#39;)}&quot;&gt;${esc(group.label)}&lt;/span&gt;
+          ${items}
+        &lt;/div&gt;`;
+    }).join(&#39;&#39;);
+    return `
+      &lt;p class=&quot;l2-body-palette-intro&quot;&gt;${esc(t(&#39;flowPaletteIntro&#39;))}&lt;/p&gt;
+      ${chips}`;
   }
 
   function renderL2Inspector(sections, sectionId, card) {
@@ -12069,6 +12130,46 @@
         autoSave();
         renderRight();
       }
+    });
+
+    // Palette drag-to-insert
+    panel.querySelectorAll(&#39;[data-l2-palette-type]&#39;).forEach((chip) =&gt; {
+      chip.addEventListener(&#39;dragstart&#39;, (event) =&gt; {
+        event.dataTransfer?.setData(&#39;text/l2-type&#39;, chip.dataset.l2PaletteType);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = &#39;copy&#39;;
+      });
+    });
+    canvas.addEventListener(&#39;dragover&#39;, (event) =&gt; {
+      const hasType = event.dataTransfer &amp;&amp; Array.from(event.dataTransfer.types || []).includes(&#39;text/l2-type&#39;);
+      if (!hasType) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = &#39;copy&#39;;
+      canvas.classList.add(&#39;l2-drag-over&#39;);
+    });
+    canvas.addEventListener(&#39;dragleave&#39;, (event) =&gt; {
+      if (event.target === canvas) canvas.classList.remove(&#39;l2-drag-over&#39;);
+    });
+    canvas.addEventListener(&#39;drop&#39;, (event) =&gt; {
+      const typeId = event.dataTransfer?.getData(&#39;text/l2-type&#39;);
+      canvas.classList.remove(&#39;l2-drag-over&#39;);
+      if (!typeId) return;
+      event.preventDefault();
+      const ct = REGISTRY?.convergenceTypes?.[typeId];
+      if (!ct) return;
+      const baseSlug = (ct.name || typeId).toLowerCase().replace(/[^a-z0-9]+/g, &#39;-&#39;).replace(/^-|-$/g, &#39;&#39;).slice(0, 48) || typeId;
+      const existing = new Set(state.sections.map((s) =&gt; s.id));
+      let id = `sec-${baseSlug}`;
+      let n = 2;
+      while (existing.has(id)) { id = `sec-${baseSlug}-${n++}`; }
+      state.sections.push({
+        id,
+        title: `New ${ct.name || typeId}`,
+        convergenceType: typeId,
+        data: [],
+      });
+      state.focusedSectionId = id;
+      autoSave();
+      renderRight();
     });
   }
 
@@ -14847,7 +14948,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T02:24:01.395Z" title="2026-04-18T02:24:01.395Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T02:24:01.395Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T02:26:44.078Z" title="2026-04-18T02:26:44.078Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T02:26:44.078Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15640,7 +15741,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-36176c9 (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-7700357 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
