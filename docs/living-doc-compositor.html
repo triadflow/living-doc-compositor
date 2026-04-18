@@ -14506,31 +14506,42 @@ open docs/living-doc-compositor.html</pre>
   .ap-btn-cancel { background: var(--card, #fff); color: var(--ink, #1a2332); }
   .ap-btn-cancel:hover { border-color: var(--accent, #2563eb); color: var(--accent, #2563eb); }
 
-  .ap-spinner {
-    position: fixed; top: 14px; right: 14px; z-index: 700;
-    padding: 8px 14px; background: var(--ink, #1a2332); color: #e2e8f0;
-    border-radius: 999px; font: 600 12px/1 ui-sans-serif;
-    display: none; align-items: center; gap: 8px;
+  /* ── Sidebar loading / error / applied states ──────────────────────── */
+  .ap-diff-state-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 40px 24px; text-align: center;
   }
-  .ap-spinner.open { display: inline-flex; }
-  .ap-spinner::before { content: "⟳"; display: inline-block; animation: ap-spin 1s linear infinite; }
+  .ap-spinner-inline {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid var(--accent-light, #dbeafe);
+    border-top-color: var(--accent, #2563eb);
+    animation: ap-spin 0.9s linear infinite;
+  }
   @keyframes ap-spin { to { transform: rotate(360deg); } }
-
-  .ap-toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    padding: 10px 18px; border-radius: 999px;
-    background: var(--ink, #1a2332); color: #e2e8f0; font: 600 12.5px/1 ui-sans-serif;
-    z-index: 950; display: none;
+  .ap-state-title { font: 700 14px/1.3 ui-sans-serif; color: var(--ink, #1a2332); }
+  .ap-state-sub {
+    font: 500 12.5px/1.5 ui-sans-serif; color: var(--muted, #64748b);
+    max-width: 320px;
   }
-  .ap-toast.open { display: block; }
-  .ap-toast.error { background: #991b1b; }
+  .ap-state-error-box {
+    width: 100%; padding: 14px; border-radius: 8px;
+    background: #fef2f2; border: 1px solid #fecaca;
+    font: 400 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #991b1b; text-align: left;
+    max-height: 200px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .ap-state-check {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--positive-bg, #ecfdf5); color: var(--positive-ink, #166534);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 800;
+  }
 </style>
 
 <div class="ap-backdrop" id="ap-backdrop"></div>
 <div class="ap-palette" id="ap-palette" role="dialog" aria-label="AI action palette"></div>
 <aside class="ap-diff" id="ap-diff" aria-label="AI-pass diff sidebar"></aside>
-<div class="ap-spinner" id="ap-spinner">proposing…</div>
-<div class="ap-toast" id="ap-toast"></div>
 
 <script>
 (function aiPassModule() {
@@ -14540,8 +14551,6 @@ open docs/living-doc-compositor.html</pre>
   const backdrop = document.getElementById('ap-backdrop');
   const palette  = document.getElementById('ap-palette');
   const diffEl   = document.getElementById('ap-diff');
-  const spinner  = document.getElementById('ap-spinner');
-  const toast    = document.getElementById('ap-toast');
 
   let currentActions = [];
   let activeIndex = 0;
@@ -14570,19 +14579,90 @@ open docs/living-doc-compositor.html</pre>
   }
 
   // ── helpers ────────────────────────────────────────────────────────────
-  function showToast(msg, isError = false) {
-    toast.textContent = msg;
-    toast.classList.toggle('error', !!isError);
-    toast.classList.add('open');
-    setTimeout(() => toast.classList.remove('open'), 3600);
-  }
   function closeAll() {
     backdrop.classList.remove('open');
     palette.classList.remove('open');
     diffEl.classList.remove('open');
-    spinner.classList.remove('open');
   }
   function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ── sidebar state renderers ──────────────────────────────────────────
+  function openSidebar() {
+    diffEl.classList.add('open');
+  }
+  function renderSidebarLoading(action, engine, cardRef) {
+    openSidebar();
+    diffEl.innerHTML = `
+      <div class="ap-diff-head">
+        <div class="ap-eye">AI pass — proposing</div>
+        <h3>${escHtml(action || 'action')}</h3>
+        <div class="sub">${escHtml(engine || 'engine')} · <code>${escHtml(cardRef?.sectionId || '')}/${escHtml(cardRef?.cardId || '')}</code></div>
+      </div>
+      <div class="ap-diff-body">
+        <div class="ap-diff-state-inner">
+          <div class="ap-spinner-inline" aria-hidden="true"></div>
+          <div class="ap-state-title">Proposing…</div>
+          <div class="ap-state-sub">The engine is reading the doc, the registry, and neighbour cards, then drafting a patch.</div>
+        </div>
+      </div>`;
+  }
+  function renderSidebarError(stage, message) {
+    openSidebar();
+    diffEl.innerHTML = `
+      <div class="ap-diff-head">
+        <div class="ap-eye" style="color: #991b1b;">AI pass — ${escHtml(stage)} failed</div>
+        <h3>Something went wrong</h3>
+        <div class="sub">No changes were made. Details below.</div>
+      </div>
+      <div class="ap-diff-body">
+        <div class="ap-diff-state-inner">
+          <div class="ap-state-error-box">${escHtml(message)}</div>
+        </div>
+      </div>
+      <div class="ap-diff-foot">
+        <div class="actions">
+          <button class="ap-btn-cancel" id="ap-close">Close</button>
+        </div>
+      </div>`;
+    document.getElementById('ap-close')?.addEventListener('click', closeAll);
+  }
+  function renderSidebarApplying(n) {
+    openSidebar();
+    diffEl.innerHTML = `
+      <div class="ap-diff-head">
+        <div class="ap-eye">AI pass — applying</div>
+        <h3>Applying ${n} change${n === 1 ? '' : 's'}</h3>
+        <div class="sub">Running gh issue create, mutating the JSON, re-rendering.</div>
+      </div>
+      <div class="ap-diff-body">
+        <div class="ap-diff-state-inner">
+          <div class="ap-spinner-inline" aria-hidden="true"></div>
+          <div class="ap-state-title">Applying…</div>
+        </div>
+      </div>`;
+  }
+  function renderSidebarApplied(n, logs) {
+    openSidebar();
+    const logHtml = (logs || []).map(l => `<div>${escHtml(l.kind || '')} · ${escHtml(l.message || '')}</div>`).join('');
+    diffEl.innerHTML = `
+      <div class="ap-diff-head">
+        <div class="ap-eye" style="color: #166534;">AI pass — applied</div>
+        <h3>${n} change${n === 1 ? '' : 's'} applied</h3>
+        <div class="sub">The doc was re-rendered. Reload to see the updated view.</div>
+      </div>
+      <div class="ap-diff-body">
+        <div class="ap-diff-state-inner">
+          <div class="ap-state-check">✓</div>
+          <div class="ap-state-sub">${logHtml ? `<pre style="text-align:left; font-size:11px; color:var(--muted, #64748b); margin:0; padding:0 10px;">${logHtml}</pre>` : ''}</div>
+        </div>
+      </div>
+      <div class="ap-diff-foot">
+        <div class="actions">
+          <button class="ap-btn-apply" id="ap-close">Close</button>
+        </div>
+      </div>`;
+    document.getElementById('ap-close')?.addEventListener('click', closeAll);
+  }
 
   // ── doc path resolution ───────────────────────────────────────────────
   // The rendered doc embeds a JSON blob at #doc-meta; use its canonicalOrigin
@@ -14761,27 +14841,38 @@ open docs/living-doc-compositor.html</pre>
   async function runAction(idx) {
     const action = currentActions[idx];
     if (!action) return;
-    if (!selectedEngine) { showToast('no engine available — is the server running?', true); return; }
+    // Close the palette and show the sidebar immediately — it becomes the
+    // single surface for loading / errors / diff / applied state.
+    backdrop.classList.remove('open');
+    palette.classList.remove('open');
+    if (!selectedEngine) {
+      renderSidebarError('propose', 'No engine available. Is the ai-pass server running on localhost:4322, and is `claude` or `codex` on your PATH?');
+      return;
+    }
     const docPath = resolveDocPath();
-    if (!docPath) { showToast('cannot resolve doc path (set ap-doc-path in localStorage)', true); return; }
-    closeAll();
-    spinner.classList.add('open');
+    if (!docPath) {
+      renderSidebarError('propose', 'Cannot resolve the doc path. Expected window.LD_DOC_ABS_PATH (injected by the dashboard) or the localStorage key ap-doc-path.');
+      return;
+    }
+    renderSidebarLoading(action.name, selectedEngine, currentCardRef);
     try {
       const r = await fetch(`${SERVER}/api/ai-pass/propose`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ docPath, cardRef: currentCardRef, action: action.id, engine: selectedEngine }),
       });
-      if (!r.ok) throw new Error((await r.json()).error || `server returned ${r.status}`);
+      if (!r.ok) {
+        let msg = `server returned ${r.status}`;
+        try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+        throw new Error(msg);
+      }
       const data = await r.json();
       currentPatch = data.patch;
       currentPatchId = data.patchId;
       currentValidation = data.validation;
-      spinner.classList.remove('open');
       renderDiff();
     } catch (e) {
-      spinner.classList.remove('open');
-      showToast(String(e.message || e), true);
+      renderSidebarError('propose', String(e.message || e));
     }
   }
 
@@ -14837,24 +14928,22 @@ open docs/living-doc-compositor.html</pre>
   async function applyPatch() {
     const acceptedChangeIds = Array.from(diffEl.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.dataset.change);
     if (!acceptedChangeIds.length) { closeAll(); return; }
-    spinner.classList.add('open');
-    spinner.textContent = 'applying…';
+    renderSidebarApplying(acceptedChangeIds.length);
     try {
       const r = await fetch(`${SERVER}/api/ai-pass/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patchId: currentPatchId, acceptedChangeIds }),
       });
-      if (!r.ok) throw new Error((await r.json()).error || `server returned ${r.status}`);
+      if (!r.ok) {
+        let msg = `server returned ${r.status}`;
+        try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+        throw new Error(msg);
+      }
       const data = await r.json();
-      spinner.classList.remove('open');
-      spinner.textContent = 'proposing…';
-      closeAll();
-      showToast(`Applied ${acceptedChangeIds.length} change(s). Reload to see the result.`);
+      renderSidebarApplied(acceptedChangeIds.length, data.log);
     } catch (e) {
-      spinner.classList.remove('open');
-      spinner.textContent = 'proposing…';
-      showToast(String(e.message || e), true);
+      renderSidebarError('apply', String(e.message || e));
     }
   }
 })();
