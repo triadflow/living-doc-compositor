@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proposal — Convergence types for OSS-triage living docs</title>
+<meta name="description" content="Five proposed convergence types for the OSS-issue deep-dive use case: attempt-log, issue-orbit, code-anchor, symptom-observation, maintainer-stance." />
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --ink: #1a2332; --muted: #64748b;
+    --line: #e2e8f0; --accent: #2563eb; --accent-light: #dbeafe;
+    --warning-bg: #fff7ed; --warning-ink: #9a3412;
+    --positive-bg: #ecfdf5; --positive-ink: #166534;
+    --neutral-bg: #f1f5f9; --neutral-ink: #475569;
+    --danger-bg: #fef2f2; --danger-ink: #991b1b;
+    --radius: 12px; --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 30px rgba(15,23,42,0.08), 0 2px 6px rgba(15,23,42,0.04);
+    --max: 980px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  em { font-style: normal; color: var(--accent); font-weight: 600; }
+
+  /* ── Top bar ── */
+  .top-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 24px; background: var(--card);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
+    backdrop-filter: blur(8px);
+  }
+  .top-bar .logo {
+    width: 30px; height: 30px; border-radius: 7px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0;
+  }
+  .top-bar h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+  .top-bar .spacer { flex: 1; }
+  .top-action {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .top-action:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+  /* ── Layout ── */
+  main { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+  section { padding: 72px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+  .eyebrow {
+    display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    background: var(--accent-light); padding: 4px 10px; border-radius: 999px; margin-bottom: 18px;
+  }
+  h2 { font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 18px; max-width: 760px; }
+  h3 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+  p.lede { font-size: 18px; color: var(--muted); max-width: 700px; line-height: 1.6; }
+  p.body { font-size: 16px; color: var(--ink); max-width: 720px; line-height: 1.65; margin-bottom: 14px; }
+
+  /* ── Hero ── */
+  .hero { padding: 84px 0 64px; border-bottom: 1px solid var(--line); }
+  .hero h1 {
+    font-size: clamp(34px, 5vw, 52px); line-height: 1.05; font-weight: 800;
+    letter-spacing: -0.035em; margin-bottom: 20px; max-width: 840px;
+  }
+  .hero .subtitle {
+    font-size: 19px; max-width: 760px; color: var(--ink); line-height: 1.5;
+    font-weight: 500; margin-bottom: 22px;
+  }
+  .hero .subtitle strong { color: var(--ink); font-weight: 700; }
+  .hero p.scene { font-size: 16px; max-width: 700px; color: var(--muted); line-height: 1.6; }
+  .hero .meta-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;
+  }
+  .hero .meta-pill {
+    padding: 5px 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; font-size: 12.5px; color: var(--ink); font-weight: 600;
+  }
+
+  /* ── Tradeoff block ── */
+  .tradeoff {
+    padding: 28px 32px; background: var(--card); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    margin-top: 28px; box-shadow: var(--shadow-sm);
+  }
+  .tradeoff h3 { font-size: 17px; margin-bottom: 10px; }
+  .tradeoff p { font-size: 15.5px; color: var(--ink); line-height: 1.65; margin-bottom: 10px; }
+  .tradeoff p:last-child { margin-bottom: 0; }
+  .tradeoff .call { color: var(--accent); font-weight: 700; }
+
+  /* ── Index ── */
+  .type-index {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 28px;
+  }
+  @media (max-width: 900px) { .type-index { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .type-index { grid-template-columns: 1fr; } }
+  .type-index a {
+    display: block; padding: 14px 14px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--card);
+    font-size: 13px; font-weight: 700; color: var(--ink); transition: all 0.15s;
+  }
+  .type-index a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .type-index a .n {
+    display: inline-block; width: 22px; height: 22px; border-radius: 5px;
+    background: var(--accent-light); color: var(--accent);
+    text-align: center; line-height: 22px; font-size: 11px; margin-right: 8px;
+  }
+  .type-index a code { font-size: 12.5px; color: var(--accent); }
+
+  /* ── Type card ── */
+  .type {
+    padding: 36px; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); margin-top: 28px;
+  }
+  .type .head {
+    display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px;
+    padding-bottom: 20px; border-bottom: 1px solid var(--line);
+  }
+  .type .head .n {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; flex-shrink: 0;
+  }
+  .type .head .title code {
+    font-size: 22px; font-weight: 700; color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  .type .head .title .purpose {
+    font-size: 15.5px; color: var(--muted); line-height: 1.5; margin-top: 4px;
+  }
+  .type .contract {
+    padding: 16px 20px; background: color-mix(in srgb, var(--accent) 5%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+    border-radius: var(--radius); margin-bottom: 22px;
+    font-size: 15.5px; line-height: 1.55; color: var(--ink);
+  }
+  .type .contract strong { color: var(--accent); }
+
+  .type-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+  }
+  @media (max-width: 760px) { .type-grid { grid-template-columns: 1fr; } }
+  .type-col h4 {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .type-col ul { list-style: none; padding: 0; }
+  .type-col li {
+    font-size: 14px; padding: 8px 0; border-bottom: 1px dashed var(--line);
+    line-height: 1.5; color: var(--ink);
+  }
+  .type-col li:last-child { border-bottom: none; }
+  .type-col li .key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; color: var(--accent); font-weight: 700;
+  }
+  .type-col li .desc { color: var(--muted); font-size: 13.5px; }
+
+  .status-pills {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+  }
+  .status-pill {
+    padding: 5px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  .status-pill.good { background: var(--positive-bg); color: var(--positive-ink); border-color: transparent; }
+  .status-pill.warn { background: var(--warning-bg); color: var(--warning-ink); border-color: transparent; }
+  .status-pill.bad { background: var(--danger-bg); color: var(--danger-ink); border-color: transparent; }
+  .status-pill.neutral { background: var(--neutral-bg); color: var(--neutral-ink); border-color: transparent; }
+
+  .example-block {
+    margin-top: 22px; padding: 18px 22px;
+    background: var(--ink); color: #e2e8f0;
+    border-radius: var(--radius);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; line-height: 1.6;
+    white-space: pre; overflow-x: auto;
+  }
+  .example-block .k { color: #93c5fd; }
+  .example-block .s { color: #86efac; }
+  .example-block .c { color: #64748b; }
+  .example-block .n { color: #fbbf24; }
+
+  .not-block {
+    margin-top: 22px; padding: 16px 20px;
+    background: var(--warning-bg); border: 1px solid #fed7aa;
+    border-radius: var(--radius);
+    font-size: 14.5px; line-height: 1.55; color: var(--warning-ink);
+  }
+  .not-block strong { color: var(--warning-ink); font-weight: 700; }
+  .not-block .boundary { font-weight: 700; }
+
+  .trial-map {
+    margin-top: 22px; padding: 18px 22px;
+    background: color-mix(in srgb, var(--accent) 5%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+    border-radius: var(--radius);
+    font-size: 14.5px; line-height: 1.6; color: var(--ink);
+  }
+  .trial-map code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--accent); font-weight: 700; }
+  .trial-map .arrow { color: var(--accent); font-weight: 800; margin: 0 6px; }
+
+  /* ── Recomposition table ── */
+  .recompose-table {
+    margin-top: 28px; width: 100%; border-collapse: separate; border-spacing: 0;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .recompose-table th, .recompose-table td {
+    padding: 14px 18px; text-align: left; font-size: 14.5px;
+    border-bottom: 1px solid var(--line);
+  }
+  .recompose-table th {
+    background: var(--neutral-bg); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
+  }
+  .recompose-table tr:last-child td { border-bottom: none; }
+  .recompose-table td code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; color: var(--accent); font-weight: 700;
+  }
+  .recompose-table .arrow { color: var(--accent); font-weight: 800; }
+  .recompose-table .was code { color: var(--muted); font-weight: 600; }
+
+  /* ── Footer ── */
+  footer {
+    padding: 28px 24px; text-align: center;
+    border-top: 1px solid var(--line); background: var(--card);
+    color: var(--muted); font-size: 13px;
+  }
+  footer a { color: var(--muted); }
+  footer a:hover { color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .top-bar { padding: 12px 16px; }
+    .top-bar .top-action { display: none; }
+    .type { padding: 24px 20px; }
+    section { padding: 56px 0; }
+    h2 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">L</div>
+  <h1>Proposal · OSS-triage convergence types</h1>
+  <div class="spacer"></div>
+  <a class="top-action" href="#tradeoff">Tradeoff</a>
+  <a class="top-action" href="#types">Types</a>
+  <a class="top-action" href="#recompose">Recomposition</a>
+</div>
+
+<main>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="eyebrow">Proposal · ticket #75</div>
+    <h1>Five convergence types for composing a living doc from an OSS issue deep-dive.</h1>
+    <p class="subtitle">
+      The trial doc for <strong>Textual #5380</strong> stretched three existing types across five distinct semantic shapes. This proposal names those shapes and gives each its own contract — so the substrate stays reliable as the OSS-triage skill scales.
+    </p>
+    <p class="scene">
+      Every new type defended here preserves a <em>distinct semantic contract</em> that cannot be cleanly carried by an existing one. Volume is not the cost — stretching is.
+    </p>
+    <div class="meta-row">
+      <span class="meta-pill">5 proposed types</span>
+      <span class="meta-pill">Trial doc: Textual #5380</span>
+      <span class="meta-pill">Not yet in registry</span>
+    </div>
+  </section>
+
+  <!-- Tradeoff -->
+  <section id="tradeoff">
+    <div class="eyebrow">The lens</div>
+    <h2>Semantic stability, not volume.</h2>
+    <p class="lede">
+      Every convergence type is a stable contract: readers — humans and agents — can trust what the type <em>means</em>, what shape of content it holds, what question it answers.
+    </p>
+    <div class="tradeoff">
+      <h3>Why stretching is the real cost</h3>
+      <p>
+        When an existing type is stretched to cover an adjacent-but-distinct shape — conflating findings + attempts + related-issues under <code>investigation-findings</code>, for example — the contract erodes. A card under that type could now be three different things, and the reader has to figure out which.
+      </p>
+      <p>
+        The Living Doc Compositor's whole premise is that types are <span class="call">trustable semantic units</span>. Fewer overloaded types erode that. More types with crisp meaning preserve it.
+      </p>
+      <p>
+        Registry entries cost something — they do — but that cost is secondary to preserving the semantic contract. If a new type answers a genuinely different question, it earns its place.
+      </p>
+    </div>
+  </section>
+
+  <!-- Type index -->
+  <section id="types" style="border-bottom: none; padding-bottom: 0;">
+    <div class="eyebrow">Proposed types</div>
+    <h2>Five types. Five distinct questions.</h2>
+    <p class="lede">Each is scoped so tightly that it cannot be cleanly collapsed into another existing type without losing meaning.</p>
+    <div class="type-index">
+      <a href="#t-attempt-log"><span class="n">1</span><code>attempt-log</code></a>
+      <a href="#t-issue-orbit"><span class="n">2</span><code>issue-orbit</code></a>
+      <a href="#t-code-anchor"><span class="n">3</span><code>code-anchor</code></a>
+      <a href="#t-symptom-observation"><span class="n">4</span><code>symptom-observation</code></a>
+      <a href="#t-maintainer-stance"><span class="n">5</span><code>maintainer-stance</code></a>
+    </div>
+  </section>
+
+  <!-- attempt-log -->
+  <section id="t-attempt-log" style="padding-top: 40px;">
+    <div class="type">
+      <div class="head">
+        <div class="n">1</div>
+        <div class="title">
+          <code>attempt-log</code>
+          <div class="purpose">What was tried to resolve this issue, what did it prove, where does it live?</div>
+        </div>
+      </div>
+      <div class="contract">
+        <strong>Contract:</strong> Each card is one action taken against the problem and its result. An attempt is not an observation — it has a doer, an outcome, and optionally a shipping location. Findings sit under <code>symptom-observation</code>; decisions sit under <code>maintainer-stance</code>. This type is exclusively for <em>tried things</em>.
+      </div>
+
+      <div class="type-grid">
+        <div class="type-col">
+          <h4>Card fields</h4>
+          <ul>
+            <li><span class="key">id</span> / <span class="key">name</span> <span class="desc">— short handle</span></li>
+            <li><span class="key">what_tried</span> <span class="desc">— prose description of the action</span></li>
+            <li><span class="key">what_proved</span> <span class="desc">— the outcome and what it revealed</span></li>
+            <li><span class="key">shipped_in</span> <span class="desc">— commit or PR URL, or <code>null</code></span></li>
+            <li><span class="key">cost_to_apply</span> <span class="desc">— rough estimate (LOC, invasiveness)</span></li>
+            <li><span class="key">notes[]</span> <span class="desc">— supporting links</span></li>
+          </ul>
+        </div>
+        <div class="type-col">
+          <h4>Status set</h4>
+          <div class="status-pills">
+            <span class="status-pill neutral">probe</span>
+            <span class="status-pill good">workaround-shipped</span>
+            <span class="status-pill bad">rejected</span>
+            <span class="status-pill warn">superseded</span>
+          </div>
+          <h4 style="margin-top: 18px;">Projection</h4>
+          <div style="font-size: 14px; color: var(--muted); line-height: 1.5;">Card grid (2 columns). Each card prominently shows <code>shipped_in</code> as a link and <code>cost_to_apply</code> as a tag.</div>
+        </div>
+      </div>
+
+      <div class="example-block"><span class="c">// In the Textual #5380 trial</span>
+{
+  <span class="k">"id"</span>: <span class="s">"inspect-ai-patch"</span>,
+  <span class="k">"name"</span>: <span class="s">"Override _watch_app_focus, re-call _enable_mouse_support on focus gain"</span>,
+  <span class="k">"status"</span>: <span class="s">"workaround-shipped"</span>,
+  <span class="k">"what_tried"</span>: <span class="s">"On focus=True, call driver._enable_mouse_support() wrapped in try/except"</span>,
+  <span class="k">"what_proved"</span>: <span class="s">"Mouse survives VS Code reload in production inspect_ai; ANSI codes are idempotent on xterm.js"</span>,
+  <span class="k">"shipped_in"</span>: <span class="s">"https://github.com/UKGovernmentBEIS/inspect_ai/commit/8ce3409"</span>,
+  <span class="k">"cost_to_apply"</span>: <span class="s">"~20 LOC, App-level override, no invasive refactor"</span>
+}</div>
+
+      <div class="not-block">
+        <span class="boundary">Not to be confused with:</span>
+        <strong>investigation-findings</strong> (observed facts — no doer, no shipping site) or <strong>decision-record</strong> (settled direction — no outcome yet, only rationale).
+      </div>
+
+      <div class="trial-map">
+        <strong>In the Textual #5380 trial:</strong> currently stretched as <code>investigation-findings</code> <span class="arrow">→</span> should be <code>attempt-log</code>. Affects: <code>suspend-probe</code>, <code>direct-enable-call</code>, <code>inspect-ai-patch</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- issue-orbit -->
+  <section id="t-issue-orbit">
+    <div class="type">
+      <div class="head">
+        <div class="n">2</div>
+        <div class="title">
+          <code>issue-orbit</code>
+          <div class="purpose">Which other issues and PRs in this repo share root cause, symmetry, or adjacency with the focal issue?</div>
+        </div>
+      </div>
+      <div class="contract">
+        <strong>Contract:</strong> Each card is another issue or PR and its relationship to the focal one. This is a <em>graph of siblings</em>, not a list of facts about the focal issue. The card's main payload is the relationship itself.
+      </div>
+
+      <div class="type-grid">
+        <div class="type-col">
+          <h4>Card fields</h4>
+          <ul>
+            <li><span class="key">id</span> / <span class="key">name</span> <span class="desc">— <code>#1171 — Symmetric leak…</code></span></li>
+            <li><span class="key">url</span> <span class="desc">— GitHub URL</span></li>
+            <li><span class="key">github_state</span> <span class="desc">— open / closed</span></li>
+            <li><span class="key">relationship</span> <span class="desc">— how it relates to focal</span></li>
+            <li><span class="key">relevance</span> <span class="desc">— prose: why this matters</span></li>
+            <li><span class="key">closed_by_pr</span> <span class="desc">— optional</span></li>
+          </ul>
+        </div>
+        <div class="type-col">
+          <h4>Relationship enum</h4>
+          <div class="status-pills">
+            <span class="status-pill neutral">same-root-cause</span>
+            <span class="status-pill neutral">adjacent</span>
+            <span class="status-pill neutral">symmetric</span>
+            <span class="status-pill neutral">superseded</span>
+            <span class="status-pill neutral">prior-art</span>
+          </div>
+          <h4 style="margin-top: 18px;">Status set</h4>
+          <div class="status-pills">
+            <span class="status-pill good">closed-fixed</span>
+            <span class="status-pill neutral">closed-wontfix</span>
+            <span class="status-pill warn">open-active</span>
+            <span class="status-pill bad">open-stale</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-block"><span class="c">// In the Textual #5380 trial</span>
+{
+  <span class="k">"id"</span>: <span class="s">"issue-1171"</span>,
+  <span class="k">"name"</span>: <span class="s">"#1171 — Coordinates leak to shell prompt after force-stop"</span>,
+  <span class="k">"url"</span>: <span class="s">"https://github.com/Textualize/textual/issues/1171"</span>,
+  <span class="k">"github_state"</span>: <span class="s">"closed"</span>,
+  <span class="k">"status"</span>: <span class="s">"closed-fixed"</span>,
+  <span class="k">"relationship"</span>: <span class="s">"symmetric"</span>,
+  <span class="k">"relevance"</span>: <span class="s">"Same state-drift family as #5380: disable_mouse_support never runs on force-kill, so xterm.js keeps emitting coords. Shows the bidirectional sync gap."</span>
+}</div>
+
+      <div class="not-block">
+        <span class="boundary">Not to be confused with:</span>
+        <strong>investigation-findings</strong>. A finding is an observation <em>about the focal issue</em>. An orbit card is metadata about a <em>different</em> issue and how it relates. Collapsing them loses the graph structure — and the ability for a reader to see "what other bugs in this family have already been walked."
+      </div>
+
+      <div class="trial-map">
+        <strong>In the Textual #5380 trial:</strong> currently stretched as <code>investigation-findings</code> <span class="arrow">→</span> should be <code>issue-orbit</code>. Affects the entire <code>related</code> section: <code>issue-5547</code>, <code>issue-1171</code>, <code>issue-1031</code>, <code>issue-5894</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- code-anchor -->
+  <section id="t-code-anchor">
+    <div class="type">
+      <div class="head">
+        <div class="n">3</div>
+        <div class="title">
+          <code>code-anchor</code>
+          <div class="purpose">Which code locations matter for this issue, pinned to a specific revision?</div>
+        </div>
+      </div>
+      <div class="contract">
+        <strong>Contract:</strong> Each card is one exact file-and-range, pinned to a commit SHA or tag, with a short description of what the code does and why it's load-bearing for the focal issue. It is a <em>diagnostic pointer</em>, not a product capability.
+      </div>
+
+      <div class="type-grid">
+        <div class="type-col">
+          <h4>Card fields</h4>
+          <ul>
+            <li><span class="key">id</span> / <span class="key">name</span></li>
+            <li><span class="key">path</span> <span class="desc">— repo-relative</span></li>
+            <li><span class="key">range</span> <span class="desc">— line or line range</span></li>
+            <li><span class="key">revision</span> <span class="desc">— commit SHA or tag</span></li>
+            <li><span class="key">what_it_does</span> <span class="desc">— one-line code-level summary</span></li>
+            <li><span class="key">why_it_matters</span> <span class="desc">— relevance to focal issue</span></li>
+          </ul>
+        </div>
+        <div class="type-col">
+          <h4>Status set</h4>
+          <div class="status-pills">
+            <span class="status-pill good">current</span>
+            <span class="status-pill warn">changed-since-issue</span>
+            <span class="status-pill bad">deprecated</span>
+          </div>
+          <h4 style="margin-top: 18px;">Freshness signal</h4>
+          <div style="font-size: 14px; color: var(--muted); line-height: 1.5;">When the pinned revision is older than <code>main</code>, the renderer should flag whether the anchor's file/range has changed, so the reader knows if the pointer is stale.</div>
+        </div>
+      </div>
+
+      <div class="example-block"><span class="c">// In the Textual #5380 trial</span>
+{
+  <span class="k">"id"</span>: <span class="s">"enable-mouse-support-once"</span>,
+  <span class="k">"name"</span>: <span class="s">"_enable_mouse_support() — single call site"</span>,
+  <span class="k">"path"</span>: <span class="s">"src/textual/drivers/linux_driver.py"</span>,
+  <span class="k">"range"</span>: <span class="s">"248"</span>,
+  <span class="k">"revision"</span>: <span class="s">"f8b42bd7a93578338f1b3668a1dc83f79e344fe8"</span>,
+  <span class="k">"status"</span>: <span class="s">"current"</span>,
+  <span class="k">"what_it_does"</span>: <span class="s">"Only call to _enable_mouse_support() inside start_application_mode; never re-runs"</span>,
+  <span class="k">"why_it_matters"</span>: <span class="s">"This is the synchronization gap — xterm.js reloads have no signal path back here"</span>
+}</div>
+
+      <div class="not-block">
+        <span class="boundary">Not to be confused with:</span>
+        <strong>capability-surface</strong>. A capability is a product-framing — "the app supports mouse input." A code-anchor is diagnostic — "line 248 of linux_driver.py fires the enable once." One surfaces user-facing behavior; the other points into source for an engineer.
+      </div>
+
+      <div class="trial-map">
+        <strong>In the Textual #5380 trial:</strong> currently stretched as <code>capability-surface</code> <span class="arrow">→</span> should be <code>code-anchor</code>. Affects: <code>enable-mouse-support-once</code>, <code>ansi-codes-written</code>, <code>disable-mouse-support-mirror</code>, <code>watch-app-focus-hook</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- symptom-observation -->
+  <section id="t-symptom-observation">
+    <div class="type">
+      <div class="head">
+        <div class="n">4</div>
+        <div class="title">
+          <code>symptom-observation</code>
+          <div class="purpose">What behavior was observed, how do you reproduce it, who witnessed it?</div>
+        </div>
+      </div>
+      <div class="contract">
+        <strong>Contract:</strong> Each card is one observed behavior with a reproduction path and a witness. The presence of <em>repro steps</em> and <em>witness attribution</em> is the semantic contract — without them, it's just a generic finding.
+      </div>
+
+      <div class="type-grid">
+        <div class="type-col">
+          <h4>Card fields</h4>
+          <ul>
+            <li><span class="key">id</span> / <span class="key">name</span></li>
+            <li><span class="key">environment</span> <span class="desc">— OS, terminal, versions</span></li>
+            <li><span class="key">repro_steps</span> <span class="desc">— how to reproduce</span></li>
+            <li><span class="key">witness</span> <span class="desc">— who + when + link</span></li>
+            <li><span class="key">contradicted_by</span> <span class="desc">— optional counter-observer</span></li>
+          </ul>
+        </div>
+        <div class="type-col">
+          <h4>Status set</h4>
+          <div class="status-pills">
+            <span class="status-pill good">reproduced</span>
+            <span class="status-pill warn">unconfirmed</span>
+            <span class="status-pill bad">contradicted</span>
+          </div>
+          <h4 style="margin-top: 18px;">Why not just findings?</h4>
+          <div style="font-size: 14px; color: var(--muted); line-height: 1.5;">The repro path and witness are load-bearing — they're what lets a subsequent reader verify or contest the observation. Generic findings don't require them; symptoms do.</div>
+        </div>
+      </div>
+
+      <div class="example-block"><span class="c">// In the Textual #5380 trial</span>
+{
+  <span class="k">"id"</span>: <span class="s">"reload-drops-mouse"</span>,
+  <span class="k">"name"</span>: <span class="s">"VS Code reload drops mouse tracking silently"</span>,
+  <span class="k">"status"</span>: <span class="s">"reproduced"</span>,
+  <span class="k">"environment"</span>: <span class="s">"Ubuntu 22.04, VS Code 1.95.3, Textual 0.89.1, xterm-256color"</span>,
+  <span class="k">"repro_steps"</span>: <span class="s">"1. Run stopwatch.py from textual/docs/examples/tutorial  2. Trigger 'Developer: Reload Window'  3. Mouse events stop; keyboard still works"</span>,
+  <span class="k">"witness"</span>: <span class="s">"jjallaire-aisi, 2024-12-11 (issue body)"</span>
+}</div>
+
+      <div class="not-block">
+        <span class="boundary">Not to be confused with:</span>
+        <strong>investigation-findings</strong>. A symptom-observation is specifically a <em>reproducible behavior</em> in the problem domain, with a provenance trail. A generic finding can be a conclusion, a regularity, or a meta-observation. Keep the symptom layer pure so the "can I reproduce this?" question has one place to look.
+      </div>
+
+      <div class="trial-map">
+        <strong>In the Textual #5380 trial:</strong> currently stretched as <code>investigation-findings</code> <span class="arrow">→</span> should be <code>symptom-observation</code> for the user-facing behavioral cards (<code>reload-drops-mouse</code>, <code>tmux-immunity</code>, <code>suspend-resume-restores</code>). The <code>idempotency-asserted</code> card is genuinely a finding — stays where it is.
+      </div>
+    </div>
+  </section>
+
+  <!-- maintainer-stance -->
+  <section id="t-maintainer-stance">
+    <div class="type">
+      <div class="head">
+        <div class="n">5</div>
+        <div class="title">
+          <code>maintainer-stance</code>
+          <div class="purpose">What position has a named stakeholder expressed, when, and how has it evolved?</div>
+        </div>
+      </div>
+      <div class="contract">
+        <strong>Contract:</strong> Each card is one named stakeholder's position on a question, with the rationale they gave and any rebuttal in the thread. Stances are <em>not settled</em> — they're positions in an evolving conversation that may never close. This is what separates them from <code>decision-record</code>.
+      </div>
+
+      <div class="type-grid">
+        <div class="type-col">
+          <h4>Card fields</h4>
+          <ul>
+            <li><span class="key">id</span> / <span class="key">name</span></li>
+            <li><span class="key">stakeholder</span> <span class="desc">— handle + role</span></li>
+            <li><span class="key">stated_at</span> <span class="desc">— ISO + comment URL</span></li>
+            <li><span class="key">position</span> <span class="desc">— the stance itself</span></li>
+            <li><span class="key">rationale</span> <span class="desc">— reasoning given</span></li>
+            <li><span class="key">rebuttal</span> <span class="desc">— optional pushback card</span></li>
+            <li><span class="key">evolution</span> <span class="desc">— has it shifted since?</span></li>
+          </ul>
+        </div>
+        <div class="type-col">
+          <h4>Status set</h4>
+          <div class="status-pills">
+            <span class="status-pill warn">current</span>
+            <span class="status-pill neutral">softened</span>
+            <span class="status-pill bad">retracted</span>
+            <span class="status-pill good">unchallenged</span>
+          </div>
+          <h4 style="margin-top: 18px;">Social shape</h4>
+          <div style="font-size: 14px; color: var(--muted); line-height: 1.5;">Stances have <em>owners</em> and <em>timestamps</em>. Decisions typically don't — they just are. If the next contributor has to re-litigate a stance, the doc needs to preserve the original debate, not paper over it.</div>
+        </div>
+      </div>
+
+      <div class="example-block"><span class="c">// In the Textual #5380 trial</span>
+{
+  <span class="k">"id"</span>: <span class="s">"maintainer-stance"</span>,
+  <span class="k">"name"</span>: <span class="s">"Will McGugan — 'not ours to fix'"</span>,
+  <span class="k">"status"</span>: <span class="s">"current"</span>,
+  <span class="k">"stakeholder"</span>: <span class="s">"willmcgugan (Textual maintainer)"</span>,
+  <span class="k">"stated_at"</span>: <span class="s">"2024-12-11T… (comment URL)"</span>,
+  <span class="k">"position"</span>: <span class="s">"This is a VS Code bug, not a Textual bug; the reporter should raise it upstream."</span>,
+  <span class="k">"rationale"</span>: <span class="s">"xterm.js is the party resetting mouse state on reload; Textual is acting correctly."</span>,
+  <span class="k">"rebuttal"</span>: <span class="s">"jjallaire-aisi: VS Code bugs of this type don't get prioritized; Textual has stronger incentive and a small, idempotent fix."</span>,
+  <span class="k">"evolution"</span>: <span class="s">"No follow-up from maintainer after rebuttal (as of 2026-04-18)."</span>
+}</div>
+
+      <div class="not-block">
+        <span class="boundary">Not to be confused with:</span>
+        <strong>decision-record</strong>. A decision is something the team chose — it has weight because it's settled. A maintainer stance is a current position that may be wrong, out of date, or contested. Collapsing stances into decisions loses the social dimension the next contributor needs to work the issue.
+      </div>
+
+      <div class="trial-map">
+        <strong>In the Textual #5380 trial:</strong> currently stretched as <code>decision-record</code> <span class="arrow">→</span> should be <code>maintainer-stance</code>. Affects: <code>maintainer-stance</code>, <code>user-pushback</code>, <code>no-pr-opened</code>, <code>open-question-gating</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- Recomposition mapping -->
+  <section id="recompose">
+    <div class="eyebrow">Recomposition preview</div>
+    <h2>What the Textual #5380 doc looks like under the new types.</h2>
+    <p class="lede">
+      One-for-one mapping from the current stretched types to the proposed purpose-built ones. Every section gets crisper without changing what it says.
+    </p>
+    <table class="recompose-table">
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th class="was">Current type (stretched)</th>
+          <th></th>
+          <th>Proposed type</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>findings</code></td>
+          <td class="was"><code>investigation-findings</code></td>
+          <td class="arrow">→</td>
+          <td><code>symptom-observation</code></td>
+        </tr>
+        <tr>
+          <td><code>mechanics</code></td>
+          <td class="was"><code>capability-surface</code></td>
+          <td class="arrow">→</td>
+          <td><code>code-anchor</code></td>
+        </tr>
+        <tr>
+          <td><code>attempts</code></td>
+          <td class="was"><code>investigation-findings</code></td>
+          <td class="arrow">→</td>
+          <td><code>attempt-log</code></td>
+        </tr>
+        <tr>
+          <td><code>related</code></td>
+          <td class="was"><code>investigation-findings</code></td>
+          <td class="arrow">→</td>
+          <td><code>issue-orbit</code></td>
+        </tr>
+        <tr>
+          <td><code>debate</code></td>
+          <td class="was"><code>decision-record</code></td>
+          <td class="arrow">→</td>
+          <td><code>maintainer-stance</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="body" style="margin-top: 24px;">
+      After recomposition, each section answers one question cleanly. A reader scanning the doc knows <em>which</em> kind of content they're looking at before they read a single card. That is what the substrate is supposed to do — and what stretching silently undermines.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  Proposal surface for <a href="https://github.com/triadflow/living-doc-compositor/issues/75">#75</a> · Not yet in the registry · Composable with <a href="crystallize-skill-presentation.html">/crystallize</a>
+</footer>
+
+</body>
+</html>
