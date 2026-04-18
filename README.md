@@ -21,14 +21,7 @@ open docs/living-doc-compositor.html
 
 No install. No runtime dependencies. Node 18+ for the renderer, a browser for everything else. The optional test suite uses npm dev dependencies.
 
-## What you just saw
-
-Two self-contained HTML files, each one both a document and a tool:
-
-- `docs/living-doc-empty.html`: an empty rendered living doc, structure only
-- `docs/living-doc-compositor.html`: the authoring tool (also embedded in every rendered doc)
-
-Click the pencil icon in any rendered doc to open the compositor inline.
+Every rendered doc is both a document and a tool: click the pencil icon to open the compositor inline.
 
 ## The model
 
@@ -75,11 +68,17 @@ One entry in `scripts/living-doc-registry.json`. No code changes, no renderer up
 {
   "convergenceTypes": {
     "my-new-type": {
-      "title": "My New Type",
+      "name": "My New Type",
       "category": "delivery",
-      "sources": ["code-file", "ticket", "figma-page"],
+      "description": "What this type converges and when to use it.",
       "projection": "card-grid",
-      "statusSet": "delivery-status"
+      "sources": [
+        { "key": "codePaths", "entityType": "code-file", "label": "Code" },
+        { "key": "ticketIds", "entityType": "ticket",    "label": "Tickets" }
+      ],
+      "statusFields": [
+        { "key": "status", "statusSet": "delivery-status" }
+      ]
     }
   }
 }
@@ -89,7 +88,11 @@ The renderer reads this on every render. Re-render any doc and the new type is a
 
 See `docs/living-doc-registry-overview.html` (also live at the Pages URL) for the 26 convergence types, 19 entity types, and 15 status sets that ship with the registry.
 
-## Working with agents
+## Use with AI
+
+A living doc is a plain HTML file, so any agent (Claude Code, OpenAI Codex, Cursor, etc.) can read it. Two surfaces turn that into real workflow: session skills, and an in-compositor action palette.
+
+### Session skills
 
 Two Claude Code skills in `.claude/skills/`:
 
@@ -98,16 +101,15 @@ Two Claude Code skills in `.claude/skills/`:
 | `/living-doc` | Connects a session to the relevant living doc. Shows what's stale, updates sections during work. |
 | `/convergence-advisor` | Helps discover which type fits a new domain through dialog. Writes registry entries for you. |
 
-The living doc itself is a plain HTML file, so any agent (Claude Code, OpenAI Codex, Cursor, etc.) can read it. The skills package is what turns the doc into a stable starting point for a session rather than rediscovery.
+The skills package turns the doc into a stable starting point for a session rather than rediscovery.
 
-## AI pass on a card (Cmd+K)
+### Cmd+K palette on cards
 
 In the flow-body view, select a card and press **Cmd+K** (or Ctrl+K) to open the AI-pass palette. Actions come from the registry — five general actions plus any type-specific actions declared under that section's convergence type. The chosen engine (`claude` or `codex`) proposes a diff in a sidebar; you review and apply.
 
 This needs the local ai-pass server on `localhost:4322`:
 
 ```bash
-# In a separate terminal
 node scripts/ai-pass-server.mjs
 ```
 
