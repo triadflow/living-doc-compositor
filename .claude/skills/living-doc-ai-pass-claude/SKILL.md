@@ -138,29 +138,65 @@ You run in `input.docRepoRoot`, so relative `path` values resolve and `git` comm
      ```
 5. If any git invocation fails (not a repo, bad revision, etc.), emit an empty patch with `meta.warnings: ["git error: <msg>"]`. Do not fabricate.
 
-#### `code-anchor` → `propose-replacement-anchor`
-
-Ship path + range + revision for a moved or renamed file. Use `git log --follow --format=%H -- <new candidate>` against symbol/content signals from the original snippet. Single `card-update { fields: { path, range, revision, status: "current" } }`.
-
 #### `attempt-log` → `find-shipping-commit`
 
-Search the referenced repo(s) for commits matching the attempt's description or a linked ticket number (`git log --all --grep="<ticket-num>" --format=%H` and prose search in commit bodies). If found, `card-update { fields: { shipped_in: "<url>", status: "workaround-shipped" } }`. If not found, empty + `meta.warnings`.
+For an attempt card whose `shipped_in` is empty or vague, find the commit that productionized it.
+
+1. Gather signals: `card.name`, `card.what_tried[].text`, any `ticketIds`, and the name of the section (for semantic hints).
+2. Search commit messages in priority order:
+   - If the card references a ticket number: `git log --all --oneline --grep="#<num>" -i`
+   - If the card carries a distinctive phrase (e.g. a function name or `_watch_app_focus`): `git log --all --oneline --grep="<phrase>" -i`
+   - Broader: `git log --all --oneline -S "<code-like snippet>"` to find commits that added the literal text.
+3. If a high-confidence single match emerges, build its URL from `git remote get-url origin`:
+   - Normalize `git@github.com:OWNER/REPO.git` → `https://github.com/OWNER/REPO/commit/<sha>`.
+   - Emit one `card-update` with `fields: { shipped_in: "<url>", status: "workaround-shipped" }` and a rationale quoting the commit subject.
+4. If multiple candidates remain ambiguous or nothing matches, emit an empty patch with `meta.warnings: ["no clear shipping commit found — candidates: [...]"]`. Do not guess.
+
+#### `issue-orbit` → `refresh-github-state`
+
+For an issue-orbit card whose `url` points to a GitHub issue or PR, pull the current state.
+
+1. Parse the URL: extract `owner/repo` and the issue/PR number.
+2. Run `gh issue view <num> --repo <owner/repo> --json state,closedByPullRequestsReferences` (or `gh pr view` if the URL is a PR path).
+3. Compare to `card.github_state`, `card.status`, `card.closed_by_pr` (if present).
+4. Only emit a `card-update` if something changed. Map the GitHub state:
+   - `OPEN` → `card.github_state: "open"`; status stays `open-active` unless stale signal tells you otherwise.
+   - `CLOSED` with a closing PR → `github_state: "closed"`, `status: "closed-fixed"`, `closed_by_pr: "<url>"`.
+   - `CLOSED` with no closing PR → `status: "closed-wontfix"` (unless the user already set otherwise — then preserve).
+5. If `gh` errors (not authenticated, rate-limited, URL malformed), empty patch + `meta.warnings`.
+
+#### `capability-surface` → `propose-status-from-commits`
+
+For a capability-surface card with a `codePaths` field, infer whether the status should flip based on recent commit activity.
+
+1. For each path in `card.codePaths`, run:
+   - `git log --oneline -n 20 -- <path>` — recent history.
+   - `git log --oneline --since="30 days ago" -- <path>` — recent activity intensity.
+2. Apply a conservative heuristic:
+   - Many recent commits landing on the path AND the file currently exists → leans `built` (if was `partial` / `not-built`).
+   - No recent commits but path exists → leans `partial` (keep if already set).
+   - Path removed from HEAD → `not-built` or `gap`.
+3. Emit a single `card-update { fields: { status: "<new>" } }` **only when the shift is clear**. Otherwise, empty + `meta.warnings` listing the ambiguity. Do not flip status on weak evidence — a wrong status erodes the board.
+
+#### `maintainer-stance` → `check-evolution`
+
+For a stance card, see if the named stakeholder has updated their position since `stated_at`.
+
+1. Extract the issue/PR URL and stakeholder handle from `card.stakeholder` and `card.stated_at`.
+2. Run `gh issue view <num> --repo <owner/repo> --comments --json comments` (or `gh pr view ...`).
+3. Filter comments to those authored by the stakeholder with timestamps after `stated_at`.
+4. If there are newer comments from the same stakeholder:
+   - Summarise the direction of change in a `card-update` to the `evolution` field.
+   - Adjust `status`: if the stakeholder explicitly retracted → `retracted`; softened their take → `softened`; reinforced → leave `current`.
+5. If no newer comments, empty patch + `summary: "stance unchanged — no comments from <handle> since <stated_at>"`.
+
+#### `code-anchor` → `propose-replacement-anchor`
+
+Ship `path`, `range`, `revision` for a moved or renamed file. Use `git log --follow --format=%H -- <new candidate>` against symbol/content signals from the original snippet. Single `card-update { fields: { path, range, revision, status: "current" } }`.
 
 #### `attempt-log` → `propose-supersession`
 
 Read sibling attempts in the same section. If a newer card ships the same insight, `card-update { fields: { status: "superseded" } }` on the older card with a rationale naming the superseder.
-
-#### `issue-orbit` → `refresh-github-state`
-
-Run `gh issue view <num> --repo <owner/repo> --json state,closedByPullRequestsReferences`. Emit `card-update { fields: { github_state, status, closed_by_pr } }` reflecting the fresh state.
-
-#### `capability-surface` → `propose-status-from-commits`
-
-Pull commits that touch the card's `codePaths` since the last status change. Weigh the signal: shipped features move toward `built`, deletions toward `not-built`, mixed signals toward `partial`. Single `card-update`.
-
-#### `maintainer-stance` → `check-evolution`
-
-Re-read the thread at `stated_at`'s URL (or the parent issue). If the stakeholder softened, retracted, or escalated the position, update `evolution` and adjust `status` (`softened` / `retracted` / `current`) accordingly.
 
 #### Other declared actions
 

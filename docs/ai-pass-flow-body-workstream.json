@@ -9,7 +9,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T13:20:29.662Z",
+  "updated": "2026-04-18T13:23:12.517Z",
   "pills": [
     "Workstream",
     "AI",
@@ -134,7 +134,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:942714dc31bf5bc98eba7068bb0a56dd4b900258fa101a0092ad0fae12445ada",
+  "metaFingerprint": "sha256:057c9e7cd05e86591e738498fc5a4c18874ac09e641ccb776ac76111004998c0",
   "callouts": [
     {
       "tone": "info",
@@ -240,7 +240,7 @@
       "title": "Actions Inventory",
       "convergenceType": "capability-surface",
       "rationale": "The action set shown in the palette is a merged view of general actions (hardcoded) and type-specific actions (declared per convergence type in the registry via #84). This section is the canonical list; new convergence types declare their own aiActions there and appear here once documented.",
-      "updated": "2026-04-18T13:16:31.211Z",
+      "updated": "2026-04-18T13:23:12.517Z",
       "data": [
         {
           "id": "general-decompose",
@@ -334,19 +334,17 @@
         },
         {
           "id": "type-specific-stubs",
-          "name": "Type-specific action handlers (1 of 14 spec'd; priority subset for v2)",
+          "name": "Type-specific action handlers (5 of 14 spec'd; 9 still deferred)",
           "status": "partial",
           "notes": [
-            "Spec'd in both skills (Claude + Codex):",
-            "  ✓ code-anchor → check-revision-drift. git log-based drift check with empty-output/deleted-file semantics.",
+            "Spec'd in both skills (Claude + Codex), with concrete git/gh commands:",
+            "  ✓ code-anchor → check-revision-drift. Live-tested with real drift detected + applied.",
+            "  ✓ attempt-log → find-shipping-commit. Commit-message + code-search heuristics; URL from origin remote.",
+            "  ✓ issue-orbit → refresh-github-state. gh-backed state pull; maps to github_state / status / closed_by_pr.",
+            "  ✓ capability-surface → propose-status-from-commits. Conservative — only flips on clear signal.",
+            "  ✓ maintainer-stance → check-evolution. gh-backed thread comment filter by stakeholder + stated_at.",
             "",
-            "Priority-ordered remaining (v2 targets):",
-            "  · attempt-log → find-shipping-commit",
-            "  · issue-orbit → refresh-github-state",
-            "  · capability-surface → propose-status-from-commits",
-            "  · maintainer-stance → check-evolution",
-            "",
-            "Declared but deferred (skills emit empty patch + warning):",
+            "Declared but still not prompted in the skills (empty + meta.warning at runtime):",
             "  code-anchor → propose-replacement-anchor",
             "  attempt-log → propose-supersession",
             "  symptom-observation → suggest-environment-variants, check-contradictions",
@@ -549,7 +547,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T13:20:29.662Z",
+      "updated": "2026-04-18T13:23:12.517Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -847,6 +845,29 @@
             {
               "type": "info",
               "text": "Self-referential dogfood: the skill spec detected the commit that created the skill spec. Closed loop — the substrate is not only self-hosting but self-observing."
+            }
+          ]
+        },
+        {
+          "id": "v2-priority-actions-spec",
+          "name": "Four more type-specific handlers spec'd — v2 priority cleared",
+          "status": "workaround-shipped",
+          "shipped_in": "this commit",
+          "cost_to_apply": "~150 LOC Claude SKILL.md, ~60 LOC Codex SKILL.md.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Spec'd find-shipping-commit, refresh-github-state, propose-status-from-commits, and check-evolution with concrete git/gh commands, input extraction, and specific emit shapes. Same logic in both skills; Codex variant terser."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "All five v2-priority type-specific actions now have real handlers. The pattern holds — ~20 LOC of prose per action, no code/schema changes needed, just clarifying prompt text."
+            },
+            {
+              "type": "info",
+              "text": "The registry as guardrail scales: new actions declared there become palette-visible; skills pick them up via the input.action switch; handlers emit patches through the same validator. Each new action is additive, never touches the substrate."
             }
           ]
         }

@@ -103,37 +103,64 @@ You run in `input.docRepoRoot`, so relative paths resolve. Extract `card.revisio
    - Non-empty → drift. Last-touch SHA via `git log -1 --format=%H -- <path>`. `card-update { status: "changed-since-issue", revision: <sha> }` with a rationale naming the commit count and latest subject.
 4. Git error → empty patch + `meta.warnings: ["git: <msg>"]`.
 
-#### `code-anchor` → `propose-replacement-anchor`
-
-- Infer the new path/range by symbol (function name) or by content hash of the original snippet.
-- `card-update { fields: { path, range, revision, status: "current" } }`.
-
-#### `capability-surface` → `propose-status-from-commits`
-
-- Pull recent commits touching the card's `codePaths`.
-- Propose a status transition (built / partial / not-built / gap / blocked) based on what landed and what's missing from the last touches.
-- Single `card-update`.
-
 #### `attempt-log` → `find-shipping-commit`
 
-- Search the referenced repo(s) for commits matching the attempt's description or the linked ticket.
-- If found, `card-update { fields: { shipped_in: <url>, status: "workaround-shipped" } }`.
-- If not found, empty + warning.
+Signals: card name, what_tried, ticketIds. Priority searches:
 
-#### `attempt-log` → `propose-supersession`
+1. `git log --all --oneline --grep="#<ticket-num>" -i` (if ticket present).
+2. `git log --all --oneline --grep="<distinctive-phrase>" -i` (function name, etc.).
+3. `git log --all --oneline -S "<code-snippet>"` to find commits that added that literal.
 
-- Scan newer attempts in the same section for ones that productionize the same insight.
-- `card-update { fields: { status: "superseded" } }` with a rationale naming the newer attempt.
+On single high-confidence match: build URL from `git remote get-url origin` (normalise to `https://github.com/OWNER/REPO/commit/<sha>`). Emit `card-update { shipped_in: <url>, status: "workaround-shipped" }` with commit subject in rationale.
+
+Multiple candidates or none → empty + `meta.warnings: ["no clear shipping commit — candidates: [...]"]`. Don't guess.
 
 #### `issue-orbit` → `refresh-github-state`
 
-- Fetch the linked issue/PR.
-- `card-update { fields: { github_state, status, closed_by_pr } }` reflecting current GitHub state.
+Parse `owner/repo` + number from `card.url`. Run `gh issue view <num> --repo <owner/repo> --json state,closedByPullRequestsReferences` (or `gh pr view`). Compare.
+
+Mapping:
+- `OPEN` → `github_state: "open"`, keep `status: "open-active"`.
+- `CLOSED` + closing PR → `github_state: "closed"`, `status: "closed-fixed"`, `closed_by_pr: <url>`.
+- `CLOSED` + no PR → `status: "closed-wontfix"` unless user already set otherwise.
+
+Emit `card-update` only if anything actually changed. On gh error → empty + warning.
+
+#### `capability-surface` → `propose-status-from-commits`
+
+For each path in `card.codePaths`:
+- `git log --oneline --since="30 days ago" -- <path>` → activity level.
+- `git ls-files -- <path>` → exists at HEAD?
+
+Flip only on clear signal:
+- File gone → `not-built` / `gap`.
+- Active commits + file present → `built` (if was `partial`).
+- No recent activity but file exists → leave as-is.
+
+Emit single `card-update { status: <new> }`. Weak signal → empty + warning. Do not flip status on guesses.
+
+#### `maintainer-stance` → `check-evolution`
+
+Extract issue/PR URL and stakeholder handle from `card.stakeholder`, `card.stated_at`. Run `gh issue view <num> --repo <owner/repo> --comments`. Filter comments by the handle, timestamps > `stated_at`.
+
+If newer comments:
+- Summarise direction of change into `evolution` field.
+- Adjust status: retracted → `retracted`, softened → `softened`, reinforced → keep `current`.
+- Emit one `card-update`.
+
+No newer comments → empty + `summary: "stance unchanged since <stated_at>"`.
+
+#### `code-anchor` → `propose-replacement-anchor`
+
+Infer new path/range via symbol or content hash of original snippet. Single `card-update { path, range, revision, status: "current" }`.
+
+#### `attempt-log` → `propose-supersession`
+
+Scan newer siblings. If one productionises the same insight, `card-update { status: "superseded" }` on the older card, rationale names the superseder.
 
 #### `issue-orbit` → `reclassify-relationship`
 
-- Re-read the sibling issue and challenge the current relationship classification.
-- `card-update { fields: { relationship: <new-value>, relevance: <updated> } }`.
+Re-read sibling issue. Challenge current relationship classification. `card-update { relationship, relevance }`.
 
 #### `symptom-observation`, `maintainer-stance`, `proof-ladder`, `decision-record`, `investigation-findings`
 
