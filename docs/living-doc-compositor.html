@@ -405,6 +405,57 @@
     max-width: 640px; color: var(--muted); font-size: 13.5px; line-height: 1.6;
   }
   .l2-body-empty strong { color: var(--ink); display: block; margin-bottom: 8px; font-size: 15px; }
+  .l2-card.l2-card-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .l2-card.l2-card-dim { opacity: 0.3; }
+  .l2-body-wire.l2-body-wire-highlight { opacity: 0.95; stroke-width: 2.5; }
+  .l2-body-wire.l2-body-wire-dim       { opacity: 0.08; }
+  .l2-inspector {
+    position: absolute; bottom: 24px; right: 24px; max-width: 360px; width: min(360px, 92vw);
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px 16px; box-shadow: var(--shadow-md);
+    font-size: 13px; z-index: 20;
+  }
+  .l2-inspector h4 {
+    margin: 0 0 4px; font-size: 13.5px; font-weight: 700;
+    display: flex; justify-content: space-between; gap: 8px; align-items: flex-start;
+  }
+  .l2-inspector-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px; color: var(--muted); margin-bottom: 8px;
+  }
+  .l2-inspector-close {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--muted); cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 0;
+  }
+  .l2-inspector-section {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line);
+  }
+  .l2-inspector-label {
+    display: block; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .l2-inspector-ref {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;
+    padding: 7px 9px 8px; border-radius: 6px; background: var(--bg);
+    border: 1px solid var(--line); font-size: 12px; margin-bottom: 6px;
+  }
+  .l2-inspector-ref strong { font-weight: 700; }
+  .l2-inspector-ref small { color: var(--muted); margin-left: auto; font-size: 11px; }
+  .l2-inspector-ref-others {
+    flex-basis: 100%; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .l2-inspector-ref-others span {
+    font-size: 11.5px; color: var(--ink);
+  }
+  .l2-inspector-ref-others code {
+    font-size: 10.5px; color: var(--muted); background: transparent; border: none; padding: 0 0 0 4px;
+  }
   .flow-stats {
     display: flex; gap: 6px; padding: 10px 16px;
     border-bottom: 1px solid var(--line); background: var(--card);
@@ -1489,6 +1540,12 @@
       "flowRationaleStub": "no rationale declared yet",
       "flowSwapType": "Swap convergence type",
       "flowCollapse": "Collapse section",
+      "flowExpand": "Expand section",
+      "flowInspectorTicketRefs": "Ticket references",
+      "flowInspectorNoTickets": "No tickets referenced.",
+      "flowInspectorOnlyThis": "only this card",
+      "flowInspectorOtherCard": "other card",
+      "flowInspectorOtherCards": "other cards",
       "templates": "Templates",
       "templatesHint": "Browse starter and advanced living doc templates",
       "templatesIntro": "Start with a simple starter template or jump straight into a fuller advanced shape.",
@@ -1826,6 +1883,12 @@
       "flowRationaleStub": "nog geen rationale verklaard",
       "flowSwapType": "Convergentietype wisselen",
       "flowCollapse": "Sectie inklappen",
+      "flowExpand": "Sectie uitklappen",
+      "flowInspectorTicketRefs": "Ticketverwijzingen",
+      "flowInspectorNoTickets": "Geen tickets waarnaar wordt verwezen.",
+      "flowInspectorOnlyThis": "alleen deze kaart",
+      "flowInspectorOtherCard": "andere kaart",
+      "flowInspectorOtherCards": "andere kaarten",
       "templates": "Templates",
       "templatesHint": "Blader door starter- en geavanceerde living-doc-templates",
       "templatesIntro": "Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.",
@@ -2334,6 +2397,12 @@
       "flowRationaleStub": "belum ada rationale yang dinyatakan",
       "flowSwapType": "Ganti tipe konvergensi",
       "flowCollapse": "Tutup seksi",
+      "flowExpand": "Buka seksi",
+      "flowInspectorTicketRefs": "Referensi tiket",
+      "flowInspectorNoTickets": "Tidak ada tiket yang direferensikan.",
+      "flowInspectorOnlyThis": "hanya kartu ini",
+      "flowInspectorOtherCard": "kartu lain",
+      "flowInspectorOtherCards": "kartu lain",
       "templates": "Template",
       "templatesHint": "Jelajahi template starter dan lanjutan living doc",
       "templatesIntro": "Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.",
@@ -2829,6 +2898,8 @@
     topMenuOpen: false,
     previewTab: 'visual',
     flowMode: 'governance',
+    l2SelectedCard: null,
+    l2CollapsedFrames: [],
     boardDimensionId: '',
     showLoadModal: false,
     showRegistryModal: false,
@@ -9547,6 +9618,7 @@
         wireFlowInteractions(panel);
       } else if (mode === 'body') {
         requestAnimationFrame(() => drawL2BodyWires(json));
+        wireL2BodyInteractions(panel);
       }
     }
 
@@ -10058,11 +10130,26 @@
       <span class="l2-body-stat"><strong>${ticketSet.size}</strong> ${esc(t('flowBodyUniqueTickets'))}</span>
       <span class="l2-body-stat"><strong>${crossEdgeCount}</strong> ${esc(t('flowBodyCrossRefs'))}</span>`;
 
+    const collapsedSet = new Set(Array.isArray(state.l2CollapsedFrames) ? state.l2CollapsedFrames : []);
+    const selectedKey = state.l2SelectedCard || null;
+    const [selSid, selCid] = selectedKey ? selectedKey.split('::') : [null, null];
+    const selCard = selSid
+      ? sections.find((s) => s.id === selSid)?.data?.find((c) => c?.id === selCid)
+      : null;
+    const selTickets = new Set((selCard?.ticketIds || []).map(flowTicketNumber).filter(Boolean));
+    const cardShareSelection = (card) => {
+      if (!selectedKey) return true;
+      if (!card?.id) return false;
+      if (card.id === selCid) return true;
+      const cardTickets = (Array.isArray(card.ticketIds) ? card.ticketIds : []).map(flowTicketNumber);
+      return cardTickets.some((t) => selTickets.has(t));
+    };
+
     const framesHtml = sections.map((section) => {
       const ct = REGISTRY?.convergenceTypes?.[section.convergenceType];
       const iconColor = ct?.iconColor || '#64748b';
       const headBg = `color-mix(in srgb, ${iconColor} 10%, var(--card))`;
-      const collapsed = false; // collapse/expand lands in #66
+      const collapsed = collapsedSet.has(section.id);
       const cards = Array.isArray(section.data) ? section.data : [];
       const cardsHtml = cards.map((card) => {
         const status = flowCardStatus(card, section.convergenceType);
@@ -10075,8 +10162,10 @@
         }).join('');
         const overflow = tids.length - 4;
         const cardName = card?.name || card?.figmaName || card?.id || '\u2014';
+        const isSel = selectedKey && section.id === selSid && card?.id === selCid;
+        const dim = selectedKey && !cardShareSelection(card);
         return `
-          <article class="l2-card" data-section-id="${esc(section.id)}" data-card-id="${esc(card?.id || '')}">
+          <article class="l2-card ${isSel ? 'l2-card-selected' : ''} ${dim ? 'l2-card-dim' : ''}" data-section-id="${esc(section.id)}" data-card-id="${esc(card?.id || '')}">
             ${card?.id ? `<span class="l2-card-id">${esc(card.id)}</span>` : ''}
             <div class="l2-card-name">${esc(cardName)}</div>
             ${(label || ticketHtml) ? `
@@ -10105,7 +10194,7 @@
             </div>
             <div class="l2-frame-actions">
               <button type="button" class="l2-frame-btn" data-l2-swap="${esc(section.id)}" title="${esc(t('flowSwapType'))}">\u21c4</button>
-              <button type="button" class="l2-frame-btn" data-l2-collapse="${esc(section.id)}" title="${esc(t('flowCollapse'))}">\u25be</button>
+              <button type="button" class="l2-frame-btn" data-l2-collapse="${esc(section.id)}" title="${esc(collapsed ? t('flowExpand') : t('flowCollapse'))}">${collapsed ? '\u25b8' : '\u25be'}</button>
             </div>
           </header>
           <div class="l2-frame-body">${cardsHtml}</div>
@@ -10113,12 +10202,62 @@
         </section>`;
     }).join('');
 
+    const inspectorHtml = selCard ? renderL2Inspector(sections, selSid, selCard) : '';
+
     return `
       <div class="l2-body-stats">${statsHtml}</div>
       <div class="l2-body-canvas-wrap" id="l2-body-canvas-wrap">
         <div class="l2-body-canvas" id="l2-body-canvas">
           <svg class="l2-body-wires" id="l2-body-wires" aria-hidden="true"></svg>
           ${framesHtml}
+        </div>
+        ${inspectorHtml}
+      </div>`;
+  }
+
+  function renderL2Inspector(sections, sectionId, card) {
+    const section = sections.find((s) => s.id === sectionId);
+    const refs = (Array.isArray(card.ticketIds) ? card.ticketIds : []).map(flowTicketNumber).filter(Boolean);
+    const refHtml = refs.length === 0
+      ? `<div style="font-size:11.5px;color:var(--muted);font-style:italic">${esc(t('flowInspectorNoTickets'))}</div>`
+      : refs.map((tid) => {
+          const color = flowColorForTicket(tid);
+          const others = [];
+          sections.forEach((s) => (Array.isArray(s.data) ? s.data : []).forEach((c) => {
+            if (s.id === sectionId && c?.id === card.id) return;
+            if (!(Array.isArray(c?.ticketIds) ? c.ticketIds : []).map(flowTicketNumber).includes(tid)) return;
+            others.push({ s, c });
+          }));
+          const othersHtml = others.length
+            ? others.map((o) => `<span>${esc(o.s.title || o.s.id)} <code>${esc(o.c.id || '')}</code></span>`).join('')
+            : `<span style="font-size:11.5px;color:var(--muted);font-style:italic">${esc(t('flowInspectorOnlyThis'))}</span>`;
+          return `
+            <div class="l2-inspector-ref" style="border-left:3px solid ${color}">
+              <strong>#${esc(tid)}</strong>
+              <small>${others.length} ${others.length === 1 ? esc(t('flowInspectorOtherCard')) : esc(t('flowInspectorOtherCards'))}</small>
+              <div class="l2-inspector-ref-others">${othersHtml}</div>
+            </div>`;
+        }).join('');
+    const tone = (() => {
+      const status = flowCardStatus(card, section?.convergenceType);
+      return status ? (REGISTRY?.statusSets?.[status.statusSet]?.tones?.[status.value] || 'neutral') : 'neutral';
+    })();
+    const statusLabel = (() => {
+      const status = flowCardStatus(card, section?.convergenceType);
+      if (!status) return '';
+      return REGISTRY?.statusSets?.[status.statusSet]?.labels?.[status.value] || status.value;
+    })();
+    return `
+      <div class="l2-inspector" id="l2-inspector">
+        <button type="button" class="l2-inspector-close" data-l2-inspector-close title="${esc(t('close'))}">\u00d7</button>
+        <h4>
+          <span>${esc(card.name || card.id || '\u2014')}</span>
+          ${statusLabel ? `<span class="l2-status l2-status-${esc(tone)}">${esc(statusLabel)}</span>` : ''}
+        </h4>
+        <div class="l2-inspector-id">${esc(section?.title || sectionId)} \u00b7 ${esc(card.id || '')}</div>
+        <div class="l2-inspector-section">
+          <span class="l2-inspector-label">${esc(t('flowInspectorTicketRefs'))}</span>
+          ${refHtml}
         </div>
       </div>`;
   }
@@ -10157,6 +10296,7 @@
       });
     });
 
+    const selectedKey = state.l2SelectedCard || null;
     const paths = [];
     for (const [tid, cards] of cardsByTicket.entries()) {
       if (cards.length < 2) continue;
@@ -10172,10 +10312,64 @@
         const y1 = ar.top  + ar.height / 2 - canvasRect.top;
         const x2 = br.left + br.width / 2 - canvasRect.left;
         const y2 = br.top  + br.height / 2 - canvasRect.top;
-        paths.push(`<path class="l2-body-wire" stroke="${color}" d="${bezier(x1, y1, x2, y2)}"/>`);
+        const aKey = `${a.s}::${a.c}`;
+        const bKey = `${b.s}::${b.c}`;
+        const touchesSelection = selectedKey === aKey || selectedKey === bKey;
+        const cls = selectedKey
+          ? `l2-body-wire ${touchesSelection ? 'l2-body-wire-highlight' : 'l2-body-wire-dim'}`
+          : 'l2-body-wire';
+        paths.push(`<path class="${cls}" stroke="${color}" d="${bezier(x1, y1, x2, y2)}"/>`);
       }
     }
     svg.innerHTML = paths.join('');
+  }
+
+  function wireL2BodyInteractions(panel) {
+    const canvas = panel.querySelector('#l2-body-canvas');
+    if (!canvas) return;
+
+    // Card click → select/deselect
+    canvas.querySelectorAll('.l2-card').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const key = `${el.dataset.sectionId}::${el.dataset.cardId}`;
+        state.l2SelectedCard = (state.l2SelectedCard === key) ? null : key;
+        autoSave();
+        renderRight();
+      });
+    });
+
+    // Frame collapse → toggle
+    canvas.querySelectorAll('[data-l2-collapse]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const sid = btn.dataset.l2Collapse;
+        const arr = Array.isArray(state.l2CollapsedFrames) ? [...state.l2CollapsedFrames] : [];
+        const i = arr.indexOf(sid);
+        if (i >= 0) arr.splice(i, 1); else arr.push(sid);
+        state.l2CollapsedFrames = arr;
+        autoSave();
+        renderRight();
+      });
+    });
+
+    // Inspector close
+    panel.querySelector('[data-l2-inspector-close]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.l2SelectedCard = null;
+      autoSave();
+      renderRight();
+    });
+
+    // Background click → deselect
+    canvas.closest('.l2-body-canvas-wrap')?.addEventListener('click', (event) => {
+      if (event.target.closest('.l2-card, .l2-inspector, [data-l2-collapse], [data-l2-swap]')) return;
+      if (state.l2SelectedCard) {
+        state.l2SelectedCard = null;
+        autoSave();
+        renderRight();
+      }
+    });
   }
 
   function renderFlowGovernancePreview(json) {
