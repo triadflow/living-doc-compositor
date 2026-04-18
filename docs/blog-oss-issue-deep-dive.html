@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Skipping the archaeology before real work starts · Living Doc Compositor</title>
+    <meta name="description" content="Every time you touch an open-source issue, you pay an archaeology tax. A living doc is how we made that time collect into something a fresh session can load." />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --ink: #1a2332;
+        --ink-soft: #334155;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --accent: #2563eb;
+        --amber: #d97706;
+        --amber-bg: #fffbeb;
+        --amber-line: #fde68a;
+        --positive: #166534;
+        --positive-bg: #ecfdf5;
+        --positive-line: #bbf7d0;
+        --negative: #991b1b;
+        --negative-bg: #fef2f2;
+        --negative-line: #fecaca;
+        --radius: 12px;
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+        --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+      body {
+        margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+        font: 16px/1.7 "Georgia", ui-serif, serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.9em; background: #f1f5f9;
+        border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 56px 28px 96px; }
+      header.post-header {
+        padding-bottom: 32px; border-bottom: 1px solid var(--line); margin-bottom: 40px;
+      }
+      .eyebrow {
+        display: inline-block; padding: 4px 12px; border-radius: 999px;
+        background: rgba(37,99,235,.10); color: var(--accent);
+        font: 12px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0 0 12px; font: 700 34px/1.2 "Georgia", ui-serif, serif;
+        letter-spacing: -0.015em;
+      }
+      .dek {
+        margin: 0 0 18px; font: 400 19px/1.5 "Georgia", ui-serif, serif;
+        color: var(--ink-soft); font-style: italic;
+      }
+      .byline {
+        font: 400 13px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        color: var(--muted);
+      }
+      .byline code { font-size: 12px; }
+      h2 {
+        margin: 44px 0 16px; font: 700 24px/1.25 "Georgia", ui-serif, serif;
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        margin: 28px 0 10px; font: 700 18px/1.3 "Georgia", ui-serif, serif;
+      }
+      p { margin: 0 0 18px; color: var(--ink); }
+      p.lead { font-size: 17.5px; line-height: 1.7; }
+      ul, ol { padding-left: 24px; margin: 0 0 18px; }
+      li { margin-bottom: 6px; }
+      strong { color: var(--ink); }
+      em { color: var(--ink-soft); }
+      blockquote {
+        margin: 24px 0; padding: 14px 22px;
+        border-left: 3px solid var(--accent);
+        background: rgba(37,99,235,.04);
+        color: var(--ink-soft); font-style: italic;
+      }
+      .callout {
+        margin: 24px 0; padding: 18px 22px; border-radius: var(--radius);
+        background: var(--card); border: 1px solid var(--line);
+        box-shadow: var(--shadow-sm);
+      }
+      .callout-amber { background: var(--amber-bg); border-color: var(--amber-line); }
+      .callout-amber strong { color: var(--amber); }
+      .callout-positive { background: var(--positive-bg); border-color: var(--positive-line); }
+      .callout-positive strong { color: var(--positive); }
+      .callout-title {
+        display: block; margin-bottom: 8px;
+        font: 700 13px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        text-transform: uppercase; letter-spacing: 0.05em;
+      }
+      .callout p { margin: 0 0 10px; font-size: 15.5px; line-height: 1.6; }
+      .callout p:last-child { margin-bottom: 0; }
+      pre {
+        margin: 18px 0; padding: 16px 20px; border-radius: 10px;
+        background: #0f172a; color: #e2e8f0;
+        font-size: 13.5px; line-height: 1.55; overflow-x: auto;
+      }
+      pre code {
+        background: transparent; border: none; padding: 0; color: inherit;
+        font-size: inherit;
+      }
+      table {
+        width: 100%; margin: 18px 0; border-collapse: collapse;
+        font-size: 15px; background: var(--card);
+        border: 1px solid var(--line); border-radius: 10px;
+        overflow: hidden;
+      }
+      th, td {
+        padding: 10px 14px; border-bottom: 1px solid var(--line);
+        text-align: left; vertical-align: top;
+      }
+      th {
+        background: #f1f5f9; color: var(--muted); font-weight: 700;
+        font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      }
+      tr:last-child td { border-bottom: none; }
+      .three-up {
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px; margin: 20px 0;
+      }
+      .three-up .card {
+        padding: 14px 16px; border-radius: 10px;
+        background: var(--card); border: 1px solid var(--line);
+      }
+      .three-up .card strong { display: block; margin-bottom: 4px; font-size: 14.5px; }
+      .three-up .card span { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+      figure.shot {
+        margin: 32px 0; padding: 0;
+      }
+      figure.shot img {
+        display: block; width: 100%; height: auto;
+        border: 1px solid var(--line); border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+      }
+      figure.shot figcaption {
+        margin-top: 10px; font: 13.5px/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        color: var(--muted); text-align: center; font-style: italic;
+      }
+      .footer {
+        margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line);
+        font: 13.5px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        color: var(--muted);
+      }
+      .footer a { color: var(--muted); text-decoration: underline; }
+      @media (max-width: 640px) {
+        .wrap { padding: 32px 20px 64px; }
+        h1 { font-size: 28px; }
+        .three-up { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="post-header">
+        <span class="eyebrow">Living Doc Compositor</span>
+        <h1>Skipping the archaeology before real work starts</h1>
+        <p class="dek">Every time you engage with an open-source issue, you pay an archaeology tax. A living doc is how we made that time collect into something a fresh session can load.</p>
+        <p class="byline">A blog post, not a reference doc · <code>docs/blog-oss-issue-deep-dive.html</code></p>
+      </header>
+
+      <p class="lead">Here is a scene every contributor knows. You want to help with an open-source project. You find an issue that looks important. Before you can write a single line of code, you spend a while reading — the original issue body, the comments, the linked PR that almost-but-not-quite landed, the closed sibling issue from two years ago, the three files in <code>src/</code> everyone keeps pointing at. By the time you are ready to start engineering, you have paid a tax that did not go anywhere. If you step away for a week, you pay it again. If someone else picks the issue up, they pay it from scratch.</p>
+
+      <p>This tax is the thing stopping most people from engaging with open source on anything harder than a docs typo. And AI does not remove it — it amplifies it.</p>
+
+      <h2>The archaeology tax, exactly</h2>
+
+      <p>Say you open <a href="https://github.com/Textualize/textual/issues/5380">Textual issue #5380</a> — a real, still-open issue we used as a trial. The symptoms sound simple: <em>mouse input stops working after a VS Code window reload.</em> But to get your bearings, you need to read:</p>
+
+      <ul>
+        <li>the issue body, with its environment table and repro steps;</li>
+        <li>six comments including a maintainer saying "this is VS Code's bug, raise it there";</li>
+        <li>the reporter's counter-argument and their four follow-up comments narrowing the cause;</li>
+        <li>the workaround commit they shipped in <em>another</em> repo (<code>UKGovernmentBEIS/inspect_ai</code>);</li>
+        <li>four related issues in Textual — one regression, one symmetric leak, one old Windows cousin, one closed capture bug;</li>
+        <li>the relevant function in <code>src/textual/drivers/linux_driver.py</code>, specifically lines 121–133 and 248;</li>
+        <li>the four ANSI escape codes being written there — <code>?1000h</code>, <code>?1003h</code>, <code>?1015h</code>, <code>?1006h</code> — and which of them xterm.js actually uses.</li>
+      </ul>
+
+      <p>That is the archaeology. Done well, it is thorough. The shortcuts are where you lose things — you miss that the ANSI codes are idempotent on xterm.js (the only reason the proven fix is safe to ship), or you skim the issue body and jump straight to "I'll just patch line 248", and the whole situation gets worse.</p>
+
+      <h2>AI does not remove the tax. It re-pays it.</h2>
+
+      <p>When you hand this issue to Claude Code or Codex, the agent does the same archaeology. It reads the thread. It greps the driver file. It follows the PR references. It maybe misses the inspect_ai commit if you did not paste the URL. Then the session ends, the context window closes, and the next session starts cold. Every time. In tokens instead of minutes, but the work is the same.</p>
+
+      <p>People reach for the obvious answers and they all fail in roughly the same way:</p>
+
+      <ul>
+        <li><strong>Wiki pages.</strong> They drift. A contributor writes a "state of the mouse issue" page and six months later it is wrong in specific, load-bearing ways.</li>
+        <li><strong>FAQ entries.</strong> They cover the easy cases. The hard cases — where archaeology is actually expensive — never get FAQ entries because they are the kind of thing that requires archaeology to <em>write</em>.</li>
+        <li><strong>Long README files.</strong> They describe how the project is meant to work, not where it is currently stuck. The archaeology is about the gap between those two things.</li>
+        <li><strong>Prompt caches.</strong> They help one session re-read the same material cheaply. They do not help a <em>different</em> session, and they do not evolve when the work does.</li>
+      </ul>
+
+      <p>The thing missing from every one of these is that the document is not a <em>working surface</em>. It is either a summary written after the fact or a file dump read before the fact. It is not the place the work happens.</p>
+
+      <h2>A living doc is where the work happens</h2>
+
+      <p>What we wanted was a document with three properties. First: it is the end-product of the archaeology, so you do not repeat the work. Second: it is structured enough that a fresh Claude Code or Codex session can load it and know exactly what each piece of content <em>is</em> — a symptom with repro, a revision-pinned code pointer, a shipped workaround, a sibling issue, a maintainer stance. Third: it is meant to be <strong>edited live</strong> as engineering progresses. Symptoms get confirmed. Attempts get tried and marked shipped or rejected. Stances shift. The doc is the durable record, not the trailhead everyone abandons once they start typing.</p>
+
+      <p>That is what a living doc is. JSON in, HTML out. Each section carries a <strong>convergence type</strong> — a registry-defined shape with a specific semantic contract. When a reader (human or agent) sees <code>symptom-observation</code>, they know the card has a repro path and a named witness. When they see <code>code-anchor</code>, they know the card names a file, a line range, and a specific commit SHA. The types are what let anyone — even someone who has never seen the issue — pick up the doc and start being useful.</p>
+
+      <figure class="shot">
+        <img src="assets/blog/v2-card-selected.png" alt="Flow view of the Textual #5380 living doc. A row of objective facets at the top, six section columns in the middle (symptoms, findings, code anchors, attempts, issue orbit, open debate), and an invariants row in amber at the bottom. Coloured wires connect cards that share ticket references across columns. The 'Probe: call driver._enable_mouse_support() directly' card in the Attempts column is selected with a blue border." />
+        <figcaption>Flow view of the Textual #5380 doc. Facets across the top, one column per section, invariants at the bottom. Coloured wires are shared ticket references — a selected card pulls its cross-column connections into focus. The doc is navigable, not just readable.</figcaption>
+      </figure>
+
+      <h2>The Textual #5380 trial</h2>
+
+      <p>To test the idea, we handed Claude an OSS repo it had no prior context in and asked it to do the deep-dive autonomously. It picked #5380 out of the open issue list because the thread had real archaeology: maintainer resistance, a proven workaround in another repo, closed siblings in the same problem family. After the reading was done, the composed doc had:</p>
+
+      <div class="three-up">
+        <div class="card"><strong>3 symptoms</strong><span>Reload drops mouse, tmux is immune, suspend/resume restores — each with repro steps and witness.</span></div>
+        <div class="card"><strong>4 code anchors</strong><span>The enable method, the ANSI code block, the disable mirror, and the <code>_watch_app_focus</code> hook — all pinned to a SHA.</span></div>
+        <div class="card"><strong>3 attempts</strong><span>Two probes that narrowed the cause, and the shipped workaround in inspect_ai (~20 LOC).</span></div>
+        <div class="card"><strong>4 orbit issues</strong><span>A closed regression, a symmetric leak, an old Windows cousin, a capture bug — with relationships typed.</span></div>
+        <div class="card"><strong>4 stances</strong><span>Maintainer's "not ours to fix", the reporter's pragmatic pushback, the status of the open PR (none), and the unresolved cross-terminal gating question.</span></div>
+        <div class="card"><strong>1 finding</strong><span>The synthesized idempotency claim — the only non-repro-backed observation, so it lives apart from symptoms.</span></div>
+      </div>
+
+      <p>None of this is new information. Every piece of it was already on GitHub, or in the code, or in the inspect_ai repo. What is new is that it is one page, it is structured, it is pinned to a revision, and it is loadable.</p>
+
+      <h2>What "loadable" actually buys you</h2>
+
+      <p>The first test was to open a fresh Claude Code session with no prior context and point it at the doc. Instead of starting in "what is this issue?" mode, the session started in "what is the right insertion point for the fix?" mode. The archaeology was done. The debate was preserved. The open questions were explicit. The cold-start vanished.</p>
+
+      <p>The doc did not carry the solution — and we were careful not to overclaim that. It did not decide whether the fix lives in the driver or the App base class. It did not answer whether the idempotency claim holds on kitty or Windows Terminal. Those are engineering and judgment calls. But the session was loaded to the point where those were the questions being asked — not "wait, why do mouse codes matter?"</p>
+
+      <blockquote>The doc is not a summary. It is the seed for the next session's engineering work, and the working surface for the session after that.</blockquote>
+
+      <h2>Why the type boundaries matter</h2>
+
+      <p>A plausible objection: couldn't you just dump all this into a markdown file with a few headings? <em>Symptoms, code, attempts, other issues, what people said.</em></p>
+
+      <p>You could. We tried the equivalent — a first draft of the #5380 doc used only three existing convergence types, stretched across five distinct shapes of content. It looked fine. It read fine. But it lost something important: a reader scanning the page could not tell, before reading a card, whether they were looking at an observation, an attempt, or a sibling issue. The type was not carrying weight.</p>
+
+      <p>We ended up proposing five purpose-built types — one each for the shapes above — not because the registry needed more entries, but because a substrate that agents and humans both reason over needs its vocabulary to be <em>stable</em>. The cost is five more registry entries. The benefit is that <code>attempt-log</code> always means "actions and their results", and never quietly becomes "observations we happened to make while trying things." Semantic drift in the substrate is the kind of problem that is invisible for a long time and then breaks everything at once.</p>
+
+      <div class="callout callout-amber">
+        <span class="callout-title">The lens</span>
+        <p><strong>Semantic stability, not volume.</strong> The tradeoff when adding a new convergence type is not "how many types is too many." It is "does this type preserve a distinct contract that a reader can trust." Stretching is the real cost. New types with crisp meaning are how substrate stays reliable.</p>
+      </div>
+
+      <h2>The skill and the template</h2>
+
+      <p>We shipped this as two artifacts: a <strong>template</strong> — <code>living-doc-template-oss-issue-deep-dive.json</code> — with the six sections scaffolded and placeholder cards; and a <strong>Claude Code skill</strong> — <code>/oss-issue-deep-dive</code> — that drives the full workflow.</p>
+
+      <pre><code>/oss-issue-deep-dive Textualize/textual            # scan, suggest a candidate
+/oss-issue-deep-dive Textualize/textual 5380       # deep-dive a specific issue
+/oss-issue-deep-dive --dry-run Textualize/textual 5380</code></pre>
+
+      <p>The skill does the thing a contributor would have done by hand: pulls the issue thread, follows the PRs, grep-or-fetch the referenced source, maps the siblings, composes the doc from the template, stamps the metaFingerprint, renders. The output is a pair of files — a JSON and an HTML — in your repo or alongside it, ready to be loaded into the next session or handed to a collaborator.</p>
+
+      <p>It is not a magic button. It refuses to compose a doc for a thin issue with no archaeology. It surfaces orphan facets honestly — the objective pieces it could not find a carrier for — instead of inventing coverage. If the idempotency-risk facet has no carrier, the doc says so; it does not paper over the gap.</p>
+
+      <h2>What this does not solve</h2>
+
+      <p>The obvious question: does this mean we can automate open-source contribution? Clearly not. A few honest limits.</p>
+
+      <ul>
+        <li><strong>The hard engineering call stays human.</strong> In #5380, the doc surfaces that the fix could live in the App base class or in the driver, and that a cross-terminal idempotency check is needed before shipping unconditional. It does not choose. Someone has to.</li>
+        <li><strong>Maintainer relationships still matter.</strong> A living doc does not change the fact that the Textual maintainer's current stance is "not ours to fix." It preserves the stance and the pushback so the next contributor can argue with better evidence. It does not argue for them.</li>
+        <li><strong>Docs drift if no one edits them.</strong> The "living" part requires an actor — a human or an agent — making updates as work moves. A living doc left alone for six months is a regular doc that happens to have convergence types. Freshness is a social commitment, not a feature.</li>
+        <li><strong>Not every issue earns one.</strong> A single-comment feature request without archaeology does not produce a useful deep-dive. The skill says so and declines.</li>
+      </ul>
+
+      <h2>What you can do with this today</h2>
+
+      <p>If you want to try it on a repo you care about:</p>
+
+      <ol>
+        <li>Clone <a href="https://github.com/triadflow/living-doc-compositor">living-doc-compositor</a> and copy the template plus the skill directory into your own Claude Code project.</li>
+        <li>Run <code>/oss-issue-deep-dive &lt;owner/repo&gt;</code> on an open-source project you want to engage with. Pick an issue with real depth — a stuck bug with a failed PR or two, not a docs typo.</li>
+        <li>Load the resulting doc into a fresh session and start engineering from there. See whether the cold-start disappears.</li>
+        <li>Keep editing the doc as you work. That is the part that separates a living doc from a dead one.</li>
+      </ol>
+
+      <p>We are interested in the failure modes. When does the deep-dive compose something misleading? Where does semantic stability slip? Which issues are too thin to be worth a doc? If you run it and hit any of those, the issue tracker is open.</p>
+
+      <div class="callout callout-positive">
+        <span class="callout-title">Further reading</span>
+        <p><a href="oss-trial-textual-5380.v2.html">The full Textual #5380 living doc</a> — the rendered v2, using the five new convergence types.</p>
+        <p><a href="oss-triage-convergence-types-proposal.html">The types proposal</a> — contracts, field shapes, "not to be confused with" boundaries.</p>
+        <p><a href="crystallize-skill-presentation.html">/crystallize</a> — the companion skill that stamps the governance layer once your doc stabilizes.</p>
+      </div>
+
+      <div class="footer">
+        Living Doc Compositor · <a href="index.html">Home</a> · <a href="https://github.com/triadflow/living-doc-compositor">Repo</a> · <a href="https://github.com/triadflow/living-doc-compositor/issues/75">Spike #75</a> · <a href="https://github.com/triadflow/living-doc-compositor/issues/78">Integration #78</a>
+      </div>
+    </div>
+  </body>
+</html>
