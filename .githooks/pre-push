@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Pre-push guard: ensures docs/living-doc-compositor.html embeds the current
+# registry, i18n, and template content. Without this check, commits that change
+# scripts/living-doc-registry.json, scripts/living-doc-i18n.json, or the
+# embedded template JSONs can reach origin without running
+# sync-compositor-embeds.mjs, which breaks the i18n contract test on main.
+#
+# Install once with: npm run install-hooks
+set -e
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! node scripts/sync-compositor-embeds.mjs --check >/dev/null 2>&1; then
+  echo ""
+  echo "✗ Embedded compositor is out of sync."
+  echo "  Run: node scripts/sync-compositor-embeds.mjs"
+  echo "  Then stage docs/living-doc-compositor.html, amend or commit, and push again."
+  echo ""
+  exit 1
+fi
