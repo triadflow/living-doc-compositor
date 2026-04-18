@@ -15771,7 +15771,23 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   .ap-diff-head { padding: 14px 18px; border-bottom: 1px solid var(--line, #e2e8f0); }
   .ap-diff-head .ap-eye { font: 700 10.5px/1 ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent, #2563eb); }
   .ap-diff-head h3 { font: 700 15px/1.3 ui-sans-serif; color: var(--ink, #1a2332); margin: 6px 0 2px; }
+  .ap-diff-head h3 code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; background: var(--bg, #f5f7fa); padding: 1px 6px;
+    border-radius: 4px; font-weight: 600; color: var(--accent, #2563eb);
+  }
   .ap-diff-head .sub { font-size: 12px; color: var(--muted, #64748b); line-height: 1.4; }
+  .ap-diff-head .sub code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; background: var(--card, #fff); padding: 1px 5px;
+    border: 1px solid var(--line, #e2e8f0); border-radius: 3px; color: var(--ink, #1a2332);
+  }
+  .ap-diff-summary {
+    margin-top: 12px; padding: 10px 12px;
+    background: var(--bg, #f5f7fa); border-left: 3px solid var(--accent, #2563eb);
+    border-radius: 4px;
+    font: 400 12.5px/1.5 ui-sans-serif; color: var(--ink, #1a2332);
+  }
   .ap-diff-body { flex: 1; overflow-y: auto; padding: 6px 0; }
   .ap-diff-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 8px 18px; align-items: start; }
   .ap-diff-row:hover { background: var(--bg, #f5f7fa); }
@@ -16198,30 +16214,43 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   }
   function renderDiff() {
     const v = currentValidation || {};
-    const summary = currentPatch?.summary || &#39;AI-pass proposal&#39;;
-    const violationsHtml = (v.violations || []).length
-      ? `&lt;div class=&quot;det&quot; style=&quot;color:#991b1b;&quot;&gt;${v.violations.length} validation violation(s) — review carefully.&lt;/div&gt;` : &#39;&#39;;
+    const summary = currentPatch?.summary || &#39;&#39;;
+    const proposedBy = currentPatch?.proposedBy || {};
+    const action = proposedBy.action || &#39;action&#39;;
+    const engine = proposedBy.engine || &#39;engine&#39;;
+    const cardRef = proposedBy.cardRef || currentCardRef || {};
     const changes = currentPatch?.changes || [];
+    const canApply = changes.length &gt; 0 &amp;&amp; v.ok;
+
+    const violationsHtml = (v.violations || []).length
+      ? `&lt;div class=&quot;ap-state-error-box&quot; style=&quot;margin: 10px 0 0;&quot;&gt;${escHtml(v.violations.length + &#39; violation(s): &#39; + JSON.stringify(v.violations.slice(0, 3)))}&lt;/div&gt;` : &#39;&#39;;
+
+    openSidebar();
     diffEl.innerHTML = `
       &lt;div class=&quot;ap-diff-head&quot;&gt;
-        &lt;div class=&quot;ap-eye&quot;&gt;Proposed patch · AI pass&lt;/div&gt;
-        &lt;h3&gt;${escHtml(summary)}&lt;/h3&gt;
-        &lt;div class=&quot;sub&quot;&gt;${escHtml(currentPatch?.proposedBy?.engine || &#39;&#39;)} · ${escHtml(currentPatch?.proposedBy?.action || &#39;&#39;)}&lt;/div&gt;
+        &lt;div class=&quot;ap-eye&quot;&gt;AI pass — proposal&lt;/div&gt;
+        &lt;h3&gt;${escHtml(action)} · &lt;code&gt;${escHtml(cardRef.cardId || &#39;?&#39;)}&lt;/code&gt;&lt;/h3&gt;
+        &lt;div class=&quot;sub&quot;&gt;${escHtml(engine)} · &lt;code&gt;${escHtml(cardRef.sectionId || &#39;&#39;)}&lt;/code&gt;&lt;/div&gt;
+        ${summary ? `&lt;div class=&quot;ap-diff-summary&quot;&gt;${escHtml(summary)}&lt;/div&gt;` : &#39;&#39;}
         ${violationsHtml}
       &lt;/div&gt;
       &lt;div class=&quot;ap-diff-body&quot;&gt;
-        ${changes.map(changeRow).join(&#39;&#39;) || &#39;&lt;div class=&quot;det&quot; style=&quot;padding:18px;&quot;&gt;No changes proposed.&lt;/div&gt;&#39;}
+        ${changes.length &gt; 0
+          ? changes.map(changeRow).join(&#39;&#39;)
+          : `&lt;div class=&quot;ap-diff-state-inner&quot;&gt;
+               &lt;div class=&quot;ap-state-title&quot; style=&quot;color: var(--muted, #64748b);&quot;&gt;No changes proposed&lt;/div&gt;
+               &lt;div class=&quot;ap-state-sub&quot;&gt;The engine returned a summary-only patch. Nothing to apply — close when ready.&lt;/div&gt;
+             &lt;/div&gt;`}
       &lt;/div&gt;
       &lt;div class=&quot;ap-diff-foot&quot;&gt;
         &lt;div class=&quot;meta&quot;&gt;type boundaries ${v.summary?.typeBoundariesOk ? &#39;ok&#39; : &#39;VIOLATED&#39;} · orphans ${v.summary?.orphansCreated ?? 0}&lt;/div&gt;
         &lt;div class=&quot;actions&quot;&gt;
-          &lt;button class=&quot;ap-btn-cancel&quot; id=&quot;ap-cancel&quot;&gt;Cancel&lt;/button&gt;
-          &lt;button class=&quot;ap-btn-apply&quot; id=&quot;ap-apply&quot; ${changes.length === 0 || !v.ok ? &#39;disabled&#39; : &#39;&#39;}&gt;Apply&lt;/button&gt;
+          &lt;button class=&quot;ap-btn-cancel&quot; id=&quot;ap-cancel&quot;&gt;${canApply ? &#39;Cancel&#39; : &#39;Close&#39;}&lt;/button&gt;
+          ${canApply ? &#39;&lt;button class=&quot;ap-btn-apply&quot; id=&quot;ap-apply&quot;&gt;Apply&lt;/button&gt;&#39; : &#39;&#39;}
         &lt;/div&gt;
       &lt;/div&gt;`;
-    diffEl.classList.add(&#39;open&#39;);
     document.getElementById(&#39;ap-cancel&#39;).addEventListener(&#39;click&#39;, closeAll);
-    document.getElementById(&#39;ap-apply&#39;).addEventListener(&#39;click&#39;, applyPatch);
+    document.getElementById(&#39;ap-apply&#39;)?.addEventListener(&#39;click&#39;, applyPatch);
   }
   async function applyPatch() {
     const acceptedChangeIds = Array.from(diffEl.querySelectorAll(&#39;input[type=&quot;checkbox&quot;]:checked&#39;)).map(el =&gt; el.dataset.change);
@@ -16307,7 +16336,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T12:47:38.848Z" title="2026-04-18T12:47:38.848Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T12:47:38.848Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T12:52:48.917Z" title="2026-04-18T12:52:48.917Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T12:52:48.917Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -16897,7 +16926,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-5163062 (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-140f4f6 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

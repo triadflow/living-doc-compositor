@@ -14473,7 +14473,23 @@ open docs/living-doc-compositor.html</pre>
   .ap-diff-head { padding: 14px 18px; border-bottom: 1px solid var(--line, #e2e8f0); }
   .ap-diff-head .ap-eye { font: 700 10.5px/1 ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent, #2563eb); }
   .ap-diff-head h3 { font: 700 15px/1.3 ui-sans-serif; color: var(--ink, #1a2332); margin: 6px 0 2px; }
+  .ap-diff-head h3 code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; background: var(--bg, #f5f7fa); padding: 1px 6px;
+    border-radius: 4px; font-weight: 600; color: var(--accent, #2563eb);
+  }
   .ap-diff-head .sub { font-size: 12px; color: var(--muted, #64748b); line-height: 1.4; }
+  .ap-diff-head .sub code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; background: var(--card, #fff); padding: 1px 5px;
+    border: 1px solid var(--line, #e2e8f0); border-radius: 3px; color: var(--ink, #1a2332);
+  }
+  .ap-diff-summary {
+    margin-top: 12px; padding: 10px 12px;
+    background: var(--bg, #f5f7fa); border-left: 3px solid var(--accent, #2563eb);
+    border-radius: 4px;
+    font: 400 12.5px/1.5 ui-sans-serif; color: var(--ink, #1a2332);
+  }
   .ap-diff-body { flex: 1; overflow-y: auto; padding: 6px 0; }
   .ap-diff-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 8px 18px; align-items: start; }
   .ap-diff-row:hover { background: var(--bg, #f5f7fa); }
@@ -14900,30 +14916,43 @@ open docs/living-doc-compositor.html</pre>
   }
   function renderDiff() {
     const v = currentValidation || {};
-    const summary = currentPatch?.summary || 'AI-pass proposal';
-    const violationsHtml = (v.violations || []).length
-      ? `<div class="det" style="color:#991b1b;">${v.violations.length} validation violation(s) — review carefully.</div>` : '';
+    const summary = currentPatch?.summary || '';
+    const proposedBy = currentPatch?.proposedBy || {};
+    const action = proposedBy.action || 'action';
+    const engine = proposedBy.engine || 'engine';
+    const cardRef = proposedBy.cardRef || currentCardRef || {};
     const changes = currentPatch?.changes || [];
+    const canApply = changes.length > 0 && v.ok;
+
+    const violationsHtml = (v.violations || []).length
+      ? `<div class="ap-state-error-box" style="margin: 10px 0 0;">${escHtml(v.violations.length + ' violation(s): ' + JSON.stringify(v.violations.slice(0, 3)))}</div>` : '';
+
+    openSidebar();
     diffEl.innerHTML = `
       <div class="ap-diff-head">
-        <div class="ap-eye">Proposed patch · AI pass</div>
-        <h3>${escHtml(summary)}</h3>
-        <div class="sub">${escHtml(currentPatch?.proposedBy?.engine || '')} · ${escHtml(currentPatch?.proposedBy?.action || '')}</div>
+        <div class="ap-eye">AI pass — proposal</div>
+        <h3>${escHtml(action)} · <code>${escHtml(cardRef.cardId || '?')}</code></h3>
+        <div class="sub">${escHtml(engine)} · <code>${escHtml(cardRef.sectionId || '')}</code></div>
+        ${summary ? `<div class="ap-diff-summary">${escHtml(summary)}</div>` : ''}
         ${violationsHtml}
       </div>
       <div class="ap-diff-body">
-        ${changes.map(changeRow).join('') || '<div class="det" style="padding:18px;">No changes proposed.</div>'}
+        ${changes.length > 0
+          ? changes.map(changeRow).join('')
+          : `<div class="ap-diff-state-inner">
+               <div class="ap-state-title" style="color: var(--muted, #64748b);">No changes proposed</div>
+               <div class="ap-state-sub">The engine returned a summary-only patch. Nothing to apply — close when ready.</div>
+             </div>`}
       </div>
       <div class="ap-diff-foot">
         <div class="meta">type boundaries ${v.summary?.typeBoundariesOk ? 'ok' : 'VIOLATED'} · orphans ${v.summary?.orphansCreated ?? 0}</div>
         <div class="actions">
-          <button class="ap-btn-cancel" id="ap-cancel">Cancel</button>
-          <button class="ap-btn-apply" id="ap-apply" ${changes.length === 0 || !v.ok ? 'disabled' : ''}>Apply</button>
+          <button class="ap-btn-cancel" id="ap-cancel">${canApply ? 'Cancel' : 'Close'}</button>
+          ${canApply ? '<button class="ap-btn-apply" id="ap-apply">Apply</button>' : ''}
         </div>
       </div>`;
-    diffEl.classList.add('open');
     document.getElementById('ap-cancel').addEventListener('click', closeAll);
-    document.getElementById('ap-apply').addEventListener('click', applyPatch);
+    document.getElementById('ap-apply')?.addEventListener('click', applyPatch);
   }
   async function applyPatch() {
     const acceptedChangeIds = Array.from(diffEl.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.dataset.change);
