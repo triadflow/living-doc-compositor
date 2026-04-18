@@ -6833,6 +6833,10 @@
 
   // Expose registry + templates to window so the AI-pass module (below) can read them.
   window.LD_REGISTRY = EMBEDDED_REGISTRY;
+  // Live doc state — the compositor&#39;s editable state is the source of truth
+  // for the flow/board/preview views. The palette reads this first and falls
+  // back to the static #doc-meta script only when state is unavailable.
+  window.LD_GET_STATE = () =&gt; (typeof state !== &#39;undefined&#39; ? state : null);
 
   /* &lt;generated:embedded-templates&gt; */
   const EMBEDDED_TEMPLATES = [
@@ -15107,9 +15111,14 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   let currentDocPath = null;
   let currentCardRef = null;
 
-  // ── doc meta helper (safe, memoised) ──────────────────────────────────
+  // ── doc source helper ────────────────────────────────────────────────
+  // Prefer the compositor&#39;s live state (edits show through immediately);
+  // fall back to the static #doc-meta script when loaded outside a compositor
+  // (e.g. a freshly rendered doc opened directly in the browser).
   let _metaCache = undefined; // undefined = not looked up, null = absent
   function docMeta() {
+    const live = typeof window.LD_GET_STATE === &#39;function&#39; ? window.LD_GET_STATE() : null;
+    if (live &amp;&amp; Array.isArray(live.sections) &amp;&amp; live.sections.length &gt; 0) return live;
     if (_metaCache !== undefined) return _metaCache;
     const el = document.getElementById(&#39;doc-meta&#39;);
     if (!el || !el.textContent) { _metaCache = null; return null; }
@@ -15454,7 +15463,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T11:09:56.844Z" title="2026-04-18T11:09:56.844Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T11:09:56.844Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T11:20:00.654Z" title="2026-04-18T11:20:00.654Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T11:20:00.654Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15581,7 +15590,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-b054a71 (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-90cfd1c (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

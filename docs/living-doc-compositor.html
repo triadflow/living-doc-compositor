@@ -6275,6 +6275,10 @@
 
   // Expose registry + templates to window so the AI-pass module (below) can read them.
   window.LD_REGISTRY = EMBEDDED_REGISTRY;
+  // Live doc state — the compositor's editable state is the source of truth
+  // for the flow/board/preview views. The palette reads this first and falls
+  // back to the static #doc-meta script only when state is unavailable.
+  window.LD_GET_STATE = () => (typeof state !== 'undefined' ? state : null);
 
   /* <generated:embedded-templates> */
   const EMBEDDED_TEMPLATES = [
@@ -14549,9 +14553,14 @@ open docs/living-doc-compositor.html</pre>
   let currentDocPath = null;
   let currentCardRef = null;
 
-  // ── doc meta helper (safe, memoised) ──────────────────────────────────
+  // ── doc source helper ────────────────────────────────────────────────
+  // Prefer the compositor's live state (edits show through immediately);
+  // fall back to the static #doc-meta script when loaded outside a compositor
+  // (e.g. a freshly rendered doc opened directly in the browser).
   let _metaCache = undefined; // undefined = not looked up, null = absent
   function docMeta() {
+    const live = typeof window.LD_GET_STATE === 'function' ? window.LD_GET_STATE() : null;
+    if (live && Array.isArray(live.sections) && live.sections.length > 0) return live;
     if (_metaCache !== undefined) return _metaCache;
     const el = document.getElementById('doc-meta');
     if (!el || !el.textContent) { _metaCache = null; return null; }
