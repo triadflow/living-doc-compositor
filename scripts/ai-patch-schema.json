@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://triadflow.github.io/living-doc-compositor/schemas/ai-patch.schema.json",
+  "title": "living-doc-ai-patch/v1",
+  "description": "Structured patch emitted by the AI-pass skills and consumed by the local doc server. Every change carries a stable changeId so the UI can accept or decline individually.",
+  "type": "object",
+  "required": ["schema", "requestId", "summary", "changes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "living-doc-ai-patch/v1" },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque id the server issues when it creates the request; echoed back by the skill."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-line human-readable summary of what the patch proposes."
+    },
+    "proposedBy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "action"],
+      "properties": {
+        "engine": { "enum": ["claude-code", "codex"] },
+        "action": { "type": "string", "minLength": 1 },
+        "cardRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sectionId", "cardId"],
+          "properties": {
+            "sectionId": { "type": "string", "minLength": 1 },
+            "cardId":    { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/change" }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typeBoundariesOk": { "type": "boolean" },
+        "orphansCreated":   { "type": "integer", "minimum": 0 },
+        "warnings":         { "type": "array", "items": { "type": "string" } },
+        "engineDurationMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "definitions": {
+    "change": {
+      "type": "object",
+      "required": ["changeId", "kind"],
+      "properties": {
+        "changeId": { "type": "string", "minLength": 1 },
+        "kind":     { "enum": ["card-create", "card-update", "ticket-create", "coverage-add", "coverage-remove", "invariant-suggest", "rationale-update"] },
+        "rationale": { "type": "string", "description": "Short prose from the AI explaining why this change was proposed." }
+      },
+      "oneOf": [
+        { "$ref": "#/definitions/card-create" },
+        { "$ref": "#/definitions/card-update" },
+        { "$ref": "#/definitions/ticket-create" },
+        { "$ref": "#/definitions/coverage-add" },
+        { "$ref": "#/definitions/coverage-remove" },
+        { "$ref": "#/definitions/invariant-suggest" },
+        { "$ref": "#/definitions/rationale-update" }
+      ]
+    },
+    "card-create": {
+      "properties": {
+        "kind": { "const": "card-create" },
+        "sectionId": { "type": "string", "minLength": 1 },
+        "insertAfterCardId": { "type": "string", "description": "Optional — insert after this card in the section order." },
+        "card": {
+          "type": "object",
+          "required": ["id", "name"],
+          "additionalProperties": true,
+          "properties": {
+            "id":   { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+            "name": { "type": "string", "minLength": 1 },
+            "status": { "type": "string" }
+          }
+        }
+      },
+      "required": ["sectionId", "card"]
+    },
+    "card-update": {
+      "properties": {
+        "kind":      { "const": "card-update" },
+        "sectionId": { "type": "string", "minLength": 1 },
+        "cardId":    { "type": "string", "minLength": 1 },
+        "fields":    {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Shallow-merge target. Each top-level key overwrites the card's value for that field."
+        }
+      },
+      "required": ["sectionId", "cardId", "fields"]
+    },
+    "ticket-create": {
+      "properties": {
+        "kind":   { "const": "ticket-create" },
+        "repo":   { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "title":  { "type": "string", "minLength": 1 },
+        "body":   { "type": "string" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "linkTo": {
+          "type": "object",
+          "description": "After creating, append the new issueNumber to this card's ticketIds field.",
+          "required": ["sectionId", "cardId"],
+          "additionalProperties": false,
+          "properties": {
+            "sectionId": { "type": "string", "minLength": 1 },
+            "cardId":    { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "required": ["repo", "title"]
+    },
+    "coverage-add": {
+      "properties": {
+        "kind":      { "const": "coverage-add" },
+        "facetId":   { "type": "string", "minLength": 1 },
+        "sectionId": { "type": "string", "minLength": 1 },
+        "cardId":    { "type": "string", "minLength": 1 }
+      },
+      "required": ["facetId", "sectionId", "cardId"]
+    },
+    "coverage-remove": {
+      "properties": {
+        "kind":      { "const": "coverage-remove" },
+        "facetId":   { "type": "string", "minLength": 1 },
+        "sectionId": { "type": "string", "minLength": 1 },
+        "cardId":    { "type": "string", "minLength": 1 }
+      },
+      "required": ["facetId", "sectionId", "cardId"]
+    },
+    "invariant-suggest": {
+      "description": "AI proposes an invariant — never auto-applied. The UI marks these explicitly as suggestions.",
+      "properties": {
+        "kind":      { "const": "invariant-suggest" },
+        "invariantId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "name":      { "type": "string", "minLength": 1 },
+        "statement": { "type": "string", "minLength": 1 },
+        "appliesTo": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "note": { "type": "string", "description": "Why this is a suggestion and not an applied change." }
+      },
+      "required": ["invariantId", "name", "statement", "appliesTo"]
+    },
+    "rationale-update": {
+      "properties": {
+        "kind":       { "const": "rationale-update" },
+        "sectionId":  { "type": "string", "minLength": 1 },
+        "rationale":  { "type": "string", "minLength": 1 }
+      },
+      "required": ["sectionId", "rationale"]
+    }
+  }
+}
