@@ -1,0 +1,456 @@
+{
+  "docId": "doc:oss-trial-textual-5380.v2",
+  "title": "Textual #5380 — Mouse input stops after VS Code reload (v2)",
+  "subtitle": "Recomposed using the 5 OSS-triage convergence types",
+  "brand": "OSS",
+  "scope": "Textualize/textual issue #5380 and its orbiting archaeology",
+  "owner": "Trial — tickets #75, #78",
+  "version": "v2",
+  "canonicalOrigin": "https://github.com/Textualize/textual/issues/5380",
+  "derivedFrom": "docs/oss-trial-textual-5380.json (v1, stretched)",
+  "sourceCoverage": "Issue body and comments, inspect_ai workaround commit, closed related issues #5547 / #1171 / #1031 / #5894, linux_driver.py source at revision f8b42bd",
+  "updated": "2026-04-18T00:00:00.000Z",
+  "objective": "Make Textual's mouse input survive a VS Code 'Developer: Reload Window' without requiring the user to restart the app, and decide whether the fix should ship inside Textual or stay as a per-app workaround.",
+  "objectiveFacets": [
+    {
+      "id": "root-cause",
+      "name": "Root cause",
+      "description": "Synchronization gap between Textual's one-shot mouse-enable ANSI codes and VS Code's xterm.js, which re-initializes without those codes after a reload."
+    },
+    {
+      "id": "proven-workaround",
+      "name": "Proven workaround",
+      "description": "A production-shipped fix in UKGovernmentBEIS/inspect_ai: override _watch_app_focus and re-call _enable_mouse_support() when the app regains focus."
+    },
+    {
+      "id": "shipping-path",
+      "name": "Shipping path into Textual",
+      "description": "Open PR that ports the inspect_ai pattern into Textual's own App or driver, behind a flag if needed."
+    },
+    {
+      "id": "idempotency-risk",
+      "name": "Cross-terminal idempotency",
+      "description": "Claim that re-enabling mouse ANSI codes is safe must hold for tmux, alacritty, ghostty, kitty, Windows Terminal — not only xterm.js."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "root-cause",
+      "sectionId": "symptoms",
+      "cardId": "reload-drops-mouse"
+    },
+    {
+      "facetId": "root-cause",
+      "sectionId": "symptoms",
+      "cardId": "tmux-immunity"
+    },
+    {
+      "facetId": "root-cause",
+      "sectionId": "mechanics",
+      "cardId": "enable-mouse-support-once"
+    },
+    {
+      "facetId": "root-cause",
+      "sectionId": "mechanics",
+      "cardId": "ansi-codes-written"
+    },
+    {
+      "facetId": "proven-workaround",
+      "sectionId": "attempts",
+      "cardId": "inspect-ai-patch"
+    },
+    {
+      "facetId": "proven-workaround",
+      "sectionId": "mechanics",
+      "cardId": "watch-app-focus-hook"
+    },
+    {
+      "facetId": "proven-workaround",
+      "sectionId": "attempts",
+      "cardId": "direct-enable-call"
+    },
+    {
+      "facetId": "shipping-path",
+      "sectionId": "debate",
+      "cardId": "maintainer-stance"
+    },
+    {
+      "facetId": "shipping-path",
+      "sectionId": "debate",
+      "cardId": "no-pr-opened"
+    },
+    {
+      "facetId": "idempotency-risk",
+      "sectionId": "attempts",
+      "cardId": "inspect-ai-patch"
+    },
+    {
+      "facetId": "idempotency-risk",
+      "sectionId": "findings",
+      "cardId": "idempotency-asserted"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "mouse-codes-idempotent",
+      "name": "Mouse-enable ANSI codes are idempotent",
+      "statement": "Writing the four mouse-enable ANSI codes again when they are already active is a no-op on xterm.js; assertion has not been independently verified on other terminals.",
+      "appliesTo": [
+        "symptoms",
+        "findings",
+        "attempts"
+      ]
+    },
+    {
+      "id": "one-shot-enable-at-startup",
+      "name": "Mouse is enabled once, never refreshed",
+      "statement": "Textual's Linux driver calls _enable_mouse_support() once inside start_application_mode and has no resend path during the app's running lifetime.",
+      "appliesTo": [
+        "mechanics"
+      ]
+    }
+  ],
+  "metaFingerprint": "sha256:2410e4efaaeae6d898166b6c36171ade52703667c483e036e066e595265889ea",
+  "sections": [
+    {
+      "id": "symptoms",
+      "title": "Symptoms",
+      "convergenceType": "symptom-observation",
+      "rationale": "Three cards below are reproducible behaviours with attributable witnesses — they need a repro path and an observer name to be trustworthy, which symptom-observation enforces. The generic 'idempotency asserted' claim has no repro path and lives in a separate findings section.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "reload-drops-mouse",
+          "name": "VS Code reload drops mouse tracking silently",
+          "status": "reproduced",
+          "environment": "Ubuntu 22.04, VS Code 1.95.3, Textual 0.89.1, xterm-256color",
+          "witness": "jjallaire-aisi, 2024-12-11 (issue body)",
+          "repro_steps": [
+            {
+              "type": "info",
+              "text": "1. `cd textual/docs/examples/tutorial && python stopwatch.py`"
+            },
+            {
+              "type": "info",
+              "text": "2. Trigger the VS Code command `Developer: Reload Window`"
+            },
+            {
+              "type": "info",
+              "text": "3. Mouse events stop firing in the Textual app; keyboard input continues to work"
+            }
+          ]
+        },
+        {
+          "id": "tmux-immunity",
+          "name": "tmux session inside VS Code is immune",
+          "status": "reproduced",
+          "environment": "Same VS Code + Textual versions, wrapped in a tmux session",
+          "witness": "jjallaire-aisi, 2024-12-11 (issue comment)",
+          "repro_steps": [
+            {
+              "type": "info",
+              "text": "1. Start tmux inside the VS Code integrated terminal"
+            },
+            {
+              "type": "info",
+              "text": "2. Run the Textual stopwatch app inside tmux"
+            },
+            {
+              "type": "info",
+              "text": "3. Trigger `Developer: Reload Window` — mouse continues to work"
+            }
+          ]
+        },
+        {
+          "id": "suspend-resume-restores",
+          "name": "App.suspend() followed by resume restores mouse",
+          "status": "reproduced",
+          "environment": "Same repro environment as reload-drops-mouse, after reload",
+          "witness": "jjallaire-aisi, 2024-12-12 (issue comment)",
+          "repro_steps": [
+            {
+              "type": "info",
+              "text": "1. Trigger reload so mouse stops working"
+            },
+            {
+              "type": "info",
+              "text": "2. Invoke `with self.app.suspend(): ...` in the app"
+            },
+            {
+              "type": "info",
+              "text": "3. After the block exits, mouse events fire again"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "findings",
+      "title": "Findings",
+      "convergenceType": "investigation-findings",
+      "rationale": "A single card — the idempotency claim — is a synthesized finding (a claim about behaviour, not a specific reproducible observation). It belongs in findings, separated from the repro-backed symptoms.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "idempotency-asserted",
+          "name": "ANSI enable codes asserted idempotent (xterm.js only)",
+          "status": "reference",
+          "notes": [
+            {
+              "type": "info",
+              "text": "Inline comment on the inspect_ai workaround: 'ansi codes for enabling mouse support are idempotent so it is fine to do this even in cases where mouse support is already enabled.'"
+            },
+            {
+              "type": "warning",
+              "text": "Assertion has only been validated in practice on xterm.js (VS Code). Behaviour on alacritty, kitty, ghostty, Windows Terminal, mintty is untested in this thread."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mechanics",
+      "title": "Code anchors — current mouse-enable flow",
+      "convergenceType": "code-anchor",
+      "rationale": "Each card pins one exact file and line range in Textual's source at a specific revision. A reader or agent can jump straight to the code without re-grepping, and the pinned revision makes drift visible.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "enable-mouse-support-once",
+          "name": "_enable_mouse_support() — single call site",
+          "status": "current",
+          "path": "src/textual/drivers/linux_driver.py",
+          "range": "248",
+          "revision": "f8b42bd7a93578338f1b3668a1dc83f79e344fe8",
+          "what_it_does": "Only call to _enable_mouse_support() inside start_application_mode; never re-runs during app lifetime",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "This is the synchronization gap — xterm.js reloads have no signal path back here, so Textual never re-sends the enable codes."
+            }
+          ]
+        },
+        {
+          "id": "ansi-codes-written",
+          "name": "_enable_mouse_support() body — four ANSI codes",
+          "status": "current",
+          "path": "src/textual/drivers/linux_driver.py",
+          "range": "121–133",
+          "revision": "f8b42bd7a93578338f1b3668a1dc83f79e344fe8",
+          "what_it_does": "Writes \\x1b[?1000h (VT200), \\x1b[?1003h (any-event), \\x1b[?1015h (urxvt, deprecated), \\x1b[?1006h (SGR extended — what xterm.js uses); then flush()",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "Any re-enable path added to Textual must write the same codes. Skipping the SGR extended code (?1006h) would leave xterm.js without the coordinate format it reads."
+            }
+          ]
+        },
+        {
+          "id": "disable-mouse-support-mirror",
+          "name": "_disable_mouse_support() — shutdown mirror",
+          "status": "current",
+          "path": "src/textual/drivers/linux_driver.py",
+          "range": "169",
+          "revision": "f8b42bd7a93578338f1b3668a1dc83f79e344fe8",
+          "what_it_does": "Writes the `?…l` form of each enable code, called during clean app exit",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "Force-kill paths skip this; that is the root of the symmetric issue #1171 where coordinates keep leaking to the shell prompt after a forced stop."
+            }
+          ]
+        },
+        {
+          "id": "watch-app-focus-hook",
+          "name": "App._watch_app_focus — the insertion point",
+          "status": "current",
+          "path": "src/textual/app.py (base class)",
+          "range": "_watch_app_focus(focus: bool)",
+          "revision": "f8b42bd7a93578338f1b3668a1dc83f79e344fe8",
+          "what_it_does": "Reactive hook fired when the app gains or loses focus; exists already in Textual, used by inspect_ai's override",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "The proven fix hooks here. VS Code reload causes the Textual app to regain focus, giving the hook a reliable trigger to re-send mouse-enable codes."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attempts",
+      "title": "Attempts",
+      "convergenceType": "attempt-log",
+      "rationale": "Each card names what was tried, what it proved, and — when productionized — where it ships. Probes that only narrowed the cause are marked superseded when a shipped attempt later productionized the same insight.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "suspend-probe",
+          "name": "Probe: wrap work in App.suspend()",
+          "status": "superseded",
+          "cost_to_apply": "Disruptive — yanks the whole screen on every restore",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Call `with self.app.suspend(): ...` after the reload to force resume through start_application_mode."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Confirmed that re-running start_application_mode restores mouse input; this isolated the cause to the mouse-enable path specifically."
+            }
+          ]
+        },
+        {
+          "id": "direct-enable-call",
+          "name": "Probe: call driver._enable_mouse_support() directly",
+          "status": "superseded",
+          "cost_to_apply": "Trivial (one call); but needs a trigger to know when to run",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "After a reload, manually invoke driver._enable_mouse_support() on the running app."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Narrowed the fix to exactly this method. Eliminated the rest of start_application_mode from the picture and established that the ANSI codes alone are what matters."
+            }
+          ]
+        },
+        {
+          "id": "inspect-ai-patch",
+          "name": "Override _watch_app_focus and re-enable on focus gain",
+          "status": "workaround-shipped",
+          "shipped_in": "https://github.com/UKGovernmentBEIS/inspect_ai/commit/8ce3409f520eb846981cf23af818bf02f84a6178",
+          "cost_to_apply": "~20 LOC, App-level override, no invasive refactor; try/except wraps the call",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Override `_watch_app_focus(focus: bool)` on the App subclass. When `focus=True`, call driver._enable_mouse_support() wrapped in try/except."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "The pattern works in production (inspect_ai ships it). xterm.js tolerates repeated enables as documented in the inline comment."
+            },
+            {
+              "type": "warning",
+              "text": "Cross-terminal idempotency remains untested — the patch is safe on xterm.js but has not been exercised on tmux/alacritty/kitty/Windows Terminal."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "related",
+      "title": "Issue orbit",
+      "convergenceType": "issue-orbit",
+      "rationale": "Each card is another Textual issue with an explicit relationship to #5380 — same-root-cause, symmetric, adjacent, or prior-art. The shape is a graph of nearby bugs, not a list of findings about the focal issue.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "issue-5547",
+          "name": "#5547 — Regression: mouse broken in VS Code (smooth-scroll)",
+          "status": "closed-fixed",
+          "url": "https://github.com/Textualize/textual/issues/5547",
+          "github_state": "closed",
+          "relationship": "adjacent",
+          "relevance": "Different root cause — mouse coordinates mis-calculated after commit 9f18dfe (smooth scrolling). Closed by PRs #5549 and #5551. Shares the 'VS Code + Textual mouse' surface but is not the reload-cycle bug.",
+          "notes": [
+            {
+              "type": "info",
+              "text": "Closed by PR #5549 and PR #5551"
+            }
+          ]
+        },
+        {
+          "id": "issue-1171",
+          "name": "#1171 — Coordinates leak to shell prompt after force-stop",
+          "status": "closed-wontfix",
+          "url": "https://github.com/Textualize/textual/issues/1171",
+          "github_state": "closed",
+          "relationship": "symmetric",
+          "relevance": "The inverse of #5380: when VS Code's debugger force-stops a Textual app, _disable_mouse_support() never runs, so xterm.js keeps emitting mouse coordinates into the next shell prompt. Same state-drift family.",
+          "notes": [
+            {
+              "type": "info",
+              "text": "Closed without an explicit linked PR"
+            }
+          ]
+        },
+        {
+          "id": "issue-1031",
+          "name": "#1031 — Mouse not working in VS Code Windows terminal (2022)",
+          "status": "closed-fixed",
+          "url": "https://github.com/Textualize/textual/issues/1031",
+          "github_state": "closed",
+          "relationship": "prior-art",
+          "relevance": "Older Windows-specific mouse issue in the VS Code terminal. Likely resolved by intervening changes and does not share the reload-cycle root cause."
+        },
+        {
+          "id": "issue-5894",
+          "name": "#5894 — Mouse capture issues on Windows",
+          "status": "closed-fixed",
+          "url": "https://github.com/Textualize/textual/issues/5894",
+          "github_state": "closed",
+          "relationship": "adjacent",
+          "relevance": "Windows mouse capture surface. Worth re-reading only if the cross-terminal idempotency check reveals Windows Terminal specific behaviour."
+        }
+      ]
+    },
+    {
+      "id": "debate",
+      "title": "Open debate — shipping path",
+      "convergenceType": "maintainer-stance",
+      "rationale": "The thread contains named positions from the maintainer and the reporter, with a live rebuttal and no resolution. These are stances, not decisions — they may shift, and preserving the exchange stops the next contributor from re-litigating from scratch.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "maintainer-stance",
+          "name": "Will McGugan — 'not ours to fix'",
+          "status": "current",
+          "stakeholder": "willmcgugan (Textual maintainer)",
+          "stated_at": "2024-12-11, https://github.com/Textualize/textual/issues/5380#issuecomment-2536909400",
+          "position": "This is a VS Code bug, not a Textual bug; the reporter should raise it upstream.",
+          "rationale": "xterm.js is the party resetting mouse state on reload; Textual is acting correctly.",
+          "rebuttal": "jjallaire-aisi argued VS Code bugs of this type don't get prioritized; Textual has stronger incentive and a small, idempotent fix.",
+          "evolution": "No follow-up from the maintainer after the rebuttal (as of 2026-04-18)."
+        },
+        {
+          "id": "user-pushback",
+          "name": "jjallaire-aisi — pragmatic ownership",
+          "status": "unchallenged",
+          "stakeholder": "jjallaire-aisi (inspect_ai contributor, not a Textual member)",
+          "stated_at": "2024-12-11, https://github.com/Textualize/textual/issues/5380#issuecomment-2537398285",
+          "position": "Even if technically a VS Code bug, Textual should consider landing the fix because VS Code is unlikely to prioritize research into the handshake, and the user failure mode is 'lost work' which is severe.",
+          "rationale": "Fix is small, already validated in inspect_ai, and the cost of the status quo is significant.",
+          "evolution": "User continued to develop workaround in-thread, did not open a Textual PR."
+        },
+        {
+          "id": "no-pr-opened",
+          "name": "Status: no PR, no label, no assignee",
+          "status": "current",
+          "stakeholder": "(meta — repo state)",
+          "stated_at": "2026-04-18 (snapshot)",
+          "position": "The issue is OPEN, has zero linked PRs, no labels, and no assignee.",
+          "rationale": "The technical blocker is not knowledge — the pattern is proven — it is maintainer stance plus an unowned cross-terminal risk check.",
+          "evolution": "Unchanged since December 2024."
+        },
+        {
+          "id": "open-question-gating",
+          "name": "Open question — gate the fix, or apply always?",
+          "status": "unchallenged",
+          "stakeholder": "(open to any contributor)",
+          "stated_at": "2026-04-18 (synthesized by deep-dive)",
+          "position": "If idempotency holds on every Textual-supported terminal, the fix can be unconditional in App base class or driver. If not, it needs to be opt-in (config flag) or gated on detected VS Code (TERM_PROGRAM=vscode).",
+          "rationale": "A PR cannot ship until this question is answered — either empirically (run the check) or by choosing a safe default (opt-in).",
+          "evolution": "No one has run this check yet."
+        }
+      ]
+    }
+  ]
+}
