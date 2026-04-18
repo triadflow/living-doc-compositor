@@ -1,0 +1,426 @@
+{
+  "docId": "doc:ai-pass-flow-body-workstream",
+  "title": "AI Pass — Flow Body Workstream",
+  "subtitle": "Card-level AI assistance in the living-doc flow view — Cmd+K palette, structured patch, diff-before-apply.",
+  "brand": "LD",
+  "scope": "Epic #82 workstream: patch schema, skills (Claude Code + Codex), server endpoints, registry extension, and compositor UI.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
+  "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
+  "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
+  "updated": "2026-04-18T00:00:00.000Z",
+  "pills": [
+    "Workstream",
+    "AI",
+    "Flow"
+  ],
+  "objective": "Ship a card-level AI pass into the flow body where a user selects a card, presses Cmd+K, picks an action, reviews a structured patch, and applies accepted changes — preserving the substrate's semantic stability by making every AI-proposed change declinable.",
+  "successCondition": "A user can take a thin card (like an early proof-ladder rung) from placeholder to plan end-to-end via Cmd+K → Decompose → review diff → apply, using either Claude Code or Codex as the engine, without leaving the flow view.",
+  "objectiveFacets": [
+    {
+      "id": "registry-guardrail",
+      "name": "Registry as guardrail",
+      "description": "Every AI-proposed change is validated against its convergence-type contract before it reaches the user."
+    },
+    {
+      "id": "user-intent",
+      "name": "User guards intent",
+      "description": "The diff is the review gate; each proposed change is individually declinable."
+    },
+    {
+      "id": "semantic-stability",
+      "name": "Semantic stability preserved",
+      "description": "AI may not silently mutate governance structure — facets, coverage, invariants, and type boundaries stay trustworthy."
+    },
+    {
+      "id": "cross-engine",
+      "name": "Cross-engine parity",
+      "description": "Works with Claude Code and Codex alike; user picks the engine when both are installed."
+    },
+    {
+      "id": "local-only",
+      "name": "Local only, no browser keys",
+      "description": "No API keys in the HTML. Engine CLIs hold credentials; the local doc server is the bridge."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "registry-guardrail",
+      "sectionId": "components",
+      "cardId": "validator"
+    },
+    {
+      "facetId": "registry-guardrail",
+      "sectionId": "components",
+      "cardId": "registry-actions"
+    },
+    {
+      "facetId": "user-intent",
+      "sectionId": "components",
+      "cardId": "palette-ui"
+    },
+    {
+      "facetId": "user-intent",
+      "sectionId": "decisions",
+      "cardId": "batch-not-stream"
+    },
+    {
+      "facetId": "semantic-stability",
+      "sectionId": "components",
+      "cardId": "validator"
+    },
+    {
+      "facetId": "semantic-stability",
+      "sectionId": "components",
+      "cardId": "patch-schema"
+    },
+    {
+      "facetId": "cross-engine",
+      "sectionId": "decisions",
+      "cardId": "two-skills"
+    },
+    {
+      "facetId": "cross-engine",
+      "sectionId": "components",
+      "cardId": "skill-claude"
+    },
+    {
+      "facetId": "cross-engine",
+      "sectionId": "components",
+      "cardId": "skill-codex"
+    },
+    {
+      "facetId": "cross-engine",
+      "sectionId": "decisions",
+      "cardId": "server-side-prefs"
+    },
+    {
+      "facetId": "local-only",
+      "sectionId": "decisions",
+      "cardId": "transport-local-server"
+    },
+    {
+      "facetId": "local-only",
+      "sectionId": "components",
+      "cardId": "server-endpoints"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "patch-validated",
+      "name": "Every patch is validated before it reaches the UI",
+      "statement": "The validator from #83 runs on every patch before any diff is rendered. A patch with contract violations is rejected or annotated, never silently applied.",
+      "appliesTo": [
+        "components",
+        "actions"
+      ]
+    },
+    {
+      "id": "per-change-decline",
+      "name": "Every proposed change is individually declinable",
+      "statement": "The diff UI must expose a per-change checkbox. No bundle-apply without the ability to deselect individual changes.",
+      "appliesTo": [
+        "components"
+      ]
+    },
+    {
+      "id": "no-browser-keys",
+      "name": "No engine credentials live in the browser",
+      "statement": "All engine invocations are shelled out by the local server to the CLI tool. The HTML never carries an API key or a provider token.",
+      "appliesTo": [
+        "components",
+        "decisions"
+      ]
+    }
+  ],
+  "metaFingerprint": "sha256:36a976b3d1446760b039a8f12ea7cbb890dd2b6b9262049eaa7b7dfe5a556d05",
+  "callouts": [
+    {
+      "tone": "info",
+      "title": "How to read this doc",
+      "items": [
+        "Status Snapshot is the landing view — where the work is right now.",
+        "Architecture Decisions are settled calls. Challenge a card, don't create a new one.",
+        "Actions Inventory grows as type-specific actions get specified and shipped.",
+        "Components are revision-pinned anchors that flip from 'not-built' to 'current' as code lands.",
+        "Attempts tracks skill-prompt iterations once we start tuning per engine."
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "status",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "rationale": "One scannable view of where the workstream is. Counts and one callout — not a copy of the epic's checklist.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "stats": [
+        {
+          "label": "Sub-tickets",
+          "value": "6 open"
+        },
+        {
+          "label": "Engines",
+          "value": "Claude Code · Codex"
+        },
+        {
+          "label": "Patch schema",
+          "value": "v1 pending"
+        }
+      ],
+      "callout": {
+        "tone": "info",
+        "title": "Current edge",
+        "items": [
+          "Work starts with #83 (patch schema) — it gates every other piece.",
+          "#84 (registry aiActions) can run in parallel.",
+          "#85 / #86 (skills) unlock once #83 lands; they can be built side-by-side.",
+          "#87 (server endpoints) needs #83 plus at least one skill; #88 (UI) is last."
+        ]
+      },
+      "data": []
+    },
+    {
+      "id": "decisions",
+      "title": "Architecture Decisions",
+      "convergenceType": "decision-record",
+      "rationale": "Five calls settled during the proposal conversation. Captured so the next session does not re-litigate; if an implementation challenges a decision, the card gets updated rather than duplicated.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "transport-local-server",
+          "name": "Transport: extend the local doc server",
+          "status": "ground-truth",
+          "notes": [
+            "Endpoints /api/ai-pass/propose, /apply, /engines live on the existing server that already serves docs at localhost:4321. No separate daemon.",
+            "Rationale: engine credentials stay in the CLI. The browser never sees an API key, which matches the local-only principle."
+          ]
+        },
+        {
+          "id": "batch-not-stream",
+          "name": "Batch, not streaming, for v1",
+          "status": "ground-truth",
+          "notes": [
+            "Spinner during propose; render the completed patch when it arrives. Streaming inline edits would break the user-guards-intent contract — a partial patch is an invitation to premature apply.",
+            "Revisit for v2 if latency feels too opaque in practice."
+          ]
+        },
+        {
+          "id": "two-skills",
+          "name": "Two separate skills, one per engine",
+          "status": "ground-truth",
+          "notes": [
+            "Claude Code and Codex each get their own skill file. Not a shared lowest-common-denominator prompt.",
+            "Tradeoff accepted: some duplication between skills, in exchange for provider-specific prompt tuning."
+          ]
+        },
+        {
+          "id": "ticket-auto-apply",
+          "name": "create-ticket changes apply without extra confirmation",
+          "status": "ground-truth",
+          "notes": [
+            "The overall Apply button gates the whole patch. A ticket-create change is unchecked like any other if the user wants to decline it in the diff.",
+            "Philosophy: people can always dive into the created ticket on GitHub and correct or close it. Avoid over-gating."
+          ]
+        },
+        {
+          "id": "server-side-prefs",
+          "name": "Engine preference persists server-side",
+          "status": "ground-truth",
+          "notes": [
+            "Shared across browser tabs and devices, matching the library manifest's persistence.",
+            "Written via PUT /api/ai-pass/engines/preferred; read via GET /api/ai-pass/engines."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "actions",
+      "title": "Actions Inventory",
+      "convergenceType": "capability-surface",
+      "rationale": "The action set shown in the palette is a merged view of general actions (hardcoded) and type-specific actions (declared per convergence type in the registry via #84). This section is the canonical list; new convergence types declare their own aiActions there and appear here once documented.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "general-decompose",
+          "name": "Decompose into sub-cards (general)",
+          "status": "not-built",
+          "notes": [
+            "Umbrella card → N scoped sub-cards, new tickets via gh, coverage edges added. Mirrors the L4 proof-ladder decomposition done by hand in this session."
+          ]
+        },
+        {
+          "id": "general-enrich",
+          "name": "Enrich notes (general)",
+          "status": "not-built",
+          "notes": [
+            "Thin card → richer prose with callouts and references, matching the style of neighbour cards in the same section."
+          ]
+        },
+        {
+          "id": "general-verify",
+          "name": "Verify against invariants (general)",
+          "status": "not-built",
+          "notes": [
+            "Check the card against applicable invariants; flag violations with the specific invariant id and quote the rule."
+          ]
+        },
+        {
+          "id": "general-coverage",
+          "name": "Propose coverage edges (general)",
+          "status": "not-built",
+          "notes": [
+            "Map the card to facets it carries. Surface orphan facets honestly — do not fabricate coverage."
+          ]
+        },
+        {
+          "id": "general-summarise",
+          "name": "Summarise (general)",
+          "status": "not-built",
+          "notes": [
+            "Concise one-paragraph summary of the card's current state. Read-only — never writes."
+          ]
+        },
+        {
+          "id": "type-specific-stubs",
+          "name": "Type-specific action stubs (9 types)",
+          "status": "not-built",
+          "notes": [
+            "attempt-log: propose-supersession, find-shipping-commit.",
+            "code-anchor: check-revision-drift, propose-replacement-anchor.",
+            "symptom-observation: suggest-environment-variants, check-contradictions.",
+            "issue-orbit: refresh-github-state, reclassify-relationship.",
+            "maintainer-stance: check-evolution.",
+            "proof-ladder: check-monotonic-invariant.",
+            "decision-record: check-if-still-current.",
+            "capability-surface: propose-status-from-commits.",
+            "investigation-findings: check-still-holding."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "components",
+      "title": "Components",
+      "convergenceType": "code-anchor",
+      "rationale": "As the schema, validator, server endpoints, skills, and UI land, each gets a revision-pinned anchor here. Currently every card is marked changed-since-issue because the code has not yet been written; they flip to current when the respective sub-ticket closes.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": [
+        {
+          "id": "patch-schema",
+          "name": "Patch schema — living-doc-ai-patch/v1",
+          "status": "changed-since-issue",
+          "path": "scripts/ai-patch-schema.json",
+          "range": "(planned)",
+          "revision": "not yet committed",
+          "what_it_does": "JSON schema describing every change kind in the patch format emitted by skills and consumed by the server",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "Every other component reads or writes this shape. If the schema churns, every downstream piece churns with it. Land first."
+            }
+          ]
+        },
+        {
+          "id": "validator",
+          "name": "Patch validator",
+          "status": "changed-since-issue",
+          "path": "scripts/validate-ai-patch.mjs",
+          "range": "(planned)",
+          "revision": "not yet committed",
+          "what_it_does": "Validates a patch against the schema and against the target convergence-type contracts (required fields, allowed status values, orphan-facet detection)",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "This is where semantic stability is enforced. If the validator is weak, AI can drift type boundaries silently and the substrate loses its guarantees."
+            }
+          ]
+        },
+        {
+          "id": "registry-actions",
+          "name": "Registry aiActions extension",
+          "status": "changed-since-issue",
+          "path": "scripts/living-doc-registry.json",
+          "range": "each convergenceTypes entry gains aiActions[]",
+          "revision": "not yet committed",
+          "what_it_does": "Declares per-type AI actions so the palette can merge them with the general set",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "New convergence types opt into AI help by declaring their own actions. No renderer, palette, or server changes required to add a new action to an existing type."
+            }
+          ]
+        },
+        {
+          "id": "server-endpoints",
+          "name": "Server endpoints for AI pass",
+          "status": "changed-since-issue",
+          "path": "living-doc serving layer",
+          "range": "/api/ai-pass/propose, /apply, /engines",
+          "revision": "not yet committed",
+          "what_it_does": "Shells out to engine CLI, validates the returned patch, applies accepted changes (including gh issue create for ticket-create changes), re-renders the doc",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "The only component with authority to invoke gh and mutate JSON on disk. Must be airtight — it is the blast-radius boundary for AI-originated changes."
+            }
+          ]
+        },
+        {
+          "id": "skill-claude",
+          "name": "Skill: living-doc-ai-pass-claude",
+          "status": "changed-since-issue",
+          "path": ".claude/skills/living-doc-ai-pass-claude/SKILL.md",
+          "range": "(planned)",
+          "revision": "not yet committed",
+          "what_it_does": "Claude-tuned skill that reads doc + registry + neighbourhood and emits a v1 patch on stdout",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "Tuned for Claude's strengths: long-form prose, decomposition, structure preservation. Free to diverge from the Codex skill prompt."
+            }
+          ]
+        },
+        {
+          "id": "skill-codex",
+          "name": "Skill: living-doc-ai-pass-codex",
+          "status": "changed-since-issue",
+          "path": "Codex skill directory",
+          "range": "(planned)",
+          "revision": "not yet committed",
+          "what_it_does": "Codex-tuned skill emitting the same v1 patch contract",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "Tuned for Codex's strengths: terse, code-anchor-oriented checks, revision comparison. Free to diverge from the Claude skill prompt."
+            }
+          ]
+        },
+        {
+          "id": "palette-ui",
+          "name": "Cmd+K palette + diff sidebar UI",
+          "status": "changed-since-issue",
+          "path": "docs/living-doc-compositor.html (flow view panel)",
+          "range": "palette overlay + right-hand diff sidebar",
+          "revision": "not yet committed",
+          "what_it_does": "Interactive surface: Cmd+K opens the action palette, spinner during propose, diff slides in, per-change accept/decline, apply submits accepted changes",
+          "why_it_matters": [
+            {
+              "type": "info",
+              "text": "The UX the user actually sees. Static mockup at docs/living-doc-flow-ai-pass-mockup.html is the spec."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attempts",
+      "title": "Attempts",
+      "convergenceType": "attempt-log",
+      "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
+      "updated": "2026-04-18T00:00:00.000Z",
+      "data": []
+    }
+  ]
+}
