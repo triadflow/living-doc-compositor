@@ -6273,6 +6273,9 @@
   };
   /* </generated:embedded-registry> */
 
+  // Expose registry + templates to window so the AI-pass module (below) can read them.
+  window.LD_REGISTRY = EMBEDDED_REGISTRY;
+
   /* <generated:embedded-templates> */
   const EMBEDDED_TEMPLATES = [
     {
@@ -14409,6 +14412,415 @@ open docs/living-doc-compositor.html</pre>
   });
 
   init();
+})();
+</script>
+
+<!-- ── AI-pass module: Cmd+K palette + diff sidebar ────────────────────── -->
+<style>
+  .ap-backdrop {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.32);
+    backdrop-filter: blur(2px); z-index: 900;
+    display: none;
+  }
+  .ap-backdrop.open { display: block; }
+  .ap-palette {
+    position: fixed; top: 18vh; left: 50%; transform: translateX(-50%);
+    width: 540px; max-width: calc(100vw - 48px);
+    background: var(--card, #fff); border: 1px solid var(--line, #e2e8f0);
+    border-radius: 14px; box-shadow: 0 24px 56px rgba(15,23,42,0.22);
+    z-index: 901; display: none; overflow: hidden;
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .ap-palette.open { display: block; }
+  .ap-pal-input { padding: 14px 18px; border-bottom: 1px solid var(--line, #e2e8f0); display: flex; align-items: center; gap: 10px; }
+  .ap-pal-q { flex: 1; font: 500 15px/1 ui-sans-serif; color: var(--ink, #1a2332); border: none; outline: none; background: transparent; }
+  .ap-pal-engines { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line, #e2e8f0); border-radius: 6px; }
+  .ap-pal-engines button {
+    font: 700 11px/1 ui-sans-serif; padding: 4px 8px; border: none; border-radius: 4px;
+    background: transparent; color: var(--muted, #64748b); cursor: pointer;
+  }
+  .ap-pal-engines button.active { background: var(--accent, #2563eb); color: #fff; }
+  .ap-pal-ctx { padding: 8px 18px; background: var(--accent-light, #dbeafe); color: var(--accent, #2563eb); font: 600 11.5px/1.3 ui-sans-serif; }
+  .ap-pal-ctx code { background: var(--card, #fff); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--ink, #1a2332); }
+  .ap-pal-list { max-height: 360px; overflow-y: auto; }
+  .ap-pal-group-label { padding: 8px 18px 4px; font: 700 10.5px/1 ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted, #64748b); }
+  .ap-pal-item {
+    display: flex; gap: 12px; padding: 10px 18px; cursor: pointer; align-items: flex-start;
+  }
+  .ap-pal-item.active, .ap-pal-item:hover { background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--card, #fff)); }
+  .ap-pal-item .ic {
+    width: 26px; height: 26px; border-radius: 6px; background: var(--accent-light, #dbeafe);
+    color: var(--accent, #2563eb); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 12px; flex-shrink: 0;
+  }
+  .ap-pal-item .pname { font: 600 13px/1.25 ui-sans-serif; color: var(--ink, #1a2332); }
+  .ap-pal-item .pdesc { font-size: 11.5px; color: var(--muted, #64748b); margin-top: 2px; line-height: 1.4; }
+  .ap-pal-foot { padding: 8px 18px; border-top: 1px solid var(--line, #e2e8f0); background: var(--bg, #f5f7fa); font-size: 11px; color: var(--muted, #64748b); display: flex; gap: 14px; }
+  .ap-pal-empty { padding: 20px; text-align: center; color: var(--muted, #64748b); font-size: 13px; }
+
+  .ap-diff {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 440px;
+    background: var(--card, #fff); border-left: 1px solid var(--line, #e2e8f0);
+    box-shadow: -12px 0 36px rgba(15,23,42,0.12);
+    z-index: 800; display: none; flex-direction: column;
+    font: 13.5px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .ap-diff.open { display: flex; }
+  .ap-diff-head { padding: 14px 18px; border-bottom: 1px solid var(--line, #e2e8f0); }
+  .ap-diff-head .ap-eye { font: 700 10.5px/1 ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent, #2563eb); }
+  .ap-diff-head h3 { font: 700 15px/1.3 ui-sans-serif; color: var(--ink, #1a2332); margin: 6px 0 2px; }
+  .ap-diff-head .sub { font-size: 12px; color: var(--muted, #64748b); line-height: 1.4; }
+  .ap-diff-body { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .ap-diff-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 8px 18px; align-items: start; }
+  .ap-diff-row:hover { background: var(--bg, #f5f7fa); }
+  .ap-diff-row input[type="checkbox"] {
+    appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--line, #e2e8f0); border-radius: 4px;
+    background: var(--card, #fff); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--accent, #2563eb); margin-top: 2px;
+  }
+  .ap-diff-row input[type="checkbox"]:checked { background: var(--accent, #2563eb); border-color: var(--accent, #2563eb); color: #fff; }
+  .ap-diff-row input[type="checkbox"]:checked::after { content: "✓"; }
+  .ap-diff-row .op {
+    display: inline-block; font: 700 9.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-right: 5px;
+    background: var(--bg, #f5f7fa); color: var(--muted, #64748b);
+  }
+  .ap-diff-row .op.add { background: #ecfdf5; color: #166534; }
+  .ap-diff-row .op.mod { background: #fffbeb; color: #92400e; }
+  .ap-diff-row .op.rem { background: #fef2f2; color: #991b1b; }
+  .ap-diff-row .tgt { font: 600 12px/1.3 ui-sans-serif; color: var(--ink, #1a2332); }
+  .ap-diff-row .det { font-size: 11.5px; color: var(--muted, #64748b); margin-top: 2px; line-height: 1.4; }
+  .ap-diff-foot { padding: 12px 18px; border-top: 1px solid var(--line, #e2e8f0); }
+  .ap-diff-foot .meta { font-size: 11px; color: var(--muted, #64748b); margin-bottom: 8px; }
+  .ap-diff-foot .actions { display: flex; gap: 8px; }
+  .ap-diff-foot button {
+    flex: 1; padding: 8px 12px; border-radius: 7px; border: 1px solid var(--line, #e2e8f0);
+    font: 700 12.5px/1 ui-sans-serif; cursor: pointer;
+  }
+  .ap-btn-apply { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
+  .ap-btn-apply:hover { background: #1e50c7; }
+  .ap-btn-cancel { background: var(--card, #fff); color: var(--ink, #1a2332); }
+  .ap-btn-cancel:hover { border-color: var(--accent, #2563eb); color: var(--accent, #2563eb); }
+
+  .ap-spinner {
+    position: fixed; top: 14px; right: 14px; z-index: 700;
+    padding: 8px 14px; background: var(--ink, #1a2332); color: #e2e8f0;
+    border-radius: 999px; font: 600 12px/1 ui-sans-serif;
+    display: none; align-items: center; gap: 8px;
+  }
+  .ap-spinner.open { display: inline-flex; }
+  .ap-spinner::before { content: "⟳"; display: inline-block; animation: ap-spin 1s linear infinite; }
+  @keyframes ap-spin { to { transform: rotate(360deg); } }
+
+  .ap-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 10px 18px; border-radius: 999px;
+    background: var(--ink, #1a2332); color: #e2e8f0; font: 600 12.5px/1 ui-sans-serif;
+    z-index: 950; display: none;
+  }
+  .ap-toast.open { display: block; }
+  .ap-toast.error { background: #991b1b; }
+</style>
+
+<div class="ap-backdrop" id="ap-backdrop"></div>
+<div class="ap-palette" id="ap-palette" role="dialog" aria-label="AI action palette"></div>
+<aside class="ap-diff" id="ap-diff" aria-label="AI-pass diff sidebar"></aside>
+<div class="ap-spinner" id="ap-spinner">proposing…</div>
+<div class="ap-toast" id="ap-toast"></div>
+
+<script>
+(function aiPassModule() {
+  const SERVER = localStorage.getItem('ap-server') || 'http://localhost:4322';
+  const registry = () => window.LD_REGISTRY || null;
+
+  const backdrop = document.getElementById('ap-backdrop');
+  const palette  = document.getElementById('ap-palette');
+  const diffEl   = document.getElementById('ap-diff');
+  const spinner  = document.getElementById('ap-spinner');
+  const toast    = document.getElementById('ap-toast');
+
+  let currentActions = [];
+  let activeIndex = 0;
+  let engines = { available: [], preferred: null };
+  let selectedEngine = null;
+  let currentPatch = null;
+  let currentPatchId = null;
+  let currentValidation = null;
+  let currentDocPath = null;
+  let currentCardRef = null;
+
+  // ── helpers ────────────────────────────────────────────────────────────
+  function showToast(msg, isError = false) {
+    toast.textContent = msg;
+    toast.classList.toggle('error', !!isError);
+    toast.classList.add('open');
+    setTimeout(() => toast.classList.remove('open'), 3600);
+  }
+  function closeAll() {
+    backdrop.classList.remove('open');
+    palette.classList.remove('open');
+    diffEl.classList.remove('open');
+    spinner.classList.remove('open');
+  }
+  function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ── doc path resolution ───────────────────────────────────────────────
+  // The rendered doc embeds a JSON blob at #doc-meta; use its canonicalOrigin
+  // if it looks like a filesystem path. Otherwise fall back to localStorage
+  // (set manually for testing).
+  function resolveDocPath() {
+    if (currentDocPath) return currentDocPath;
+    const override = localStorage.getItem('ap-doc-path');
+    if (override) return (currentDocPath = override);
+    try {
+      const meta = JSON.parse(document.getElementById('doc-meta').textContent);
+      if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('/')) {
+        return (currentDocPath = meta.canonicalOrigin);
+      }
+      if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('docs/')) {
+        // Compositor is served next to docs/, so infer an absolute repo path
+        // from the current URL.
+        const here = decodeURI(location.pathname);
+        const repoDocs = here.substring(0, here.lastIndexOf('/'));
+        return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, '')}`);
+      }
+    } catch {}
+    return null;
+  }
+
+  // ── action list ───────────────────────────────────────────────────────
+  function actionsForCard(sectionId, cardId) {
+    const reg = registry();
+    if (!reg) return [];
+    const meta = JSON.parse(document.getElementById('doc-meta').textContent);
+    const section = (meta.sections || []).find(s => s.id === sectionId);
+    const typeId = section?.convergenceType;
+    const typeDef = reg.convergenceTypes?.[typeId] || {};
+    const general = (reg.generalAiActions || []).map(a => ({ ...a, scope: 'general' }));
+    const specific = (typeDef.aiActions || []).map(a => ({ ...a, scope: 'type-specific', typeId }));
+    return [...general, ...specific];
+  }
+
+  // ── engines ───────────────────────────────────────────────────────────
+  async function fetchEngines() {
+    try {
+      const r = await fetch(`${SERVER}/api/ai-pass/engines`);
+      engines = await r.json();
+      selectedEngine = engines.preferred || engines.available[0] || null;
+    } catch {
+      engines = { available: [], preferred: null };
+      selectedEngine = null;
+    }
+  }
+  async function setPreferred(engine) {
+    selectedEngine = engine;
+    try {
+      await fetch(`${SERVER}/api/ai-pass/engines/preferred`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine })
+      });
+    } catch {}
+  }
+
+  // ── palette ───────────────────────────────────────────────────────────
+  async function openPalette(sectionId, cardId) {
+    currentCardRef = { sectionId, cardId };
+    const meta = JSON.parse(document.getElementById('doc-meta').textContent);
+    const section = (meta.sections || []).find(s => s.id === sectionId);
+    const cards = section?.data || section?.cards || [];
+    const card = cards.find(c => c && c.id === cardId);
+    await fetchEngines();
+    currentActions = actionsForCard(sectionId, cardId);
+    activeIndex = 0;
+    renderPalette(section, card);
+    backdrop.classList.add('open');
+    palette.classList.add('open');
+    const q = palette.querySelector('.ap-pal-q');
+    if (q) q.focus();
+  }
+
+  function renderPalette(section, card) {
+    const engineToggle = engines.available.length >= 2
+      ? `<div class="ap-pal-engines">
+          ${engines.available.map(e => `<button data-engine="${escHtml(e)}" class="${e === selectedEngine ? 'active' : ''}">${escHtml(e)}</button>`).join('')}
+         </div>`
+      : (engines.available.length === 1
+          ? `<span style="font-size:11px; color: var(--muted, #64748b);">engine: ${escHtml(engines.available[0])}</span>`
+          : `<span style="font-size:11px; color: #991b1b;">no engine available</span>`);
+    const ctx = `<code>${escHtml(card?.id ?? '(no card)')}</code> · ${escHtml(section?.title ?? section?.id ?? '?')} · ${escHtml(section?.convergenceType ?? '?')}`;
+
+    const general = currentActions.filter(a => a.scope === 'general');
+    const specific = currentActions.filter(a => a.scope === 'type-specific');
+    function renderGroup(label, items, startIdx) {
+      if (!items.length) return '';
+      return `<div class="ap-pal-group-label">${escHtml(label)}</div>` +
+        items.map((a, i) => {
+          const idx = startIdx + i;
+          return `<div class="ap-pal-item ${idx === activeIndex ? 'active' : ''}" data-idx="${idx}">
+            <div class="ic">${escHtml(a.name?.[0] ?? '·')}</div>
+            <div><div class="pname">${escHtml(a.name)}</div><div class="pdesc">${escHtml(a.description)}</div></div>
+          </div>`;
+        }).join('');
+    }
+    palette.innerHTML = `
+      <div class="ap-pal-input">
+        <input class="ap-pal-q" placeholder="Search AI actions…" />
+        ${engineToggle}
+      </div>
+      <div class="ap-pal-ctx">${ctx}</div>
+      <div class="ap-pal-list">
+        ${renderGroup('General', general, 0) || ''}
+        ${renderGroup('Type-specific', specific, general.length) || ''}
+        ${currentActions.length === 0 ? '<div class="ap-pal-empty">No AI actions configured for this card type.</div>' : ''}
+      </div>
+      <div class="ap-pal-foot">
+        <span>↑↓ navigate</span><span>↵ run</span><span>esc close</span>
+      </div>`;
+
+    palette.querySelectorAll('.ap-pal-engines button').forEach(b => {
+      b.addEventListener('click', () => { setPreferred(b.dataset.engine); renderPalette(section, card); });
+    });
+    palette.querySelectorAll('.ap-pal-item').forEach(el => {
+      el.addEventListener('click', () => runAction(Number(el.dataset.idx)));
+    });
+    const q = palette.querySelector('.ap-pal-q');
+    q.addEventListener('input', () => {
+      const term = q.value.trim().toLowerCase();
+      const filtered = currentActions.filter(a => !term || a.name.toLowerCase().includes(term) || a.description.toLowerCase().includes(term));
+      palette.querySelectorAll('.ap-pal-item').forEach(el => {
+        const idx = Number(el.dataset.idx);
+        el.style.display = filtered.includes(currentActions[idx]) ? '' : 'none';
+      });
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    // Global Cmd+K / Ctrl+K
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      const sel = document.querySelector('.l2-card-selected');
+      if (sel && sel.dataset.sectionId && sel.dataset.cardId) {
+        e.preventDefault();
+        openPalette(sel.dataset.sectionId, sel.dataset.cardId);
+      }
+      return;
+    }
+    if (palette.classList.contains('open')) {
+      if (e.key === 'Escape') { closeAll(); e.preventDefault(); return; }
+      if (e.key === 'ArrowDown') { activeIndex = Math.min(activeIndex + 1, currentActions.length - 1); renderActiveRow(); e.preventDefault(); return; }
+      if (e.key === 'ArrowUp') { activeIndex = Math.max(activeIndex - 1, 0); renderActiveRow(); e.preventDefault(); return; }
+      if (e.key === 'Enter') { runAction(activeIndex); e.preventDefault(); return; }
+    }
+    if (diffEl.classList.contains('open') && e.key === 'Escape') { closeAll(); }
+  });
+  function renderActiveRow() {
+    palette.querySelectorAll('.ap-pal-item').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.idx) === activeIndex);
+    });
+  }
+
+  backdrop.addEventListener('click', closeAll);
+
+  // ── propose → diff → apply ────────────────────────────────────────────
+  async function runAction(idx) {
+    const action = currentActions[idx];
+    if (!action) return;
+    if (!selectedEngine) { showToast('no engine available — is the server running?', true); return; }
+    const docPath = resolveDocPath();
+    if (!docPath) { showToast('cannot resolve doc path (set ap-doc-path in localStorage)', true); return; }
+    closeAll();
+    spinner.classList.add('open');
+    try {
+      const r = await fetch(`${SERVER}/api/ai-pass/propose`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docPath, cardRef: currentCardRef, action: action.id, engine: selectedEngine }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || `server returned ${r.status}`);
+      const data = await r.json();
+      currentPatch = data.patch;
+      currentPatchId = data.patchId;
+      currentValidation = data.validation;
+      spinner.classList.remove('open');
+      renderDiff();
+    } catch (e) {
+      spinner.classList.remove('open');
+      showToast(String(e.message || e), true);
+    }
+  }
+
+  function opClass(kind) {
+    if (kind === 'card-create' || kind === 'ticket-create' || kind === 'coverage-add') return 'add';
+    if (kind === 'coverage-remove') return 'rem';
+    return 'mod';
+  }
+  function changeRow(ch, i) {
+    const id = `cid-${i}`;
+    let tgt = '', det = ch.rationale || '';
+    switch (ch.kind) {
+      case 'card-create':     tgt = `<code>${escHtml(ch.sectionId)}</code> · new card ${escHtml(ch.card?.id)}`; break;
+      case 'card-update':     tgt = `<code>${escHtml(ch.sectionId)}/${escHtml(ch.cardId)}</code> · ${escHtml(Object.keys(ch.fields || {}).join(', '))}`; break;
+      case 'ticket-create':   tgt = `${escHtml(ch.repo)} · ${escHtml(ch.title)}`; break;
+      case 'coverage-add':    tgt = `${escHtml(ch.facetId)} → ${escHtml(ch.sectionId)}/${escHtml(ch.cardId)}`; break;
+      case 'coverage-remove': tgt = `− ${escHtml(ch.facetId)} → ${escHtml(ch.sectionId)}/${escHtml(ch.cardId)}`; break;
+      case 'rationale-update': tgt = `<code>${escHtml(ch.sectionId)}</code> · rationale`; det = escHtml(ch.rationale).slice(0, 160); break;
+      case 'invariant-suggest': tgt = `suggested invariant: ${escHtml(ch.name)}`; det = escHtml(ch.statement); break;
+    }
+    return `<label class="ap-diff-row" for="${id}">
+      <input id="${id}" type="checkbox" data-change="${escHtml(ch.changeId)}" checked />
+      <div><span class="op ${opClass(ch.kind)}">${escHtml(ch.kind)}</span><span class="tgt">${tgt}</span>${det ? `<div class="det">${det}</div>` : ''}</div>
+    </label>`;
+  }
+  function renderDiff() {
+    const v = currentValidation || {};
+    const summary = currentPatch?.summary || 'AI-pass proposal';
+    const violationsHtml = (v.violations || []).length
+      ? `<div class="det" style="color:#991b1b;">${v.violations.length} validation violation(s) — review carefully.</div>` : '';
+    const changes = currentPatch?.changes || [];
+    diffEl.innerHTML = `
+      <div class="ap-diff-head">
+        <div class="ap-eye">Proposed patch · AI pass</div>
+        <h3>${escHtml(summary)}</h3>
+        <div class="sub">${escHtml(currentPatch?.proposedBy?.engine || '')} · ${escHtml(currentPatch?.proposedBy?.action || '')}</div>
+        ${violationsHtml}
+      </div>
+      <div class="ap-diff-body">
+        ${changes.map(changeRow).join('') || '<div class="det" style="padding:18px;">No changes proposed.</div>'}
+      </div>
+      <div class="ap-diff-foot">
+        <div class="meta">type boundaries ${v.summary?.typeBoundariesOk ? 'ok' : 'VIOLATED'} · orphans ${v.summary?.orphansCreated ?? 0}</div>
+        <div class="actions">
+          <button class="ap-btn-cancel" id="ap-cancel">Cancel</button>
+          <button class="ap-btn-apply" id="ap-apply" ${changes.length === 0 || !v.ok ? 'disabled' : ''}>Apply</button>
+        </div>
+      </div>`;
+    diffEl.classList.add('open');
+    document.getElementById('ap-cancel').addEventListener('click', closeAll);
+    document.getElementById('ap-apply').addEventListener('click', applyPatch);
+  }
+  async function applyPatch() {
+    const acceptedChangeIds = Array.from(diffEl.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.dataset.change);
+    if (!acceptedChangeIds.length) { closeAll(); return; }
+    spinner.classList.add('open');
+    spinner.textContent = 'applying…';
+    try {
+      const r = await fetch(`${SERVER}/api/ai-pass/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patchId: currentPatchId, acceptedChangeIds }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || `server returned ${r.status}`);
+      const data = await r.json();
+      spinner.classList.remove('open');
+      spinner.textContent = 'proposing…';
+      closeAll();
+      showToast(`Applied ${acceptedChangeIds.length} change(s). Reload to see the result.`);
+    } catch (e) {
+      spinner.classList.remove('open');
+      spinner.textContent = 'proposing…';
+      showToast(String(e.message || e), true);
+    }
+  }
 })();
 </script>
 </body>

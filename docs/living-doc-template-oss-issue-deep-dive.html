@@ -6902,6 +6902,9 @@
   };
   /* &lt;/generated:embedded-registry&gt; */
 
+  // Expose registry + templates to window so the AI-pass module (below) can read them.
+  window.LD_REGISTRY = EMBEDDED_REGISTRY;
+
   /* &lt;generated:embedded-templates&gt; */
   const EMBEDDED_TEMPLATES = [
     {
@@ -15040,6 +15043,415 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   init();
 })();
 &lt;/script&gt;
+
+&lt;!-- ── AI-pass module: Cmd+K palette + diff sidebar ────────────────────── --&gt;
+&lt;style&gt;
+  .ap-backdrop {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.32);
+    backdrop-filter: blur(2px); z-index: 900;
+    display: none;
+  }
+  .ap-backdrop.open { display: block; }
+  .ap-palette {
+    position: fixed; top: 18vh; left: 50%; transform: translateX(-50%);
+    width: 540px; max-width: calc(100vw - 48px);
+    background: var(--card, #fff); border: 1px solid var(--line, #e2e8f0);
+    border-radius: 14px; box-shadow: 0 24px 56px rgba(15,23,42,0.22);
+    z-index: 901; display: none; overflow: hidden;
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif;
+  }
+  .ap-palette.open { display: block; }
+  .ap-pal-input { padding: 14px 18px; border-bottom: 1px solid var(--line, #e2e8f0); display: flex; align-items: center; gap: 10px; }
+  .ap-pal-q { flex: 1; font: 500 15px/1 ui-sans-serif; color: var(--ink, #1a2332); border: none; outline: none; background: transparent; }
+  .ap-pal-engines { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line, #e2e8f0); border-radius: 6px; }
+  .ap-pal-engines button {
+    font: 700 11px/1 ui-sans-serif; padding: 4px 8px; border: none; border-radius: 4px;
+    background: transparent; color: var(--muted, #64748b); cursor: pointer;
+  }
+  .ap-pal-engines button.active { background: var(--accent, #2563eb); color: #fff; }
+  .ap-pal-ctx { padding: 8px 18px; background: var(--accent-light, #dbeafe); color: var(--accent, #2563eb); font: 600 11.5px/1.3 ui-sans-serif; }
+  .ap-pal-ctx code { background: var(--card, #fff); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--ink, #1a2332); }
+  .ap-pal-list { max-height: 360px; overflow-y: auto; }
+  .ap-pal-group-label { padding: 8px 18px 4px; font: 700 10.5px/1 ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted, #64748b); }
+  .ap-pal-item {
+    display: flex; gap: 12px; padding: 10px 18px; cursor: pointer; align-items: flex-start;
+  }
+  .ap-pal-item.active, .ap-pal-item:hover { background: color-mix(in srgb, var(--accent, #2563eb) 6%, var(--card, #fff)); }
+  .ap-pal-item .ic {
+    width: 26px; height: 26px; border-radius: 6px; background: var(--accent-light, #dbeafe);
+    color: var(--accent, #2563eb); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 12px; flex-shrink: 0;
+  }
+  .ap-pal-item .pname { font: 600 13px/1.25 ui-sans-serif; color: var(--ink, #1a2332); }
+  .ap-pal-item .pdesc { font-size: 11.5px; color: var(--muted, #64748b); margin-top: 2px; line-height: 1.4; }
+  .ap-pal-foot { padding: 8px 18px; border-top: 1px solid var(--line, #e2e8f0); background: var(--bg, #f5f7fa); font-size: 11px; color: var(--muted, #64748b); display: flex; gap: 14px; }
+  .ap-pal-empty { padding: 20px; text-align: center; color: var(--muted, #64748b); font-size: 13px; }
+
+  .ap-diff {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 440px;
+    background: var(--card, #fff); border-left: 1px solid var(--line, #e2e8f0);
+    box-shadow: -12px 0 36px rgba(15,23,42,0.12);
+    z-index: 800; display: none; flex-direction: column;
+    font: 13.5px/1.5 ui-sans-serif, system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif;
+  }
+  .ap-diff.open { display: flex; }
+  .ap-diff-head { padding: 14px 18px; border-bottom: 1px solid var(--line, #e2e8f0); }
+  .ap-diff-head .ap-eye { font: 700 10.5px/1 ui-sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent, #2563eb); }
+  .ap-diff-head h3 { font: 700 15px/1.3 ui-sans-serif; color: var(--ink, #1a2332); margin: 6px 0 2px; }
+  .ap-diff-head .sub { font-size: 12px; color: var(--muted, #64748b); line-height: 1.4; }
+  .ap-diff-body { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .ap-diff-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 8px 18px; align-items: start; }
+  .ap-diff-row:hover { background: var(--bg, #f5f7fa); }
+  .ap-diff-row input[type=&quot;checkbox&quot;] {
+    appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--line, #e2e8f0); border-radius: 4px;
+    background: var(--card, #fff); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--accent, #2563eb); margin-top: 2px;
+  }
+  .ap-diff-row input[type=&quot;checkbox&quot;]:checked { background: var(--accent, #2563eb); border-color: var(--accent, #2563eb); color: #fff; }
+  .ap-diff-row input[type=&quot;checkbox&quot;]:checked::after { content: &quot;✓&quot;; }
+  .ap-diff-row .op {
+    display: inline-block; font: 700 9.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-right: 5px;
+    background: var(--bg, #f5f7fa); color: var(--muted, #64748b);
+  }
+  .ap-diff-row .op.add { background: #ecfdf5; color: #166534; }
+  .ap-diff-row .op.mod { background: #fffbeb; color: #92400e; }
+  .ap-diff-row .op.rem { background: #fef2f2; color: #991b1b; }
+  .ap-diff-row .tgt { font: 600 12px/1.3 ui-sans-serif; color: var(--ink, #1a2332); }
+  .ap-diff-row .det { font-size: 11.5px; color: var(--muted, #64748b); margin-top: 2px; line-height: 1.4; }
+  .ap-diff-foot { padding: 12px 18px; border-top: 1px solid var(--line, #e2e8f0); }
+  .ap-diff-foot .meta { font-size: 11px; color: var(--muted, #64748b); margin-bottom: 8px; }
+  .ap-diff-foot .actions { display: flex; gap: 8px; }
+  .ap-diff-foot button {
+    flex: 1; padding: 8px 12px; border-radius: 7px; border: 1px solid var(--line, #e2e8f0);
+    font: 700 12.5px/1 ui-sans-serif; cursor: pointer;
+  }
+  .ap-btn-apply { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }
+  .ap-btn-apply:hover { background: #1e50c7; }
+  .ap-btn-cancel { background: var(--card, #fff); color: var(--ink, #1a2332); }
+  .ap-btn-cancel:hover { border-color: var(--accent, #2563eb); color: var(--accent, #2563eb); }
+
+  .ap-spinner {
+    position: fixed; top: 14px; right: 14px; z-index: 700;
+    padding: 8px 14px; background: var(--ink, #1a2332); color: #e2e8f0;
+    border-radius: 999px; font: 600 12px/1 ui-sans-serif;
+    display: none; align-items: center; gap: 8px;
+  }
+  .ap-spinner.open { display: inline-flex; }
+  .ap-spinner::before { content: &quot;⟳&quot;; display: inline-block; animation: ap-spin 1s linear infinite; }
+  @keyframes ap-spin { to { transform: rotate(360deg); } }
+
+  .ap-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 10px 18px; border-radius: 999px;
+    background: var(--ink, #1a2332); color: #e2e8f0; font: 600 12.5px/1 ui-sans-serif;
+    z-index: 950; display: none;
+  }
+  .ap-toast.open { display: block; }
+  .ap-toast.error { background: #991b1b; }
+&lt;/style&gt;
+
+&lt;div class=&quot;ap-backdrop&quot; id=&quot;ap-backdrop&quot;&gt;&lt;/div&gt;
+&lt;div class=&quot;ap-palette&quot; id=&quot;ap-palette&quot; role=&quot;dialog&quot; aria-label=&quot;AI action palette&quot;&gt;&lt;/div&gt;
+&lt;aside class=&quot;ap-diff&quot; id=&quot;ap-diff&quot; aria-label=&quot;AI-pass diff sidebar&quot;&gt;&lt;/aside&gt;
+&lt;div class=&quot;ap-spinner&quot; id=&quot;ap-spinner&quot;&gt;proposing…&lt;/div&gt;
+&lt;div class=&quot;ap-toast&quot; id=&quot;ap-toast&quot;&gt;&lt;/div&gt;
+
+&lt;script&gt;
+(function aiPassModule() {
+  const SERVER = localStorage.getItem(&#39;ap-server&#39;) || &#39;http://localhost:4322&#39;;
+  const registry = () =&gt; window.LD_REGISTRY || null;
+
+  const backdrop = document.getElementById(&#39;ap-backdrop&#39;);
+  const palette  = document.getElementById(&#39;ap-palette&#39;);
+  const diffEl   = document.getElementById(&#39;ap-diff&#39;);
+  const spinner  = document.getElementById(&#39;ap-spinner&#39;);
+  const toast    = document.getElementById(&#39;ap-toast&#39;);
+
+  let currentActions = [];
+  let activeIndex = 0;
+  let engines = { available: [], preferred: null };
+  let selectedEngine = null;
+  let currentPatch = null;
+  let currentPatchId = null;
+  let currentValidation = null;
+  let currentDocPath = null;
+  let currentCardRef = null;
+
+  // ── helpers ────────────────────────────────────────────────────────────
+  function showToast(msg, isError = false) {
+    toast.textContent = msg;
+    toast.classList.toggle(&#39;error&#39;, !!isError);
+    toast.classList.add(&#39;open&#39;);
+    setTimeout(() =&gt; toast.classList.remove(&#39;open&#39;), 3600);
+  }
+  function closeAll() {
+    backdrop.classList.remove(&#39;open&#39;);
+    palette.classList.remove(&#39;open&#39;);
+    diffEl.classList.remove(&#39;open&#39;);
+    spinner.classList.remove(&#39;open&#39;);
+  }
+  function escHtml(s) { return String(s ?? &#39;&#39;).replace(/[&amp;&lt;&gt;&quot;&#39;]/g, c =&gt; ({&#39;&amp;&#39;:&#39;&amp;amp;&#39;,&#39;&lt;&#39;:&#39;&amp;lt;&#39;,&#39;&gt;&#39;:&#39;&amp;gt;&#39;,&#39;&quot;&#39;:&#39;&amp;quot;&#39;,&quot;&#39;&quot;:&#39;&amp;#39;&#39;}[c])); }
+
+  // ── doc path resolution ───────────────────────────────────────────────
+  // The rendered doc embeds a JSON blob at #doc-meta; use its canonicalOrigin
+  // if it looks like a filesystem path. Otherwise fall back to localStorage
+  // (set manually for testing).
+  function resolveDocPath() {
+    if (currentDocPath) return currentDocPath;
+    const override = localStorage.getItem(&#39;ap-doc-path&#39;);
+    if (override) return (currentDocPath = override);
+    try {
+      const meta = JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent);
+      if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;/&#39;)) {
+        return (currentDocPath = meta.canonicalOrigin);
+      }
+      if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;docs/&#39;)) {
+        // Compositor is served next to docs/, so infer an absolute repo path
+        // from the current URL.
+        const here = decodeURI(location.pathname);
+        const repoDocs = here.substring(0, here.lastIndexOf(&#39;/&#39;));
+        return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, &#39;&#39;)}`);
+      }
+    } catch {}
+    return null;
+  }
+
+  // ── action list ───────────────────────────────────────────────────────
+  function actionsForCard(sectionId, cardId) {
+    const reg = registry();
+    if (!reg) return [];
+    const meta = JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent);
+    const section = (meta.sections || []).find(s =&gt; s.id === sectionId);
+    const typeId = section?.convergenceType;
+    const typeDef = reg.convergenceTypes?.[typeId] || {};
+    const general = (reg.generalAiActions || []).map(a =&gt; ({ ...a, scope: &#39;general&#39; }));
+    const specific = (typeDef.aiActions || []).map(a =&gt; ({ ...a, scope: &#39;type-specific&#39;, typeId }));
+    return [...general, ...specific];
+  }
+
+  // ── engines ───────────────────────────────────────────────────────────
+  async function fetchEngines() {
+    try {
+      const r = await fetch(`${SERVER}/api/ai-pass/engines`);
+      engines = await r.json();
+      selectedEngine = engines.preferred || engines.available[0] || null;
+    } catch {
+      engines = { available: [], preferred: null };
+      selectedEngine = null;
+    }
+  }
+  async function setPreferred(engine) {
+    selectedEngine = engine;
+    try {
+      await fetch(`${SERVER}/api/ai-pass/engines/preferred`, {
+        method: &#39;PUT&#39;,
+        headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+        body: JSON.stringify({ engine })
+      });
+    } catch {}
+  }
+
+  // ── palette ───────────────────────────────────────────────────────────
+  async function openPalette(sectionId, cardId) {
+    currentCardRef = { sectionId, cardId };
+    const meta = JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent);
+    const section = (meta.sections || []).find(s =&gt; s.id === sectionId);
+    const cards = section?.data || section?.cards || [];
+    const card = cards.find(c =&gt; c &amp;&amp; c.id === cardId);
+    await fetchEngines();
+    currentActions = actionsForCard(sectionId, cardId);
+    activeIndex = 0;
+    renderPalette(section, card);
+    backdrop.classList.add(&#39;open&#39;);
+    palette.classList.add(&#39;open&#39;);
+    const q = palette.querySelector(&#39;.ap-pal-q&#39;);
+    if (q) q.focus();
+  }
+
+  function renderPalette(section, card) {
+    const engineToggle = engines.available.length &gt;= 2
+      ? `&lt;div class=&quot;ap-pal-engines&quot;&gt;
+          ${engines.available.map(e =&gt; `&lt;button data-engine=&quot;${escHtml(e)}&quot; class=&quot;${e === selectedEngine ? &#39;active&#39; : &#39;&#39;}&quot;&gt;${escHtml(e)}&lt;/button&gt;`).join(&#39;&#39;)}
+         &lt;/div&gt;`
+      : (engines.available.length === 1
+          ? `&lt;span style=&quot;font-size:11px; color: var(--muted, #64748b);&quot;&gt;engine: ${escHtml(engines.available[0])}&lt;/span&gt;`
+          : `&lt;span style=&quot;font-size:11px; color: #991b1b;&quot;&gt;no engine available&lt;/span&gt;`);
+    const ctx = `&lt;code&gt;${escHtml(card?.id ?? &#39;(no card)&#39;)}&lt;/code&gt; · ${escHtml(section?.title ?? section?.id ?? &#39;?&#39;)} · ${escHtml(section?.convergenceType ?? &#39;?&#39;)}`;
+
+    const general = currentActions.filter(a =&gt; a.scope === &#39;general&#39;);
+    const specific = currentActions.filter(a =&gt; a.scope === &#39;type-specific&#39;);
+    function renderGroup(label, items, startIdx) {
+      if (!items.length) return &#39;&#39;;
+      return `&lt;div class=&quot;ap-pal-group-label&quot;&gt;${escHtml(label)}&lt;/div&gt;` +
+        items.map((a, i) =&gt; {
+          const idx = startIdx + i;
+          return `&lt;div class=&quot;ap-pal-item ${idx === activeIndex ? &#39;active&#39; : &#39;&#39;}&quot; data-idx=&quot;${idx}&quot;&gt;
+            &lt;div class=&quot;ic&quot;&gt;${escHtml(a.name?.[0] ?? &#39;·&#39;)}&lt;/div&gt;
+            &lt;div&gt;&lt;div class=&quot;pname&quot;&gt;${escHtml(a.name)}&lt;/div&gt;&lt;div class=&quot;pdesc&quot;&gt;${escHtml(a.description)}&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;`;
+        }).join(&#39;&#39;);
+    }
+    palette.innerHTML = `
+      &lt;div class=&quot;ap-pal-input&quot;&gt;
+        &lt;input class=&quot;ap-pal-q&quot; placeholder=&quot;Search AI actions…&quot; /&gt;
+        ${engineToggle}
+      &lt;/div&gt;
+      &lt;div class=&quot;ap-pal-ctx&quot;&gt;${ctx}&lt;/div&gt;
+      &lt;div class=&quot;ap-pal-list&quot;&gt;
+        ${renderGroup(&#39;General&#39;, general, 0) || &#39;&#39;}
+        ${renderGroup(&#39;Type-specific&#39;, specific, general.length) || &#39;&#39;}
+        ${currentActions.length === 0 ? &#39;&lt;div class=&quot;ap-pal-empty&quot;&gt;No AI actions configured for this card type.&lt;/div&gt;&#39; : &#39;&#39;}
+      &lt;/div&gt;
+      &lt;div class=&quot;ap-pal-foot&quot;&gt;
+        &lt;span&gt;↑↓ navigate&lt;/span&gt;&lt;span&gt;↵ run&lt;/span&gt;&lt;span&gt;esc close&lt;/span&gt;
+      &lt;/div&gt;`;
+
+    palette.querySelectorAll(&#39;.ap-pal-engines button&#39;).forEach(b =&gt; {
+      b.addEventListener(&#39;click&#39;, () =&gt; { setPreferred(b.dataset.engine); renderPalette(section, card); });
+    });
+    palette.querySelectorAll(&#39;.ap-pal-item&#39;).forEach(el =&gt; {
+      el.addEventListener(&#39;click&#39;, () =&gt; runAction(Number(el.dataset.idx)));
+    });
+    const q = palette.querySelector(&#39;.ap-pal-q&#39;);
+    q.addEventListener(&#39;input&#39;, () =&gt; {
+      const term = q.value.trim().toLowerCase();
+      const filtered = currentActions.filter(a =&gt; !term || a.name.toLowerCase().includes(term) || a.description.toLowerCase().includes(term));
+      palette.querySelectorAll(&#39;.ap-pal-item&#39;).forEach(el =&gt; {
+        const idx = Number(el.dataset.idx);
+        el.style.display = filtered.includes(currentActions[idx]) ? &#39;&#39; : &#39;none&#39;;
+      });
+    });
+  }
+
+  document.addEventListener(&#39;keydown&#39;, (e) =&gt; {
+    // Global Cmd+K / Ctrl+K
+    if ((e.metaKey || e.ctrlKey) &amp;&amp; e.key.toLowerCase() === &#39;k&#39;) {
+      const sel = document.querySelector(&#39;.l2-card-selected&#39;);
+      if (sel &amp;&amp; sel.dataset.sectionId &amp;&amp; sel.dataset.cardId) {
+        e.preventDefault();
+        openPalette(sel.dataset.sectionId, sel.dataset.cardId);
+      }
+      return;
+    }
+    if (palette.classList.contains(&#39;open&#39;)) {
+      if (e.key === &#39;Escape&#39;) { closeAll(); e.preventDefault(); return; }
+      if (e.key === &#39;ArrowDown&#39;) { activeIndex = Math.min(activeIndex + 1, currentActions.length - 1); renderActiveRow(); e.preventDefault(); return; }
+      if (e.key === &#39;ArrowUp&#39;) { activeIndex = Math.max(activeIndex - 1, 0); renderActiveRow(); e.preventDefault(); return; }
+      if (e.key === &#39;Enter&#39;) { runAction(activeIndex); e.preventDefault(); return; }
+    }
+    if (diffEl.classList.contains(&#39;open&#39;) &amp;&amp; e.key === &#39;Escape&#39;) { closeAll(); }
+  });
+  function renderActiveRow() {
+    palette.querySelectorAll(&#39;.ap-pal-item&#39;).forEach(el =&gt; {
+      el.classList.toggle(&#39;active&#39;, Number(el.dataset.idx) === activeIndex);
+    });
+  }
+
+  backdrop.addEventListener(&#39;click&#39;, closeAll);
+
+  // ── propose → diff → apply ────────────────────────────────────────────
+  async function runAction(idx) {
+    const action = currentActions[idx];
+    if (!action) return;
+    if (!selectedEngine) { showToast(&#39;no engine available — is the server running?&#39;, true); return; }
+    const docPath = resolveDocPath();
+    if (!docPath) { showToast(&#39;cannot resolve doc path (set ap-doc-path in localStorage)&#39;, true); return; }
+    closeAll();
+    spinner.classList.add(&#39;open&#39;);
+    try {
+      const r = await fetch(`${SERVER}/api/ai-pass/propose`, {
+        method: &#39;POST&#39;,
+        headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+        body: JSON.stringify({ docPath, cardRef: currentCardRef, action: action.id, engine: selectedEngine }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || `server returned ${r.status}`);
+      const data = await r.json();
+      currentPatch = data.patch;
+      currentPatchId = data.patchId;
+      currentValidation = data.validation;
+      spinner.classList.remove(&#39;open&#39;);
+      renderDiff();
+    } catch (e) {
+      spinner.classList.remove(&#39;open&#39;);
+      showToast(String(e.message || e), true);
+    }
+  }
+
+  function opClass(kind) {
+    if (kind === &#39;card-create&#39; || kind === &#39;ticket-create&#39; || kind === &#39;coverage-add&#39;) return &#39;add&#39;;
+    if (kind === &#39;coverage-remove&#39;) return &#39;rem&#39;;
+    return &#39;mod&#39;;
+  }
+  function changeRow(ch, i) {
+    const id = `cid-${i}`;
+    let tgt = &#39;&#39;, det = ch.rationale || &#39;&#39;;
+    switch (ch.kind) {
+      case &#39;card-create&#39;:     tgt = `&lt;code&gt;${escHtml(ch.sectionId)}&lt;/code&gt; · new card ${escHtml(ch.card?.id)}`; break;
+      case &#39;card-update&#39;:     tgt = `&lt;code&gt;${escHtml(ch.sectionId)}/${escHtml(ch.cardId)}&lt;/code&gt; · ${escHtml(Object.keys(ch.fields || {}).join(&#39;, &#39;))}`; break;
+      case &#39;ticket-create&#39;:   tgt = `${escHtml(ch.repo)} · ${escHtml(ch.title)}`; break;
+      case &#39;coverage-add&#39;:    tgt = `${escHtml(ch.facetId)} → ${escHtml(ch.sectionId)}/${escHtml(ch.cardId)}`; break;
+      case &#39;coverage-remove&#39;: tgt = `− ${escHtml(ch.facetId)} → ${escHtml(ch.sectionId)}/${escHtml(ch.cardId)}`; break;
+      case &#39;rationale-update&#39;: tgt = `&lt;code&gt;${escHtml(ch.sectionId)}&lt;/code&gt; · rationale`; det = escHtml(ch.rationale).slice(0, 160); break;
+      case &#39;invariant-suggest&#39;: tgt = `suggested invariant: ${escHtml(ch.name)}`; det = escHtml(ch.statement); break;
+    }
+    return `&lt;label class=&quot;ap-diff-row&quot; for=&quot;${id}&quot;&gt;
+      &lt;input id=&quot;${id}&quot; type=&quot;checkbox&quot; data-change=&quot;${escHtml(ch.changeId)}&quot; checked /&gt;
+      &lt;div&gt;&lt;span class=&quot;op ${opClass(ch.kind)}&quot;&gt;${escHtml(ch.kind)}&lt;/span&gt;&lt;span class=&quot;tgt&quot;&gt;${tgt}&lt;/span&gt;${det ? `&lt;div class=&quot;det&quot;&gt;${det}&lt;/div&gt;` : &#39;&#39;}&lt;/div&gt;
+    &lt;/label&gt;`;
+  }
+  function renderDiff() {
+    const v = currentValidation || {};
+    const summary = currentPatch?.summary || &#39;AI-pass proposal&#39;;
+    const violationsHtml = (v.violations || []).length
+      ? `&lt;div class=&quot;det&quot; style=&quot;color:#991b1b;&quot;&gt;${v.violations.length} validation violation(s) — review carefully.&lt;/div&gt;` : &#39;&#39;;
+    const changes = currentPatch?.changes || [];
+    diffEl.innerHTML = `
+      &lt;div class=&quot;ap-diff-head&quot;&gt;
+        &lt;div class=&quot;ap-eye&quot;&gt;Proposed patch · AI pass&lt;/div&gt;
+        &lt;h3&gt;${escHtml(summary)}&lt;/h3&gt;
+        &lt;div class=&quot;sub&quot;&gt;${escHtml(currentPatch?.proposedBy?.engine || &#39;&#39;)} · ${escHtml(currentPatch?.proposedBy?.action || &#39;&#39;)}&lt;/div&gt;
+        ${violationsHtml}
+      &lt;/div&gt;
+      &lt;div class=&quot;ap-diff-body&quot;&gt;
+        ${changes.map(changeRow).join(&#39;&#39;) || &#39;&lt;div class=&quot;det&quot; style=&quot;padding:18px;&quot;&gt;No changes proposed.&lt;/div&gt;&#39;}
+      &lt;/div&gt;
+      &lt;div class=&quot;ap-diff-foot&quot;&gt;
+        &lt;div class=&quot;meta&quot;&gt;type boundaries ${v.summary?.typeBoundariesOk ? &#39;ok&#39; : &#39;VIOLATED&#39;} · orphans ${v.summary?.orphansCreated ?? 0}&lt;/div&gt;
+        &lt;div class=&quot;actions&quot;&gt;
+          &lt;button class=&quot;ap-btn-cancel&quot; id=&quot;ap-cancel&quot;&gt;Cancel&lt;/button&gt;
+          &lt;button class=&quot;ap-btn-apply&quot; id=&quot;ap-apply&quot; ${changes.length === 0 || !v.ok ? &#39;disabled&#39; : &#39;&#39;}&gt;Apply&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;`;
+    diffEl.classList.add(&#39;open&#39;);
+    document.getElementById(&#39;ap-cancel&#39;).addEventListener(&#39;click&#39;, closeAll);
+    document.getElementById(&#39;ap-apply&#39;).addEventListener(&#39;click&#39;, applyPatch);
+  }
+  async function applyPatch() {
+    const acceptedChangeIds = Array.from(diffEl.querySelectorAll(&#39;input[type=&quot;checkbox&quot;]:checked&#39;)).map(el =&gt; el.dataset.change);
+    if (!acceptedChangeIds.length) { closeAll(); return; }
+    spinner.classList.add(&#39;open&#39;);
+    spinner.textContent = &#39;applying…&#39;;
+    try {
+      const r = await fetch(`${SERVER}/api/ai-pass/apply`, {
+        method: &#39;POST&#39;,
+        headers: { &#39;Content-Type&#39;: &#39;application/json&#39; },
+        body: JSON.stringify({ patchId: currentPatchId, acceptedChangeIds }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || `server returned ${r.status}`);
+      const data = await r.json();
+      spinner.classList.remove(&#39;open&#39;);
+      spinner.textContent = &#39;proposing…&#39;;
+      closeAll();
+      showToast(`Applied ${acceptedChangeIds.length} change(s). Reload to see the result.`);
+    } catch (e) {
+      spinner.classList.remove(&#39;open&#39;);
+      spinner.textContent = &#39;proposing…&#39;;
+      showToast(String(e.message || e), true);
+    }
+  }
+})();
+&lt;/script&gt;
 &lt;/body&gt;
 &lt;/html&gt;
 "></iframe>
@@ -15101,7 +15513,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T10:30:06.626Z" title="2026-04-18T10:30:06.626Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T10:30:06.626Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T10:51:43.759Z" title="2026-04-18T10:51:43.759Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T10:51:43.759Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15284,7 +15696,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-ae7c330 (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-7e35e24 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
