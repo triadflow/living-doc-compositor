@@ -380,6 +380,44 @@
   .l2-swap-popover-swatch {
     display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
   }
+  .l2-gov-strip {
+    display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--card);
+    align-items: center; position: relative; z-index: 4;
+  }
+  .l2-gov-strip.l2-gov-strip-invariants {
+    border-bottom: none; border-top: 1px solid var(--line); background: #fffbeb;
+  }
+  .l2-gov-strip-label {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    background: var(--neutral-bg); color: var(--neutral-ink); margin-right: 4px;
+  }
+  .l2-gov-strip-label.l2-gov-strip-label-invariant {
+    background: #fef3c7; color: #92400e;
+  }
+  .l2-gov-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line);
+    font-size: 11.5px; color: var(--ink);
+  }
+  .l2-gov-chip-orphan {
+    background: var(--negative-bg); border-color: #fecaca; color: var(--negative-ink);
+  }
+  .l2-gov-chip-docwide {
+    background: #fde68a; border-color: #fbbf24; color: #92400e; font-weight: 700;
+  }
+  .l2-gov-chip strong { font-weight: 700; }
+  .l2-gov-chip small { color: var(--muted); font-size: 10.5px; }
+  .l2-body-wire-coverage { stroke-width: 1.5; opacity: 0.55; }
+  .l2-body-wire-coverage.l2-body-wire-drift { stroke: #b91c1c; stroke-dasharray: 4 4; }
+  .l2-body-wire-invariant { stroke: #d97706; stroke-width: 1.5; opacity: 0.75; }
+  svg.l2-gov-overlay {
+    position: absolute; top: 0; left: 0;
+    pointer-events: none; z-index: 2;
+  }
+  svg.l2-gov-overlay path { fill: none; }
   .l2-body-canvas {
     position: relative; display: grid;
     grid-auto-flow: column; grid-auto-columns: 280px;
@@ -1598,6 +1636,10 @@
       "flowBodyEmptyBody": "Add sections to your doc to see them as frames on the body canvas.",
       "flowBodyUniqueTickets": "unique tickets",
       "flowBodyCrossRefs": "cross-card refs",
+      "flowBodyFacets": "Facets",
+      "flowBodyInvariants": "Invariants",
+      "flowBodyFacetOrphan": "orphan",
+      "flowBodyInvariantDocWide": "doc-wide",
       "flowRationaleStub": "no rationale declared yet",
       "flowSwapType": "Swap convergence type",
       "flowCollapse": "Collapse section",
@@ -1942,6 +1984,10 @@
       "flowBodyEmptyBody": "Voeg secties toe aan je document om ze als frames op het body-canvas te zien.",
       "flowBodyUniqueTickets": "unieke tickets",
       "flowBodyCrossRefs": "kaart-kruisverwijzingen",
+      "flowBodyFacets": "Facetten",
+      "flowBodyInvariants": "Invarianten",
+      "flowBodyFacetOrphan": "wees",
+      "flowBodyInvariantDocWide": "doc-breed",
       "flowRationaleStub": "nog geen rationale verklaard",
       "flowSwapType": "Convergentietype wisselen",
       "flowCollapse": "Sectie inklappen",
@@ -2457,6 +2503,10 @@
       "flowBodyEmptyBody": "Tambahkan seksi ke dokumen Anda untuk melihatnya sebagai frame di kanvas body.",
       "flowBodyUniqueTickets": "tiket unik",
       "flowBodyCrossRefs": "referensi antar-kartu",
+      "flowBodyFacets": "Facet",
+      "flowBodyInvariants": "Invarian",
+      "flowBodyFacetOrphan": "yatim",
+      "flowBodyInvariantDocWide": "seluruh-dok",
       "flowRationaleStub": "belum ada rationale yang dinyatakan",
       "flowSwapType": "Ganti tipe konvergensi",
       "flowCollapse": "Tutup seksi",
@@ -9681,7 +9731,10 @@
         requestAnimationFrame(() => drawFlowWires(json));
         wireFlowInteractions(panel);
       } else if (mode === 'body') {
-        requestAnimationFrame(() => drawL2BodyWires(json));
+        requestAnimationFrame(() => {
+          drawL2BodyWires(json);
+          drawL2GovOverlay(json);
+        });
         wireL2BodyInteractions(panel);
       }
     }
@@ -9696,8 +9749,14 @@
       if (state.previewTab !== 'flow') return;
       const json = buildJson();
       const mode = state.flowMode || 'governance';
-      if (mode === 'body') requestAnimationFrame(() => drawL2BodyWires(json));
-      else                 requestAnimationFrame(() => drawFlowWires(json));
+      if (mode === 'body') {
+        requestAnimationFrame(() => {
+          drawL2BodyWires(json);
+          drawL2GovOverlay(json);
+        });
+      } else {
+        requestAnimationFrame(() => drawFlowWires(json));
+      }
     };
     window.addEventListener('resize', flowResizeHandler);
   }
@@ -10269,15 +10328,46 @@
     const inspectorHtml = selCard ? renderL2Inspector(sections, selSid, selCard) : '';
     const paletteHtml = renderL2Palette();
 
+    const facets = Array.isArray(json.objectiveFacets) ? json.objectiveFacets : [];
+    const invariants = Array.isArray(json.invariants) ? json.invariants : [];
+    const coverage = Array.isArray(json.coverage) ? json.coverage : [];
+    const facetCovered = new Set(coverage.map((e) => e && e.facetId).filter(Boolean));
+
+    const facetStripHtml = facets.length === 0 ? '' : `
+      <div class="l2-gov-strip l2-gov-strip-facets">
+        <span class="l2-gov-strip-label">${esc(t('flowBodyFacets'))}</span>
+        ${facets.map((f) => {
+          const orphan = !facetCovered.has(f.id);
+          return `<span class="l2-gov-chip ${orphan ? 'l2-gov-chip-orphan' : ''}" data-facet-id="${esc(f.id || '')}" title="${esc(f.description || '')}">
+            <strong>${esc(f.name || f.id || '')}</strong>${orphan ? `<small>${esc(t('flowBodyFacetOrphan'))}</small>` : ''}
+          </span>`;
+        }).join('')}
+      </div>`;
+
+    const invariantStripHtml = invariants.length === 0 ? '' : `
+      <div class="l2-gov-strip l2-gov-strip-invariants">
+        <span class="l2-gov-strip-label l2-gov-strip-label-invariant">${esc(t('flowBodyInvariants'))}</span>
+        ${invariants.map((inv) => {
+          const appliesTo = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+          const docWide = appliesTo.includes('*');
+          return `<span class="l2-gov-chip ${docWide ? 'l2-gov-chip-docwide' : ''}" data-invariant-id="${esc(inv.id || '')}" title="${esc(inv.statement || '')}">
+            <strong>${esc(inv.name || inv.id || '')}</strong>${docWide ? `<small>${esc(t('flowBodyInvariantDocWide'))}</small>` : ''}
+          </span>`;
+        }).join('')}
+      </div>`;
+
     return `
       <div class="l2-body-stats">${statsHtml}</div>
       <div class="l2-body-layout">
         <aside class="l2-body-palette" id="l2-body-palette">${paletteHtml}</aside>
         <div class="l2-body-canvas-wrap" id="l2-body-canvas-wrap">
+          ${facetStripHtml}
           <div class="l2-body-canvas" id="l2-body-canvas">
             <svg class="l2-body-wires" id="l2-body-wires" aria-hidden="true"></svg>
             ${framesHtml}
           </div>
+          ${invariantStripHtml}
+          <svg class="l2-gov-overlay" id="l2-gov-overlay" aria-hidden="true"></svg>
           ${inspectorHtml}
         </div>
       </div>`;
@@ -10411,6 +10501,81 @@
         paths.push(`<path class="${cls}" stroke="${color}" d="${bezier(x1, y1, x2, y2)}"/>`);
       }
     }
+    svg.innerHTML = paths.join('');
+  }
+
+  function drawL2GovOverlay(json) {
+    const wrap = document.getElementById('l2-body-canvas-wrap');
+    const svg  = document.getElementById('l2-gov-overlay');
+    if (!wrap || !svg) return;
+    const coverage   = Array.isArray(json.coverage) ? json.coverage : [];
+    const invariants = Array.isArray(json.invariants) ? json.invariants : [];
+
+    const scrollW = Math.max(wrap.scrollWidth,  wrap.clientWidth);
+    const scrollH = Math.max(wrap.scrollHeight, wrap.clientHeight);
+    svg.setAttribute('width',  String(scrollW));
+    svg.setAttribute('height', String(scrollH));
+    svg.style.width  = scrollW + 'px';
+    svg.style.height = scrollH + 'px';
+
+    const wrapRect = wrap.getBoundingClientRect();
+    const sx = wrap.scrollLeft, sy = wrap.scrollTop;
+    const toLocal = (r) => ({
+      x: r.left - wrapRect.left + sx,
+      y: r.top  - wrapRect.top  + sy,
+      w: r.width, h: r.height,
+    });
+    const cssEscape = (s) => String(s).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
+    const bezier = (x1, y1, x2, y2) => {
+      const my = (y1 + y2) / 2;
+      return `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
+    };
+
+    const paths = [];
+
+    coverage.forEach((edge) => {
+      if (!edge || !edge.facetId || !edge.sectionId) return;
+      const chip = wrap.querySelector(`[data-facet-id="${cssEscape(edge.facetId)}"]`);
+      if (!chip) return;
+      const frame = wrap.querySelector(`[data-section-id="${cssEscape(edge.sectionId)}"]`);
+      if (!frame) return;
+      const collapsed = frame.classList.contains('l2-frame-collapsed');
+      let target = null;
+      let drifted = false;
+      if (edge.cardId) {
+        target = frame.querySelector(`[data-card-id="${cssEscape(edge.cardId)}"]`);
+        if (!target) drifted = true;
+      }
+      if (!target || collapsed) target = frame.querySelector('.l2-frame-head');
+      if (!target) return;
+      const a = toLocal(chip.getBoundingClientRect());
+      const b = toLocal(target.getBoundingClientRect());
+      const x1 = a.x + a.w / 2;
+      const y1 = a.y + a.h;
+      const x2 = b.x + b.w / 2;
+      const y2 = b.y;
+      paths.push(`<path class="l2-body-wire-coverage ${drifted ? 'l2-body-wire-drift' : ''}" stroke="${drifted ? '#b91c1c' : '#94a3b8'}" d="${bezier(x1, y1, x2, y2)}"/>`);
+    });
+
+    invariants.forEach((inv) => {
+      if (!inv || !inv.id) return;
+      const appliesTo = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
+      if (appliesTo.length === 0 || appliesTo.includes('*')) return;
+      const chip = wrap.querySelector(`[data-invariant-id="${cssEscape(inv.id)}"]`);
+      if (!chip) return;
+      appliesTo.forEach((sid) => {
+        const head = wrap.querySelector(`[data-section-id="${cssEscape(sid)}"] .l2-frame-head`);
+        if (!head) return;
+        const a = toLocal(chip.getBoundingClientRect());
+        const b = toLocal(head.getBoundingClientRect());
+        const x1 = a.x + a.w / 2;
+        const y1 = a.y;
+        const x2 = b.x + b.w / 2;
+        const y2 = b.y + b.h;
+        paths.push(`<path class="l2-body-wire-invariant" stroke="#d97706" d="${bezier(x1, y1, x2, y2)}"/>`);
+      });
+    });
+
     svg.innerHTML = paths.join('');
   }
 
