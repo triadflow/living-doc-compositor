@@ -1735,6 +1735,18 @@
     color: #92400e;
   }
   .flow-view { display: flex; flex-direction: column; min-height: 100%; }
+  .flow-mode-toggle {
+    display: inline-flex; gap: 4px; margin: 12px 16px 0; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+    align-self: flex-start; box-shadow: var(--shadow-sm);
+  }
+  .flow-mode-btn {
+    appearance: none; border: none; border-radius: 7px; padding: 6px 12px;
+    background: transparent; color: var(--muted); font: inherit; font-size: 12px;
+    font-weight: 700; cursor: pointer;
+  }
+  .flow-mode-btn:hover { color: var(--ink); }
+  .flow-mode-btn.active { background: var(--accent); color: #fff; }
   .flow-stats {
     display: flex; gap: 6px; padding: 10px 16px;
     border-bottom: 1px solid var(--line); background: var(--card);
@@ -2806,6 +2818,12 @@
       &quot;jsonCopied&quot;: &quot;Copied&quot;,
       &quot;jsonCopyTitle&quot;: &quot;Copy the full doc JSON to the clipboard&quot;,
       &quot;jsonCopyFallback&quot;: &quot;Copy the JSON below:&quot;,
+      &quot;flowModeToggleLabel&quot;: &quot;Flow view mode&quot;,
+      &quot;flowModeGovernance&quot;: &quot;Governance&quot;,
+      &quot;flowModeBody&quot;: &quot;Body&quot;,
+      &quot;flowBodyTitle&quot;: &quot;Body canvas&quot;,
+      &quot;flowBodyBody&quot;: &quot;The body canvas renders every section as a frame and every card as a mini-node, with wires tracing shared ticket references. Turn on the mode above, then wait for the canvas to render — full rendering lands in #64.&quot;,
+      &quot;flowBodyStubNote&quot;: &quot;canvas lands in #64&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Browse starter and advanced living doc templates&quot;,
       &quot;templatesIntro&quot;: &quot;Start with a simple starter template or jump straight into a fuller advanced shape.&quot;,
@@ -3130,6 +3148,12 @@
       &quot;jsonCopied&quot;: &quot;Gekopieerd&quot;,
       &quot;jsonCopyTitle&quot;: &quot;Kopieer het volledige doc-JSON naar het klembord&quot;,
       &quot;jsonCopyFallback&quot;: &quot;Kopieer de JSON hieronder:&quot;,
+      &quot;flowModeToggleLabel&quot;: &quot;Flow-weergavemodus&quot;,
+      &quot;flowModeGovernance&quot;: &quot;Governance&quot;,
+      &quot;flowModeBody&quot;: &quot;Body&quot;,
+      &quot;flowBodyTitle&quot;: &quot;Body-canvas&quot;,
+      &quot;flowBodyBody&quot;: &quot;Het body-canvas rendert elke sectie als frame en elke kaart als mini-knooppunt, met draden die gedeelde ticketverwijzingen traceren. Zet de modus hierboven aan en wacht op de canvasrendering — volledige rendering landt in #64.&quot;,
+      &quot;flowBodyStubNote&quot;: &quot;canvas landt in #64&quot;,
       &quot;templates&quot;: &quot;Templates&quot;,
       &quot;templatesHint&quot;: &quot;Blader door starter- en geavanceerde living-doc-templates&quot;,
       &quot;templatesIntro&quot;: &quot;Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.&quot;,
@@ -3625,6 +3649,12 @@
       &quot;jsonCopied&quot;: &quot;Tersalin&quot;,
       &quot;jsonCopyTitle&quot;: &quot;Salin JSON dokumen lengkap ke clipboard&quot;,
       &quot;jsonCopyFallback&quot;: &quot;Salin JSON di bawah ini:&quot;,
+      &quot;flowModeToggleLabel&quot;: &quot;Mode tampilan Flow&quot;,
+      &quot;flowModeGovernance&quot;: &quot;Governance&quot;,
+      &quot;flowModeBody&quot;: &quot;Body&quot;,
+      &quot;flowBodyTitle&quot;: &quot;Kanvas body&quot;,
+      &quot;flowBodyBody&quot;: &quot;Kanvas body merender setiap seksi sebagai frame dan setiap kartu sebagai mini-node, dengan kabel yang menelusuri referensi tiket bersama. Nyalakan mode di atas, lalu tunggu kanvas dirender — rendering lengkap mendarat di #64.&quot;,
+      &quot;flowBodyStubNote&quot;: &quot;kanvas mendarat di #64&quot;,
       &quot;templates&quot;: &quot;Template&quot;,
       &quot;templatesHint&quot;: &quot;Jelajahi template starter dan lanjutan living doc&quot;,
       &quot;templatesIntro&quot;: &quot;Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.&quot;,
@@ -4119,6 +4149,7 @@
     leftDrawerOpen: true,
     topMenuOpen: false,
     previewTab: &#39;visual&#39;,
+    flowMode: &#39;governance&#39;,
     boardDimensionId: &#39;&#39;,
     showLoadModal: false,
     showRegistryModal: false,
@@ -10823,8 +10854,19 @@
     }
 
     if (state.previewTab === &#39;flow&#39;) {
-      requestAnimationFrame(() =&gt; drawFlowWires(json));
-      wireFlowInteractions(panel);
+      // Mode toggle — present in both modes
+      panel.querySelectorAll(&#39;[data-flow-mode]&#39;).forEach((btn) =&gt; {
+        btn.addEventListener(&#39;click&#39;, () =&gt; {
+          state.flowMode = btn.dataset.flowMode === &#39;body&#39; ? &#39;body&#39; : &#39;governance&#39;;
+          autoSave();
+          renderRight();
+        });
+      });
+      // Governance mode keeps the existing wire + interaction hookups
+      if ((state.flowMode || &#39;governance&#39;) === &#39;governance&#39;) {
+        requestAnimationFrame(() =&gt; drawFlowWires(json));
+        wireFlowInteractions(panel);
+      }
     }
 
     syncFocusedSectionInPreview();
@@ -11263,6 +11305,28 @@
   }
 
   function renderFlowPreview(json) {
+    const mode = state.flowMode === &#39;body&#39; ? &#39;body&#39; : &#39;governance&#39;;
+    const toggleHtml = `
+      &lt;div class=&quot;flow-mode-toggle&quot; role=&quot;tablist&quot; aria-label=&quot;${esc(t(&#39;flowModeToggleLabel&#39;))}&quot;&gt;
+        &lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;${mode === &#39;governance&#39;}&quot; class=&quot;flow-mode-btn${mode === &#39;governance&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-flow-mode=&quot;governance&quot;&gt;${esc(t(&#39;flowModeGovernance&#39;))}&lt;/button&gt;
+        &lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;${mode === &#39;body&#39;}&quot; class=&quot;flow-mode-btn${mode === &#39;body&#39; ? &#39; active&#39; : &#39;&#39;}&quot; data-flow-mode=&quot;body&quot;&gt;${esc(t(&#39;flowModeBody&#39;))}&lt;/button&gt;
+      &lt;/div&gt;`;
+    const body = mode === &#39;body&#39; ? renderFlowBodyPreview(json) : renderFlowGovernancePreview(json);
+    return `${toggleHtml}${body}`;
+  }
+
+  function renderFlowBodyPreview(json) {
+    const sections = Array.isArray(json.sections) ? json.sections : [];
+    const cardTotal = sections.reduce((n, s) =&gt; n + (Array.isArray(s.data) ? s.data.length : 0), 0);
+    return `
+      &lt;div class=&quot;flow-empty&quot; data-flow-body-placeholder&gt;
+        &lt;strong&gt;${esc(t(&#39;flowBodyTitle&#39;))}&lt;/strong&gt;
+        &lt;p style=&quot;margin:6px 0 10px&quot;&gt;${esc(t(&#39;flowBodyBody&#39;))}&lt;/p&gt;
+        &lt;div class=&quot;flow-placeholder-summary&quot;&gt;${sections.length} ${esc(t(&#39;sections&#39;))} \u00b7 ${cardTotal} ${esc(t(&#39;items&#39;))} \u2014 ${esc(t(&#39;flowBodyStubNote&#39;))}&lt;/div&gt;
+      &lt;/div&gt;`;
+  }
+
+  function renderFlowGovernancePreview(json) {
     const state = deriveFlowCoherence(json);
     const { facets, coverage, invariants, sections } = state;
     const hasGovernance = facets.length &gt; 0 || coverage.length &gt; 0 || invariants.length &gt; 0;
@@ -14037,7 +14101,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-17T13:09:26.280Z" title="2026-04-17T13:09:26.280Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-17T13:09:26.280Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T02:14:08.059Z" title="2026-04-18T02:14:08.059Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T02:14:08.059Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -14653,7 +14717,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-bcfa431 (2026-04-17)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-3b6ff51 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

@@ -292,6 +292,18 @@
     color: #92400e;
   }
   .flow-view { display: flex; flex-direction: column; min-height: 100%; }
+  .flow-mode-toggle {
+    display: inline-flex; gap: 4px; margin: 12px 16px 0; padding: 4px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+    align-self: flex-start; box-shadow: var(--shadow-sm);
+  }
+  .flow-mode-btn {
+    appearance: none; border: none; border-radius: 7px; padding: 6px 12px;
+    background: transparent; color: var(--muted); font: inherit; font-size: 12px;
+    font-weight: 700; cursor: pointer;
+  }
+  .flow-mode-btn:hover { color: var(--ink); }
+  .flow-mode-btn.active { background: var(--accent); color: #fff; }
   .flow-stats {
     display: flex; gap: 6px; padding: 10px 16px;
     border-bottom: 1px solid var(--line); background: var(--card);
@@ -1363,6 +1375,12 @@
       "jsonCopied": "Copied",
       "jsonCopyTitle": "Copy the full doc JSON to the clipboard",
       "jsonCopyFallback": "Copy the JSON below:",
+      "flowModeToggleLabel": "Flow view mode",
+      "flowModeGovernance": "Governance",
+      "flowModeBody": "Body",
+      "flowBodyTitle": "Body canvas",
+      "flowBodyBody": "The body canvas renders every section as a frame and every card as a mini-node, with wires tracing shared ticket references. Turn on the mode above, then wait for the canvas to render — full rendering lands in #64.",
+      "flowBodyStubNote": "canvas lands in #64",
       "templates": "Templates",
       "templatesHint": "Browse starter and advanced living doc templates",
       "templatesIntro": "Start with a simple starter template or jump straight into a fuller advanced shape.",
@@ -1687,6 +1705,12 @@
       "jsonCopied": "Gekopieerd",
       "jsonCopyTitle": "Kopieer het volledige doc-JSON naar het klembord",
       "jsonCopyFallback": "Kopieer de JSON hieronder:",
+      "flowModeToggleLabel": "Flow-weergavemodus",
+      "flowModeGovernance": "Governance",
+      "flowModeBody": "Body",
+      "flowBodyTitle": "Body-canvas",
+      "flowBodyBody": "Het body-canvas rendert elke sectie als frame en elke kaart als mini-knooppunt, met draden die gedeelde ticketverwijzingen traceren. Zet de modus hierboven aan en wacht op de canvasrendering — volledige rendering landt in #64.",
+      "flowBodyStubNote": "canvas landt in #64",
       "templates": "Templates",
       "templatesHint": "Blader door starter- en geavanceerde living-doc-templates",
       "templatesIntro": "Begin met een eenvoudige starter-template of spring direct naar een uitgebreidere geavanceerde vorm.",
@@ -2182,6 +2206,12 @@
       "jsonCopied": "Tersalin",
       "jsonCopyTitle": "Salin JSON dokumen lengkap ke clipboard",
       "jsonCopyFallback": "Salin JSON di bawah ini:",
+      "flowModeToggleLabel": "Mode tampilan Flow",
+      "flowModeGovernance": "Governance",
+      "flowModeBody": "Body",
+      "flowBodyTitle": "Kanvas body",
+      "flowBodyBody": "Kanvas body merender setiap seksi sebagai frame dan setiap kartu sebagai mini-node, dengan kabel yang menelusuri referensi tiket bersama. Nyalakan mode di atas, lalu tunggu kanvas dirender — rendering lengkap mendarat di #64.",
+      "flowBodyStubNote": "kanvas mendarat di #64",
       "templates": "Template",
       "templatesHint": "Jelajahi template starter dan lanjutan living doc",
       "templatesIntro": "Mulai dengan template starter yang sederhana atau langsung pakai bentuk lanjutan yang lebih lengkap.",
@@ -2676,6 +2706,7 @@
     leftDrawerOpen: true,
     topMenuOpen: false,
     previewTab: 'visual',
+    flowMode: 'governance',
     boardDimensionId: '',
     showLoadModal: false,
     showRegistryModal: false,
@@ -9380,8 +9411,19 @@
     }
 
     if (state.previewTab === 'flow') {
-      requestAnimationFrame(() => drawFlowWires(json));
-      wireFlowInteractions(panel);
+      // Mode toggle — present in both modes
+      panel.querySelectorAll('[data-flow-mode]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.flowMode = btn.dataset.flowMode === 'body' ? 'body' : 'governance';
+          autoSave();
+          renderRight();
+        });
+      });
+      // Governance mode keeps the existing wire + interaction hookups
+      if ((state.flowMode || 'governance') === 'governance') {
+        requestAnimationFrame(() => drawFlowWires(json));
+        wireFlowInteractions(panel);
+      }
     }
 
     syncFocusedSectionInPreview();
@@ -9820,6 +9862,28 @@
   }
 
   function renderFlowPreview(json) {
+    const mode = state.flowMode === 'body' ? 'body' : 'governance';
+    const toggleHtml = `
+      <div class="flow-mode-toggle" role="tablist" aria-label="${esc(t('flowModeToggleLabel'))}">
+        <button type="button" role="tab" aria-selected="${mode === 'governance'}" class="flow-mode-btn${mode === 'governance' ? ' active' : ''}" data-flow-mode="governance">${esc(t('flowModeGovernance'))}</button>
+        <button type="button" role="tab" aria-selected="${mode === 'body'}" class="flow-mode-btn${mode === 'body' ? ' active' : ''}" data-flow-mode="body">${esc(t('flowModeBody'))}</button>
+      </div>`;
+    const body = mode === 'body' ? renderFlowBodyPreview(json) : renderFlowGovernancePreview(json);
+    return `${toggleHtml}${body}`;
+  }
+
+  function renderFlowBodyPreview(json) {
+    const sections = Array.isArray(json.sections) ? json.sections : [];
+    const cardTotal = sections.reduce((n, s) => n + (Array.isArray(s.data) ? s.data.length : 0), 0);
+    return `
+      <div class="flow-empty" data-flow-body-placeholder>
+        <strong>${esc(t('flowBodyTitle'))}</strong>
+        <p style="margin:6px 0 10px">${esc(t('flowBodyBody'))}</p>
+        <div class="flow-placeholder-summary">${sections.length} ${esc(t('sections'))} \u00b7 ${cardTotal} ${esc(t('items'))} \u2014 ${esc(t('flowBodyStubNote'))}</div>
+      </div>`;
+  }
+
+  function renderFlowGovernancePreview(json) {
     const state = deriveFlowCoherence(json);
     const { facets, coverage, invariants, sections } = state;
     const hasGovernance = facets.length > 0 || coverage.length > 0 || invariants.length > 0;
