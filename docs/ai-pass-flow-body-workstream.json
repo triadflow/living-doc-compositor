@@ -9,7 +9,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T13:16:31.211Z",
+  "updated": "2026-04-18T13:20:29.662Z",
   "pills": [
     "Workstream",
     "AI",
@@ -134,7 +134,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:41d6fd20e321b7de9e8d09fecb52903ff8e0c11cbf573b94d81d350063fde02c",
+  "metaFingerprint": "sha256:942714dc31bf5bc98eba7068bb0a56dd4b900258fa101a0092ad0fae12445ada",
   "callouts": [
     {
       "tone": "info",
@@ -377,7 +377,7 @@
       "title": "Components",
       "convergenceType": "code-anchor",
       "rationale": "As the schema, validator, server endpoints, skills, and UI land, each gets a revision-pinned anchor here. Currently every card is marked changed-since-issue because the code has not yet been written; they flip to current when the respective sub-ticket closes.",
-      "updated": "2026-04-18T13:08:27.111Z",
+      "updated": "2026-04-18T13:19:48.313Z",
       "data": [
         {
           "id": "patch-schema",
@@ -482,10 +482,10 @@
         {
           "id": "skill-claude",
           "name": "Skill: living-doc-ai-pass-claude",
-          "status": "current",
+          "status": "changed-since-issue",
           "path": ".claude/skills/living-doc-ai-pass-claude/SKILL.md",
           "range": "full file",
-          "revision": "83232b8cef97f075888cba9e26c3458bfaf5066f",
+          "revision": "91c55b21e4abba6e1adc4506804c1167d0ef6741",
           "what_it_does": "Claude-tuned skill that reads doc + registry + neighbourhood and emits a v1 patch on stdout",
           "why_it_matters": [
             {
@@ -549,7 +549,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T13:16:31.211Z",
+      "updated": "2026-04-18T13:20:29.662Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -824,6 +824,29 @@
             {
               "type": "info",
               "text": "Registry-declared but prompt-stubbed actions fail cleanly: empty patch + meta.warnings. The server keeps working even when only 1 of 14 is implemented."
+            }
+          ]
+        },
+        {
+          "id": "first-type-specific-apply",
+          "name": "First type-specific action applied: card flags itself as changed",
+          "status": "workaround-shipped",
+          "shipped_in": "palette apply on live doc (no commit yet)",
+          "cost_to_apply": "0 LOC — end-to-end type-specific exercise.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Ran check-revision-drift on the skill-claude code-anchor card. The skill file had been touched by two commits since the pin: 83232b8 (original ship) → 91c55b2 (the commit that added this very handler)."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Full round trip for a type-specific action: git-backed handler in the skill, concrete card-update emitted, validator ok, diff sidebar rendered a real change, apply wrote the new status + revision to disk. The card now honestly reports drift from the pin."
+            },
+            {
+              "type": "info",
+              "text": "Self-referential dogfood: the skill spec detected the commit that created the skill spec. Closed loop — the substrate is not only self-hosting but self-observing."
             }
           ]
         }
