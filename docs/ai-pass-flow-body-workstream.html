@@ -396,7 +396,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T12:57:54.192Z",
+  "updated": "2026-04-18T13:09:17.797Z",
   "pills": [
     "Workstream",
     "AI",
@@ -521,7 +521,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:8826814416ffedaf1574474be8a14ac713a613e531eeaa43eee1e9e0e44b65c1",
+  "metaFingerprint": "sha256:5eb9d1d19fc72244d608101034e3d97c1c7485e88ff0d0363c71b9bcdf283900",
   "callouts": [
     {
       "tone": "info",
@@ -756,7 +756,7 @@
       "title": "Components",
       "convergenceType": "code-anchor",
       "rationale": "As the schema, validator, server endpoints, skills, and UI land, each gets a revision-pinned anchor here. Currently every card is marked changed-since-issue because the code has not yet been written; they flip to current when the respective sub-ticket closes.",
-      "updated": "2026-04-18T10:53:08.416Z",
+      "updated": "2026-04-18T13:08:27.111Z",
       "data": [
         {
           "id": "patch-schema",
@@ -833,6 +833,22 @@
             {
               "type": "info",
               "text": "The only component with authority to invoke gh and mutate JSON on disk. Must be airtight — it is the blast-radius boundary for AI-originated changes."
+            },
+            {
+              "type": "info",
+              "text": "Mutation is split out into a pure apply module (apply-ai-patch.mjs) so the substrate-mutating logic is unit-testable without standing up the HTTP transport. Side effects like ticket-create surface from apply as commands the server runs."
+            },
+            {
+              "type": "info",
+              "text": "The engine CLI is spawned with cwd set to the target doc's repo root (walked up from docPath to find .git), not living-doc-compositor. Without this, gh issue create would default to the wrong remote and relative code anchors would resolve against the wrong tree."
+            },
+            {
+              "type": "info",
+              "text": "The registry is passed inline in the engine request payload instead of having skills reach for scripts/living-doc-registry.json in cwd — necessary once cwd became the target repo rather than this one."
+            },
+            {
+              "type": "info",
+              "text": "A three-tier tolerant JSON parser (direct parse → fenced code block → first balanced {...}) absorbs engines that wrap output in ``` fences even when told not to. A strict contract looked correct in isolation but broke in practice."
             }
           ],
           "ticketIds": [
@@ -912,7 +928,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T12:57:54.192Z",
+      "updated": "2026-04-18T13:09:17.797Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -1118,6 +1134,29 @@
             {
               "type": "info",
               "text": "No-changes outcomes (like summarise) should not show an Apply button at all. Grey-disabled buttons read as broken rather than intentional."
+            }
+          ]
+        },
+        {
+          "id": "first-real-apply-dogfood",
+          "name": "First real apply: the doc updates itself via its own skill system",
+          "status": "workaround-shipped",
+          "shipped_in": "manual run from the palette (no commit yet)",
+          "cost_to_apply": "0 LOC — it was already shipped. First live exercise.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "User selected the server-endpoints card in the Flow view, pressed Cmd+K, picked enrich-notes, waited for the engine to propose, accepted the diff, hit Apply."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Every piece of epic #82 functions on real hardware: schema validator + registry actions + Claude Code skill + server /propose + /apply + palette + diff sidebar. The substrate is now self-hosting — a living doc just refined itself through the skill system it describes."
+            },
+            {
+              "type": "info",
+              "text": "The dogfood signal from the pitch (the AI pass, once built, should operate on its own doc) is now concrete. This attempt card itself was authored after the self-mutation landed."
             }
           ]
         }
@@ -16212,7 +16251,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T12:57:54.253Z" title="2026-04-18T12:57:54.253Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T12:57:54.253Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T13:09:17.864Z" title="2026-04-18T13:09:17.864Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T13:09:17.864Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -16470,7 +16509,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </article></div>
     </section>
     <section class="section" id="components">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#7c3aed"><path opacity='.28' d='M4 4h12v12H4z'/><path d='M7 8l-2 2 2 2M13 8l2 2-2 2' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/><path d='M11 7l-2 6'/></svg> Components<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-18T10:53:08.416Z" title="2026-04-18T10:53:08.416Z" data-relative-to-snapshot="true">2026-04-18T10:53:08.416Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#7c3aed"><path opacity='.28' d='M4 4h12v12H4z'/><path d='M7 8l-2 2 2 2M13 8l2 2-2 2' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/><path d='M11 7l-2 6'/></svg> Components<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-18T13:08:27.111Z" title="2026-04-18T13:08:27.111Z" data-relative-to-snapshot="true">2026-04-18T13:08:27.111Z</time></span></h2>
 
 
 
@@ -16549,10 +16588,10 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
       <p class="code-refs"><strong>Path</strong> scripts/ai-pass-server.mjs + scripts/apply-ai-patch.mjs</p><p class="code-refs"><strong>Line</strong> full server + apply module</p><p class="code-refs"><strong>Revision</strong> 1c55f0133b76004b10b2af50ddd831310d958459</p><p class="code-refs"><strong>What it does</strong> Shells out to engine CLI, validates the returned patch, applies accepted changes (including gh issue create for ticket-create changes), re-renders the doc</p>
 
     <details class="details-block">
-      <summary>Why it matters (1)</summary>
+      <summary>Why it matters (5)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The only component with authority to invoke gh and mutate JSON on disk. Must be airtight — it is the blast-radius boundary for AI-originated changes.</span></p>
+      <p class="note-description"><span class="note-line">The only component with authority to invoke gh and mutate JSON on disk. Must be airtight — it is the blast-radius boundary for AI-originated changes.</span></p><p class="note-description"><span class="note-line">Mutation is split out into a pure apply module (apply-ai-patch.mjs) so the substrate-mutating logic is unit-testable without standing up the HTTP transport. Side effects like ticket-create surface from apply as commands the server runs.</span></p><p class="note-description"><span class="note-line">The engine CLI is spawned with cwd set to the target doc&#39;s repo root (walked up from docPath to find .git), not living-doc-compositor. Without this, gh issue create would default to the wrong remote and relative code anchors would resolve against the wrong tree.</span></p><p class="note-description"><span class="note-line">The registry is passed inline in the engine request payload instead of having skills reach for scripts/living-doc-registry.json in cwd — necessary once cwd became the target repo rather than this one.</span></p><p class="note-description"><span class="note-line">A three-tier tolerant JSON parser (direct parse → fenced code block → first balanced {...}) absorbs engines that wrap output in ``` fences even when told not to. A strict contract looked correct in isolation but broke in practice.</span></p>
     </div>
     </details>
     </article>
@@ -16618,7 +16657,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </article></div>
     </section>
     <section class="section" id="attempts">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#ea580c"><path opacity='.28' d='M4 4h12v12H4z'/><path d='M6 7h8v1.5H6zm0 3h6v1.5H6zm0 3h4v1.5H6z'/><path d='M15 13l3 3-1 1-3-3z'/></svg> Attempts<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-18T12:57:54.192Z" title="2026-04-18T12:57:54.192Z" data-relative-to-snapshot="true">2026-04-18T12:57:54.192Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#ea580c"><path opacity='.28' d='M4 4h12v12H4z'/><path d='M6 7h8v1.5H6zm0 3h6v1.5H6zm0 3h4v1.5H6z'/><path d='M15 13l3 3-1 1-3-3z'/></svg> Attempts<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-04-18T13:09:17.797Z" title="2026-04-18T13:09:17.797Z" data-relative-to-snapshot="true">2026-04-18T13:09:17.797Z</time></span></h2>
 
 
 
@@ -16866,11 +16905,38 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
       <p class="note-description"><span class="note-line">User-guards-intent demands that every state be somewhere the user is already looking. The diff sidebar is the canonical surface for AI pass — the palette is just the trigger.</span></p><p class="note-description"><span class="note-line">No-changes outcomes (like summarise) should not show an Apply button at all. Grey-disabled buttons read as broken rather than intentional.</span></p>
     </div>
     </details>
+    </article>
+    <article class="flow-card" id="first-real-apply-dogfood">
+      <header class="flow-card-header">
+        <div>
+          <h3>First real apply: the doc updates itself via its own skill system</h3>
+
+        </div>
+        <div class="badge-row"><span class="badge badge-positive">Workaround Shipped</span></div>
+      </header>
+
+
+      <p class="code-refs"><strong>Shipped in</strong> manual run from the palette (no commit yet)</p><p class="code-refs"><strong>Cost to apply</strong> 0 LOC — it was already shipped. First live exercise.</p>
+
+    <details class="details-block">
+      <summary>What was tried (1)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">User selected the server-endpoints card in the Flow view, pressed Cmd+K, picked enrich-notes, waited for the engine to propose, accepted the diff, hit Apply.</span></p>
+    </div>
+    </details>
+    <details class="details-block">
+      <summary>What it proved (2)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">Every piece of epic #82 functions on real hardware: schema validator + registry actions + Claude Code skill + server /propose + /apply + palette + diff sidebar. The substrate is now self-hosting — a living doc just refined itself through the skill system it describes.</span></p><p class="note-description"><span class="note-line">The dogfood signal from the pitch (the AI pass, once built, should operate on its own doc) is now concrete. This attempt card itself was authored after the self-mutation landed.</span></p>
+    </div>
+    </details>
     </article></div>
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-495aa1e (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-b601a11 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -17166,7 +17232,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Workaround Shipped</span>
-        <span class="board-count">9</span>
+        <span class="board-count">10</span>
       </header>
       <div class="board-lane-cards">
 
@@ -17231,6 +17297,13 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
       <h3>UX — single sidebar surface for every state</h3>
       <div class="badge-row"><span class="badge badge-positive">Workaround Shipped</span></div>
       <p class="board-card-note"><strong>Shipped in</strong> commits 140f4f6, 3cb3271, 495aa1e</p>
+
+    </article>
+    <article class="board-card" data-section-id="attempts">
+      <div class="board-card-kicker">Attempts · Attempt Log</div>
+      <h3>First real apply: the doc updates itself via its own skill system</h3>
+      <div class="badge-row"><span class="badge badge-positive">Workaround Shipped</span></div>
+      <p class="board-card-note"><strong>Shipped in</strong> manual run from the palette (no commit yet)</p>
 
     </article>
       </div>

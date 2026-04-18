@@ -9,7 +9,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T12:57:54.192Z",
+  "updated": "2026-04-18T13:09:17.797Z",
   "pills": [
     "Workstream",
     "AI",
@@ -134,7 +134,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:8826814416ffedaf1574474be8a14ac713a613e531eeaa43eee1e9e0e44b65c1",
+  "metaFingerprint": "sha256:5eb9d1d19fc72244d608101034e3d97c1c7485e88ff0d0363c71b9bcdf283900",
   "callouts": [
     {
       "tone": "info",
@@ -369,7 +369,7 @@
       "title": "Components",
       "convergenceType": "code-anchor",
       "rationale": "As the schema, validator, server endpoints, skills, and UI land, each gets a revision-pinned anchor here. Currently every card is marked changed-since-issue because the code has not yet been written; they flip to current when the respective sub-ticket closes.",
-      "updated": "2026-04-18T10:53:08.416Z",
+      "updated": "2026-04-18T13:08:27.111Z",
       "data": [
         {
           "id": "patch-schema",
@@ -446,6 +446,22 @@
             {
               "type": "info",
               "text": "The only component with authority to invoke gh and mutate JSON on disk. Must be airtight — it is the blast-radius boundary for AI-originated changes."
+            },
+            {
+              "type": "info",
+              "text": "Mutation is split out into a pure apply module (apply-ai-patch.mjs) so the substrate-mutating logic is unit-testable without standing up the HTTP transport. Side effects like ticket-create surface from apply as commands the server runs."
+            },
+            {
+              "type": "info",
+              "text": "The engine CLI is spawned with cwd set to the target doc's repo root (walked up from docPath to find .git), not living-doc-compositor. Without this, gh issue create would default to the wrong remote and relative code anchors would resolve against the wrong tree."
+            },
+            {
+              "type": "info",
+              "text": "The registry is passed inline in the engine request payload instead of having skills reach for scripts/living-doc-registry.json in cwd — necessary once cwd became the target repo rather than this one."
+            },
+            {
+              "type": "info",
+              "text": "A three-tier tolerant JSON parser (direct parse → fenced code block → first balanced {...}) absorbs engines that wrap output in ``` fences even when told not to. A strict contract looked correct in isolation but broke in practice."
             }
           ],
           "ticketIds": [
@@ -525,7 +541,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T12:57:54.192Z",
+      "updated": "2026-04-18T13:09:17.797Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -731,6 +747,29 @@
             {
               "type": "info",
               "text": "No-changes outcomes (like summarise) should not show an Apply button at all. Grey-disabled buttons read as broken rather than intentional."
+            }
+          ]
+        },
+        {
+          "id": "first-real-apply-dogfood",
+          "name": "First real apply: the doc updates itself via its own skill system",
+          "status": "workaround-shipped",
+          "shipped_in": "manual run from the palette (no commit yet)",
+          "cost_to_apply": "0 LOC — it was already shipped. First live exercise.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "User selected the server-endpoints card in the Flow view, pressed Cmd+K, picked enrich-notes, waited for the engine to propose, accepted the diff, hit Apply."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Every piece of epic #82 functions on real hardware: schema validator + registry actions + Claude Code skill + server /propose + /apply + palette + diff sidebar. The substrate is now self-hosting — a living doc just refined itself through the skill system it describes."
+            },
+            {
+              "type": "info",
+              "text": "The dogfood signal from the pitch (the AI pass, once built, should operate on its own doc) is now concrete. This attempt card itself was authored after the self-mutation landed."
             }
           ]
         }
