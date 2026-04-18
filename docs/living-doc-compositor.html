@@ -14596,6 +14596,14 @@ open docs/living-doc-compositor.html</pre>
     if (typeof window.LD_DOC_ABS_PATH === 'string' && window.LD_DOC_ABS_PATH) {
       return (currentDocPath = window.LD_DOC_ABS_PATH);
     }
+    // 1b. If we are inside the compositor's srcdoc overlay iframe, the
+    //     injected path lives on the parent window (same-origin access
+    //     works for srcdoc iframes).
+    try {
+      if (window.parent && window.parent !== window && typeof window.parent.LD_DOC_ABS_PATH === 'string' && window.parent.LD_DOC_ABS_PATH) {
+        return (currentDocPath = window.parent.LD_DOC_ABS_PATH);
+      }
+    } catch { /* cross-origin guard */ }
     // 2. localStorage override, for manual testing.
     const override = localStorage.getItem('ap-doc-path');
     if (override) return (currentDocPath = override);
