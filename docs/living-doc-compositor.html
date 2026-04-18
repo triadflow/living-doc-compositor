@@ -14549,6 +14549,17 @@ open docs/living-doc-compositor.html</pre>
   let currentDocPath = null;
   let currentCardRef = null;
 
+  // ── doc meta helper (safe, memoised) ──────────────────────────────────
+  let _metaCache = undefined; // undefined = not looked up, null = absent
+  function docMeta() {
+    if (_metaCache !== undefined) return _metaCache;
+    const el = document.getElementById('doc-meta');
+    if (!el || !el.textContent) { _metaCache = null; return null; }
+    try { _metaCache = JSON.parse(el.textContent); }
+    catch { _metaCache = null; }
+    return _metaCache;
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────
   function showToast(msg, isError = false) {
     toast.textContent = msg;
@@ -14572,28 +14583,25 @@ open docs/living-doc-compositor.html</pre>
     if (currentDocPath) return currentDocPath;
     const override = localStorage.getItem('ap-doc-path');
     if (override) return (currentDocPath = override);
-    try {
-      const meta = JSON.parse(document.getElementById('doc-meta').textContent);
-      if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('/')) {
-        return (currentDocPath = meta.canonicalOrigin);
-      }
-      if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('docs/')) {
-        // Compositor is served next to docs/, so infer an absolute repo path
-        // from the current URL.
-        const here = decodeURI(location.pathname);
-        const repoDocs = here.substring(0, here.lastIndexOf('/'));
-        return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, '')}`);
-      }
-    } catch {}
+    const meta = docMeta();
+    if (!meta) return null;
+    if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('/')) {
+      return (currentDocPath = meta.canonicalOrigin);
+    }
+    if (meta.canonicalOrigin && meta.canonicalOrigin.startsWith('docs/')) {
+      const here = decodeURI(location.pathname);
+      const repoDocs = here.substring(0, here.lastIndexOf('/'));
+      return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, '')}`);
+    }
     return null;
   }
 
   // ── action list ───────────────────────────────────────────────────────
-  function actionsForCard(sectionId, cardId) {
+  function actionsForCard(sectionId) {
     const reg = registry();
     if (!reg) return [];
-    const meta = JSON.parse(document.getElementById('doc-meta').textContent);
-    const section = (meta.sections || []).find(s => s.id === sectionId);
+    const meta = docMeta();
+    const section = (meta?.sections || []).find(s => s.id === sectionId);
     const typeId = section?.convergenceType;
     const typeDef = reg.convergenceTypes?.[typeId] || {};
     const general = (reg.generalAiActions || []).map(a => ({ ...a, scope: 'general' }));
@@ -14626,12 +14634,16 @@ open docs/living-doc-compositor.html</pre>
   // ── palette ───────────────────────────────────────────────────────────
   async function openPalette(sectionId, cardId) {
     currentCardRef = { sectionId, cardId };
-    const meta = JSON.parse(document.getElementById('doc-meta').textContent);
+    const meta = docMeta();
+    if (!meta) {
+      showToast('AI pass needs #doc-meta — this view does not expose it.', true);
+      return;
+    }
     const section = (meta.sections || []).find(s => s.id === sectionId);
     const cards = section?.data || section?.cards || [];
     const card = cards.find(c => c && c.id === cardId);
     await fetchEngines();
-    currentActions = actionsForCard(sectionId, cardId);
+    currentActions = actionsForCard(sectionId);
     activeIndex = 0;
     renderPalette(section, card);
     backdrop.classList.add('open');

@@ -15321,6 +15321,17 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   let currentDocPath = null;
   let currentCardRef = null;
 
+  // ── doc meta helper (safe, memoised) ──────────────────────────────────
+  let _metaCache = undefined; // undefined = not looked up, null = absent
+  function docMeta() {
+    if (_metaCache !== undefined) return _metaCache;
+    const el = document.getElementById(&#39;doc-meta&#39;);
+    if (!el || !el.textContent) { _metaCache = null; return null; }
+    try { _metaCache = JSON.parse(el.textContent); }
+    catch { _metaCache = null; }
+    return _metaCache;
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────
   function showToast(msg, isError = false) {
     toast.textContent = msg;
@@ -15344,28 +15355,25 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     if (currentDocPath) return currentDocPath;
     const override = localStorage.getItem(&#39;ap-doc-path&#39;);
     if (override) return (currentDocPath = override);
-    try {
-      const meta = JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent);
-      if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;/&#39;)) {
-        return (currentDocPath = meta.canonicalOrigin);
-      }
-      if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;docs/&#39;)) {
-        // Compositor is served next to docs/, so infer an absolute repo path
-        // from the current URL.
-        const here = decodeURI(location.pathname);
-        const repoDocs = here.substring(0, here.lastIndexOf(&#39;/&#39;));
-        return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, &#39;&#39;)}`);
-      }
-    } catch {}
+    const meta = docMeta();
+    if (!meta) return null;
+    if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;/&#39;)) {
+      return (currentDocPath = meta.canonicalOrigin);
+    }
+    if (meta.canonicalOrigin &amp;&amp; meta.canonicalOrigin.startsWith(&#39;docs/&#39;)) {
+      const here = decodeURI(location.pathname);
+      const repoDocs = here.substring(0, here.lastIndexOf(&#39;/&#39;));
+      return (currentDocPath = `${repoDocs}/${meta.canonicalOrigin.replace(/^docs\//, &#39;&#39;)}`);
+    }
     return null;
   }
 
   // ── action list ───────────────────────────────────────────────────────
-  function actionsForCard(sectionId, cardId) {
+  function actionsForCard(sectionId) {
     const reg = registry();
     if (!reg) return [];
-    const meta = JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent);
-    const section = (meta.sections || []).find(s =&gt; s.id === sectionId);
+    const meta = docMeta();
+    const section = (meta?.sections || []).find(s =&gt; s.id === sectionId);
     const typeId = section?.convergenceType;
     const typeDef = reg.convergenceTypes?.[typeId] || {};
     const general = (reg.generalAiActions || []).map(a =&gt; ({ ...a, scope: &#39;general&#39; }));
@@ -15398,12 +15406,16 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
   // ── palette ───────────────────────────────────────────────────────────
   async function openPalette(sectionId, cardId) {
     currentCardRef = { sectionId, cardId };
-    const meta = JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent);
+    const meta = docMeta();
+    if (!meta) {
+      showToast(&#39;AI pass needs #doc-meta — this view does not expose it.&#39;, true);
+      return;
+    }
     const section = (meta.sections || []).find(s =&gt; s.id === sectionId);
     const cards = section?.data || section?.cards || [];
     const card = cards.find(c =&gt; c &amp;&amp; c.id === cardId);
     await fetchEngines();
-    currentActions = actionsForCard(sectionId, cardId);
+    currentActions = actionsForCard(sectionId);
     activeIndex = 0;
     renderPalette(section, card);
     backdrop.classList.add(&#39;open&#39;);
@@ -15656,7 +15668,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T10:51:43.637Z" title="2026-04-18T10:51:43.637Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T10:51:43.637Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T11:09:56.590Z" title="2026-04-18T11:09:56.590Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T11:09:56.590Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15871,7 +15883,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-7e35e24 (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-b054a71 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
