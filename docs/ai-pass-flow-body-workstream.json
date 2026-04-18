@@ -9,7 +9,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T13:13:02.657Z",
+  "updated": "2026-04-18T13:16:31.211Z",
   "pills": [
     "Workstream",
     "AI",
@@ -134,7 +134,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:007453b594383b22df02dfd64a3ecde92fafb99c7e826078ce4e594a38c2db75",
+  "metaFingerprint": "sha256:41d6fd20e321b7de9e8d09fecb52903ff8e0c11cbf573b94d81d350063fde02c",
   "callouts": [
     {
       "tone": "info",
@@ -240,7 +240,7 @@
       "title": "Actions Inventory",
       "convergenceType": "capability-surface",
       "rationale": "The action set shown in the palette is a merged view of general actions (hardcoded) and type-specific actions (declared per convergence type in the registry via #84). This section is the canonical list; new convergence types declare their own aiActions there and appear here once documented.",
-      "updated": "2026-04-18T13:13:02.657Z",
+      "updated": "2026-04-18T13:16:31.211Z",
       "data": [
         {
           "id": "general-decompose",
@@ -334,16 +334,19 @@
         },
         {
           "id": "type-specific-stubs",
-          "name": "Type-specific action handlers (14 across 9 types) — priority subset for v2",
-          "status": "not-built",
+          "name": "Type-specific action handlers (1 of 14 spec'd; priority subset for v2)",
+          "status": "partial",
           "notes": [
-            "Highest leverage (recommend v2 priority order):",
-            "  1. code-anchor → check-revision-drift. Concrete git check, detectable drift. Most useful diagnostic.",
-            "  2. attempt-log → find-shipping-commit. Auto-links shipped workarounds to commits.",
-            "  3. issue-orbit → refresh-github-state. Keeps orbit cards honest without manual updates.",
-            "  4. capability-surface → propose-status-from-commits. Flips status automatically when codePaths get touched.",
-            "  5. maintainer-stance → check-evolution. Pulls thread updates into the stance card.",
-            "Remaining stubs (still declared in registry, not yet prompted in skills):",
+            "Spec'd in both skills (Claude + Codex):",
+            "  ✓ code-anchor → check-revision-drift. git log-based drift check with empty-output/deleted-file semantics.",
+            "",
+            "Priority-ordered remaining (v2 targets):",
+            "  · attempt-log → find-shipping-commit",
+            "  · issue-orbit → refresh-github-state",
+            "  · capability-surface → propose-status-from-commits",
+            "  · maintainer-stance → check-evolution",
+            "",
+            "Declared but deferred (skills emit empty patch + warning):",
             "  code-anchor → propose-replacement-anchor",
             "  attempt-log → propose-supersession",
             "  symptom-observation → suggest-environment-variants, check-contradictions",
@@ -546,7 +549,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T13:13:02.657Z",
+      "updated": "2026-04-18T13:16:31.211Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -798,6 +801,29 @@
             {
               "type": "info",
               "text": "A living doc left alone goes stale in hours — attempts log drifts out of sync with card statuses, snapshots point at yesterday. The /living-doc freshness discipline and eventually an AI-pass verify action are the counterweights."
+            }
+          ]
+        },
+        {
+          "id": "check-revision-drift-spec",
+          "name": "First type-specific handler spec'd: code-anchor → check-revision-drift",
+          "status": "workaround-shipped",
+          "shipped_in": "this commit",
+          "cost_to_apply": "~50 LOC added to Claude SKILL.md, ~15 LOC in Codex SKILL.md.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Spec'd the handler in both skills with concrete git commands: rev-parse HEAD for empty revisions, ls-files for deleted files, log-range-since-revision for drift detection, log-latest-touch for the replacement SHA. Same logic, terser prose in Codex."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Type-specific handlers are mostly prompt engineering + a few git commands, not code. Shipping 14 is ~1000 lines of Markdown. No validator change, no server change — the substrate already supports it."
+            },
+            {
+              "type": "info",
+              "text": "Registry-declared but prompt-stubbed actions fail cleanly: empty patch + meta.warnings. The server keeps working even when only 1 of 14 is implemented."
             }
           ]
         }

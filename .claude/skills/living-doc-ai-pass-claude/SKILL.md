@@ -106,14 +106,65 @@ Read-only. Produce no `changes`. Put the summary in the top-level `summary` fiel
 
 ### 4. Type-specific action handlers
 
-Look up `registry.convergenceTypes[type].aiActions` for the target type and route by `action.id`. These handlers are opt-in and the registry describes their intent. Typical patterns:
+Look up `registry.convergenceTypes[type].aiActions` for the target type and route by `action.id`. Handlers below are fully spec'd. Any action declared in the registry but not handled here should emit an empty patch with `meta.warnings: ["not yet implemented: ${action}"]` rather than being guessed at.
 
-- Status transitions → `card-update { fields: { status: "..." } }` with a short `rationale`.
-- Revision checks (code-anchor) → `card-update { fields: { status: "changed-since-issue" | "current", revision: "..." } }`.
-- Evolution / retraction of stances → `card-update` on existing fields rather than a new card.
-- Refresh external state (GitHub) → `card-update { fields: { github_state: "...", status: "..." } }`.
+#### `code-anchor` → `check-revision-drift`
 
-If an action is declared in the registry but not implemented here, emit an empty patch with `meta.warnings: ["not yet implemented: ${action}"]` instead of guessing.
+Determine whether the card's pinned revision still reflects the current state of the pointed-to file, and propose a status transition when it doesn't.
+
+You run in `input.docRepoRoot`, so relative `path` values resolve and `git` commands see the right history.
+
+1. Extract `card.revision`, `card.path`, `card.range` from the target card.
+2. If `revision` is missing, empty, or the literal string `"not yet committed"`:
+   - The card was pinned pre-implementation. Emit a single `card-update` with `fields: { status: "current", revision: <git rev-parse HEAD> }` and a rationale like *"First revision pin — file exists at HEAD."*
+3. If `card.path` does not exist at HEAD (`git ls-files -- <path>` returns nothing):
+   - Emit `card-update` with `fields: { status: "deprecated" }` and a rationale naming what you checked. Do not try to guess a replacement — that's `propose-replacement-anchor`.
+4. Otherwise check for drift:
+   - Run `git log --oneline ${revision}..HEAD -- ${path}`.
+   - **Empty output** → the file hasn't been touched since the pin. Emit an empty-changes patch with `summary: "revision still current for <path> (<N> commits behind HEAD, none touched this file)"`. No changes.
+   - **Non-empty output** → drift. Get the latest commit that touched the path with `git log -1 --format=%H -- ${path}`. Emit a single `card-update`:
+     ```json
+     {
+       "changeId": "c1",
+       "kind": "card-update",
+       "sectionId": "<section>",
+       "cardId": "<card>",
+       "rationale": "<N> commit(s) touched <path> since the pinned revision — latest: <short sha> <short subject>.",
+       "fields": {
+         "status": "changed-since-issue",
+         "revision": "<full latest sha>"
+       }
+     }
+     ```
+5. If any git invocation fails (not a repo, bad revision, etc.), emit an empty patch with `meta.warnings: ["git error: <msg>"]`. Do not fabricate.
+
+#### `code-anchor` → `propose-replacement-anchor`
+
+Ship path + range + revision for a moved or renamed file. Use `git log --follow --format=%H -- <new candidate>` against symbol/content signals from the original snippet. Single `card-update { fields: { path, range, revision, status: "current" } }`.
+
+#### `attempt-log` → `find-shipping-commit`
+
+Search the referenced repo(s) for commits matching the attempt's description or a linked ticket number (`git log --all --grep="<ticket-num>" --format=%H` and prose search in commit bodies). If found, `card-update { fields: { shipped_in: "<url>", status: "workaround-shipped" } }`. If not found, empty + `meta.warnings`.
+
+#### `attempt-log` → `propose-supersession`
+
+Read sibling attempts in the same section. If a newer card ships the same insight, `card-update { fields: { status: "superseded" } }` on the older card with a rationale naming the superseder.
+
+#### `issue-orbit` → `refresh-github-state`
+
+Run `gh issue view <num> --repo <owner/repo> --json state,closedByPullRequestsReferences`. Emit `card-update { fields: { github_state, status, closed_by_pr } }` reflecting the fresh state.
+
+#### `capability-surface` → `propose-status-from-commits`
+
+Pull commits that touch the card's `codePaths` since the last status change. Weigh the signal: shipped features move toward `built`, deletions toward `not-built`, mixed signals toward `partial`. Single `card-update`.
+
+#### `maintainer-stance` → `check-evolution`
+
+Re-read the thread at `stated_at`'s URL (or the parent issue). If the stakeholder softened, retracted, or escalated the position, update `evolution` and adjust `status` (`softened` / `retracted` / `current`) accordingly.
+
+#### Other declared actions
+
+`symptom-observation → suggest-environment-variants`, `symptom-observation → check-contradictions`, `issue-orbit → reclassify-relationship`, `proof-ladder → check-monotonic-invariant`, `decision-record → check-if-still-current`, `investigation-findings → check-still-holding` — declared in the registry but not yet fully prompted here. Emit an empty patch with `meta.warnings: ["not yet implemented: <action>"]` for any of these.
 
 ### 5. Respect type contracts
 

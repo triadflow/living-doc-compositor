@@ -94,10 +94,14 @@ Read-only. `changes: []`. Summary goes in the top-level `summary`.
 
 #### `code-anchor` → `check-revision-drift`
 
-- Read the pinned `revision`. Shell out to `git` or use tool calls to compare the file at that revision vs. current main.
-- If the range has moved, propose `card-update { fields: { status: "changed-since-issue", revision: <latest sha of last touch on that path> } }` with a short `rationale`.
-- If the file has moved, pair with `propose-replacement-anchor` output (next action).
-- If unchanged, empty patch + `summary: "revision still current"`.
+You run in `input.docRepoRoot`, so relative paths resolve. Extract `card.revision`, `card.path`.
+
+1. `revision` empty / `"not yet committed"`: pin to HEAD. `card-update { status: "current", revision: <git rev-parse HEAD> }`.
+2. `git ls-files -- <path>` empty: file gone. `card-update { status: "deprecated" }`. Don't try to guess a replacement here — that's `propose-replacement-anchor`.
+3. `git log --oneline <revision>..HEAD -- <path>`:
+   - Empty → no drift. Empty patch, `summary: "revision still current for <path>"`.
+   - Non-empty → drift. Last-touch SHA via `git log -1 --format=%H -- <path>`. `card-update { status: "changed-since-issue", revision: <sha> }` with a rationale naming the commit count and latest subject.
+4. Git error → empty patch + `meta.warnings: ["git: <msg>"]`.
 
 #### `code-anchor` → `propose-replacement-anchor`
 
