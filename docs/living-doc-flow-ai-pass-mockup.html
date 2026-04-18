@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>Flow body · AI pass mockup · Living Doc Compositor</title>
+<meta name="description" content="Mockup of the card-level AI pass UX in the flow body: select → Cmd+K → action → diff sidebar → apply." />
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f7fa; --card: #ffffff; --ink: #1a2332; --ink-soft: #334155; --muted: #64748b;
+    --line: #e2e8f0; --accent: #2563eb; --accent-light: #dbeafe;
+    --positive-bg: #ecfdf5; --positive-ink: #166534; --positive-line: #bbf7d0;
+    --warning-bg: #fffbeb; --warning-ink: #92400e; --warning-line: #fde68a;
+    --negative-bg: #fef2f2; --negative-ink: #991b1b; --negative-line: #fecaca;
+    --governance-bg: #ecfeff; --governance-ink: #155e75;
+    --radius: 12px; --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+    --shadow: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-md: 0 4px 14px rgba(15,23,42,0.08);
+    --shadow-lg: 0 24px 56px rgba(15,23,42,0.22), 0 8px 22px rgba(15,23,42,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  em { font-style: normal; color: var(--accent); font-weight: 600; }
+  kbd {
+    display: inline-block; padding: 2px 7px; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; background: var(--card); font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink); font-weight: 700;
+  }
+
+  /* ── Top strip ── */
+  .strip {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 24px; background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  .strip .brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    font: 700 14px/1 ui-sans-serif, system-ui; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .strip .brand .logo {
+    width: 26px; height: 26px; border-radius: 6px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px;
+  }
+  .strip .crumbs {
+    font-size: 12.5px; color: var(--muted); letter-spacing: -0.005em;
+  }
+  .strip .spacer { flex: 1; }
+  .strip .hint {
+    font-size: 12px; color: var(--muted);
+  }
+  .strip .hint kbd { margin: 0 2px; }
+
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; background: var(--card); border-bottom: 1px solid var(--line);
+    gap: 12px;
+  }
+  .preview-header-heading {
+    display: flex; align-items: baseline; gap: 0; min-width: 0;
+  }
+  .preview-header-heading h2 {
+    margin: 0; font: 700 15px/1 ui-sans-serif, system-ui; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .preview-doc-title {
+    color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 10px;
+  }
+  .preview-tabs { display: flex; gap: 4px; }
+  .preview-tab {
+    padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); font: 600 12.5px/1 ui-sans-serif, system-ui; color: var(--muted);
+  }
+  .preview-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Main layout ── */
+  .main {
+    display: grid; grid-template-columns: 1fr 420px; height: calc(100vh - 110px);
+  }
+
+  /* ── Flow canvas (left) ── */
+  .canvas-wrap {
+    position: relative; overflow: hidden;
+    background: var(--bg); border-right: 1px solid var(--line);
+  }
+  .canvas {
+    height: 100%; overflow: auto; padding: 24px 28px 80px;
+  }
+
+  .facet-row {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 180px;
+    gap: 10px; padding-bottom: 14px; overflow-x: auto;
+    border-bottom: 1px dashed var(--line); margin-bottom: 18px;
+  }
+  .facet {
+    padding: 10px 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow-sm);
+    transition: opacity 0.15s;
+  }
+  .facet.dim { opacity: 0.35; }
+  .facet .f-label { font: 700 10px/1 ui-sans-serif; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; margin-bottom: 5px; }
+  .facet .f-name { font-weight: 700; font-size: 13px; color: var(--ink); }
+  .facet .f-desc { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+
+  .columns {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 260px;
+    gap: 12px; overflow-x: auto; padding-bottom: 10px;
+  }
+  .col {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow-sm);
+  }
+  .col.dim { opacity: 0.35; }
+  .col-head {
+    display: flex; align-items: center; gap: 8px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .col-head .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .col-head h3 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .col-head .type {
+    font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    margin-left: auto;
+    padding: 3px 7px; border-radius: 4px; background: var(--bg);
+    border: 1px solid var(--line);
+  }
+
+  .card-mini {
+    padding: 10px 12px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; transition: all 0.15s;
+    position: relative;
+  }
+  .card-mini.dim { opacity: 0.28; }
+  .card-mini.selected {
+    border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    background: color-mix(in srgb, var(--accent) 5%, var(--card));
+    z-index: 2;
+  }
+  .card-mini .c-id {
+    font: 600 9.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); letter-spacing: 0.02em;
+  }
+  .card-mini .c-name { font-size: 13px; font-weight: 600; color: var(--ink); margin-top: 4px; line-height: 1.35; }
+  .card-mini .c-foot {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 8px;
+  }
+  .status {
+    padding: 1px 6px; border-radius: 4px;
+    font: 700 9.5px/1.4 ui-sans-serif; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .status.planned { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .status.ready { background: var(--positive-bg); color: var(--positive-ink); }
+  .status.probe { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .status.shipped { background: var(--positive-bg); color: var(--positive-ink); }
+  .status.superseded { background: var(--warning-bg); color: var(--warning-ink); }
+  .tik {
+    padding: 1px 5px; border-radius: 4px;
+    font: 600 9.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: color-mix(in srgb, #4f46e5 14%, #fff); color: #4f46e5;
+  }
+
+  .card-mini .c-thin {
+    margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: var(--warning-bg);
+    border: 1px dashed var(--warning-line);
+    font-size: 11px; color: var(--warning-ink); line-height: 1.45;
+  }
+
+  /* ── Cmd+K palette overlay ── */
+  .palette-shell {
+    position: absolute; inset: 0; pointer-events: none;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding-top: 108px;
+  }
+  .palette-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(15, 23, 42, 0.28);
+    backdrop-filter: blur(2px);
+  }
+  .palette {
+    position: relative; z-index: 2;
+    width: 520px; max-width: calc(100% - 48px);
+    background: var(--card); border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .palette-input {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+  }
+  .palette-input .q {
+    flex: 1; font: 500 15px/1 ui-sans-serif; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .palette-input .q::after {
+    content: ""; display: inline-block; width: 1px; height: 18px; background: var(--accent);
+    margin-left: 2px; vertical-align: middle; animation: cursor 0.9s step-end infinite;
+  }
+  @keyframes cursor { 50% { opacity: 0; } }
+  .palette-input .hint {
+    font-size: 11px; color: var(--muted);
+  }
+  .palette-ctx {
+    padding: 10px 18px; background: var(--accent-light); color: var(--accent);
+    font: 600 11.5px/1 ui-sans-serif; letter-spacing: -0.005em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .palette-ctx code {
+    background: var(--card); padding: 2px 6px; border-radius: 4px;
+    font-size: 11px; color: var(--ink); font-weight: 600;
+    border: 1px solid var(--line);
+  }
+  .palette-list { padding: 6px 0; }
+  .palette-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 18px;
+    cursor: pointer;
+  }
+  .palette-item.active { background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+  .palette-item .ic {
+    width: 28px; height: 28px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-light); color: var(--accent);
+    font-weight: 800; font-size: 14px; flex-shrink: 0;
+  }
+  .palette-item .pbody { flex: 1; min-width: 0; }
+  .palette-item .pname {
+    font: 600 13px/1.25 ui-sans-serif; color: var(--ink); letter-spacing: -0.005em;
+  }
+  .palette-item .pdesc { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+  .palette-item .kbds { display: flex; gap: 2px; align-items: center; margin-top: 4px; }
+  .palette-foot {
+    display: flex; align-items: center; gap: 14px;
+    padding: 8px 18px; border-top: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 11px; color: var(--muted);
+  }
+  .palette-foot .kbhint { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* ── Diff sidebar (right) ── */
+  .diff {
+    display: flex; flex-direction: column;
+    background: var(--card); border-left: 1px solid var(--line);
+    height: 100%; overflow: hidden;
+  }
+  .diff-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .diff-head .eyebrow {
+    font: 700 10.5px/1 ui-sans-serif; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--accent);
+  }
+  .diff-head h2 { font: 700 16px/1.3 ui-sans-serif; color: var(--ink); letter-spacing: -0.01em; }
+  .diff-head .sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .diff-head .sub code { font-size: 11.5px; padding: 1px 5px; border-radius: 3px; background: var(--bg); border: 1px solid var(--line); }
+
+  .diff-counts {
+    display: flex; align-items: center; gap: 8px; padding: 12px 20px;
+    border-bottom: 1px solid var(--line); background: var(--bg);
+    font-size: 11.5px; color: var(--muted);
+  }
+  .diff-counts .pill {
+    padding: 2px 8px; border-radius: 999px; font-weight: 700;
+    font-size: 11px; letter-spacing: -0.01em;
+  }
+  .diff-counts .pill.add { background: var(--positive-bg); color: var(--positive-ink); }
+  .diff-counts .pill.mod { background: var(--warning-bg); color: var(--warning-ink); }
+
+  .diff-body {
+    flex: 1; overflow-y: auto;
+  }
+  .diff-group {
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+  }
+  .diff-group h3 {
+    font: 700 12px/1 ui-sans-serif; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .diff-change {
+    display: grid; grid-template-columns: 20px 1fr;
+    gap: 10px; padding: 8px 10px; margin: 0 -6px;
+    border-radius: 7px; transition: background 0.12s;
+    align-items: start;
+  }
+  .diff-change:hover { background: var(--bg); }
+  .diff-change input[type="checkbox"] {
+    appearance: none; width: 16px; height: 16px; margin-top: 1px;
+    border: 1.5px solid var(--line); border-radius: 4px; background: var(--card);
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: var(--accent);
+  }
+  .diff-change input[type="checkbox"]:checked {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .diff-change input[type="checkbox"]:checked::after { content: "✓"; }
+  .diff-change .bits { min-width: 0; }
+  .diff-change .op {
+    display: inline-block; font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 1px 5px; border-radius: 3px;
+    margin-right: 6px; vertical-align: middle;
+  }
+  .diff-change .op.add { background: var(--positive-bg); color: var(--positive-ink); }
+  .diff-change .op.mod { background: var(--warning-bg); color: var(--warning-ink); }
+  .diff-change .target {
+    font: 600 12.5px/1.35 ui-sans-serif; color: var(--ink); letter-spacing: -0.005em;
+  }
+  .diff-change .target code {
+    font-size: 11.5px; padding: 1px 5px; border-radius: 3px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--accent);
+  }
+  .diff-change .detail {
+    font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 3px;
+  }
+  .diff-change .detail .tik {
+    margin-right: 3px;
+  }
+  .diff-change.declined { opacity: 0.4; }
+
+  .diff-foot {
+    padding: 14px 20px; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--card);
+  }
+  .diff-foot .meta {
+    font-size: 11.5px; color: var(--muted);
+    display: flex; justify-content: space-between;
+  }
+  .diff-foot .meta strong { color: var(--ink); }
+  .diff-foot .actions {
+    display: flex; gap: 8px;
+  }
+  .diff-foot button {
+    flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line);
+    font: 700 13px/1 ui-sans-serif; letter-spacing: -0.01em; cursor: pointer;
+    transition: all 0.12s;
+  }
+  .diff-foot .btn-apply {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .diff-foot .btn-apply:hover { background: #1e50c7; border-color: #1e50c7; }
+  .diff-foot .btn-cancel {
+    background: var(--card); color: var(--ink);
+  }
+
+  .caption-bar {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 20; padding: 8px 18px; background: var(--ink); color: #e2e8f0;
+    border-radius: 999px; font-size: 12px;
+    box-shadow: 0 10px 26px rgba(15,23,42,0.25);
+  }
+  .caption-bar em { color: #93c5fd; font-weight: 600; }
+
+  @media (max-width: 1100px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }
+    .canvas-wrap { border-right: none; border-bottom: 1px solid var(--line); }
+    .diff { height: auto; }
+    .palette-shell { padding-top: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="strip">
+  <div class="brand"><div class="logo">L</div><span>Living Doc Compositor</span></div>
+  <div class="crumbs">· Proof Ladder Overview · Flow</div>
+  <div class="spacer"></div>
+  <div class="hint">Mockup · <em>card-level AI pass</em></div>
+</div>
+
+<div class="preview-header">
+  <div class="preview-header-heading">
+    <h2>Preview</h2>
+    <span class="preview-doc-title">· Proof Ladder Overview</span>
+  </div>
+  <div class="preview-tabs">
+    <button class="preview-tab">Visual</button>
+    <button class="preview-tab">Board</button>
+    <button class="preview-tab active">Flow</button>
+    <button class="preview-tab">JSON</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Flow canvas (left) -->
+  <div class="canvas-wrap">
+    <div class="canvas">
+
+      <!-- Facets row -->
+      <div class="facet-row">
+        <div class="facet dim"><div class="f-label">Facet</div><div class="f-name">Proof integrity</div></div>
+        <div class="facet dim"><div class="f-label">Facet</div><div class="f-name">Operating model</div></div>
+        <div class="facet"><div class="f-label">Facet</div><div class="f-name">Escalating proof</div><div class="f-desc">Five ordered rungs from one email to cross-merchant proof.</div></div>
+        <div class="facet dim"><div class="f-label">Facet</div><div class="f-name">Supporting surface</div></div>
+        <div class="facet dim"><div class="f-label">Facet</div><div class="f-name">Repeat across merchants</div></div>
+      </div>
+
+      <!-- Section columns -->
+      <div class="columns">
+
+        <div class="col dim">
+          <div class="col-head"><div class="dot"></div><h3>Operating Model</h3><div class="type">decision-record</div></div>
+          <div class="card-mini"><div class="c-id">proof-operating-model</div><div class="c-name">Operating Model Defined</div><div class="c-foot"><span class="status ready">Ground-truth</span><span class="tik">#129</span><span class="tik">#135</span><span class="tik">#143</span></div></div>
+          <div class="card-mini"><div class="c-id">architecture-enforcement</div><div class="c-name">Architecture Enforcement of Iterate-to-Green</div><div class="c-foot"><span class="status ready">Ground-truth</span><span class="tik">#129</span><span class="tik">#130</span></div></div>
+        </div>
+
+        <div class="col">
+          <div class="col-head"><div class="dot"></div><h3>Proof Ladder</h3><div class="type">proof-ladder</div></div>
+          <div class="card-mini dim"><div class="c-id">level-1</div><div class="c-name">Level 1 — One Real AWS Email to Useful Payload</div><div class="c-foot"><span class="status ready">Ready</span><span class="tik">#143</span></div></div>
+          <div class="card-mini dim"><div class="c-id">level-2</div><div class="c-name">Level 2 — Next Eligible Email by Predeclared Rule</div><div class="c-foot"><span class="status ready">Ready</span><span class="tik">#145</span></div></div>
+          <div class="card-mini dim"><div class="c-id">level-3</div><div class="c-name">Level 3 — Direct Claim from Live Queue Surface</div><div class="c-foot"><span class="status ready">Ready</span><span class="tik">#146</span></div></div>
+          <div class="card-mini selected">
+            <div class="c-id">level-4</div>
+            <div class="c-name">Level 4 — Small Batch Across Merchants</div>
+            <div class="c-foot"><span class="status planned">Planned</span><span class="tik">#147</span></div>
+            <div class="c-thin">Thin card — single ticket, no decomposition, notes are one sentence. AI pass can decompose or enrich.</div>
+          </div>
+          <div class="card-mini dim"><div class="c-id">level-5</div><div class="c-name">Level 5 — Repeat Later Without Redesign</div><div class="c-foot"><span class="status planned">Planned</span><span class="tik">#148</span></div></div>
+        </div>
+
+        <div class="col dim">
+          <div class="col-head"><div class="dot"></div><h3>Supporting Surface</h3><div class="type">operating-surface</div></div>
+          <div class="card-mini"><div class="c-id">terraform-runtime</div><div class="c-name">Terraform-Managed Proof Runtime</div><div class="c-foot"><span class="status ready">Built</span><span class="tik">#157</span></div></div>
+          <div class="card-mini"><div class="c-id">raw-s3-replay</div><div class="c-name">Historical Pilot Replay / Raw S3 Backfill</div><div class="c-foot"><span class="status ready">Built</span><span class="tik">#164</span><span class="tik">#167</span></div></div>
+          <div class="card-mini"><div class="c-id">evidence-runbook</div><div class="c-name">Evidence Bundle and Runbook</div><div class="c-foot"><span class="status ready">Built</span><span class="tik">#131</span></div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Cmd+K palette overlay -->
+    <div class="palette-shell">
+      <div class="palette-backdrop"></div>
+      <div class="palette" role="dialog" aria-label="AI action palette">
+        <div class="palette-input">
+          <span class="q">decom</span>
+          <span class="hint">AI pass on selected card</span>
+        </div>
+        <div class="palette-ctx">
+          <span>Context:</span>
+          <code>level-4</code>
+          <span>· Proof Ladder · status: planned · 1 ticket · thin</span>
+        </div>
+        <div class="palette-list">
+          <div class="palette-item active">
+            <div class="ic">↯</div>
+            <div class="pbody">
+              <div class="pname">Decompose into sub-cards</div>
+              <div class="pdesc">Break the umbrella ticket into scoped sub-tickets, propose new cards under this section, wire coverage edges.</div>
+              <div class="kbds"><kbd>↵</kbd><span style="margin-left:6px; font-size:11px; color: var(--muted);">to run</span></div>
+            </div>
+          </div>
+          <div class="palette-item">
+            <div class="ic">✎</div>
+            <div class="pbody">
+              <div class="pname">Enrich notes</div>
+              <div class="pdesc">Propose richer prose / callouts / references in the notes field, matching the style of neighbouring cards.</div>
+            </div>
+          </div>
+          <div class="palette-item">
+            <div class="ic">◈</div>
+            <div class="pbody">
+              <div class="pname">Verify against invariants</div>
+              <div class="pdesc">Check this card against the doc's invariants (monotonic, supporting-built, proof-integrity). Flag violations.</div>
+            </div>
+          </div>
+          <div class="palette-item">
+            <div class="ic">◉</div>
+            <div class="pbody">
+              <div class="pname">Propose coverage edges</div>
+              <div class="pdesc">Map this card to the objective facets it carries. Surface orphan facets if none match.</div>
+            </div>
+          </div>
+        </div>
+        <div class="palette-foot">
+          <span class="kbhint"><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+          <span class="kbhint"><kbd>↵</kbd> run</span>
+          <span class="kbhint"><kbd>esc</kbd> close</span>
+          <span style="margin-left: auto;">Registry contract is the guardrail</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diff sidebar (right) -->
+  <aside class="diff">
+    <div class="diff-head">
+      <div class="eyebrow">Proposed patch · AI pass</div>
+      <h2>Decompose Level 4 into sub-cards</h2>
+      <div class="sub">AI read the doc, the umbrella ticket <code>#147</code>, and the Supporting Surface. It proposes a 5-step decomposition mirroring the L3 pattern. Review each change below — nothing is applied until you click <strong>Apply</strong>.</div>
+    </div>
+
+    <div class="diff-counts">
+      <span class="pill add">+6 cards</span>
+      <span class="pill add">+5 tickets</span>
+      <span class="pill mod">~2 edits</span>
+      <span style="margin-left:auto;">11 changes</span>
+    </div>
+
+    <div class="diff-body">
+
+      <div class="diff-group">
+        <h3>New sub-tickets (open in trackandback-parser-mvp)</h3>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op add">add</span><span class="target">#186 · L4.1 — Define the batch selection rule and scope</span>
+            <div class="detail">Spec: merchant list, N × M batch size, per-email/aggregate acceptance. No code. Gates every other L4 ticket.</div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op add">add</span><span class="target">#187 · L4.2 — Batch selection harness from raw S3</span>
+            <div class="detail">Leverages <span class="tik">#164</span><span class="tik">#167</span>. Depends on #186.</div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op add">add</span><span class="target">#188 · L4.3 — Batch orchestrator (partial-success semantics)</span>
+            <div class="detail">Invokes L3 path <span class="tik">#157</span> per email. Defines abort vs. continue. Depends on #187.</div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op add">add</span><span class="target">#189 · L4.4 — Cross-merchant divergence detection</span>
+            <div class="detail">Clusters failures by merchant. Flags harness-level vs. parser-level failures.</div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op add">add</span><span class="target">#190 · L4.5 — Run L4 and produce the evidence bundle</span>
+            <div class="detail">Full loop + #131 evidence bundle. Flips L4 status to <code>ready</code> on close.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="diff-group">
+        <h3>Card edits</h3>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op mod">mod</span><span class="target"><code>level-4</code> · ticketIds</span>
+            <div class="detail">Link new tickets alongside #147 so the card carries the full plan. <span class="tik">#147</span><span class="tik">#186</span><span class="tik">#187</span><span class="tik">#188</span><span class="tik">#189</span><span class="tik">#190</span></div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op mod">mod</span><span class="target"><code>level-4</code> · notes (4 items)</span>
+            <div class="detail">Rewrites the single-sentence note as a 4-item set (why → how → flip-rule callout → reference strip) matching the style of L1–L3.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="diff-group">
+        <h3>Umbrella ticket edit</h3>
+        <label class="diff-change">
+          <input type="checkbox" />
+          <div class="bits">
+            <span class="op mod">mod</span><span class="target">#147 body — add decomposition checklist</span>
+            <div class="detail">Append the 5 sub-tickets as a GitHub task list with the flip rule. <em>Optional — declined until you want to touch the umbrella.</em></div>
+          </div>
+        </label>
+      </div>
+
+      <div class="diff-group">
+        <h3>Governance layer</h3>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op mod">mod</span><span class="target">coverage edges</span>
+            <div class="detail">Add 5 edges mapping facet <code>escalating-proof</code> to new sub-cards. Surfaces L4's real coverage instead of collapsing through #147.</div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" checked />
+          <div class="bits">
+            <span class="op mod">mod</span><span class="target">metaFingerprint</span>
+            <div class="detail">Recompute after apply. Card content is changing but sections aren't — fingerprint stays fresh either way.</div>
+          </div>
+        </label>
+        <label class="diff-change">
+          <input type="checkbox" />
+          <div class="bits">
+            <span class="op mod">mod</span><span class="target">invariant <code>proof-ladder-monotonic</code></span>
+            <div class="detail">AI suggests clarifying the invariant to cover the planned→ready transition explicitly. <em>Declined — stance not yours to set unilaterally.</em></div>
+          </div>
+        </label>
+      </div>
+
+    </div>
+
+    <div class="diff-foot">
+      <div class="meta">
+        <span>Type boundaries verified · <strong>no violations</strong></span>
+        <span>Orphan facets: <strong>0 created</strong></span>
+      </div>
+      <div class="actions">
+        <button class="btn-cancel">Cancel</button>
+        <button class="btn-apply">Apply 9 of 11 changes</button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="caption-bar">
+  <em>Cmd+K</em> on a selected card · pick action · review diff · apply — registry guards the shape, user guards the intent.
+</div>
+
+</body>
+</html>
