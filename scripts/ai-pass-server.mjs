@@ -151,11 +151,54 @@ async function invokeEngine(engineName, request, cwd) {
     });
   });
 
-  try {
-    return JSON.parse(result.trim());
-  } catch (e) {
-    throw new Error(`engine output was not valid JSON: ${e.message}\n--- output ---\n${result.slice(0, 1000)}`);
+  return extractPatchJson(result, engineName);
+}
+
+// Engines sometimes wrap the patch in prose or ```json fences despite being
+// told not to. Be liberal in what we accept: try direct parse, then fenced
+// code blocks, then the first balanced {...} block.
+function extractPatchJson(stdout, engineName) {
+  const tries = [];
+  const tryParse = (label, s) => {
+    try { return { ok: true, value: JSON.parse(s) }; }
+    catch (e) { tries.push(`${label}: ${e.message}`); return { ok: false }; }
+  };
+
+  const trimmed = stdout.trim();
+
+  // 1. Direct parse.
+  let r = tryParse('direct', trimmed);
+  if (r.ok) return r.value;
+
+  // 2. Fenced block ```json ... ``` or ``` ... ```
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) {
+    r = tryParse('fenced', fence[1].trim());
+    if (r.ok) return r.value;
   }
+
+  // 3. First balanced {...} block at top level.
+  const start = trimmed.indexOf('{');
+  if (start >= 0) {
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let i = start; i < trimmed.length; i++) {
+      const c = trimmed[i];
+      if (esc) { esc = false; continue; }
+      if (c === '\\') { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '{') depth++;
+      else if (c === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end > start) {
+      r = tryParse('balanced', trimmed.slice(start, end + 1));
+      if (r.ok) return r.value;
+    }
+  }
+
+  throw new Error(
+    `engine ${engineName} output was not valid JSON. Attempts:\n  ${tries.join('\n  ')}\n--- output (first 1200 chars) ---\n${stdout.slice(0, 1200)}`
+  );
 }
 
 // ── apply side effects (gh, fingerprint, render) ──────────────────────────
