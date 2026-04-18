@@ -9,7 +9,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T10:39:48.796Z",
+  "updated": "2026-04-18T10:48:08.102Z",
   "pills": [
     "Workstream",
     "AI",
@@ -134,7 +134,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:2c0f8ff7674651c92fdf4977e206046d0fd186e35bf98589764b5c00f5245149",
+  "metaFingerprint": "sha256:a191c590a5c42135a889733da6e2ac0003c4a5716abdab9f75a022f1a78d9158",
   "callouts": [
     {
       "tone": "info",
@@ -369,7 +369,7 @@
       "title": "Components",
       "convergenceType": "code-anchor",
       "rationale": "As the schema, validator, server endpoints, skills, and UI land, each gets a revision-pinned anchor here. Currently every card is marked changed-since-issue because the code has not yet been written; they flip to current when the respective sub-ticket closes.",
-      "updated": "2026-04-18T10:39:48.796Z",
+      "updated": "2026-04-18T10:48:08.102Z",
       "data": [
         {
           "id": "patch-schema",
@@ -437,10 +437,10 @@
         {
           "id": "server-endpoints",
           "name": "Server endpoints for AI pass",
-          "status": "changed-since-issue",
-          "path": "living-doc serving layer",
-          "range": "/api/ai-pass/propose, /apply, /engines",
-          "revision": "not yet committed",
+          "status": "current",
+          "path": "scripts/ai-pass-server.mjs + scripts/apply-ai-patch.mjs",
+          "range": "full server + apply module",
+          "revision": "1c55f0133b76004b10b2af50ddd831310d958459",
           "what_it_does": "Shells out to engine CLI, validates the returned patch, applies accepted changes (including gh issue create for ticket-create changes), re-renders the doc",
           "why_it_matters": [
             {
@@ -525,7 +525,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T10:39:48.796Z",
+      "updated": "2026-04-18T10:48:08.102Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -600,6 +600,29 @@
             {
               "type": "info",
               "text": "Two-skills-one-contract holds: the server is engine-agnostic, the validator is the common gate, providers can drift in style without breaking the substrate."
+            }
+          ]
+        },
+        {
+          "id": "server-and-apply-module-shipped",
+          "name": "AI-pass server + pure apply module shipped, smoke-tested",
+          "status": "workaround-shipped",
+          "shipped_in": "commit 1c55f01",
+          "cost_to_apply": "~600 LOC across server + apply + spec. Zero new deps.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Split mutation (pure apply-ai-patch.mjs) from transport (HTTP server). Side effects like ticket-create surface from apply as commands the server runs — keeps apply unit-testable."
+            },
+            {
+              "type": "info",
+              "text": "Engine command is config-driven (~/.living-doc-compositor/ai-pass-config.json) so the CLI shape can change per provider without touching the server."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "End-to-end loop works with a mock engine: GET /engines returns available engines, POST /propose validates + stores a patch, POST /apply mutates the JSON and re-renders. Actual engine integration is a config tweak, not a code change."
             }
           ]
         }
