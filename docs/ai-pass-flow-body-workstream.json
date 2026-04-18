@@ -9,7 +9,7 @@
   "canonicalOrigin": "docs/ai-pass-flow-body-workstream.json",
   "derivedFrom": "docs/living-doc-template-starter-ship-feature.json",
   "sourceCoverage": "Epic #82, mockup at docs/living-doc-flow-ai-pass-mockup.html, and sub-tickets #83–#88.",
-  "updated": "2026-04-18T10:53:08.416Z",
+  "updated": "2026-04-18T12:57:54.192Z",
   "pills": [
     "Workstream",
     "AI",
@@ -134,7 +134,7 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:1a8aca5703bd77fba31256b119ae5da1a2fce672068e7c57c6dfafbbf0641310",
+  "metaFingerprint": "sha256:8826814416ffedaf1574474be8a14ac713a613e531eeaa43eee1e9e0e44b65c1",
   "callouts": [
     {
       "tone": "info",
@@ -525,7 +525,7 @@
       "title": "Attempts",
       "convergenceType": "attempt-log",
       "rationale": "Records iterations on skill prompts, engine-specific behaviour differences, and probes that narrowed design decisions. Empty at workstream start; grows as we build and observe.",
-      "updated": "2026-04-18T10:53:08.416Z",
+      "updated": "2026-04-18T12:57:54.192Z",
       "data": [
         {
           "id": "patch-schema-v1-shipped",
@@ -642,6 +642,95 @@
             {
               "type": "info",
               "text": "The UX mockup (docs/living-doc-flow-ai-pass-mockup.html) translated cleanly to a working widget: Cmd+K → palette → propose → diff → apply. All six sub-tickets of epic #82 are shipped."
+            }
+          ]
+        },
+        {
+          "id": "path-resolution-cascade",
+          "name": "Path resolution cascade across four contexts",
+          "status": "workaround-shipped",
+          "shipped_in": "commits 90cfd1c, 07fc7ad, cf150be, 36c7927",
+          "cost_to_apply": "~60 LOC across palette + dashboard backend route.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "First assumed #doc-meta would be present. It is not, when the doc is loaded inside the compositor overlay iframe via srcdoc — the overlay is a fresh compositor shell."
+            },
+            {
+              "type": "info",
+              "text": "Cascade built: (1) window.LD_DOC_ABS_PATH injected by prjctmem dashboard backend; (2) window.parent.LD_DOC_ABS_PATH when running inside the srcdoc overlay; (3) localStorage override for manual testing; (4) live compositor state via window.LD_GET_STATE; (5) static #doc-meta fallback."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "Path resolution must treat the palette as a module that can run in any of four contexts: outer dashboard doc, compositor overlay iframe (srcdoc), standalone rendered doc at file://, and standalone compositor edit page. A single mechanism was never going to fit."
+            },
+            {
+              "type": "info",
+              "text": "Backend injection is the right primary — it makes the path authoritative rather than inferred. Same-origin parent-window read handles the srcdoc overlay without extra plumbing."
+            }
+          ]
+        },
+        {
+          "id": "server-robustness-from-dogfooding",
+          "name": "Server robustness — repo-root cwd, inline registry, tolerant JSON",
+          "status": "workaround-shipped",
+          "shipped_in": "commits cf150be, 5163062",
+          "cost_to_apply": "~90 LOC in ai-pass-server.mjs. Skill SKILL.md files updated to read registry from input.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "Derive the target doc repo root by walking up for .git from the absolute docPath. Spawn the engine CLI with that cwd so gh/git commands and relative code paths resolve against the right repo."
+            },
+            {
+              "type": "info",
+              "text": "Pass the registry inline in the engine request payload instead of the skill reaching for scripts/living-doc-registry.json in cwd — necessary because cwd is now the target repo, not living-doc-compositor."
+            },
+            {
+              "type": "info",
+              "text": "Three-tier tolerant JSON parser on the engine response: direct parse → fenced code block → first balanced {...}. Engines wrap output in  fences even when told not to."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "The skill contract and the transport have to tolerate each other. A strict contract that fails on prose wrappers looks correct in isolation but breaks in practice — engines are messy."
+            },
+            {
+              "type": "info",
+              "text": "Cwd matters. Running the engine in living-doc-compositor when the doc lives in a different repo would have meant gh issue create defaulted to the wrong remote, git diffs looked wrong, and code-anchor paths did not resolve."
+            }
+          ]
+        },
+        {
+          "id": "ux-refinement-single-sidebar",
+          "name": "UX — single sidebar surface for every state",
+          "status": "workaround-shipped",
+          "shipped_in": "commits 140f4f6, 3cb3271, 495aa1e",
+          "cost_to_apply": "~200 LOC CSS+JS delta on docs/living-doc-compositor.html.",
+          "what_tried": [
+            {
+              "type": "info",
+              "text": "v1 had a floating top-right spinner and bottom toast for errors. Three UI surfaces with different grammars confused the user — spinner appeared away from where they were looking, errors disappeared too fast to read."
+            },
+            {
+              "type": "info",
+              "text": "Consolidated to one surface: the diff sidebar opens the moment an action fires and transitions through loading → diff → applying → applied, or → error. Errors render inside the sidebar with a scrollable monospace box so the full server response is visible."
+            },
+            {
+              "type": "info",
+              "text": "Polish pass: summary in its own muted-bg callout instead of the h3, Apply button only renders when there are changes to apply, font family unified across palette + sidebar + all states."
+            }
+          ],
+          "what_proved": [
+            {
+              "type": "info",
+              "text": "User-guards-intent demands that every state be somewhere the user is already looking. The diff sidebar is the canonical surface for AI pass — the palette is just the trigger."
+            },
+            {
+              "type": "info",
+              "text": "No-changes outcomes (like summarise) should not show an Apply button at all. Grey-disabled buttons read as broken rather than intentional."
             }
           ]
         }
