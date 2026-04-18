@@ -408,6 +408,11 @@
   .l2-gov-chip-docwide {
     background: #fde68a; border-color: #fbbf24; color: #92400e; font-weight: 700;
   }
+  .l2-gov-chip { cursor: pointer; transition: box-shadow 0.12s, border-color 0.12s; }
+  .l2-gov-chip:hover { border-color: var(--accent); }
+  .l2-gov-chip-selected {
+    border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
   .l2-gov-chip strong { font-weight: 700; }
   .l2-gov-chip small { color: var(--muted); font-size: 10.5px; }
   .l2-body-wire-coverage { stroke-width: 1.5; opacity: 0.55; }
@@ -10360,13 +10365,17 @@
     const invariants = Array.isArray(json.invariants) ? json.invariants : [];
     const coverage = Array.isArray(json.coverage) ? json.coverage : [];
     const facetCovered = new Set(coverage.map((e) => e && e.facetId).filter(Boolean));
+    const selChip = state.l2SelectedChip || null;
+    const selFacet = selChip?.kind === 'facet' ? selChip.id : null;
+    const selInv = selChip?.kind === 'invariant' ? selChip.id : null;
 
     const facetStripHtml = facets.length === 0 ? '' : `
       <div class="l2-gov-strip l2-gov-strip-facets">
         <span class="l2-gov-strip-label">${esc(t('flowBodyFacets'))}</span>
         ${facets.map((f) => {
           const orphan = !facetCovered.has(f.id);
-          return `<span class="l2-gov-chip ${orphan ? 'l2-gov-chip-orphan' : ''}" data-facet-id="${esc(f.id || '')}" title="${esc(f.description || '')}">
+          const sel = selFacet === f.id;
+          return `<span class="l2-gov-chip ${orphan ? 'l2-gov-chip-orphan' : ''} ${sel ? 'l2-gov-chip-selected' : ''}" data-facet-id="${esc(f.id || '')}" title="${esc(f.description || '')}">
             <strong>${esc(f.name || f.id || '')}</strong>${orphan ? `<small>${esc(t('flowBodyFacetOrphan'))}</small>` : ''}
           </span>`;
         }).join('')}
@@ -10378,7 +10387,8 @@
         ${invariants.map((inv) => {
           const appliesTo = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
           const docWide = appliesTo.includes('*');
-          return `<span class="l2-gov-chip ${docWide ? 'l2-gov-chip-docwide' : ''}" data-invariant-id="${esc(inv.id || '')}" title="${esc(inv.statement || '')}">
+          const sel = selInv === inv.id;
+          return `<span class="l2-gov-chip ${docWide ? 'l2-gov-chip-docwide' : ''} ${sel ? 'l2-gov-chip-selected' : ''}" data-invariant-id="${esc(inv.id || '')}" title="${esc(inv.statement || '')}">
             <strong>${esc(inv.name || inv.id || '')}</strong>${docWide ? `<small>${esc(t('flowBodyInvariantDocWide'))}</small>` : ''}
           </span>`;
         }).join('')}
@@ -10561,9 +10571,18 @@
       return `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
     };
 
-    const paths = [];
+    // Selection-filtered governance wires. At rest the strips are a legend,
+    // not a graph. Wires appear only when the user asks a question. See #76.
+    const selChip = state.l2SelectedChip || null;
+    const selCardKey = state.l2SelectedCard || null;
+    const [selCardSid, selCardCid] = selCardKey ? selCardKey.split('::') : [null, null];
+    if (!selChip && !selCardKey) {
+      svg.innerHTML = '';
+      return;
+    }
 
-    coverage.forEach((edge) => {
+    const paths = [];
+    const drawCoverageEdge = (edge) => {
       if (!edge || !edge.facetId || !edge.sectionId) return;
       const chip = wrap.querySelector(`[data-facet-id="${cssEscape(edge.facetId)}"]`);
       if (!chip) return;
@@ -10585,9 +10604,8 @@
       const x2 = b.x + b.w / 2;
       const y2 = b.y;
       paths.push(`<path class="l2-body-wire-coverage ${drifted ? 'l2-body-wire-drift' : ''}" stroke="${drifted ? '#b91c1c' : '#94a3b8'}" d="${bezier(x1, y1, x2, y2)}"/>`);
-    });
-
-    invariants.forEach((inv) => {
+    };
+    const drawInvariantEdges = (inv) => {
       if (!inv || !inv.id) return;
       const appliesTo = Array.isArray(inv.appliesTo) ? inv.appliesTo : [];
       if (appliesTo.length === 0 || appliesTo.includes('*')) return;
@@ -10604,7 +10622,24 @@
         const y2 = b.y + b.h;
         paths.push(`<path class="l2-body-wire-invariant" stroke="#d97706" d="${bezier(x1, y1, x2, y2)}"/>`);
       });
-    });
+    };
+
+    if (selChip?.kind === 'facet') {
+      coverage.forEach((edge) => {
+        if (edge?.facetId === selChip.id) drawCoverageEdge(edge);
+      });
+    } else if (selChip?.kind === 'invariant') {
+      const inv = invariants.find((i) => i?.id === selChip.id);
+      if (inv) drawInvariantEdges(inv);
+    } else if (selCardKey) {
+      coverage.forEach((edge) => {
+        if (edge?.sectionId === selCardSid && edge?.cardId === selCardCid) drawCoverageEdge(edge);
+      });
+      invariants.forEach((inv) => {
+        const appliesTo = Array.isArray(inv?.appliesTo) ? inv.appliesTo : [];
+        if (appliesTo.includes(selCardSid)) drawInvariantEdges(inv);
+      });
+    }
 
     svg.innerHTML = paths.join('');
   }
@@ -10670,12 +10705,28 @@
     const canvas = panel.querySelector('#l2-body-canvas');
     if (!canvas) return;
 
-    // Card click → select/deselect
+    // Card click → select/deselect; clears any chip selection.
     canvas.querySelectorAll('.l2-card').forEach((el) => {
       el.addEventListener('click', (event) => {
         event.stopPropagation();
         const key = `${el.dataset.sectionId}::${el.dataset.cardId}`;
         state.l2SelectedCard = (state.l2SelectedCard === key) ? null : key;
+        state.l2SelectedChip = null;
+        autoSave();
+        renderRight();
+      });
+    });
+
+    // Governance chip click → select/deselect; clears any card selection.
+    panel.querySelectorAll('.l2-gov-chip[data-facet-id], .l2-gov-chip[data-invariant-id]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const kind = el.dataset.facetId ? 'facet' : 'invariant';
+        const id = el.dataset.facetId || el.dataset.invariantId;
+        if (!id) return;
+        const cur = state.l2SelectedChip;
+        state.l2SelectedChip = (cur && cur.kind === kind && cur.id === id) ? null : { kind, id };
+        state.l2SelectedCard = null;
         autoSave();
         renderRight();
       });
@@ -10703,11 +10754,12 @@
       renderRight();
     });
 
-    // Background click → deselect
+    // Background click → deselect both card and chip
     canvas.closest('.l2-body-canvas-wrap')?.addEventListener('click', (event) => {
-      if (event.target.closest('.l2-card, .l2-inspector, [data-l2-collapse], [data-l2-swap]')) return;
-      if (state.l2SelectedCard) {
+      if (event.target.closest('.l2-card, .l2-inspector, [data-l2-collapse], [data-l2-swap], .l2-gov-chip')) return;
+      if (state.l2SelectedCard || state.l2SelectedChip) {
         state.l2SelectedCard = null;
+        state.l2SelectedChip = null;
         autoSave();
         renderRight();
       }
