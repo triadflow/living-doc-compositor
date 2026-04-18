@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Living Doc Flow · Level 2 Mock · Sections as node-frames</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --ink: #1a2332;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --accent: #2563eb;
+        --amber: #d97706;
+        --amber-bg: #fffbeb;
+        --amber-line: #fde68a;
+        --positive-bg: #ecfdf5; --positive-ink: #166534; --positive-line: #bbf7d0;
+        --warning-bg: #fffbeb;  --warning-ink: #92400e;  --warning-line: #fde68a;
+        --negative-bg: #fef2f2; --negative-ink: #991b1b; --negative-line: #fecaca;
+        --neutral-bg: #f1f5f9;  --neutral-ink: #475569;
+        --governance-bg: #ecfeff; --governance-ink: #155e75;
+        --radius: 12px;
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+        --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+        font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      header.page-header {
+        padding: 22px 28px 16px; background: var(--card); border-bottom: 1px solid var(--line);
+      }
+      .eyebrow {
+        display: inline-block; padding: 3px 10px; border-radius: 999px;
+        background: rgba(37,99,235,.12); color: var(--accent);
+        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+        margin-bottom: 10px;
+      }
+      h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -0.02em; }
+      header p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 72ch; }
+      .stats-bar {
+        display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+      }
+      .stat {
+        display: inline-flex; gap: 6px; padding: 4px 12px; border-radius: 999px;
+        background: var(--bg); border: 1px solid var(--line); font-size: 12.5px;
+      }
+      .stat strong { color: var(--ink); font-weight: 700; }
+
+      main.workspace {
+        display: grid; grid-template-columns: 220px 1fr;
+        min-height: calc(100vh - 130px);
+      }
+
+      /* ── Palette (left rail) ── */
+      .palette {
+        border-right: 1px solid var(--line); background: var(--card);
+        padding: 20px 16px; overflow-y: auto;
+      }
+      .palette h3 {
+        margin: 0 0 10px; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+      }
+      .palette-group { margin-bottom: 18px; }
+      .palette-group-title {
+        display: block; margin: 0 0 6px; font-size: 10.5px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+      }
+      .palette-chip {
+        display: flex; align-items: center; gap: 8px;
+        padding: 7px 10px; margin-bottom: 4px; border-radius: 8px;
+        background: var(--bg); border: 1px solid var(--line);
+        font-size: 12px; color: var(--ink); cursor: grab; user-select: none;
+      }
+      .palette-chip:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+      .palette-chip:active { cursor: grabbing; }
+      .palette-chip svg { flex-shrink: 0; }
+
+      /* ── Canvas ── */
+      .canvas-wrap {
+        position: relative; overflow: auto; background: var(--bg);
+      }
+      .canvas {
+        position: relative;
+        display: grid; grid-auto-flow: column; grid-auto-columns: 280px;
+        gap: 80px;
+        padding: 24px 32px 80px;
+        align-items: start;
+        min-width: max-content;
+      }
+
+      /* ── Section frame ── */
+      .l2-frame {
+        position: relative;
+        background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+        box-shadow: var(--shadow-sm);
+        display: flex; flex-direction: column;
+        z-index: 2;
+      }
+      .l2-frame.collapsed .l2-frame-body { display: none; }
+      .l2-frame-head {
+        padding: 12px 14px; border-bottom: 1px solid var(--line);
+        display: flex; align-items: center; gap: 8px;
+        background: color-mix(in srgb, var(--bg) 50%, var(--card));
+        border-radius: 14px 14px 0 0;
+      }
+      .l2-frame.collapsed .l2-frame-head {
+        border-bottom: none; border-radius: 14px;
+      }
+      .l2-frame-icon {
+        flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px;
+        background: var(--neutral-bg); display: inline-flex; align-items: center; justify-content: center;
+      }
+      .l2-frame-title { flex: 1; min-width: 0; }
+      .l2-frame-title h3 {
+        margin: 0 0 1px; font-size: 13.5px; font-weight: 700;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .l2-frame-type {
+        display: inline-block; padding: 1px 8px; border-radius: 999px;
+        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+        background: var(--governance-bg); color: var(--governance-ink);
+      }
+      .l2-frame-actions { display: flex; gap: 4px; }
+      .l2-frame-btn {
+        width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--line);
+        background: var(--card); color: var(--muted); font-size: 13px; line-height: 1;
+        display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+      }
+      .l2-frame-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .l2-frame-body { padding: 10px 10px 6px; display: flex; flex-direction: column; gap: 6px; }
+      .l2-frame-rationale {
+        padding: 8px 12px 12px; border-top: 1px dashed var(--line);
+        font-size: 11.5px; font-style: italic; color: var(--muted); line-height: 1.5;
+      }
+      .l2-frame-rationale-empty {
+        color: color-mix(in srgb, var(--muted) 55%, var(--card));
+      }
+
+      /* ── Card node ── */
+      .l2-card {
+        position: relative;
+        padding: 8px 10px; border-radius: 8px;
+        background: var(--card); border: 1px solid var(--line);
+        font-size: 12px; cursor: pointer;
+        transition: box-shadow 0.15s, border-color 0.15s, opacity 0.2s;
+      }
+      .l2-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+      .l2-card.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+      }
+      .l2-card.dim { opacity: 0.3; }
+      .l2-card-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9.5px; color: var(--muted); display: block; margin-bottom: 2px;
+      }
+      .l2-card-name {
+        font-weight: 600; font-size: 12px; line-height: 1.3;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .l2-card-foot {
+        display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 5px;
+      }
+      .l2-status {
+        display: inline-flex; padding: 0 6px; border-radius: 4px;
+        font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+      }
+      .l2-status-positive { background: var(--positive-bg); color: var(--positive-ink); }
+      .l2-status-warning { background: var(--warning-bg); color: var(--warning-ink); }
+      .l2-status-negative { background: var(--negative-bg); color: var(--negative-ink); }
+      .l2-status-neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+      .l2-ticket {
+        display: inline-flex; padding: 0 5px; border-radius: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9.5px; font-weight: 600;
+        background: #eef2ff; color: #3730a3;
+      }
+
+      /* ── Wires ── */
+      svg.wires {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        pointer-events: none; z-index: 1;
+      }
+      svg.wires path { fill: none; }
+      .wire {
+        stroke-width: 1.5; opacity: 0.4;
+        transition: opacity 0.2s, stroke-width 0.2s;
+      }
+      .wire.highlight { opacity: 0.95; stroke-width: 2.5; }
+      .wire.dim { opacity: 0.08; }
+
+      /* ── Drop target ── */
+      .canvas.drag-over::before {
+        content: ""; position: absolute; inset: 0;
+        border: 2px dashed var(--accent); border-radius: 12px;
+        pointer-events: none; z-index: 5;
+      }
+
+      /* ── Inspector ── */
+      .inspector {
+        position: fixed; bottom: 24px; right: 24px; max-width: 360px;
+        background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        padding: 16px 18px; box-shadow: var(--shadow-md);
+        font-size: 13px; z-index: 10;
+        display: none;
+      }
+      .inspector.open { display: block; }
+      .inspector h4 {
+        margin: 0 0 4px; font-size: 13.5px; font-weight: 700;
+        display: flex; justify-content: space-between; gap: 8px;
+      }
+      .inspector-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px; color: var(--muted); margin-bottom: 8px;
+      }
+      .inspector-section {
+        margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line);
+      }
+      .inspector-label {
+        display: block; font-size: 10.5px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .inspector-close {
+        position: absolute; top: 8px; right: 8px; width: 24px; height: 24px;
+        border: 1px solid var(--line); border-radius: 6px;
+        background: var(--card); color: var(--muted); cursor: pointer;
+        font-size: 14px; line-height: 1;
+      }
+      .inspector-refs {
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .inspector-ref {
+        display: flex; gap: 8px; align-items: center;
+        padding: 6px 8px; border-radius: 6px; background: var(--bg);
+        border: 1px solid var(--line); font-size: 12px;
+      }
+      .inspector-ref strong { font-weight: 600; }
+      .inspector-ref small { color: var(--muted); margin-left: auto; font-size: 11px; }
+
+      .legend {
+        display: flex; gap: 12px; flex-wrap: wrap; padding: 12px 16px;
+        background: var(--card); border-bottom: 1px solid var(--line);
+        font-size: 12px; color: var(--muted);
+      }
+      .legend strong { color: var(--ink); margin-right: 4px; }
+      .legend-wire {
+        display: inline-block; width: 22px; height: 1.5px;
+        vertical-align: middle; margin-right: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-header">
+      <span class="eyebrow">Mock · Level 2 · Sections as node-frames</span>
+      <h1>Flow applied to the doc body</h1>
+      <p>Every section becomes a frame. Every card inside becomes a mini-node. Wires between cards trace shared ticket references. Click a card to highlight its cross-refs; the rest of the doc dims. Palette on the left lists convergence types you could drop onto the canvas to insert a new section.</p>
+      <div class="stats-bar" id="stats-bar"></div>
+    </header>
+
+    <div class="legend">
+      <span><strong>Frames</strong> = sections · <strong>Nodes inside</strong> = cards · <strong>Wires</strong> = shared ticket references</span>
+      <span><span class="legend-wire" style="background:#4f46e5"></span>wires are colored per ticket</span>
+      <span><strong>Click a card</strong> → highlights its referenced tickets across the doc</span>
+    </div>
+
+    <main class="workspace">
+      <aside class="palette" id="palette"></aside>
+      <div class="canvas-wrap" id="canvas-wrap">
+        <div class="canvas" id="canvas">
+          <svg class="wires" id="wires" aria-hidden="true"></svg>
+        </div>
+      </div>
+    </main>
+
+    <aside class="inspector" id="inspector">
+      <button type="button" class="inspector-close" onclick="closeInspector()">&times;</button>
+      <h4 id="inspector-title"></h4>
+      <div class="inspector-id" id="inspector-id"></div>
+      <div id="inspector-body"></div>
+    </aside>
+
+    <script>
+      /* ── Seed data: trimmed mobile companion workstream ── */
+      const REGISTRY_CATEGORIES = {
+        'governance':   { label: 'Governance', color: '#0891b2' },
+        'overview':     { label: 'Overview',   color: '#475569' },
+        'delivery':     { label: 'Delivery',   color: '#2563eb' },
+        'operations':   { label: 'Operations', color: '#0891b2' },
+        'verification': { label: 'Verification', color: '#059669' },
+        'content':      { label: 'Content',    color: '#ca8a04' },
+      };
+
+      const REGISTRY_TYPES = [
+        { id: 'status-snapshot',        name: 'Status Snapshot',        category: 'overview' },
+        { id: 'capability-surface',     name: 'Capability Surface',     category: 'delivery' },
+        { id: 'operating-surface',      name: 'Operating Surface',      category: 'operations' },
+        { id: 'tooling-surface',        name: 'Tooling Surface',        category: 'operations' },
+        { id: 'verification-surface',   name: 'Verification Surface',   category: 'verification' },
+        { id: 'decision-record',        name: 'Decision Record',        category: 'verification' },
+        { id: 'proof-ladder',           name: 'Proof Ladder',           category: 'verification' },
+        { id: 'formal-model',           name: 'Formal Model',           category: 'verification' },
+        { id: 'coherence-map',          name: 'Coherence Map',          category: 'governance' },
+        { id: 'content-production',     name: 'Content Production',     category: 'content' },
+      ];
+
+      const STATUS_TONE = {
+        built: 'positive', partial: 'warning', 'not-built': 'neutral',
+        ready: 'positive', planned: 'neutral', blocked: 'negative', gap: 'negative',
+        'ground-truth': 'positive', reference: 'neutral', deprecated: 'negative',
+        trusted: 'positive', 'usable-with-caveats': 'warning', prototype: 'neutral', broken: 'negative',
+        wired: 'positive', 'visual-only': 'warning', 'state-unwired': 'warning',
+      };
+
+      const DOC = {
+        title: 'Mobile Companion Workstream',
+        sections: [
+          {
+            id: 'mobile-capabilities', title: 'Mobile Capability Map',
+            convergenceType: 'capability-surface',
+            rationale: 'Parallel subsystems — auth, home, inbox, repos — need side-by-side comparability.',
+            cards: [
+              { id: 'auth-sign-in',       name: 'Authentication and sign-in', status: 'partial', ticketIds: ['19'] },
+              { id: 'home-doc-registry',  name: 'Home screen and doc registry', status: 'partial', ticketIds: ['18', '19'] },
+              { id: 'settings-runtime',   name: 'Settings runtime and push status', status: 'partial', ticketIds: ['19', '21', '22'] },
+              { id: 'repo-connection',    name: 'Connect-a-repo flow', status: 'partial', ticketIds: ['18', '20', '21'] },
+              { id: 'disconnect-repo',    name: 'Disconnect repo flow', status: 'partial', ticketIds: ['23'] },
+              { id: 'repo-delivery-feed', name: 'Repo-backed delivery feed', status: 'partial', ticketIds: ['20', '24', '36'] },
+              { id: 'inbox-audit-log',    name: 'Persistent inbox audit trail', status: 'partial', ticketIds: ['19', '24'] },
+            ],
+          },
+          {
+            id: 'runtime-state', title: 'Runtime and Connection State',
+            convergenceType: 'operating-surface',
+            rationale: 'Auth → connect → deliver → persist reads as one sequence; each state gates the next.',
+            cards: [
+              { id: 'web-runtime',       name: 'Web runtime',               status: 'built',   ticketIds: ['21'] },
+              { id: 'expo-go-runtime',   name: 'Expo Go runtime',           status: 'built',   ticketIds: ['21'] },
+              { id: 'eas-runtime',       name: 'EAS dev-build runtime',     status: 'partial', ticketIds: ['21', '22'] },
+              { id: 'repo-artifact',     name: 'GitHub repo artifact status', status: 'partial', ticketIds: ['20', '23', '36'] },
+              { id: 'local-state',       name: 'Local state stores',        status: 'partial', ticketIds: ['21', '24', '36'] },
+            ],
+          },
+          {
+            id: 'operational-tools', title: 'Operational Tools',
+            convergenceType: 'tooling-surface',
+            rationale: 'Instrument layer — purpose, when-to-use, invocation first-class per card.',
+            cards: [
+              { id: 'github-api-client', name: 'GitHub API client',       status: 'prototype', ticketIds: ['18', '20', '23', '36'] },
+              { id: 'sealed-box-crypto', name: 'Sealed-box encryption',   status: 'prototype', ticketIds: ['18', '20'] },
+              { id: 'workflow-template', name: 'Notification workflow',   status: 'prototype', ticketIds: ['18', '20', '23', '36'] },
+              { id: 'mockup-canvas',     name: 'Mobile mockup canvas',    status: 'trusted',   ticketIds: ['19'] },
+              { id: 'eas-dev-build',     name: 'EAS dev-build setup',     status: 'usable-with-caveats', ticketIds: ['22'] },
+              { id: 'inbox-store',       name: 'SQLite inbox store',      status: 'prototype', ticketIds: ['24'] },
+            ],
+          },
+          {
+            id: 'verification-plan', title: 'Verification Plan',
+            convergenceType: 'verification-surface',
+            rationale: 'Seven in-progress gates need rich evidence — current coverage, next step, and gaps.',
+            cards: [
+              { id: 'pixel-match',     name: 'Pixel-match mobile screens',     status: 'partial', ticketIds: ['19'] },
+              { id: 'connect-e2e',     name: 'Connect-a-repo end-to-end',      status: 'planned', ticketIds: ['20'] },
+              { id: 'repo-feed-sync',  name: 'Repo-backed delivery sync',       status: 'partial', ticketIds: ['36'] },
+              { id: 'runtime-matrix',  name: 'Push-token runtime matrix',       status: 'partial', ticketIds: ['21'] },
+              { id: 'eas-build',       name: 'EAS dev-build verification',      status: 'partial', ticketIds: ['22'] },
+              { id: 'disconnect-test', name: 'Disconnect repo verification',    status: 'partial', ticketIds: ['23'] },
+              { id: 'inbox-test',      name: 'Persistent inbox verification',   status: 'partial', ticketIds: ['24', '36'] },
+            ],
+          },
+          {
+            id: 'open-decisions', title: 'Open Decisions',
+            convergenceType: 'decision-record',
+            rationale: 'Ground-truth operating choices; page-status, not block-status, so they stay settled.',
+            cards: [
+              { id: 'issue-18-context',    name: '#18 is closed context',           status: 'ground-truth', ticketIds: ['18', '19', '20', '21', '22', '23', '24'] },
+              { id: 'repo-feed-truth',     name: 'GitHub feed is the source of truth', status: 'ground-truth', ticketIds: ['22', '24', '36'] },
+              { id: 'model-doc-separate',  name: 'Subscription model is a separate doc', status: 'ground-truth', ticketIds: ['36'] },
+              { id: 'preview-persistence', name: 'Preview connection survives refresh', status: 'ground-truth', ticketIds: ['20', '21'] },
+              { id: 'listener-owner',      name: 'Notification capture above Inbox',     status: 'ground-truth', ticketIds: ['24'] },
+            ],
+          },
+        ],
+      };
+
+      /* ── Hash-color palette for tickets ── */
+      const TICKET_COLORS = [
+        '#4f46e5', '#0891b2', '#059669', '#d97706',
+        '#db2777', '#7c3aed', '#be123c', '#0284c7',
+        '#16a34a', '#ea580c',
+      ];
+      function colorForTicket(tid) {
+        let h = 0; const s = String(tid);
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return TICKET_COLORS[h % TICKET_COLORS.length];
+      }
+
+      /* ── Render ── */
+      let selectedCardId = null;
+      let collapsedFrames = new Set();
+      const canvas = document.getElementById('canvas');
+      const wiresSvg = document.getElementById('wires');
+      const inspector = document.getElementById('inspector');
+
+      function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+      function categoryOf(typeId) {
+        const t = REGISTRY_TYPES.find(x => x.id === typeId);
+        return t ? t.category : 'overview';
+      }
+      function categoryColor(cat) {
+        return REGISTRY_CATEGORIES[cat]?.color || '#64748b';
+      }
+      function categoryBg(cat) {
+        const color = categoryColor(cat);
+        return `color-mix(in srgb, ${color} 14%, #fff)`;
+      }
+
+      function renderPalette() {
+        const byCat = {};
+        for (const t of REGISTRY_TYPES) {
+          (byCat[t.category] = byCat[t.category] || []).push(t);
+        }
+        const html = ['<h3>Convergence types</h3>',
+          '<p style="font-size:11.5px;color:var(--muted);margin:0 0 14px;line-height:1.45">Drag any chip onto the canvas to insert a new section. (Stub handler in this mock — logs the drop target.)</p>'];
+        for (const catId of Object.keys(REGISTRY_CATEGORIES)) {
+          if (!byCat[catId]) continue;
+          html.push(`<div class="palette-group">`);
+          html.push(`<span class="palette-group-title" style="color:${categoryColor(catId)}">${esc(REGISTRY_CATEGORIES[catId].label)}</span>`);
+          for (const t of byCat[catId]) {
+            html.push(`
+              <div class="palette-chip" draggable="true" data-type-id="${esc(t.id)}">
+                <span style="width:12px;height:12px;border-radius:3px;background:${categoryColor(t.category)};display:inline-block"></span>
+                <span>${esc(t.name)}</span>
+              </div>`);
+          }
+          html.push(`</div>`);
+        }
+        document.getElementById('palette').innerHTML = html.join('');
+      }
+
+      function renderFrames() {
+        const frames = DOC.sections.map((section) => {
+          const cat = categoryOf(section.convergenceType);
+          const collapsed = collapsedFrames.has(section.id);
+          const cardsHtml = section.cards.map((card) => {
+            const tone = STATUS_TONE[card.status] || 'neutral';
+            const dim = selectedCardId && !cardTouchesSelection(card);
+            const isSel = selectedCardId === cardKey(section.id, card.id);
+            return `
+              <div class="l2-card ${dim ? 'dim' : ''} ${isSel ? 'selected' : ''}"
+                   data-section-id="${esc(section.id)}"
+                   data-card-id="${esc(card.id)}"
+                   data-tickets="${esc((card.ticketIds || []).join(','))}">
+                <span class="l2-card-id">${esc(card.id)}</span>
+                <div class="l2-card-name">${esc(card.name)}</div>
+                <div class="l2-card-foot">
+                  <span class="l2-status l2-status-${tone}">${esc(card.status)}</span>
+                  ${(card.ticketIds || []).slice(0, 4).map(t => `<span class="l2-ticket" style="background:color-mix(in srgb, ${colorForTicket(t)} 14%, #fff); color:${colorForTicket(t)}">#${esc(t)}</span>`).join('')}
+                </div>
+              </div>`;
+          }).join('');
+
+          const rationaleHtml = section.rationale
+            ? `<div class="l2-frame-rationale">${esc(section.rationale)}</div>`
+            : `<div class="l2-frame-rationale l2-frame-rationale-empty">— no rationale declared yet —</div>`;
+
+          return `
+            <section class="l2-frame ${collapsed ? 'collapsed' : ''}" data-section-id="${esc(section.id)}" style="background:${categoryBg(cat)}">
+              <header class="l2-frame-head">
+                <div class="l2-frame-icon" style="color:${categoryColor(cat)}">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+                </div>
+                <div class="l2-frame-title">
+                  <h3>${esc(section.title)}</h3>
+                  <span class="l2-frame-type" style="background:${categoryBg(cat)}; color:${categoryColor(cat)}">${esc(section.convergenceType)}</span>
+                </div>
+                <div class="l2-frame-actions">
+                  <button type="button" class="l2-frame-btn" data-frame-swap="${esc(section.id)}" title="Swap convergence type (stub)">⇄</button>
+                  <button type="button" class="l2-frame-btn" data-frame-collapse="${esc(section.id)}" title="${collapsed ? 'Expand' : 'Collapse'}">${collapsed ? '▸' : '▾'}</button>
+                </div>
+              </header>
+              <div class="l2-frame-body">
+                ${cardsHtml}
+              </div>
+              ${rationaleHtml}
+            </section>`;
+        }).join('');
+
+        // keep the <svg> as first child, then frames
+        canvas.innerHTML = `<svg class="wires" id="wires" aria-hidden="true"></svg>${frames}`;
+        const newStats = renderStats();
+        document.getElementById('stats-bar').innerHTML = newStats;
+        requestAnimationFrame(drawWires);
+        wireEvents();
+      }
+
+      function renderStats() {
+        const sectionCount = DOC.sections.length;
+        const cardCount = DOC.sections.reduce((s, x) => s + x.cards.length, 0);
+        const tickets = new Set();
+        DOC.sections.forEach((s) => s.cards.forEach((c) => (c.ticketIds || []).forEach((t) => tickets.add(t))));
+        let edgeCount = 0;
+        const cardsByTicket = new Map();
+        DOC.sections.forEach((s) => s.cards.forEach((c) => (c.ticketIds || []).forEach((t) => {
+          if (!cardsByTicket.has(t)) cardsByTicket.set(t, []);
+          cardsByTicket.get(t).push({ s: s.id, c: c.id });
+        })));
+        for (const arr of cardsByTicket.values()) {
+          if (arr.length >= 2) edgeCount += arr.length * (arr.length - 1) / 2;
+        }
+        return `
+          <span class="stat"><strong>${sectionCount}</strong> sections</span>
+          <span class="stat"><strong>${cardCount}</strong> cards</span>
+          <span class="stat"><strong>${tickets.size}</strong> unique tickets</span>
+          <span class="stat"><strong>${edgeCount}</strong> cross-card wires</span>
+        `;
+      }
+
+      function cardKey(sid, cid) { return `${sid}::${cid}`; }
+
+      function cardTouchesSelection(card) {
+        if (!selectedCardId) return true;
+        const [selSid, selCid] = selectedCardId.split('::');
+        if (selCid === card.id) return true;
+        const selCard = DOC.sections.find(s => s.id === selSid)?.cards.find(c => c.id === selCid);
+        if (!selCard) return true;
+        const selTickets = new Set(selCard.ticketIds || []);
+        return (card.ticketIds || []).some((t) => selTickets.has(t));
+      }
+
+      function drawWires() {
+        const wires = document.getElementById('wires');
+        const canvasRect = canvas.getBoundingClientRect();
+        const cardsByTicket = new Map();
+        DOC.sections.forEach((s) => s.cards.forEach((c) => {
+          if (collapsedFrames.has(s.id)) return;
+          (c.ticketIds || []).forEach((t) => {
+            if (!cardsByTicket.has(t)) cardsByTicket.set(t, []);
+            cardsByTicket.get(t).push({ s: s.id, c: c.id });
+          });
+        }));
+
+        const pathFragments = [];
+        const svgX = (el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2 - canvasRect.left; };
+        const svgY = (el) => { const r = el.getBoundingClientRect(); return r.top  + r.height / 2 - canvasRect.top; };
+
+        for (const [tid, cards] of cardsByTicket.entries()) {
+          if (cards.length < 2) continue;
+          const color = colorForTicket(tid);
+          // chain them in the order they appear
+          for (let i = 0; i < cards.length - 1; i++) {
+            const a = cards[i], b = cards[i + 1];
+            const aEl = document.querySelector(`[data-section-id="${CSS.escape(a.s)}"][data-card-id="${CSS.escape(a.c)}"]`);
+            const bEl = document.querySelector(`[data-section-id="${CSS.escape(b.s)}"][data-card-id="${CSS.escape(b.c)}"]`);
+            if (!aEl || !bEl) continue;
+            const x1 = svgX(aEl), y1 = svgY(aEl), x2 = svgX(bEl), y2 = svgY(bEl);
+            const mx = (x1 + x2) / 2;
+            const dim = selectedCardId ? !((cardKey(a.s, a.c) === selectedCardId) || (cardKey(b.s, b.c) === selectedCardId)) : false;
+            const highlight = selectedCardId && ((cardKey(a.s, a.c) === selectedCardId) || (cardKey(b.s, b.c) === selectedCardId));
+            const cls = `wire ${highlight ? 'highlight' : ''} ${dim ? 'dim' : ''}`;
+            pathFragments.push(`<path class="${cls}" stroke="${color}" d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}"/>`);
+          }
+        }
+        wires.setAttribute('width',  String(canvasRect.width));
+        wires.setAttribute('height', String(canvasRect.height));
+        wires.innerHTML = pathFragments.join('');
+      }
+
+      function openInspector(sectionId, cardId) {
+        const section = DOC.sections.find(s => s.id === sectionId);
+        const card = section?.cards.find(c => c.id === cardId);
+        if (!card) return;
+        const refs = [];
+        for (const t of (card.ticketIds || [])) {
+          const others = [];
+          DOC.sections.forEach(s => s.cards.forEach(c => {
+            if (s.id === sectionId && c.id === cardId) return;
+            if ((c.ticketIds || []).includes(t)) others.push({ s, c });
+          }));
+          refs.push({ t, others });
+        }
+        document.getElementById('inspector-title').innerHTML = `<span>${esc(card.name)}</span><span style="font-size:10.5px;color:var(--muted);background:var(--neutral-bg);padding:2px 8px;border-radius:999px">${esc(card.status)}</span>`;
+        document.getElementById('inspector-id').textContent = `${section.title} · ${card.id}`;
+        const body = refs.map(({ t, others }) => {
+          const color = colorForTicket(t);
+          const othersHtml = others.map(o => `<div style="font-size:11.5px;color:var(--ink);margin-top:4px">${esc(o.s.title)} · <span style="font-family:ui-monospace,monospace;color:var(--muted);font-size:10.5px">${esc(o.c.id)}</span></div>`).join('');
+          return `
+            <div class="inspector-ref" style="border-left:3px solid ${color}">
+              <strong>#${esc(t)}</strong>
+              <small>${others.length} other ${others.length === 1 ? 'card' : 'cards'}</small>
+              <div style="flex-basis:100%">${othersHtml || '<div style="font-size:11px;color:var(--muted);font-style:italic">only this card</div>'}</div>
+            </div>`;
+        }).join('');
+        document.getElementById('inspector-body').innerHTML = `
+          <div class="inspector-section">
+            <span class="inspector-label">Ticket references</span>
+            <div class="inspector-refs">${body || '<div style="font-size:11.5px;color:var(--muted);font-style:italic">No tickets referenced.</div>'}</div>
+          </div>`;
+        inspector.classList.add('open');
+      }
+      function closeInspector() {
+        inspector.classList.remove('open');
+      }
+      window.closeInspector = closeInspector;
+
+      function wireEvents() {
+        document.querySelectorAll('.l2-card').forEach((el) => {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const key = cardKey(el.dataset.sectionId, el.dataset.cardId);
+            if (selectedCardId === key) {
+              selectedCardId = null;
+              closeInspector();
+            } else {
+              selectedCardId = key;
+              openInspector(el.dataset.sectionId, el.dataset.cardId);
+            }
+            renderFrames();
+          });
+        });
+        document.querySelectorAll('[data-frame-collapse]').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sid = btn.dataset.frameCollapse;
+            if (collapsedFrames.has(sid)) collapsedFrames.delete(sid); else collapsedFrames.add(sid);
+            renderFrames();
+          });
+        });
+        document.querySelectorAll('[data-frame-swap]').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sid = btn.dataset.frameSwap;
+            const section = DOC.sections.find(s => s.id === sid);
+            const next = window.prompt(
+              `Swap convergence type for "${section.title}".\nPick from:\n${REGISTRY_TYPES.map(t => t.id).join('\n')}`,
+              section.convergenceType);
+            if (!next) return;
+            if (!REGISTRY_TYPES.find(t => t.id === next)) {
+              alert(`Unknown type: ${next}`);
+              return;
+            }
+            section.convergenceType = next;
+            renderFrames();
+          });
+        });
+      }
+
+      /* ── Drag from palette (stub) ── */
+      document.addEventListener('dragstart', (e) => {
+        const chip = e.target.closest('.palette-chip');
+        if (!chip) return;
+        e.dataTransfer?.setData('text/typeId', chip.dataset.typeId);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+      canvas.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        canvas.classList.add('drag-over');
+      });
+      canvas.addEventListener('dragleave', (e) => {
+        if (e.target === canvas) canvas.classList.remove('drag-over');
+      });
+      canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        canvas.classList.remove('drag-over');
+        const typeId = e.dataTransfer?.getData('text/typeId');
+        if (!typeId) return;
+        const newId = `new-${typeId}-${Date.now()}`;
+        DOC.sections.push({
+          id: newId,
+          title: `New ${REGISTRY_TYPES.find(t => t.id === typeId).name}`,
+          convergenceType: typeId,
+          rationale: '',
+          cards: [],
+        });
+        renderFrames();
+      });
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('.l2-card, .inspector, [data-frame-collapse], [data-frame-swap], .palette')) return;
+        if (selectedCardId) { selectedCardId = null; renderFrames(); }
+        closeInspector();
+      });
+
+      window.addEventListener('resize', () => requestAnimationFrame(drawWires));
+
+      renderPalette();
+      renderFrames();
+    </script>
+  </body>
+</html>
