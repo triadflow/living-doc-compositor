@@ -351,6 +351,35 @@
     border: 2px dashed var(--accent); border-radius: 14px;
     pointer-events: none; z-index: 3;
   }
+  .l2-swap-popover {
+    position: absolute; z-index: 30;
+    width: 260px; max-height: 320px; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow-md); padding: 8px 6px;
+  }
+  .l2-swap-popover-group { margin-bottom: 6px; }
+  .l2-swap-popover-group-title {
+    display: block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+    padding: 4px 10px 2px;
+  }
+  .l2-swap-popover-item {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 6px;
+    background: transparent; border: none; text-align: left;
+    font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer;
+  }
+  .l2-swap-popover-item:hover { background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+  .l2-swap-popover-item.current {
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    color: var(--accent); font-weight: 700;
+  }
+  .l2-swap-popover-item.current::after {
+    content: "\2713"; margin-left: auto; color: var(--accent); font-weight: 700;
+  }
+  .l2-swap-popover-swatch {
+    display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
   .l2-body-canvas {
     position: relative; display: grid;
     grid-auto-flow: column; grid-auto-columns: 280px;
@@ -10385,6 +10414,63 @@
     svg.innerHTML = paths.join('');
   }
 
+  function openL2SwapPopover(anchorBtn, sectionId) {
+    closeL2SwapPopover();
+    const section = state.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const groups = getConvergenceGroups();
+    const html = groups.map((group) => `
+      <div class="l2-swap-popover-group">
+        <span class="l2-swap-popover-group-title">${esc(group.label)}</span>
+        ${group.items.map(([id, def]) => {
+          const color = def.iconColor || '#64748b';
+          const current = id === section.convergenceType;
+          return `
+            <button type="button" class="l2-swap-popover-item ${current ? 'current' : ''}" data-l2-swap-choice="${esc(id)}" title="${esc(def.structuralContract || def.description || id)}">
+              <span class="l2-swap-popover-swatch" style="background:${color}"></span>
+              <span>${esc(def.name || id)}</span>
+            </button>`;
+        }).join('')}
+      </div>`).join('');
+    const pop = document.createElement('div');
+    pop.className = 'l2-swap-popover';
+    pop.id = 'l2-swap-popover';
+    pop.innerHTML = html;
+    document.body.appendChild(pop);
+    const r = anchorBtn.getBoundingClientRect();
+    pop.style.top  = `${Math.min(r.bottom + 6, window.innerHeight - 330)}px`;
+    pop.style.left = `${Math.min(r.right - 260, window.innerWidth - 270)}px`;
+
+    pop.querySelectorAll('[data-l2-swap-choice]').forEach((item) => {
+      item.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const typeId = item.dataset.l2SwapChoice;
+        if (typeId && typeId !== section.convergenceType) {
+          section.convergenceType = typeId;
+          autoSave();
+          renderRight();
+        } else {
+          closeL2SwapPopover();
+        }
+      });
+    });
+
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('click', handleL2SwapOutsideClick, { once: true });
+    }, 0);
+  }
+  function closeL2SwapPopover() {
+    document.getElementById('l2-swap-popover')?.remove();
+  }
+  function handleL2SwapOutsideClick(event) {
+    if (event.target.closest('#l2-swap-popover, [data-l2-swap]')) {
+      document.addEventListener('click', handleL2SwapOutsideClick, { once: true });
+      return;
+    }
+    closeL2SwapPopover();
+  }
+
   function wireL2BodyInteractions(panel) {
     const canvas = panel.querySelector('#l2-body-canvas');
     if (!canvas) return;
@@ -10430,6 +10516,14 @@
         autoSave();
         renderRight();
       }
+    });
+
+    // Swap convergence type
+    canvas.querySelectorAll('[data-l2-swap]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openL2SwapPopover(btn, btn.dataset.l2Swap);
+      });
     });
 
     // Palette drag-to-insert
