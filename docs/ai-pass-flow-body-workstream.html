@@ -5094,7 +5094,14 @@
             &quot;statusSet&quot;: &quot;block-status&quot;
           }
         ],
-        &quot;nestable&quot;: true
+        &quot;nestable&quot;: true,
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;propose-status-from-commits&quot;,
+            &quot;name&quot;: &quot;Propose status from commits&quot;,
+            &quot;description&quot;: &quot;Look at recent commits touching the card’s codePaths and propose a status change (built / partial / not-built / gap / blocked) based on what landed.&quot;
+          }
+        ]
       },
       &quot;operating-surface&quot;: {
         &quot;name&quot;: &quot;Operating Surface&quot;,
@@ -5560,6 +5567,13 @@
           {
             &quot;key&quot;: &quot;status&quot;,
             &quot;statusSet&quot;: &quot;probe-status&quot;
+          }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;check-monotonic&quot;,
+            &quot;name&quot;: &quot;Check monotonic invariant&quot;,
+            &quot;description&quot;: &quot;Confirm every rung below this one is ready. If not, flag the inversion — this rung cannot legitimately claim ready state.&quot;
           }
         ]
       },
@@ -6705,6 +6719,13 @@
             &quot;key&quot;: &quot;status&quot;,
             &quot;statusSet&quot;: &quot;page-status&quot;
           }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;check-if-still-current&quot;,
+            &quot;name&quot;: &quot;Check if still current&quot;,
+            &quot;description&quot;: &quot;Read recent commits, tickets, and sessions for signals that a ground-truth decision has been implicitly overridden. Propose softening to reference or opening a challenge card.&quot;
+          }
         ]
       },
       &quot;investigation-findings&quot;: {
@@ -6755,6 +6776,13 @@
           {
             &quot;key&quot;: &quot;status&quot;,
             &quot;statusSet&quot;: &quot;page-status&quot;
+          }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;check-still-holding&quot;,
+            &quot;name&quot;: &quot;Check still holding&quot;,
+            &quot;description&quot;: &quot;Re-verify the finding against current evidence. Propose status transitions (ground-truth / reference / deprecated) or flag as stale.&quot;
           }
         ]
       },
@@ -6831,6 +6859,18 @@
             &quot;key&quot;: &quot;what_proved&quot;,
             &quot;label&quot;: &quot;What it proved&quot;
           }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;propose-supersession&quot;,
+            &quot;name&quot;: &quot;Propose supersession&quot;,
+            &quot;description&quot;: &quot;If a newer attempt productionised the same insight, suggest marking this card superseded and linking the newer shipping site.&quot;
+          },
+          {
+            &quot;id&quot;: &quot;find-shipping-commit&quot;,
+            &quot;name&quot;: &quot;Find shipping commit&quot;,
+            &quot;description&quot;: &quot;Search the referenced repos for the commit that productionised this attempt; fill shipped_in if missing.&quot;
+          }
         ]
       },
       &quot;issue-orbit&quot;: {
@@ -6900,6 +6940,18 @@
           {
             &quot;key&quot;: &quot;relevance&quot;,
             &quot;label&quot;: &quot;Relevance&quot;
+          }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;refresh-github-state&quot;,
+            &quot;name&quot;: &quot;Refresh GitHub state&quot;,
+            &quot;description&quot;: &quot;Re-fetch the linked issue/PR and update status + closed_by_pr if changed since the doc was last touched.&quot;
+          },
+          {
+            &quot;id&quot;: &quot;reclassify-relationship&quot;,
+            &quot;name&quot;: &quot;Reclassify relationship&quot;,
+            &quot;description&quot;: &quot;Re-read the sibling issue and challenge the current relationship classification (same-root-cause / symmetric / adjacent / superseded / prior-art).&quot;
           }
         ]
       },
@@ -6978,6 +7030,18 @@
             &quot;key&quot;: &quot;why_it_matters&quot;,
             &quot;label&quot;: &quot;Why it matters&quot;
           }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;check-revision-drift&quot;,
+            &quot;name&quot;: &quot;Check revision drift&quot;,
+            &quot;description&quot;: &quot;Diff the pinned revision against current main. Propose updating the revision, flagging as changed-since-issue, or replacing the anchor.&quot;
+          },
+          {
+            &quot;id&quot;: &quot;propose-replacement-anchor&quot;,
+            &quot;name&quot;: &quot;Propose replacement anchor&quot;,
+            &quot;description&quot;: &quot;If the code moved, suggest a replacement path + range with the same purpose.&quot;
+          }
         ]
       },
       &quot;symptom-observation&quot;: {
@@ -7049,6 +7113,18 @@
           {
             &quot;key&quot;: &quot;repro_steps&quot;,
             &quot;label&quot;: &quot;Reproduction&quot;
+          }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;suggest-environment-variants&quot;,
+            &quot;name&quot;: &quot;Suggest environment variants&quot;,
+            &quot;description&quot;: &quot;Propose reproduction attempts on adjacent environments (other OS, terminal, framework version) to narrow or widen the symptom.&quot;
+          },
+          {
+            &quot;id&quot;: &quot;check-contradictions&quot;,
+            &quot;name&quot;: &quot;Check for contradictions&quot;,
+            &quot;description&quot;: &quot;Scan the thread + orbit cards for observers who reported different behaviour; flag contradicted_by.&quot;
           }
         ]
       },
@@ -7131,9 +7207,43 @@
             &quot;key&quot;: &quot;evolution&quot;,
             &quot;label&quot;: &quot;Evolution&quot;
           }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;check-evolution&quot;,
+            &quot;name&quot;: &quot;Check evolution&quot;,
+            &quot;description&quot;: &quot;Re-read the thread since stated_at; propose updating position, rebuttal, or evolution if the stance has shifted.&quot;
+          }
         ]
       }
-    }
+    },
+    &quot;generalAiActions&quot;: [
+      {
+        &quot;id&quot;: &quot;decompose&quot;,
+        &quot;name&quot;: &quot;Decompose into sub-cards&quot;,
+        &quot;description&quot;: &quot;Break an umbrella or thin card into scoped sub-cards. Creates new tickets via gh, wires coverage edges, updates the parent card to point at the children.&quot;
+      },
+      {
+        &quot;id&quot;: &quot;enrich-notes&quot;,
+        &quot;name&quot;: &quot;Enrich notes&quot;,
+        &quot;description&quot;: &quot;Propose richer prose, callouts, and references for the notes field, matching the style of neighbour cards in the same section.&quot;
+      },
+      {
+        &quot;id&quot;: &quot;verify-invariants&quot;,
+        &quot;name&quot;: &quot;Verify against invariants&quot;,
+        &quot;description&quot;: &quot;Check the card against every invariant whose appliesTo includes this section. Flag violations with the specific invariant id and quote the rule.&quot;
+      },
+      {
+        &quot;id&quot;: &quot;propose-coverage&quot;,
+        &quot;name&quot;: &quot;Propose coverage edges&quot;,
+        &quot;description&quot;: &quot;Map the card to the objective facets it carries. Surface orphan facets honestly if none match — do not fabricate coverage.&quot;
+      },
+      {
+        &quot;id&quot;: &quot;summarise&quot;,
+        &quot;name&quot;: &quot;Summarise&quot;,
+        &quot;description&quot;: &quot;Concise one-paragraph summary of the card&#39;s current state. Read-only — never writes changes back to the doc.&quot;
+      }
+    ]
   };
   /* &lt;/generated:embedded-registry&gt; */
 
@@ -15336,7 +15446,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-18T10:25:45.258Z" title="2026-04-18T10:25:45.258Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T10:25:45.258Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-18T10:30:06.205Z" title="2026-04-18T10:30:06.205Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-18T10:30:06.205Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -15778,7 +15888,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-d25c05c (2026-04-18)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-ae7c330 (2026-04-18)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

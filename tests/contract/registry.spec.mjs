@@ -63,4 +63,36 @@ for (const [typeId, typeDef] of Object.entries(registry.convergenceTypes)) {
   }
 }
 
+// ── aiActions (general + per-type) ────────────────────────────────────────
+
+function assertAiAction(action, label) {
+  assert.ok(action && typeof action === 'object', `${label} must be an object`);
+  assert.ok(typeof action.id === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(action.id), `${label}.id must be a kebab-case slug`);
+  assert.ok(typeof action.name === 'string' && action.name.trim(), `${label}.name must be a non-empty string`);
+  assert.ok(typeof action.description === 'string' && action.description.trim(), `${label}.description must be a non-empty string`);
+}
+
+if (registry.generalAiActions !== undefined) {
+  assert.ok(Array.isArray(registry.generalAiActions), 'generalAiActions must be an array');
+  assert.ok(registry.generalAiActions.length > 0, 'generalAiActions must not be empty when declared');
+  const ids = new Set();
+  registry.generalAiActions.forEach((a, i) => {
+    assertAiAction(a, `generalAiActions[${i}]`);
+    assert.ok(!ids.has(a.id), `generalAiActions has duplicate id "${a.id}"`);
+    ids.add(a.id);
+  });
+}
+
+for (const [typeId, typeDef] of Object.entries(registry.convergenceTypes)) {
+  if (typeDef.aiActions === undefined) continue;
+  assert.ok(Array.isArray(typeDef.aiActions), `${typeId}.aiActions must be an array`);
+  assert.ok(typeDef.aiActions.length > 0, `${typeId}.aiActions must not be empty when declared`);
+  const ids = new Set();
+  typeDef.aiActions.forEach((a, i) => {
+    assertAiAction(a, `${typeId}.aiActions[${i}]`);
+    assert.ok(!ids.has(a.id), `${typeId}.aiActions has duplicate id "${a.id}"`);
+    ids.add(a.id);
+  });
+}
+
 console.log(`registry contract ok: ${Object.keys(registry.convergenceTypes).length} convergence types`);
