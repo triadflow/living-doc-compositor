@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Docs Board Mode Mockup</title>
+<meta name="description" content="Mockup for a registry-driven board view mode in rendered living docs, the embedded compositor, and the mobile WebView." />
+<style>
+  :root {
+    color-scheme: light;
+    --canvas: #0b1020;
+    --canvas-soft: #111827;
+    --canvas-line: #26324a;
+    --canvas-ink: #e6edf3;
+    --canvas-muted: #98a2b3;
+
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --ink: #1a2332;
+    --muted: #64748b;
+    --line: #dce3ec;
+    --line-strong: #c8d1dc;
+    --accent: #2563eb;
+    --accent-2: #0969da;
+    --positive-bg: #ecfdf5;
+    --positive-ink: #166534;
+    --warning-bg: #fffbeb;
+    --warning-ink: #92400e;
+    --negative-bg: #fef2f2;
+    --negative-ink: #991b1b;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+
+    --radius: 8px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--canvas);
+    color: var(--canvas-ink);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .canvas-header {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 44px 28px 18px;
+  }
+  .canvas-kicker {
+    color: #9ec5ff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 8px 0 8px;
+    font-size: clamp(30px, 4vw, 48px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+  .canvas-header p {
+    max-width: 840px;
+    margin: 0;
+    color: var(--canvas-muted);
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+  .canvas-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+  }
+  .canvas-nav a {
+    color: var(--canvas-ink);
+    text-decoration: none;
+    border: 1px solid var(--canvas-line);
+    background: var(--canvas-soft);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .canvas-section {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 26px 28px 54px;
+  }
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 16px;
+    color: var(--canvas-muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .section-label:after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--canvas-line);
+  }
+
+  .mock-frame {
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 42px;
+    padding: 0 14px;
+    background: #eef2f7;
+    border-bottom: 1px solid var(--line);
+  }
+  .dots {
+    display: inline-flex;
+    gap: 6px;
+  }
+  .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    background: #cbd5e1;
+  }
+  .dot.red { background: #fb7185; }
+  .dot.yellow { background: #fbbf24; }
+  .dot.green { background: #34d399; }
+  .address {
+    min-width: 0;
+    flex: 1;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .doc-shell {
+    min-height: 760px;
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .doc-sidebar {
+    background: var(--card);
+    border-right: 1px solid var(--line);
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+  }
+  .brand {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 850;
+    margin-bottom: 10px;
+  }
+  .nav-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+  }
+  .nav-icon.active {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .doc-content {
+    min-width: 0;
+    padding: 34px 32px 44px;
+  }
+  .doc-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 22px;
+    align-items: start;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 24px;
+  }
+  .doc-title {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.16;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+  }
+  .doc-subtitle {
+    max-width: 760px;
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14.5px;
+  }
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pill,
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .pill {
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .badge {
+    padding: 3px 9px;
+    font-size: 11px;
+  }
+  .badge-positive { background: var(--positive-bg); color: var(--positive-ink); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning-ink); }
+  .badge-negative { background: var(--negative-bg); color: var(--negative-ink); }
+  .badge-neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+
+  .mode-panel {
+    display: grid;
+    gap: 10px;
+    justify-items: end;
+  }
+  .mode-switch {
+    display: inline-grid;
+    grid-auto-flow: column;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+  }
+  .mode-switch button {
+    appearance: none;
+    border: 0;
+    border-radius: 7px;
+    padding: 7px 11px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .mode-switch button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .mode-meta {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .board-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    padding: 20px 0 18px;
+  }
+  .board-toolbar h2 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+  }
+  .board-toolbar p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .board-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .select-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12.5px;
+    font-weight: 750;
+  }
+  .select-chip span {
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(188px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  .lane {
+    min-width: 0;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--neutral-bg) 55%, var(--card));
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .lane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 2px 10px;
+  }
+  .lane-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    font-size: 12.5px;
+    color: var(--ink);
+    font-weight: 850;
+    text-transform: uppercase;
+    letter-spacing: 0.035em;
+  }
+  .lane-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--muted);
+    flex: none;
+  }
+  .lane-dot.positive { background: var(--positive-ink); }
+  .lane-dot.warning { background: var(--warning-ink); }
+  .lane-dot.negative { background: var(--negative-ink); }
+  .lane-count {
+    min-width: 24px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 850;
+  }
+  .board-card {
+    display: grid;
+    gap: 9px;
+    padding: 12px;
+    margin-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+  }
+  .board-card h3 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 11.5px;
+  }
+  .card-meta code {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: 1px solid var(--line);
+    background: var(--neutral-bg);
+    border-radius: 5px;
+    padding: 1px 5px;
+    color: var(--neutral-ink);
+    font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .board-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .empty-lane {
+    padding: 12px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  .split-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 26px;
+    align-items: start;
+  }
+
+  .app-shell {
+    height: 700px;
+    display: grid;
+    grid-template-columns: 396px minmax(0, 1fr);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .app-left {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    background: var(--card);
+  }
+  .app-rail {
+    padding: 14px 10px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  .rail-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+  }
+  .rail-btn.active {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .app-drawer {
+    padding: 18px 16px;
+    overflow: auto;
+  }
+  .drawer-title {
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 850;
+  }
+  .drawer-note {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .section-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .section-row {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    background: var(--bg);
+  }
+  .section-row.active {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+    background: color-mix(in srgb, var(--accent) 4%, var(--card));
+  }
+  .section-row strong {
+    display: block;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .section-row span {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 11.5px;
+  }
+  .app-right {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 15px 20px;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+  }
+  .preview-title {
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 850;
+  }
+  .preview-body {
+    min-width: 0;
+    overflow: auto;
+    padding: 18px;
+  }
+  .mini-board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    gap: 10px;
+  }
+  .mini-board .lane {
+    border-radius: 8px;
+    padding: 8px;
+  }
+  .mini-board .board-card {
+    padding: 10px;
+  }
+
+  .phone-wrap {
+    display: flex;
+    justify-content: center;
+  }
+  .phone {
+    width: 380px;
+    height: 800px;
+    border-radius: 52px;
+    padding: 11px;
+    background: #0e0e12;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+  }
+  .phone-screen {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 40px;
+    background: #fff;
+    color: #1f2328;
+    display: flex;
+    flex-direction: column;
+  }
+  .island {
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 114px;
+    height: 32px;
+    border-radius: 20px;
+    background: #000;
+    z-index: 3;
+  }
+  .home-indicator {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 3;
+  }
+  .status-bar {
+    height: 50px;
+    padding: 16px 30px 0;
+    display: flex;
+    justify-content: space-between;
+    color: #1f2328;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .phone-nav {
+    height: 44px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid #d0d7de;
+    background: #fff;
+  }
+  .phone-nav .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #0969da;
+    font-size: 15px;
+    font-weight: 550;
+  }
+  .phone-nav .center {
+    color: #1f2328;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .phone-webview {
+    flex: 1;
+    min-height: 0;
+    background: var(--bg);
+    overflow: auto;
+    padding-bottom: 22px;
+  }
+  .mobile-doc-sidebar {
+    display: none;
+  }
+  .mobile-doc {
+    padding: 18px 16px 26px;
+  }
+  .mobile-doc h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 21px;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+  .mobile-doc .sub {
+    margin: 6px 0 12px;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .mobile-mode {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--card);
+    margin: 12px 0;
+  }
+  .mobile-mode span {
+    text-align: center;
+    border-radius: 6px;
+    padding: 6px 4px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 850;
+  }
+  .mobile-mode .active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .mobile-filter {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .mobile-lanes {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .mobile-lane {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--neutral-bg) 52%, var(--card));
+    padding: 10px;
+  }
+  .mobile-lane .lane-head {
+    padding: 0 0 8px;
+  }
+  .mobile-lane .board-card {
+    margin-top: 7px;
+  }
+
+  .caption {
+    margin-top: 12px;
+    color: var(--canvas-muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .caption strong {
+    color: var(--canvas-ink);
+  }
+
+  @media (max-width: 1180px) {
+    .board { grid-template-columns: repeat(3, minmax(190px, 1fr)); }
+    .split-grid { grid-template-columns: 1fr; }
+    .app-shell { height: auto; min-height: 680px; }
+  }
+  @media (max-width: 880px) {
+    .doc-shell { grid-template-columns: 1fr; }
+    .doc-sidebar { display: none; }
+    .doc-content { padding: 24px 18px 34px; }
+    .doc-head,
+    .board-toolbar {
+      grid-template-columns: 1fr;
+    }
+    .mode-panel,
+    .board-controls {
+      justify-items: start;
+      justify-content: flex-start;
+    }
+    .mode-meta { text-align: left; }
+    .board,
+    .mini-board {
+      grid-template-columns: 1fr;
+    }
+    .app-shell {
+      grid-template-columns: 1fr;
+    }
+    .app-left {
+      display: none;
+    }
+  }
+  @media (max-width: 460px) {
+    .canvas-header,
+    .canvas-section { padding-left: 16px; padding-right: 16px; }
+    .phone {
+      transform: scale(0.88);
+      transform-origin: top center;
+      margin-bottom: -90px;
+    }
+  }
+</style>
+</head>
+<body>
+  <header class="canvas-header">
+    <div class="canvas-kicker">Living Docs board mode</div>
+    <h1>Board as another view of the same living doc</h1>
+    <p>
+      This mock keeps the rendered document as the canonical reading surface and adds a registry-driven
+      board mode beside it. The same mode appears in the embedded compositor preview and in the mobile
+      WebView because the mode belongs to the standalone living doc HTML.
+    </p>
+    <nav class="canvas-nav" aria-label="Mockup sections">
+      <a href="#rendered-doc">Rendered doc</a>
+      <a href="#compositor">Embedded compositor</a>
+      <a href="#mobile">Mobile WebView</a>
+    </nav>
+  </header>
+
+  <section class="canvas-section" id="rendered-doc">
+    <h2 class="section-label">Rendered document view</h2>
+    <div class="mock-frame">
+      <div class="browser-bar">
+        <span class="dots" aria-hidden="true"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></span>
+        <span class="address">docs/mobile-companion-workstream.html#view=board&amp;statusSet=block-status</span>
+      </div>
+      <div class="doc-shell">
+        <aside class="doc-sidebar" aria-label="Document sections">
+          <div class="brand">MO</div>
+          <div class="nav-icon active" title="Board">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="16" rx="1.5"/><rect x="17" y="4" width="4" height="16" rx="1.5"/></svg>
+          </div>
+          <div class="nav-icon" title="Snapshot"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="4" y="14" width="3" height="6" rx="1" opacity=".4"/><rect x="10.5" y="9" width="3" height="11" rx="1" opacity=".65"/><rect x="17" y="5" width="3" height="15" rx="1"/></svg></div>
+          <div class="nav-icon" title="Capability"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="4" y="4" width="7" height="7" rx="1.5" opacity=".3"/><rect x="13" y="4" width="7" height="7" rx="1.5" opacity=".55"/><rect x="4" y="13" width="7" height="7" rx="1.5" opacity=".55"/><path d="M14 15.5l2 2 4-4-1.4-1.4-2.6 2.6-.6-.6L14 15.5z"/></svg></div>
+          <div class="nav-icon" title="Runtime"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="4" y="5" width="16" height="14" rx="2" opacity=".22"/><path d="M7 9h10v2H7zm0 4h6v2H7z"/><circle cx="17" cy="14" r="2.5"/></svg></div>
+          <div class="nav-icon" title="Verification"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path opacity=".28" d="M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z"/><path d="M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z"/></svg></div>
+        </aside>
+        <main class="doc-content">
+          <header class="doc-head">
+            <div>
+              <h2 class="doc-title">Mobile Companion Workstream</h2>
+              <p class="doc-subtitle">Repo-connect, push runtime, EAS, disconnect, and inbox persistence plan for the Living Docs mobile app.</p>
+              <div class="pill-row" style="margin-top:14px">
+                <span class="pill">Mobile</span>
+                <span class="pill">Workstream</span>
+                <span class="pill">GitHub Issues</span>
+              </div>
+            </div>
+            <div class="mode-panel">
+              <div class="mode-switch" aria-label="View mode">
+                <button>Document</button>
+                <button class="active">Board</button>
+                <button>JSON</button>
+              </div>
+              <div class="mode-meta">Snapshot generated 2026-04-16T01:52:30.000Z</div>
+            </div>
+          </header>
+
+          <div class="board-toolbar">
+            <div>
+              <h2>Document board</h2>
+              <p>Grouped by registry status set <code>block-status</code> across capability, operating, and enabler sections.</p>
+            </div>
+            <div class="board-controls">
+              <span class="select-chip"><span>Scope</span> Whole doc</span>
+              <span class="select-chip"><span>Dimension</span> status</span>
+              <span class="select-chip"><span>Status set</span> block-status</span>
+            </div>
+          </div>
+
+          <section class="board" aria-label="Block status board">
+            <div class="lane">
+              <div class="lane-head"><span class="lane-title"><span class="lane-dot positive"></span>Built</span><span class="lane-count">2</span></div>
+              <article class="board-card">
+                <h3>Web runtime</h3>
+                <div class="card-meta"><span>Runtime and Connection State Model</span><code>mobile/src/notifications.ts</code></div>
+                <p>Web preview mode is detected and routes repo setup through the placeholder-token path.</p>
+                <div class="pill-row"><span class="badge badge-positive">Built</span><span class="badge badge-neutral">#21</span></div>
+              </article>
+              <article class="board-card">
+                <h3>Expo Go runtime</h3>
+                <div class="card-meta"><span>Runtime and Connection State Model</span><code>mobile/src/screens/Settings.tsx</code></div>
+                <p>Expo Go is labelled preview-only and points toward an EAS dev build for real pushes.</p>
+                <div class="pill-row"><span class="badge badge-positive">Built</span><span class="badge badge-neutral">#21</span></div>
+              </article>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head"><span class="lane-title"><span class="lane-dot warning"></span>Partial</span><span class="lane-count">5</span></div>
+              <article class="board-card">
+                <h3>Connect-a-repo flow</h3>
+                <div class="card-meta"><span>Mobile Capability Map</span><code>mobile/src/screens/Repos.tsx</code></div>
+                <p>Connection flow exists, with preview-vs-real state; still needs real throwaway-repo verification.</p>
+                <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#20</span><span class="badge badge-neutral">#21</span></div>
+              </article>
+              <article class="board-card">
+                <h3>Persistent inbox and notification audit trail</h3>
+                <div class="card-meta"><span>Mobile Capability Map</span><code>mobile/src/inbox-store.ts</code></div>
+                <p>SQLite event log and read/delete paths are in place; runtime verification remains open.</p>
+                <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#24</span></div>
+              </article>
+              <article class="board-card">
+                <h3>EAS/dev-build runtime</h3>
+                <div class="card-meta"><span>Runtime and Connection State Model</span><code>mobile/eas.json</code></div>
+                <p>Profiles and docs exist, but no successful device build has been recorded yet.</p>
+                <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#22</span></div>
+              </article>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head"><span class="lane-title"><span class="lane-dot"></span>Not built</span><span class="lane-count">0</span></div>
+              <div class="empty-lane">No current items in this lane.</div>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head"><span class="lane-title"><span class="lane-dot negative"></span>Gap</span><span class="lane-count">1</span></div>
+              <article class="board-card">
+                <h3>Native pixel-diff harness</h3>
+                <div class="card-meta"><span>Verification Plan</span><code>docs/mobile-mockups.html</code></div>
+                <p>The mockup canvas is trusted, but screenshot diff automation is still manual work.</p>
+                <div class="pill-row"><span class="badge badge-negative">Gap</span><span class="badge badge-neutral">#19</span></div>
+              </article>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head"><span class="lane-title"><span class="lane-dot negative"></span>Blocked</span><span class="lane-count">1</span></div>
+              <article class="board-card">
+                <h3>Real push delivery claim</h3>
+                <div class="card-meta"><span>Verification Plan</span><code>mobile/README.md</code></div>
+                <p>Cannot be claimed until an EAS dev build records native push-token behavior on device.</p>
+                <div class="pill-row"><span class="badge badge-negative">Blocked</span><span class="badge badge-neutral">#22</span></div>
+              </article>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <p class="caption"><strong>Intent:</strong> the mode switch is document-level. The board cards keep section provenance and source references so the board remains an alternate inspection view, not a separate tracker.</p>
+  </section>
+
+  <section class="canvas-section" id="compositor">
+    <h2 class="section-label">Embedded compositor preview</h2>
+    <div class="mock-frame">
+      <div class="browser-bar">
+        <span class="dots" aria-hidden="true"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></span>
+        <span class="address">embedded compositor iframe - previewTab=board</span>
+      </div>
+      <div class="app-shell">
+        <aside class="app-left">
+          <nav class="app-rail" aria-label="Compositor rail">
+            <div class="rail-btn active" title="Sections"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="5" rx="1.5"/><rect x="4" y="11" width="16" height="9" rx="1.5"/></svg></div>
+            <div class="rail-btn" title="Structure"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 8h14M5 16h14"/></svg></div>
+            <div class="rail-btn" title="Library"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          </nav>
+          <div class="app-drawer">
+            <div class="drawer-title">Document Sections</div>
+            <div class="drawer-note">Focused section controls the board scope when the preview mode is set to board.</div>
+            <div class="section-list">
+              <div class="section-row"><strong>Status Snapshot</strong><span>status-snapshot - no board dimensions</span></div>
+              <div class="section-row active"><strong>Mobile Capability Map</strong><span>capability-surface - status:block-status</span></div>
+              <div class="section-row"><strong>Runtime and Connection State Model</strong><span>operating-surface - status:block-status</span></div>
+              <div class="section-row"><strong>Verification Plan</strong><span>verification-surface - status or priority</span></div>
+            </div>
+          </div>
+        </aside>
+        <main class="app-right">
+          <header class="preview-head">
+            <div class="preview-title">Preview</div>
+            <div class="mode-switch" aria-label="Preview mode">
+              <button>Visual</button>
+              <button class="active">Board</button>
+              <button>JSON</button>
+            </div>
+          </header>
+          <div class="preview-body">
+            <div class="board-toolbar" style="padding-top:0">
+              <div>
+                <h2>Focused section board</h2>
+                <p>Mobile Capability Map grouped by <code>status:block-status</code>.</p>
+              </div>
+              <div class="board-controls">
+                <span class="select-chip"><span>Scope</span> Focused section</span>
+                <span class="select-chip"><span>Dimension</span> status</span>
+              </div>
+            </div>
+            <section class="mini-board" aria-label="Focused section board preview">
+              <div class="lane">
+                <div class="lane-head"><span class="lane-title"><span class="lane-dot warning"></span>Partial</span><span class="lane-count">6</span></div>
+                <article class="board-card">
+                  <h3>Authentication and sign-in surface</h3>
+                  <div class="card-meta"><code>mobile/src/auth.tsx</code></div>
+                  <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#19</span></div>
+                </article>
+                <article class="board-card">
+                  <h3>Home screen and document registry</h3>
+                  <div class="card-meta"><code>mobile/src/screens/Home.tsx</code></div>
+                  <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#18</span></div>
+                </article>
+              </div>
+              <div class="lane">
+                <div class="lane-head"><span class="lane-title"><span class="lane-dot"></span>Not built</span><span class="lane-count">0</span></div>
+                <div class="empty-lane">No capability cards.</div>
+              </div>
+              <div class="lane">
+                <div class="lane-head"><span class="lane-title"><span class="lane-dot negative"></span>Gap</span><span class="lane-count">0</span></div>
+                <div class="empty-lane">No capability cards.</div>
+              </div>
+              <div class="lane">
+                <div class="lane-head"><span class="lane-title"><span class="lane-dot negative"></span>Blocked</span><span class="lane-count">0</span></div>
+                <div class="empty-lane">No capability cards.</div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+    <p class="caption"><strong>Intent:</strong> in the compositor, board is a preview mode. The left drawer remains structural; the right pane changes how the current payload is inspected.</p>
+  </section>
+
+  <section class="canvas-section" id="mobile">
+    <h2 class="section-label">Mobile app WebView</h2>
+    <div class="phone-wrap">
+      <div>
+        <div class="phone">
+          <div class="island"></div>
+          <div class="phone-screen">
+            <div class="status-bar">
+              <span>9:41</span>
+              <span style="display:inline-flex;gap:5px;align-items:center">
+                <svg width="16" height="10" viewBox="0 0 18 12"><path fill="currentColor" d="M0 9h3v3H0zm5-3h3v6H5zm5-3h3v9h-3zm5-3h3v12h-3z"/></svg>
+                <svg width="15" height="11" viewBox="0 0 17 12"><path fill="currentColor" d="M8.5 0C5.4 0 2.7 1.2.5 3l2 2.3c1.7-1.4 3.8-2.3 6-2.3 2.3 0 4.4.9 6 2.3l2-2.3C14.3 1.2 11.6 0 8.5 0zm0 4.9c-2 0-4 .8-5.4 2.3l2 2.4c1-1 2.2-1.5 3.4-1.5s2.5.5 3.4 1.5l2-2.4A7.6 7.6 0 0 0 8.5 5zm0 4.2c-1.1 0-2.2.5-3 1.3l3 3.1 3-3.1a4.1 4.1 0 0 0-3-1.3z"/></svg>
+                <svg width="26" height="12" viewBox="0 0 28 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3" fill="none" stroke="currentColor"/><rect x="2" y="2" width="20" height="9" rx="1.5" fill="currentColor"/><rect x="24" y="3.5" width="2" height="6" rx="1" fill="currentColor"/></svg>
+              </span>
+            </div>
+            <div class="phone-nav">
+              <div class="back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Docs
+              </div>
+              <div class="center">Mobile Workstream</div>
+              <div style="color:#0969da">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              </div>
+            </div>
+            <div class="phone-webview">
+              <main class="mobile-doc">
+                <h2>Mobile Companion Workstream</h2>
+                <p class="sub">Repo-connect, push runtime, EAS, disconnect, and inbox persistence plan.</p>
+                <div class="mobile-mode">
+                  <span>Doc</span>
+                  <span class="active">Board</span>
+                  <span>JSON</span>
+                </div>
+                <div class="mobile-filter">
+                  <span class="select-chip"><span>Scope</span> Doc</span>
+                  <span class="select-chip"><span>Set</span> block-status</span>
+                </div>
+                <section class="mobile-lanes" aria-label="Mobile board lanes">
+                  <div class="mobile-lane">
+                    <div class="lane-head"><span class="lane-title"><span class="lane-dot positive"></span>Built</span><span class="lane-count">2</span></div>
+                    <article class="board-card">
+                      <h3>Web runtime</h3>
+                      <p>Preview-only web path is explicit in Settings and Repos.</p>
+                      <div class="pill-row"><span class="badge badge-positive">Built</span><span class="badge badge-neutral">#21</span></div>
+                    </article>
+                  </div>
+                  <div class="mobile-lane">
+                    <div class="lane-head"><span class="lane-title"><span class="lane-dot warning"></span>Partial</span><span class="lane-count">5</span></div>
+                    <article class="board-card">
+                      <h3>Connect-a-repo flow</h3>
+                      <p>Preview-vs-real state exists; throwaway-repo verification remains.</p>
+                      <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#20</span></div>
+                    </article>
+                    <article class="board-card">
+                      <h3>Persistent inbox</h3>
+                      <p>SQLite store is in place; restart and device behavior still need checking.</p>
+                      <div class="pill-row"><span class="badge badge-warning">Partial</span><span class="badge badge-neutral">#24</span></div>
+                    </article>
+                  </div>
+                  <div class="mobile-lane">
+                    <div class="lane-head"><span class="lane-title"><span class="lane-dot negative"></span>Blocked</span><span class="lane-count">1</span></div>
+                    <article class="board-card">
+                      <h3>Real push delivery claim</h3>
+                      <p>Needs EAS dev build evidence before the claim is upgraded.</p>
+                      <div class="pill-row"><span class="badge badge-negative">Blocked</span><span class="badge badge-neutral">#22</span></div>
+                    </article>
+                  </div>
+                </section>
+              </main>
+            </div>
+          </div>
+          <div class="home-indicator"></div>
+        </div>
+        <p class="caption"><strong>Intent:</strong> no native board implementation is needed first. The mobile app shows the same standalone HTML mode through its existing WebView.</p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
