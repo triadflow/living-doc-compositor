@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI actions — registry-driven handlers (proposal)</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --panel: #f8fafc;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f1f5f9;
+    --good: #16a34a;
+    --good-soft: #dcfce7;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --bad: #b91c1c;
+    --bad-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border: 1px solid #fde68a;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 22px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 36px 0 12px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  h3 { font-size: 14px; margin: 22px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 0 0 12px; }
+  code {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin: 12px 0;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 12px 0;
+  }
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+  }
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .split .col {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: #fff;
+  }
+  .split .col.now { background: var(--panel); }
+  .split .col.next { background: #f6faff; border-color: #bfdbfe; }
+  .split h4 {
+    font-size: 12px;
+    margin: 0 0 8px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .split .col.next h4 { color: var(--accent); }
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 18px 0 10px;
+  }
+  .flow .step {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    position: relative;
+  }
+  .flow .step .n {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .flow .step .t { font-weight: 600; margin-top: 4px; }
+  .flow .step .d { color: var(--muted); font-size: 12.5px; margin-top: 4px; line-height: 1.45; }
+  .flow .step::after {
+    content: "→";
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .flow .step:last-child::after { content: ""; }
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  li { margin: 4px 0; }
+  .pros-cons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .pros, .cons { border-radius: 10px; padding: 14px 16px; border: 1px solid var(--line); }
+  .pros { background: var(--good-soft); border-color: #bbf7d0; }
+  .cons { background: var(--bad-soft); border-color: #fecaca; }
+  .pros h4, .cons h4 {
+    font-size: 12px;
+    margin: 0 0 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .pros h4 { color: var(--good); }
+  .cons h4 { color: var(--bad); }
+  .pros ul, .cons ul { padding-left: 18px; margin: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  tbody tr:hover { background: var(--panel); }
+  .zone {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+  }
+  .zone.mech { border-color: var(--accent-soft); background: var(--accent-soft); color: var(--accent); }
+  .zone.judge { border-color: #fde68a; background: var(--warn-soft); color: var(--warn); }
+  .ref { color: var(--muted); font-size: 13px; }
+  .ref code { font-size: 12px; }
+  @media (max-width: 780px) {
+    .split, .pros-cons, .flow { grid-template-columns: 1fr; }
+    .flow .step::after { content: "↓"; right: 50%; top: auto; bottom: -16px; transform: translateX(50%); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI actions — registry-driven handlers</h1>
+  <p class="lede">
+    A proposal: invert the wiring so adding a new AI action becomes one registry edit,
+    matching how convergence types already work.
+  </p>
+  <span class="status-pill">Proposal · not yet implemented</span>
+
+  <h2>Thesis</h2>
+  <div class="callout">
+    The handler contract — what to read, what shell commands to run, what patch shape to emit —
+    belongs in <code>living-doc-registry.json</code>, alongside the action's <code>id</code>/<code>name</code>/<code>description</code>.
+    The skill becomes a thin dispatcher over a declarative spec. The registry stays the vocabulary.
+  </div>
+
+  <h2>Where we are today (for contrast)</h2>
+  <p>
+    Adding an AI action currently has two sides. See <a href="ai-actions-wiring.html">current wiring</a> for the full story.
+  </p>
+  <div class="split">
+    <div class="col now">
+      <h4>Side 1 · registry</h4>
+      <p>Append one entry. Palette picks it up.</p>
+<pre>{ "id": "check-still-holding",
+  "name": "Check still holding",
+  "description": "..." }</pre>
+    </div>
+    <div class="col now">
+      <h4>Side 2 · two skill files</h4>
+      <p>Edit a handler block into both engine prompts.</p>
+<pre>## `investigation-findings` → `check-still-holding`
+
+1. Read `card.claim`, `card.evidence[]`...
+2. `gh issue view ...`
+3. Emit `card-update` when ...
+4. Otherwise empty + warning ...</pre>
+    </div>
+  </div>
+  <p class="ref">
+    Side 2 drifts. Prompts per engine diverge. The action works or doesn't, depending on which engine is picked.
+    A declared action with no handler silently returns <code>meta.warnings: ["not yet implemented"]</code>.
+  </p>
+
+  <h2>The inversion</h2>
+  <p>
+    Move the handler contract into the registry. Each action carries a machine-readable spec describing
+    its <b>mechanical</b> zone (reads, shell, emit shapes) and a scoped <b>judgment</b> zone (a typed prose slot where the LLM still reasons).
+    The skill becomes a dispatcher that executes the mechanical parts and hands the judgment parts to the model, then assembles the patch.
+  </p>
+
+  <div class="split">
+    <div class="col now">
+      <h4>Now · prose handler per engine</h4>
+<pre>skill-prompt.md (× 2 engines)
+  └─ big markdown with
+     one handler block per
+     action id
+
+registry.json
+  └─ id / name / description</pre>
+    </div>
+    <div class="col next">
+      <h4>Proposed · declarative contract in registry</h4>
+<pre>registry.json
+  └─ aiActions[id] = {
+       id, name, description,
+       scope, appliesTo,
+       contract: {
+         read, shell, emit,
+         judgment, fallback
+       }
+     }
+
+skill-prompt.md (× 2 engines)
+  └─ thin dispatcher
+     over contract</pre>
+    </div>
+  </div>
+
+  <h2>The contract shape</h2>
+  <p>The contract has five slots. The first three are mechanical. The last two encode where the LLM is allowed to think.</p>
+
+  <table>
+    <thead><tr><th>Slot</th><th>Zone</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>read</code></td>
+        <td><span class="zone mech">mechanical</span></td>
+        <td>Declared context — which parts of the card, section, and doc-root the handler needs. Dispatcher loads these before prompting.</td>
+      </tr>
+      <tr>
+        <td><code>shell</code></td>
+        <td><span class="zone mech">mechanical</span></td>
+        <td>A list of safe, templated shell invocations (<code>git</code>, <code>gh</code>) with named results. Templates interpolate only from <code>read</code> output — no free-form strings from the model.</td>
+      </tr>
+      <tr>
+        <td><code>emit</code></td>
+        <td><span class="zone mech">mechanical</span></td>
+        <td>Declarative emit rules — <code>{ if: &lt;expr&gt;, kind: &lt;patch-kind&gt;, fields: { ... } }</code>. Kinds and fields are constrained to <code>ai-patch-schema.json</code>.</td>
+      </tr>
+      <tr>
+        <td><code>judgment</code></td>
+        <td><span class="zone judge">LLM prose</span></td>
+        <td>A typed slot where the model writes free-form reasoning — e.g. style-match a neighbour card, or pick among ambiguous commit candidates. The prompt and output shape are fixed; the words inside are not.</td>
+      </tr>
+      <tr>
+        <td><code>fallback</code></td>
+        <td><span class="zone mech">mechanical</span></td>
+        <td>What to emit when evidence is missing — usually <code>empty+warning</code>. Never guess.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Worked example 1 — <code>check-revision-drift</code> (mostly mechanical)</h2>
+  <p>
+    Today: a 30-line prose handler in each of the two skill files. Tomorrow: one JSON entry, zero prose per engine.
+  </p>
+<pre>{
+  "aiActions": {
+    "check-revision-drift": {
+      "name": "Check revision drift",
+      "description": "...",
+      "scope": "type-specific",
+      "appliesTo": ["code-anchor"],
+
+      "contract": {
+        "read": ["card.revision", "card.path", "card.range"],
+
+        "shell": [
+          { "id": "driftLog",
+            "run": "git log --oneline ${card.revision}..HEAD -- ${card.path}",
+            "if":  "card.revision.nonEmpty" },
+          { "id": "latestSha",
+            "run": "git log -1 --format=%H -- ${card.path}",
+            "if":  "driftLog.nonEmpty" },
+          { "id": "headSha",
+            "run": "git rev-parse HEAD",
+            "if":  "card.revision.isEmpty" }
+        ],
+
+        "emit": [
+          { "if": "card.revision.isEmpty",
+            "kind": "card-update",
+            "fields": { "status": "current", "revision": "${headSha}" },
+            "rationale": "First revision pin — file exists at HEAD." },
+
+          { "if": "driftLog.isEmpty",
+            "kind": "summary-only",
+            "summary": "revision still current for ${card.path}" },
+
+          { "if": "driftLog.nonEmpty",
+            "kind": "card-update",
+            "fields": { "status": "changed-since-issue", "revision": "${latestSha}" },
+            "rationale": "${driftLog.lineCount} commits touched ${card.path} since pinned revision." }
+        ],
+
+        "fallback": { "onShellError": "empty+warning" }
+      }
+    }
+  }
+}</pre>
+
+  <h2>Worked example 2 — <code>enrich-notes</code> (judgment-heavy)</h2>
+  <p>
+    Pure mechanical rules can't write good prose. The contract declares a <b>judgment slot</b> with a fixed prompt and a typed output shape.
+    The dispatcher feeds <code>read</code> output into the slot; the model returns the structured prose; the dispatcher wraps it in a patch.
+  </p>
+<pre>"enrich-notes": {
+  "scope": "general",
+  "contract": {
+    "read": ["target-card", "sibling-cards"],
+    "shell": [],
+    "judgment": {
+      "prompt": "Match the shape and voice of sibling cards. Do not invent facts.",
+      "output": {
+        "type": "array",
+        "items": { "role": "callout|reference|paragraph", "tone": "info|warn", "text": "string" }
+      },
+      "preserve": "existing-notes"
+    },
+    "emit": [
+      { "kind": "card-update",
+        "fields": { "notes": "${judgment.output}", "updated": "${now}" },
+        "rationale": "Enriched notes to match neighbour style." }
+    ]
+  }
+}</pre>
+
+  <h2>Worked example 3 — <code>decompose</code> (mixed)</h2>
+  <p>
+    Some actions need both zones at once. <code>decompose</code> reads the umbrella card, asks the model to propose sub-units (judgment),
+    then mechanically emits a <code>ticket-create</code> + <code>card-create</code> + <code>coverage-add</code> per sub-unit.
+  </p>
+<pre>"decompose": {
+  "scope": "general",
+  "contract": {
+    "read": ["target-card", "sibling-cards", "doc-root.objectiveFacets"],
+    "judgment": {
+      "prompt": "Propose 3–8 scoped sub-units. Each should be shippable in isolation.",
+      "output": {
+        "type": "array",
+        "items": { "name": "string", "rationale": "string", "carriesFacets": "facetId[]" }
+      }
+    },
+    "emit": [
+      { "forEach": "judgment.output",
+        "kind": "ticket-create",
+        "fields": { "title": "${item.name}", "body": "${item.rationale}" },
+        "linkTo": "new-card.ticketIds" },
+      { "forEach": "judgment.output",
+        "kind": "card-create",
+        "fields": { "name": "${item.name}", "status": "planned" } },
+      { "forEachPair": ["judgment.output", "item.carriesFacets"],
+        "kind": "coverage-add",
+        "fields": { "facetId": "${facet}", "cardId": "${card.id}" } }
+    ]
+  }
+}</pre>
+
+  <h2>Runtime flow under the new model</h2>
+  <div class="flow">
+    <div class="step">
+      <div class="n">1 · Palette</div>
+      <div class="t">Cmd+K fires</div>
+      <div class="d">Same as today — section type → action list.</div>
+    </div>
+    <div class="step">
+      <div class="n">2 · Server</div>
+      <div class="t">looks up contract</div>
+      <div class="d"><code>registry.aiActions[id].contract</code> is the authority.</div>
+    </div>
+    <div class="step">
+      <div class="n">3 · Mechanical</div>
+      <div class="t">reads + shell</div>
+      <div class="d">Dispatcher gathers context and runs declared <code>git</code>/<code>gh</code> commands.</div>
+    </div>
+    <div class="step">
+      <div class="n">4 · Judgment</div>
+      <div class="t">LLM slot</div>
+      <div class="d">Model called only with the scoped prompt + typed output. Engine choice stays user-visible.</div>
+    </div>
+    <div class="step">
+      <div class="n">5 · Emit</div>
+      <div class="t">assemble patch</div>
+      <div class="d">Apply <code>emit</code> rules, run the existing validator, return diff sidebar.</div>
+    </div>
+  </div>
+
+  <h2>Why this is worth doing</h2>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Pros</h4>
+      <ul>
+        <li><b>One edit per action.</b> Matches how convergence types are added.</li>
+        <li><b>Engine parity.</b> Same contract, any engine — no per-prompt drift.</li>
+        <li><b>Introspection.</b> The "what actions exist and what do they do" page becomes auto-generated.</li>
+        <li><b>Safer shell.</b> Templates interpolate only from structured <code>read</code> output — no arbitrary model-authored commands.</li>
+        <li><b>Testable.</b> Contract can be unit-tested with a mock engine; no prompt round-trip needed for mechanical paths.</li>
+        <li><b>Honest fallbacks.</b> "Not yet implemented" stops being silent — it's a missing contract, caught by a registry lint.</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Cons</h4>
+      <ul>
+        <li><b>The contract is a DSL.</b> DSLs accrete features; interpolation and conditional expressions need careful scope limits.</li>
+        <li><b>Real refactor.</b> Two skill files full of prose become one dispatcher each — rewrite, not addition.</li>
+        <li><b>Judgment-heavy actions may chafe.</b> If the typed output shape is wrong, the contract gets in the way rather than helping.</li>
+        <li><b>Schema churn.</b> Registry schema version bumps become load-bearing; migrations for existing docs must be handled.</li>
+        <li><b>Loses the "just write a prompt" escape hatch.</b> Future exotic actions might want freer prose than a contract allows.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Migration path (incremental)</h2>
+  <p>Don't big-bang it. Ship the substrate, migrate one action at a time, let the two styles coexist.</p>
+  <ol>
+    <li><b>Add the contract substrate.</b> Extend the registry schema; teach the server to call a new <code>dispatchContract(action, ctx)</code> path when <code>action.contract</code> is present. Skills keep handling the rest.</li>
+    <li><b>Migrate the easiest action first.</b> <code>check-revision-drift</code> is almost pure mechanical — great pilot. Delete its prose handler from both skills.</li>
+    <li><b>Build the judgment-slot runner.</b> Add the typed prompt/output path. Migrate <code>enrich-notes</code>.</li>
+    <li><b>Migrate the rest in small PRs.</b> Each migration is one registry edit + two skill deletions + a test.</li>
+    <li><b>Auto-generate <a href="ai-actions-wiring.html">the wiring page</a>.</b> Once all actions have contracts, the explainer writes itself from the registry.</li>
+    <li><b>Retire the prose-handler fallback.</b> When the last action migrates, the skills become pure dispatchers. Lint the registry to require <code>contract</code> on every action.</li>
+  </ol>
+
+  <h2>Open questions</h2>
+  <ul>
+    <li>Where does the <b>judgment slot</b> sit on the engine-parity spectrum? Same typed output, different models — do we accept quality variance, or strictly-match outputs with a small arbitration layer?</li>
+    <li>How do we express <b>multi-step judgment</b> (e.g. decompose: first propose units, then for each unit write a ticket body) without reintroducing freeform prompts?</li>
+    <li>Are <b>conditional expressions</b> (<code>if: "driftLog.nonEmpty"</code>) worth a tiny expression language, or should we restrict to <code>present</code>/<code>empty</code>/<code>equals</code> and force anything richer into a small named helper?</li>
+    <li>Should the contract include <b>retry / refinement</b> when validator rejects the patch, or is that dispatcher concern?</li>
+    <li>What part of today's skill <b>self-check</b> pass becomes a declared contract rule, vs. stays a prose principle?</li>
+  </ul>
+
+  <p class="ref" style="margin-top: 40px;">
+    Key files today: <code>scripts/living-doc-registry.json</code> (vocabulary) ·
+    <code>scripts/ai-patch-schema.json</code> (the kind-set the contract would bind to) ·
+    <code>.claude/skills/living-doc-ai-pass-claude/SKILL.md</code> + <code>…codex/SKILL.md</code> (the prose to thin out) ·
+    <code>scripts/ai-pass-server.mjs</code> (where <code>dispatchContract</code> would live).
+  </p>
+</div>
+</body>
+</html>
