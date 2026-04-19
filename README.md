@@ -4,6 +4,8 @@
 
 Designs live in Figma. Code in the repo. Decisions in Slack. A living doc converges those sources into one structured page, still anchored to where they actually live. Complete, current, immediately usable. For humans and AI.
 
+![A rendered living doc — the AI Labs Watcher, a monitoring tracker for the six frontier AI labs. Title, subtitle, and period strip at the top; a portable-snapshot panel below showing doc identity fields (ID, title, scope, owner, version, canonical origin) for lineage.](docs/assets/readme/rendered-doc.png)
+
 Landing: https://triadflow.github.io/living-doc-compositor/
 
 ## Get running in 60 seconds
@@ -23,6 +25,8 @@ No install. No runtime dependencies. Node 18+ for the renderer, a browser for ev
 
 Every rendered doc is both a document and a tool: click the pencil icon to open the compositor inline.
 
+![The compositor open on top of a living doc — left sidebar with Types, Sections, Templates, Library; main panel showing Document Structure fields (title, subtitle, brand mark, objective, success condition) and Identity & Lineage fields; top toolbar with Visual, Board, Flow, JSON view modes.](docs/assets/readme/compositor.png)
+
 ## The model
 
 Three concepts. That's the whole thing.
@@ -34,6 +38,14 @@ Three concepts. That's the whole thing.
 | **Scope** | A named convergence of entities. No own properties. Borrows them from its sources. |
 
 A **convergence type** is a specific combination of source entity types. The combination *is* the type. The visual projection (card grid or edge table) derives automatically.
+
+The Flow view makes the whole structure inspectable at a glance. Body view lays every section's cards on one canvas with the convergence-type palette on the left:
+
+![Flow Body view — stats bar showing 7 sections, 36 items; facet chips along the top; left sidebar with a palette of convergence types grouped by category (Governance, Overview, Product Delivery, Operations); main canvas with three sections visible side by side (Tracked labs with six competitor cards, Strategic moves this period, What comes next).](docs/assets/readme/flow-body.png)
+
+Governance view shows how the doc holds itself accountable to its own rules — facets on the left carry coverage edges into sections; invariants on the right point at the sections they govern:
+
+![Flow Governance view — three-column canvas. Left column: six objective facets. Middle column: seven section cards with their convergence types. Right column: invariants, each marked with an appliesTo scope. Curved wires connect facets to sections (coverage) and invariants to sections (governance).](docs/assets/readme/flow-governance.png)
 
 ## Make your own living doc
 
