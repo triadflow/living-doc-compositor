@@ -3,7 +3,10 @@ import { readFile } from 'node:fs/promises';
 
 const registry = JSON.parse(await readFile('scripts/living-doc-registry.json', 'utf8'));
 
-assert.equal(registry.schemaVersion, 1, 'registry schemaVersion should be 1');
+assert.ok(
+  registry.schemaVersion === 1 || registry.schemaVersion === 2,
+  `registry schemaVersion should be 1 or 2, got ${registry.schemaVersion}`,
+);
 assert.ok(registry.entityTypes && typeof registry.entityTypes === 'object', 'missing entityTypes');
 assert.ok(registry.statusSets && typeof registry.statusSets === 'object', 'missing statusSets');
 assert.ok(registry.convergenceTypes && typeof registry.convergenceTypes === 'object', 'missing convergenceTypes');

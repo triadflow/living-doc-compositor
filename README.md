@@ -154,6 +154,21 @@ cd docs && python3 -m http.server 8111
 # http://localhost:8111/living-doc-compositor.html
 ```
 
+## Live reload (optional)
+
+When a doc is being re-rendered in the background — e.g. by a sync skill running every period — an open browser tab can detect the update and offer a reload.
+
+Set `"liveReload": true` at the doc's JSON root and re-render. The rendered HTML now carries a tiny fingerprint poller that polls the serving host every 20 seconds (and on tab-focus) and shows a click-to-reload banner in the bottom-right when the fingerprint changes. Clicking the banner reloads the page.
+
+The poller expects the hosting server to respond to the canonical endpoint:
+
+```
+GET <url-of-the-doc>/fingerprint
+→ { "fingerprint": "sha256:..." }
+```
+
+Hosting servers can override the URL via `body[data-fingerprint-url]` if their routing differs. If the endpoint is unavailable, the poller fails silently — the banner never appears, and docs served from static hosts (GitHub Pages, Dropbox) behave as before. Opt-in only; docs without `liveReload: true` don't carry the script at all.
+
 ## Test the living-doc system
 
 The deployment test suite has two layers: fast Node contract checks and Playwright browser E2E tests against a static server.

@@ -1238,6 +1238,19 @@ const html = `<!doctype html>
         color: var(--muted); cursor: pointer; transition: all 0.15s; flex-shrink: 0;
       }
       .comp-toggle:hover { background: var(--neutral-bg); color: var(--ink); }
+      .build-link {
+        width: 40px; height: 40px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--muted); transition: all 0.15s; flex-shrink: 0; position: relative;
+      }
+      .build-link:hover { background: var(--neutral-bg); color: var(--ink); text-decoration: none; }
+      .build-link .nav-tooltip {
+        position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+        background: var(--ink); color: #fff; font-size: 12px; font-weight: 600;
+        padding: 4px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none;
+        transition: opacity 0.15s;
+      }
+      .build-link:hover .nav-tooltip { opacity: 1; }
       @keyframes comp-glow {
         0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
         50% { box-shadow: 0 0 12px 4px rgba(37,99,235,0.35); }
@@ -1333,6 +1346,10 @@ const html = `<!doctype html>
       <div class="comp-toggle" id="comp-toggle" title="Open compositor">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </div>
+      <a class="build-link" href="${escapeHtml(data.compositorHome ?? 'https://triadflow.github.io/living-doc-compositor/')}custom-build-gallery.html" target="_blank" rel="noopener" aria-label="Build your tool">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM12 4.15 18.04 7.6 12 11.05 5.96 7.6 12 4.15zM5 9.34l6 3.43v6.89l-6-3.43V9.34zm8 10.32v-6.89l6-3.43v6.89l-6 3.43z"/></svg>
+        <span class="nav-tooltip">Build your tool</span>
+      </a>
     </nav>
 
     <div class="comp-overlay" id="comp-overlay">
@@ -1541,7 +1558,79 @@ const html = `<!doctype html>
       }
     })();
     </script>
+${data.liveReload ? `
+    <!-- ── Live reload (opt-in via liveReload: true in doc JSON) ──
+         Poller asks the serving host for the current fingerprint every 20s.
+         Shows a click-to-reload banner when the fingerprint changes.
+         Endpoint contract: GET <location.pathname>/fingerprint
+         → { "fingerprint": "sha256:..." }
+         Hosts can override the URL via body[data-fingerprint-url].
+         If the endpoint is unavailable the poller fails silently. -->
+    <div id="ld-reload-banner" role="status" aria-live="polite" hidden>
+      <span class="ld-reload-dot" aria-hidden="true"></span>
+      <span>Doc updated &mdash; reload</span>
+    </div>
+    <style>
+      #ld-reload-banner {
+        position: fixed; right: 20px; bottom: 20px; z-index: 9999;
+        display: inline-flex; align-items: center; gap: 10px;
+        padding: 10px 16px; border-radius: 999px;
+        background: var(--accent, #2563eb); color: #fff;
+        font: 600 13px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.20);
+        cursor: pointer; border: none;
+        transition: transform 0.15s, box-shadow 0.15s;
+      }
+      #ld-reload-banner:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.24); }
+      #ld-reload-banner[hidden] { display: none; }
+      #ld-reload-banner .ld-reload-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #bbf7d0;
+        animation: ld-reload-pulse 2s infinite;
+      }
+      @keyframes ld-reload-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(187, 247, 208, 0.7); }
+        70%  { box-shadow: 0 0 0 10px rgba(187, 247, 208, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(187, 247, 208, 0); }
+      }
+    </style>
+    <script>
+    (() => {
+      const banner = document.getElementById('ld-reload-banner');
+      if (!banner) return;
+      banner.addEventListener('click', () => location.reload());
 
+      let current;
+      try {
+        const meta = JSON.parse(document.getElementById('doc-meta').textContent);
+        current = meta.metaFingerprint;
+      } catch (e) { /* no doc-meta — bail */ }
+      if (!current) return;
+
+      const override = document.body && document.body.dataset.fingerprintUrl;
+      const endpoint = override || (location.origin + location.pathname + '/fingerprint');
+      let done = false;
+
+      async function check() {
+        if (done) return;
+        try {
+          const r = await fetch(endpoint, { cache: 'no-store' });
+          if (!r.ok) return;
+          const j = await r.json();
+          if (j.fingerprint && j.fingerprint !== current) {
+            banner.hidden = false;
+            done = true;
+          }
+        } catch (e) { /* endpoint unavailable — silent */ }
+      }
+
+      const timer = setInterval(check, 20000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      window.addEventListener('beforeunload', () => clearInterval(timer));
+    })();
+    </script>` : ''}
   </body>
 </html>
 `;
