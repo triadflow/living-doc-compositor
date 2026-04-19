@@ -512,6 +512,20 @@
         "retracted": "negative",
         "duplicate": "warning"
       }
+    },
+    "move-outcome": {
+      "values": [
+        "pending-evaluation",
+        "succeeded",
+        "failed",
+        "ambiguous"
+      ],
+      "tones": {
+        "pending-evaluation": "neutral",
+        "succeeded": "positive",
+        "failed": "negative",
+        "ambiguous": "warning"
+      }
     }
   },
   "convergenceCategories": {
@@ -544,6 +558,11 @@
       "label": "Content and Narrative",
       "description": "Writing, structure, themes, storylines, scenes, and continuity control.",
       "order": 5
+    },
+    "monitoring": {
+      "label": "Monitoring",
+      "description": "Topic-bounded tracking surfaces where state accumulates across monitoring periods. Stances, events, indicators, and sources gathered on a cadence rather than shipped to an outcome.",
+      "order": 6
     }
   },
   "convergenceTypes": {
@@ -2912,7 +2931,7 @@
     },
     "expert-stance-track": {
       "name": "Expert Stance Track",
-      "category": "content",
+      "category": "monitoring",
       "description": "Sustained public-intellectual stance across many works, tracked across monitoring periods as evidence accumulates and positions evolve.",
       "structuralContract": "One-column card grid. Each card names an expert by name + affiliation and carries current stance, core view, evolution since the last monitoring period, and latest source references. Use this when tracking a set of named voices whose positions shift over time.",
       "notFor": [
@@ -2990,7 +3009,7 @@
     },
     "indicator-trace": {
       "name": "Indicator Trace",
-      "category": "operations",
+      "category": "monitoring",
       "description": "Tracked metric with dated latest observation, forecast, and delta versus the prior monitoring period. Used when the doc is watching a set of empirical indicators over time.",
       "structuralContract": "Two-column card grid. Each card is one tracked indicator with a latest value (as text), an as-of date, a forecast, a delta versus the last period, and a categorical trend (rising / stable / falling / resolved). Use for dashboards of empirical signals; not for categorical deliverables.",
       "notFor": [
@@ -3063,7 +3082,7 @@
     },
     "citation-feed": {
       "name": "Citation Feed",
-      "category": "content",
+      "category": "monitoring",
       "description": "Dated source entries (papers, interviews, op-eds) grouped by monitoring period. Used when the doc accumulates reference material over time with period attribution.",
       "structuralContract": "One-column card grid. Each card is one citation with title, author, venue, publication date, and url. Carries a citation-state status and a lastUpdatedInPeriod marker so period-grouping renders. Use for monitoring docs; not for flat reference lists.",
       "notFor": [
@@ -3142,7 +3161,7 @@
     },
     "position-cluster-map": {
       "name": "Position Cluster Map",
-      "category": "governance",
+      "category": "monitoring",
       "description": "Two-axis layout where named thinkers or stakeholders are placed to visualise consensus and divergence. Movement between monitoring periods is the primary signal.",
       "structuralContract": "Two-column card grid. Each card is one thinker with an x-axis value, a y-axis value, and an optional prior-period position for comparison. Uses stance-status to reflect movement direction. Use for consensus/divergence maps; not for generic ranking or scorecards.",
       "notFor": [
@@ -3204,6 +3223,179 @@
         {
           "key": "priorPosition",
           "label": "Prior period"
+        }
+      ]
+    },
+    "competitor-stance-track": {
+      "name": "Competitor Stance Track",
+      "category": "monitoring",
+      "description": "An organization's strategic posture tracked across monitoring periods, where the 'stance' is revealed through behavior (launches, pricing, hires, earnings commentary) rather than stated in writing.",
+      "structuralContract": "One-column card grid. Each card names a competitor with sector/stage/geography, a strategic-posture label, a one-paragraph current-bet prose, an evolutionSinceLastPeriod field describing behavioral shifts, and references to signals (press, earnings, product pages). Use for tracking organizations. Not for individual public-intellectual stances — those belong in expert-stance-track.",
+      "notFor": [
+        "individual public-intellectual stances (use expert-stance-track)",
+        "one-off PR or forum positions (use maintainer-stance)",
+        "internal strategy docs about your own organization"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Treat each card as an organization's strategic posture inferred from its behavior. The source of truth is what they do (launches, pricing changes, hires, earnings), not what they say in op-eds.",
+        "keepDistinct": [
+          "company name and identifying facts (sector, stage, geography)",
+          "current strategic posture as a label",
+          "current bet prose — what they are actually investing in right now",
+          "evolution since last period — behavioral moves that shifted the picture",
+          "signal references — the events and publications that ground the read"
+        ],
+        "inspect": [
+          "Check public signals in the current monitoring period before shifting a posture — launches, pricing updates, exec hires, earnings transcripts, job posts, product-page edits.",
+          "Re-derive the current bet from the last 3–6 months of behavior, not from a dated About page."
+        ],
+        "update": [
+          "When a competitor softens, retracts, or pivots a bet, record the status transition and cite the triggering signals in evolutionSinceLastPeriod.",
+          "Preserve prior-period evolution notes as history; append rather than overwrite."
+        ],
+        "avoid": [
+          "Do not infer a pivot from a single data point. Strategic shifts require corroborating signals.",
+          "Do not source from confidential or paid-subscription intel in a shareable tracker.",
+          "Do not conflate a marketing narrative with a strategic bet — marketing speaks; behavior reveals."
+        ]
+      },
+      "icon": "<path opacity='.24' d='M4 20V8l8-4 8 4v12z'/><path d='M9 20v-6h6v6zm-3-8h2v2H6zm10 0h2v2h-2z'/>",
+      "iconColor": "#0f766e",
+      "projection": "card-grid",
+      "columns": 1,
+      "sources": [
+        {
+          "key": "signalRefs",
+          "entityType": "content-source",
+          "label": "Signals"
+        },
+        {
+          "key": "notes",
+          "entityType": null,
+          "label": null
+        }
+      ],
+      "statusFields": [
+        {
+          "key": "posture",
+          "statusSet": "stance-status"
+        }
+      ],
+      "textFields": [
+        {
+          "key": "sector",
+          "label": "Sector"
+        },
+        {
+          "key": "stage",
+          "label": "Stage"
+        },
+        {
+          "key": "geography",
+          "label": "Geography"
+        },
+        {
+          "key": "strategicPosture",
+          "label": "Strategic posture"
+        },
+        {
+          "key": "currentBet",
+          "label": "Current bet"
+        },
+        {
+          "key": "evolutionSinceLastPeriod",
+          "label": "Evolution since last period"
+        }
+      ],
+      "detailsFields": [
+        {
+          "key": "activeInitiatives",
+          "label": "Active initiatives"
+        }
+      ]
+    },
+    "strategic-move-log": {
+      "name": "Strategic Move Log",
+      "category": "monitoring",
+      "description": "Discrete actions taken by tracked competitors with observable effect — product launches, pricing changes, acquisitions, key hires, partnerships, exits. Events that happened in the world, not sources you read to learn about them.",
+      "structuralContract": "One-column card grid of move-outcome items. Each card is one dated move attributed to a tracked competitor (byCompany reference), with moveType, dateOf, inferred intent, observed effect, and optional linkedIndicators. Use for the record of what competitors did. Not for articles or analyst reports you consumed — those are citations.",
+      "notFor": [
+        "articles, papers, or interviews you read (use citation-feed)",
+        "your own organization's strategic moves (that is a work-bounded doc)",
+        "rumors without dated evidence"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Each card is a dated action with a consequence. Moves are what happened in the world; citations are what you read about the world. Keep the two separate.",
+        "keepDistinct": [
+          "which competitor made the move (byCompany reference)",
+          "move type (launch / pricing / acquisition / hire / partnership / exit / product-retired)",
+          "when it happened (dateOf)",
+          "inferred intent — what the competitor is trying to achieve",
+          "observed effect — what changed after the move",
+          "indicators the move is expected to or did affect"
+        ],
+        "inspect": [
+          "Confirm the move has a dated primary source (press release, product-page snapshot, earnings commentary) before logging it.",
+          "Check whether an indicator card needs updating as the observed effect."
+        ],
+        "update": [
+          "Transition move-outcome as evidence lands: pending-evaluation → succeeded / failed / ambiguous.",
+          "Cross-link to the competitor card via byCompany so the stance evolution can cite the moves that drove it."
+        ],
+        "avoid": [
+          "Do not invent intent without corroborating signals from the competitor.",
+          "Do not treat marketing press as a move — moves require an actual change in what the competitor does (ship, price, hire, buy, exit).",
+          "Do not file a move before its dateOf has passed; forecasted moves belong in the predictions ladder, not here."
+        ]
+      },
+      "icon": "<path opacity='.22' d='M4 18L10 12L14 16L20 10'/><path d='M4 18L10 12L14 16L20 10' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/><circle cx='4' cy='18' r='2'/><circle cx='10' cy='12' r='2'/><circle cx='14' cy='16' r='2'/><circle cx='20' cy='10' r='2'/>",
+      "iconColor": "#9333ea",
+      "projection": "card-grid",
+      "columns": 1,
+      "sources": [
+        {
+          "key": "sourceRefs",
+          "entityType": "content-source",
+          "label": "Primary source"
+        },
+        {
+          "key": "notes",
+          "entityType": null,
+          "label": null
+        }
+      ],
+      "statusFields": [
+        {
+          "key": "outcome",
+          "statusSet": "move-outcome"
+        }
+      ],
+      "textFields": [
+        {
+          "key": "byCompany",
+          "label": "By"
+        },
+        {
+          "key": "moveType",
+          "label": "Move type"
+        },
+        {
+          "key": "dateOf",
+          "label": "Date of move"
+        },
+        {
+          "key": "intent",
+          "label": "Inferred intent"
+        },
+        {
+          "key": "observedEffect",
+          "label": "Observed effect"
+        }
+      ],
+      "detailsFields": [
+        {
+          "key": "linkedIndicators",
+          "label": "Linked indicators"
         }
       ]
     }
