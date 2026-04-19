@@ -10,6 +10,13 @@ const registryPath = path.join(__dirname, 'living-doc-registry.json');
 const defaultOutputPath = path.join(repoRoot, 'docs', 'living-doc-registry-overview.html');
 const DEFAULT_CATALOG_PATH = process.env.LIVING_DOC_CATALOG_PATH || path.join(os.homedir(), '.gtd', 'living-docs.json');
 
+const GH_ORG = 'triadflow';
+const CURRENT_REPO = 'living-doc-compositor';
+const LINK_VERIFY_TIMEOUT_MS = 4000;
+
+const ICON_GRID = `<svg class="glyph" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>`;
+const ICON_EDGE = `<svg class="glyph" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="3.5" cy="8" r="1.8"/><circle cx="12.5" cy="8" r="1.8"/><path d="M5.3 8 H10.7"/></svg>`;
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -30,90 +37,55 @@ function pluralize(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function renderPill(text, tone = '') {
-  const className = tone ? `pill ${tone}` : 'pill';
-  return `<span class="${className}">${escapeHtml(text)}</span>`;
-}
-
-function renderList(items, className = 'stack-list') {
-  if (!items?.length) return '<p class="empty">None</p>';
-  return `<ul class="${className}">${items.map((item) => `<li>${item}</li>`).join('')}</ul>`;
-}
-
 function entityLabel(registry, entityType) {
   if (!entityType) return 'Inline note';
   return registry.entityTypes?.[entityType]?.label ?? formatKey(entityType);
 }
 
-function renderSources(registry, ct) {
-  let items = [];
-  if (ct.sources?.length) {
-    items = ct.sources.map((source) => {
-      const label = source.label ?? entityLabel(registry, source.entityType);
-      const entity = entityLabel(registry, source.entityType);
-      const extra = [];
-      if (source.key) extra.push(renderPill(source.key, 'neutral'));
-      if (source.resolve) extra.push('resolved');
-      return `
-        <li>
-          <strong>${escapeHtml(label)}</strong>
-          <span>${escapeHtml(entity)}</span>
-          ${extra.length ? `<div class="mini-row">${extra.map((part) => typeof part === 'string' && part === 'resolved' ? renderPill('resolved', 'neutral') : part).join('')}</div>` : ''}
-        </li>
-      `;
-    });
-  } else {
-    const edgeSources = [];
-    if (ct.sourceA) edgeSources.push({ side: 'Source A', ...ct.sourceA });
-    if (ct.sourceB) edgeSources.push({ side: 'Source B', ...ct.sourceB });
-    items = edgeSources.map((source) => {
-      const entity = entityLabel(registry, source.entityType);
-      const extra = [];
-      if (source.key) extra.push(renderPill(source.key, 'neutral'));
-      if (source.displayKey) extra.push(renderPill(`display ${source.displayKey}`, 'neutral'));
-      return `
-        <li>
-          <strong>${escapeHtml(source.side)}</strong>
-          <span>${escapeHtml(entity)}</span>
-          ${extra.length ? `<div class="mini-row">${extra.join('')}</div>` : ''}
-        </li>
-      `;
-    });
-  }
-
-  if (!items.length) return '<p class="empty">No sources</p>';
-  return `<ul class="source-list">${items.join('')}</ul>`;
-}
-
-function renderStatusFields(registry, ct) {
-  const fields = [];
-  for (const field of ct.statusFields ?? []) {
-    fields.push({
-      key: field.key,
-      statusSet: field.statusSet,
-    });
-  }
-  if (ct.edgeStatus) {
-    fields.push({
-      key: ct.edgeStatus.key,
-      statusSet: ct.edgeStatus.statusSet,
-    });
-  }
-  if (!fields.length) return '<p class="empty">No status fields</p>';
-  return `<ul class="stack-list">${fields.map((field) => {
-    const statusDef = registry.statusSets?.[field.statusSet];
-    const valueCount = statusDef?.values?.length ?? 0;
-    return `<li><strong><code>${escapeHtml(field.key)}</code></strong><span>${escapeHtml(formatKey(field.statusSet))}</span><div class="mini-row">${renderPill(pluralize(valueCount, 'value'), 'neutral')}</div></li>`;
-  }).join('')}</ul>`;
-}
-
-function renderFieldList(fields, emptyLabel) {
-  if (!fields?.length) return `<p class="empty">${escapeHtml(emptyLabel)}</p>`;
-  return `<ul class="stack-list">${fields.map((field) => `<li><strong>${escapeHtml(field.label ?? formatKey(field.key))}</strong><span><code>${escapeHtml(field.key)}</code></span></li>`).join('')}</ul>`;
-}
-
 function toWebPath(value) {
   return String(value ?? '').split(path.sep).join('/');
+}
+
+function buildPublicUrl(htmlPath, repoSlug) {
+  const m = String(htmlPath ?? '').match(/\/projects\/([^/]+)\/(.+)$/);
+  if (!m) return null;
+  const repoName = repoSlug?.split('/')?.[1] ?? m[1];
+  let pathInRepo = m[2];
+  if (repoName === CURRENT_REPO && pathInRepo.startsWith('docs/')) {
+    pathInRepo = pathInRepo.slice(5);
+  }
+  return `https://${GH_ORG}.github.io/${repoName}/${pathInRepo}`;
+}
+
+async function verifyUrl(url) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), LINK_VERIFY_TIMEOUT_MS);
+    const res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: ctrl.signal });
+    clearTimeout(t);
+    if (res.status === 404 || res.status === 410) return 'missing';
+    if (res.status >= 200 && res.status < 400) return 'ok';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function verifyPublicUrls(usageSummary) {
+  const urlSet = new Set();
+  for (const bucket of Object.values(usageSummary.byType)) {
+    for (const s of bucket.samples) {
+      if (s.publicUrl) urlSet.add(s.publicUrl);
+    }
+  }
+  const entries = await Promise.all([...urlSet].map(async (url) => [url, await verifyUrl(url)]));
+  const results = new Map(entries);
+  for (const bucket of Object.values(usageSummary.byType)) {
+    for (const s of bucket.samples) {
+      s.linkState = s.publicUrl ? (results.get(s.publicUrl) ?? 'unknown') : 'unknown';
+    }
+  }
+  return results;
 }
 
 async function fileExists(filePath) {
@@ -126,26 +98,25 @@ async function fileExists(filePath) {
 }
 
 function inferRepoName(docPath) {
-  const parts = path.resolve(docPath).split(path.sep);
-  const docsIndex = parts.lastIndexOf('docs');
-  return docsIndex > 0 ? parts[docsIndex - 1] : 'repo';
+  const parts = String(docPath ?? '').split(path.sep).filter(Boolean);
+  const idx = parts.lastIndexOf('docs');
+  return idx > 0 ? parts[idx - 1] : parts[parts.length - 2] ?? '';
 }
 
 function sampleScore(sample) {
-  return (
-    (sample.itemCount * 10) +
-    (sample.hasStats ? 18 : 0) +
-    (sample.hasCallout ? 12 : 0) +
-    (sample.hasPills ? 6 : 0) +
-    sample.sectionFieldCount +
-    sample.itemFieldCount
-  );
+  let score = sample.itemCount * 2;
+  if (sample.hasStats) score += 2;
+  if (sample.hasCallout) score += 2;
+  if (sample.hasPills) score += 1;
+  score += Math.min(sample.sectionFieldCount ?? 0, 8);
+  score += Math.min(sample.itemFieldCount ?? 0, 8);
+  return score;
 }
 
 async function parseDocMeta(htmlPath) {
   try {
-    const html = await readFile(htmlPath, 'utf8');
-    const match = html.match(/<script[^>]*id=["']doc-meta["'][^>]*>([\s\S]*?)<\/script>/i);
+    const raw = await readFile(htmlPath, 'utf8');
+    const match = raw.match(/<script[^>]*id=["']doc-meta["'][^>]*>([\s\S]*?)<\/script>/);
     if (!match) return null;
     return JSON.parse(match[1]);
   } catch {
@@ -185,12 +156,17 @@ function addSectionUsage(byType, section, sampleBase) {
     }
   }
 
+  const publicHref = sampleBase.publicUrl
+    ? (section?.id ? `${sampleBase.publicUrl}#${section.id}` : sampleBase.publicUrl)
+    : null;
   bucket.samples.push({
     repoName: sampleBase.repoName,
     docTitle: sampleBase.docTitle,
     docHref: sampleBase.docHref,
     htmlHref: sampleBase.htmlHref,
     htmlExists: sampleBase.htmlExists,
+    publicUrl: sampleBase.publicUrl,
+    publicHref,
     sectionTitle: section.title || section.id || typeKey,
     itemCount: dataItems.length,
     hasStats: Array.isArray(section?.stats) && section.stats.length > 0,
@@ -223,6 +199,7 @@ async function collectUsageSamples(registry, outputPath, catalogPath = DEFAULT_C
     const jsonPath = htmlPath.replace(/\.html$/i, '.json');
     const repoName = livingDoc?.repo ? String(livingDoc.repo).split('/').pop() : inferRepoName(htmlPath);
     const htmlHrefBase = htmlExists ? toWebPath(path.relative(path.dirname(outputPath), htmlPath)) : null;
+    const publicUrl = buildPublicUrl(htmlPath, livingDoc?.repo);
     const sampleBase = {
       repoName,
       docTitle: meta?.title || path.basename(jsonPath, '.json'),
@@ -230,6 +207,7 @@ async function collectUsageSamples(registry, outputPath, catalogPath = DEFAULT_C
       docHref: toWebPath(path.relative(path.dirname(outputPath), jsonPath)),
       htmlHref: htmlHrefBase,
       htmlExists,
+      publicUrl,
     };
 
     scannedDocs += 1;
@@ -248,842 +226,541 @@ async function collectUsageSamples(registry, outputPath, catalogPath = DEFAULT_C
   return { byType, scannedDocs, scannedSections, discovery: 'catalog', catalogPath, livingDocCount: scannedDocs };
 }
 
-function renderObservedFieldPills(fields, emptyLabel) {
-  if (!fields?.size) return `<p class="empty">${escapeHtml(emptyLabel)}</p>`;
-  return `<div class="pill-row">${[...fields].sort((a, b) => a.localeCompare(b)).map((field) => renderPill(field, 'neutral')).join('')}</div>`;
+// --- presentation helpers (matching the design) ---
+
+function renderProjectionChip(ct) {
+  if (ct.projection === 'edge-table') {
+    return `<span class="chip edge">${ICON_EDGE} Edge table</span>`;
+  }
+  const cols = Array.isArray(ct.columns) ? ct.columns.length : Number(ct.columns ?? 1);
+  return `<span class="chip grid">${ICON_GRID} Card grid · ${cols} col${cols > 1 ? 's' : ''}</span>`;
 }
 
-function renderSamples(usage) {
-  if (!usage || usage.sectionCount === 0) {
-    return '<p class="empty">No local samples found for this type.</p>';
+function renderSources(registry, ct) {
+  const rows = [];
+  if (ct.sources?.length) {
+    for (const source of ct.sources) {
+      const label = source.label ?? entityLabel(registry, source.entityType);
+      const entity = entityLabel(registry, source.entityType);
+      const field = [source.key, source.resolve ? 'resolved' : ''].filter(Boolean).join(' ');
+      rows.push({ k: label, ent: entity, v: field });
+    }
+  } else {
+    if (ct.sourceA) {
+      rows.push({
+        k: 'Source A',
+        ent: entityLabel(registry, ct.sourceA.entityType),
+        v: [ct.sourceA.key, ct.sourceA.displayKey ? `display ${ct.sourceA.displayKey}` : ''].filter(Boolean).join(' · '),
+      });
+    }
+    if (ct.sourceB) {
+      rows.push({
+        k: 'Source B',
+        ent: entityLabel(registry, ct.sourceB.entityType),
+        v: [ct.sourceB.key, ct.sourceB.displayKey ? `display ${ct.sourceB.displayKey}` : ''].filter(Boolean).join(' · '),
+      });
+    }
   }
+  if (!rows.length) {
+    return `<div class="sample-empty"><span class="empty-hint">○ No sources</span></div>`;
+  }
+  return `<div class="kv-list">${rows.map((r) => `
+        <div class="kv-row"><div class="k">${escapeHtml(r.k)}</div><div class="v"><span class="ent">${escapeHtml(r.ent)}</span>${escapeHtml(r.v)}</div></div>`).join('')}
+      </div>`;
+}
 
-  return `
-    <div class="sample-meta">
-      ${renderPill(pluralize(usage.sectionCount, 'section'), 'blue')}
-      ${renderPill(pluralize(usage.docs.size, 'doc'), 'teal')}
-    </div>
-    <ul class="sample-list">
-      ${usage.samples.map((sample) => `
-        <li>
-          <div class="sample-heading">
-            <strong>${escapeHtml(sample.sectionTitle)}</strong>
-            <span>${escapeHtml(sample.docTitle)}</span>
+function renderStatusFields(registry, ct) {
+  const fields = [];
+  for (const f of ct.statusFields ?? []) {
+    const set = registry.statusSets?.[f.statusSet];
+    fields.push({ key: f.key, set: formatKey(f.statusSet), count: set?.values?.length ?? 0 });
+  }
+  if (ct.edgeStatus) {
+    const set = registry.statusSets?.[ct.edgeStatus.statusSet];
+    fields.push({ key: ct.edgeStatus.key, set: formatKey(ct.edgeStatus.statusSet), count: set?.values?.length ?? 0 });
+  }
+  if (!fields.length) {
+    return `<div class="sample-empty"><span class="empty-hint">○ No status fields</span></div>`;
+  }
+  return fields.map((f) =>
+    `<div class="status-field"><code>${escapeHtml(f.key)}</code><span class="set">${escapeHtml(f.set)}</span><span class="count">${f.count} value${f.count === 1 ? '' : 's'}</span></div>`
+  ).join('');
+}
+
+function renderFieldList(fields) {
+  if (!fields?.length) return '';
+  return fields.map((f) =>
+    `<div class="status-field"><code>${escapeHtml(f.key)}</code><span class="set">${escapeHtml(f.label ?? formatKey(f.key))}</span></div>`
+  ).join('');
+}
+
+function renderEdgeNotes(ct) {
+  if (!ct.edgeNotes) return '';
+  return `<div class="status-field"><code>${escapeHtml(ct.edgeNotes.key)}</code><span class="set">Edge notes</span></div>`;
+}
+
+function renderSampleBlock(usage) {
+  if (!usage || usage.sectionCount === 0) {
+    return `<div class="sample-empty"><span class="empty-hint">○ No local samples found for this type.</span></div>`;
+  }
+  const docsCount = usage.docs.size;
+  const counts = `<div class="sample-counts"><b>${usage.sectionCount}</b> section${usage.sectionCount === 1 ? '' : 's'} <span style="color:var(--ld-subtle)">·</span> <b>${docsCount}</b> doc${docsCount === 1 ? '' : 's'}</div>`;
+  const samples = usage.samples.map((s) => {
+    const href = s.publicHref || s.htmlHref || s.docHref;
+    const isMissing = s.linkState === 'missing';
+    const titleInner = isMissing
+      ? `<span>${escapeHtml(s.sectionTitle)}</span><span class="s-miss" title="The published page for this sample returns 404.">not on github pages</span>`
+      : `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(s.sectionTitle)}</a>`;
+    return `
+        <div class="sample${isMissing ? ' missing' : ''}">
+          <div>
+            <div class="s-title">${titleInner}</div>
+            <div class="s-meta">${escapeHtml(s.docTitle)} <span style="color:var(--ld-subtle)">·</span> <code>${escapeHtml(s.repoName)}</code></div>
           </div>
-          <div class="mini-row">
-            ${renderPill(sample.repoName, 'amber')}
-            ${renderPill(pluralize(sample.itemCount, 'item'), 'neutral')}
-            ${sample.hasStats ? renderPill('stats', 'neutral') : ''}
-            ${sample.hasCallout ? renderPill('callout', 'neutral') : ''}
-            ${sample.hasPills ? renderPill('pills', 'neutral') : ''}
-          </div>
-          <div class="sample-links">
-            ${sample.htmlExists ? `<a href="${escapeHtml(sample.htmlHref)}">Open HTML sample</a>` : ''}
-            <a href="${escapeHtml(sample.docHref)}">Open JSON source</a>
-          </div>
-        </li>
-      `).join('')}
-    </ul>
-  `;
+          <div class="s-items">${s.itemCount} item${s.itemCount === 1 ? '' : 's'}</div>
+        </div>`;
+  }).join('');
+  return `${counts}<div class="samples">${samples}
+      </div>`;
 }
 
 function renderTypeCard(registry, key, ct, usage) {
-  const projectionLabel = ct.projection === 'edge-table' ? 'Edge Table' : 'Card Grid';
-  const columnsLabel = Array.isArray(ct.columns)
-    ? `${ct.columns.length} columns`
-    : `${Number(ct.columns ?? 1)} column${Number(ct.columns ?? 1) === 1 ? '' : 's'}`;
   const sourceCount = ct.sources?.length ?? [ct.sourceA, ct.sourceB].filter(Boolean).length;
   const statusCount = (ct.statusFields?.length ?? 0) + (ct.edgeStatus ? 1 : 0);
-  const statusTonePills = (ct.statusFields ?? []).map((field) => renderPill(formatKey(field.statusSet), 'neutral')).join('');
-  const edgeTonePill = ct.edgeStatus ? renderPill(formatKey(ct.edgeStatus.statusSet), 'neutral') : '';
-  const notesLine = ct.edgeNotes ? `<div class="meta-inline"><strong>Edge notes</strong><code>${escapeHtml(ct.edgeNotes.key)}</code></div>` : '';
+  const nestChip = ct.nestable ? `<span class="chip nest">Nestable</span>` : '';
+  const countsChips = `<span class="chip">${sourceCount} source${sourceCount === 1 ? '' : 's'}</span><span class="chip">${statusCount} status field${statusCount === 1 ? '' : 's'}</span>`;
+
+  const textBlock = ct.textFields?.length
+    ? `<div style="height:20px"></div><span class="sub-eyebrow">Text fields</span>${renderFieldList(ct.textFields)}`
+    : '';
+  const detailsBlock = ct.detailsFields?.length
+    ? `<div style="height:20px"></div><span class="sub-eyebrow">Details fields</span>${renderFieldList(ct.detailsFields)}`
+    : '';
+
+  const notForItems = (ct.notFor ?? []).map((x) => `<span class="nf-item">${escapeHtml(x)}</span>`).join('');
+  const notForBlock = notForItems
+    ? `<div class="not-for"><span class="nf-label">Not for</span>${notForItems}</div>`
+    : '';
 
   return `
-    <article class="type-card" id="${escapeHtml(key)}">
-      <header class="type-header">
-        <div class="type-mark" style="--type-color:${escapeHtml(ct.iconColor ?? '#475569')}">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${ct.icon ?? ''}</svg>
-        </div>
-        <div class="type-title-block">
-          <div class="type-kicker"><code>${escapeHtml(key)}</code></div>
-          <h2>${escapeHtml(ct.name ?? formatKey(key))}</h2>
-          <p>${escapeHtml(ct.description ?? '')}</p>
-        </div>
-      </header>
-
-      <div class="type-meta">
-        ${renderPill(projectionLabel, ct.projection === 'edge-table' ? 'rose' : 'blue')}
-        ${renderPill(columnsLabel, 'teal')}
-        ${renderPill(pluralize(sourceCount, 'source'), 'amber')}
-        ${renderPill(pluralize(statusCount, 'status field'), 'neutral')}
-        ${ct.nestable ? renderPill('Nestable', 'mint') : ''}
+  <article class="type-card" id="${escapeHtml(key)}">
+    <div class="type-head">
+      <div class="left">
+        <span class="slug"><code>${escapeHtml(key)}</code></span>
+        <h3>${escapeHtml(ct.name ?? formatKey(key))}</h3>
+        <p>${escapeHtml(ct.description ?? '')}</p>
       </div>
-
-      <section class="detail-block contract-block">
-        <h3>Structural contract</h3>
-        <p>${escapeHtml(ct.structuralContract ?? 'No structural contract defined.')}</p>
-      </section>
-
-      <section class="detail-block sample-block">
-        <h3>Observed in real docs</h3>
-        ${renderSamples(usage)}
-      </section>
-
-      <div class="detail-grid">
-        <section class="detail-block">
-          <h3>Sources</h3>
-          ${renderSources(registry, ct)}
-        </section>
-
-        <section class="detail-block">
-          <h3>Status fields</h3>
-          ${renderStatusFields(registry, ct)}
-          ${(statusTonePills || edgeTonePill) ? `<div class="status-tones">${statusTonePills}${edgeTonePill}</div>` : ''}
-          ${notesLine}
-        </section>
-
-        <section class="detail-block">
-          <h3>Text fields</h3>
-          ${renderFieldList(ct.textFields, 'No text fields')}
-        </section>
-
-        <section class="detail-block">
-          <h3>Details fields</h3>
-          ${renderFieldList(ct.detailsFields, 'No details fields')}
-        </section>
+      <div class="meta">
+        ${renderProjectionChip(ct)}
+        ${nestChip}
+        ${countsChips}
       </div>
+    </div>
+    <div class="type-body">
+      <div>
+        <span class="sub-eyebrow">Structural contract</span>
+        <p class="contract">${escapeHtml(ct.structuralContract ?? 'No structural contract defined.')}</p>
 
-      <div class="detail-grid">
-        <section class="detail-block">
-          <h3>Observed section fields</h3>
-          ${renderObservedFieldPills(usage?.sectionFields, 'No local section fields observed yet')}
-        </section>
+        <div style="height:24px"></div>
 
-        <section class="detail-block">
-          <h3>Observed item fields</h3>
-          ${renderObservedFieldPills(usage?.itemFields, 'No local item fields observed yet')}
-        </section>
+        <span class="sub-eyebrow">Observed in real docs</span>
+        ${renderSampleBlock(usage)}
       </div>
+      <div>
+        <span class="sub-eyebrow">Sources</span>
+        ${renderSources(registry, ct)}
 
-      <section class="detail-block not-for-block">
-        <h3>Not for</h3>
-        ${renderList((ct.notFor ?? []).map((item) => escapeHtml(item)))}
-      </section>
-    </article>
-  `;
+        <div style="height:20px"></div>
+
+        <span class="sub-eyebrow">Status fields</span>
+        ${renderStatusFields(registry, ct)}
+        ${renderEdgeNotes(ct)}
+        ${textBlock}
+        ${detailsBlock}
+      </div>
+    </div>
+    ${notForBlock}
+  </article>`;
 }
+
+const INLINE_STYLES = `
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--ld-font-sans);background:var(--ld-bg);color:var(--ld-ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:var(--ld-size-body);line-height:var(--ld-lh-body)}
+a{color:var(--ld-accent);text-decoration:none}
+a:hover{text-decoration:underline}
+em{font-style:normal;color:var(--ld-accent)}
+code,.mono{font-family:var(--ld-font-mono);font-size:13px}
+
+/* ---- top bar ---- */
+.top-bar{display:flex;align-items:center;gap:14px;padding:14px 24px;background:rgba(255,255,255,0.82);border-bottom:1px solid var(--ld-line);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+.top-bar .logo{width:32px;height:32px;border-radius:8px;background:var(--ld-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.top-bar .crumbs{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ld-muted)}
+.top-bar .crumbs strong{color:var(--ld-ink);font-weight:600}
+.top-bar .sep{color:var(--ld-subtle)}
+.top-bar .spacer{flex:1}
+.top-action{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;border:1px solid var(--ld-line);background:var(--ld-card);color:var(--ld-ink);font-size:13px;font-weight:600;transition:all .15s}
+.top-action:hover{border-color:var(--ld-accent);color:var(--ld-accent);text-decoration:none}
+.top-action.primary{background:var(--ld-accent);color:#fff;border-color:var(--ld-accent)}
+.top-action.primary:hover{background:var(--ld-accent-hover);border-color:var(--ld-accent-hover);color:#fff}
+
+/* ---- layout ---- */
+main{max-width:1100px;margin:0 auto;padding:0 24px}
+.hero{padding:72px 0 48px;border-bottom:1px solid var(--ld-line)}
+.hero .eyebrow{display:inline-block;font-size:var(--ld-size-tiny);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ld-accent);background:var(--ld-accent-tint);padding:4px 10px;border-radius:var(--ld-radius-pill);margin-bottom:20px}
+.hero h1{font-size:clamp(36px,5.2vw,52px);line-height:1.04;font-weight:800;letter-spacing:-.035em;margin-bottom:20px;max-width:920px}
+.hero h1 em{color:var(--ld-accent)}
+.hero .lede{font-size:var(--ld-size-body-lg);color:var(--ld-muted);max-width:680px;line-height:1.55;margin-bottom:28px}
+.hero .meta{display:flex;align-items:center;gap:18px;font-size:13px;color:var(--ld-muted);flex-wrap:wrap}
+.hero .meta code{background:var(--ld-card);border:1px solid var(--ld-line);padding:3px 8px;border-radius:6px;color:var(--ld-ink)}
+.hero .meta .dot{color:var(--ld-subtle)}
+
+/* ---- stats strip ---- */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:32px 0 0;background:var(--ld-card);border:1px solid var(--ld-line);border-radius:var(--ld-radius-lg);overflow:hidden;box-shadow:var(--ld-shadow-sm)}
+.stat{padding:22px 24px;border-right:1px solid var(--ld-line)}
+.stat:last-child{border-right:none}
+.stat .label{font-size:var(--ld-size-tiny);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ld-muted);margin-bottom:10px}
+.stat .value{font-size:30px;font-weight:800;letter-spacing:-.025em;color:var(--ld-ink);line-height:1}
+.stat .sub{font-size:12.5px;color:var(--ld-muted);margin-top:6px}
+.stat .value em{color:var(--ld-accent)}
+
+/* ---- section rhythm ---- */
+section.block{padding:64px 0;border-bottom:1px solid var(--ld-line)}
+section.block > .eyebrow{display:inline-block;font-size:var(--ld-size-tiny);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ld-accent);background:var(--ld-accent-tint);padding:4px 10px;border-radius:var(--ld-radius-pill);margin-bottom:18px}
+section.block > h2{font-size:34px;line-height:1.12;font-weight:700;letter-spacing:-.025em;margin-bottom:14px;max-width:760px}
+section.block > h2 em{color:var(--ld-accent)}
+section.block > .lede{font-size:17px;color:var(--ld-muted);max-width:680px;line-height:1.6;margin-bottom:24px}
+
+/* ---- how-to-read payoff ---- */
+.read-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:20px}
+.read-card{padding:20px 22px;background:var(--ld-card);border:1px solid var(--ld-line);border-radius:var(--ld-radius-md);box-shadow:var(--ld-shadow-sm)}
+.read-card h4{font-size:14.5px;font-weight:700;color:var(--ld-ink);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.read-card h4 .n{width:22px;height:22px;border-radius:6px;background:var(--ld-accent-tint);color:var(--ld-accent-ink);font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.read-card p{font-size:14px;color:var(--ld-muted);line-height:1.55}
+.read-payoff{margin-top:22px;padding:18px 22px;border-left:3px solid var(--ld-accent);background:color-mix(in srgb,var(--ld-accent) 5%,var(--ld-card));border-radius:0 8px 8px 0;font-size:16px;color:var(--ld-ink)}
+.read-payoff em{color:var(--ld-accent)}
+
+/* ---- type index ---- */
+.index-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.index-pill{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--ld-card);border:1px solid var(--ld-line);border-radius:10px;font-size:13.5px;color:var(--ld-ink);transition:all .15s;cursor:pointer}
+.index-pill:hover{border-color:var(--ld-accent);color:var(--ld-accent);text-decoration:none;transform:translateY(-1px)}
+.index-pill .n{font-family:var(--ld-font-mono);font-size:11px;color:var(--ld-muted);min-width:18px}
+.index-pill:hover .n{color:var(--ld-accent)}
+.index-pill .glyph{width:14px;height:14px;flex-shrink:0;opacity:.7}
+.index-pill:hover .glyph{opacity:1}
+
+/* ---- type cards ---- */
+.types-wrap{display:flex;flex-direction:column;gap:18px;margin-top:8px}
+.type-card{background:var(--ld-card);border:1px solid var(--ld-line);border-radius:var(--ld-radius-lg);overflow:hidden;scroll-margin-top:80px;box-shadow:var(--ld-shadow-sm)}
+.type-head{display:grid;grid-template-columns:1fr auto;gap:24px;padding:24px 28px 20px;border-bottom:1px solid var(--ld-line);align-items:start}
+.type-head .left{min-width:0}
+.type-head .slug{display:inline-flex;align-items:center;gap:8px;font-family:var(--ld-font-mono);font-size:12px;color:var(--ld-accent);background:color-mix(in srgb,var(--ld-accent) 6%,var(--ld-card));border:1px solid var(--ld-accent-tint);padding:3px 8px;border-radius:6px;margin-bottom:10px}
+.type-head h3{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--ld-ink);margin-bottom:8px;line-height:1.2}
+.type-head p{font-size:15px;color:var(--ld-muted);line-height:1.55;max-width:720px}
+.type-head .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;justify-content:flex-end;max-width:260px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;letter-spacing:.02em;padding:4px 10px;border-radius:var(--ld-radius-pill);background:var(--ld-neutral-bg);color:var(--ld-neutral-ink);white-space:nowrap}
+.chip.grid{background:var(--ld-accent-tint);color:var(--ld-accent-ink)}
+.chip.edge{background:var(--ld-warning-bg);color:var(--ld-warning-ink)}
+.chip.nest{background:var(--ld-positive-bg);color:var(--ld-positive-ink)}
+.chip svg{width:11px;height:11px}
+
+.type-body{display:grid;grid-template-columns:1.1fr 1fr;gap:0}
+.type-body > div{padding:22px 28px}
+.type-body > div + div{border-left:1px solid var(--ld-line)}
+.sub-eyebrow{display:block;font-size:var(--ld-size-tiny);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ld-accent);margin-bottom:12px}
+.contract{font-size:14.5px;color:var(--ld-ink);line-height:1.6;max-width:540px}
+
+/* samples list */
+.samples{display:flex;flex-direction:column;gap:0}
+.sample{padding:10px 0;border-top:1px dashed var(--ld-line);display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline}
+.sample:first-child{border-top:none;padding-top:0}
+.sample .s-title{font-size:14px;font-weight:600;color:var(--ld-ink);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sample .s-title a{color:var(--ld-ink)}
+.sample .s-title a:hover{color:var(--ld-accent)}
+.sample.missing .s-title > span:first-child{color:var(--ld-muted);font-weight:500}
+.sample .s-miss{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ld-muted);padding:2px 8px;background:var(--ld-bg);border:1px dashed var(--ld-line);border-radius:999px;white-space:nowrap}
+.sample .s-meta{font-size:12px;color:var(--ld-muted);margin-top:3px}
+.sample .s-meta code{background:var(--ld-bg);padding:1px 6px;border-radius:4px;color:var(--ld-muted);font-size:11.5px}
+.sample .s-items{font-family:var(--ld-font-mono);font-size:11.5px;color:var(--ld-muted)}
+.sample-empty{padding:10px 14px;background:var(--ld-bg);border:1px dashed var(--ld-line);border-radius:8px;font-size:13px;color:var(--ld-muted)}
+
+.sample-counts{display:flex;gap:10px;margin-bottom:12px;font-size:12px;color:var(--ld-muted)}
+.sample-counts b{color:var(--ld-ink);font-weight:700}
+
+/* sources + fields lists */
+.kv-list{display:flex;flex-direction:column;gap:0;margin-bottom:20px}
+.kv-list:last-child{margin-bottom:0}
+.kv-row{padding:9px 0;border-top:1px dashed var(--ld-line);display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:baseline;font-size:13px}
+.kv-row:first-child{border-top:none;padding-top:0}
+.kv-row .k{font-weight:600;color:var(--ld-ink)}
+.kv-row .v{color:var(--ld-muted);font-family:var(--ld-font-mono);font-size:12.5px}
+.kv-row .v .ent{color:var(--ld-accent);background:var(--ld-accent-tint);padding:1px 7px;border-radius:5px;font-size:11.5px;margin-right:6px}
+
+.status-field{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--ld-line);font-size:13px}
+.status-field:first-child{border-top:none;padding-top:0}
+.status-field code{font-size:12px;background:var(--ld-bg);padding:2px 7px;border-radius:5px;color:var(--ld-ink);border:1px solid var(--ld-line)}
+.status-field .set{color:var(--ld-muted);flex:1}
+.status-field .count{font-size:11px;color:var(--ld-muted);font-family:var(--ld-font-mono)}
+
+.not-for{background:var(--ld-warning-bg);border-top:1px solid var(--ld-line);padding:16px 28px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.not-for .nf-label{font-size:var(--ld-size-tiny);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ld-warning-ink);margin-right:6px}
+.not-for .nf-item{font-size:13px;color:var(--ld-warning-ink);padding:3px 10px;background:#fff;border:1px solid #fed7aa;border-radius:var(--ld-radius-pill)}
+.not-for .nf-item::before{content:"✕";margin-right:6px;font-weight:700;opacity:.7}
+
+.empty-hint{display:inline-flex;align-items:center;gap:6px;color:var(--ld-muted);font-size:12.5px}
+
+/* ---- entity + status set tables ---- */
+.table-wrap{background:var(--ld-card);border:1px solid var(--ld-line);border-radius:var(--ld-radius-lg);overflow:hidden;box-shadow:var(--ld-shadow-sm)}
+table.ref{width:100%;border-collapse:collapse;font-size:13.5px}
+table.ref th{text-align:left;padding:14px 20px;background:var(--ld-surface-alt);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ld-muted);border-bottom:1px solid var(--ld-line)}
+table.ref td{padding:12px 20px;border-top:1px solid var(--ld-line);vertical-align:top;color:var(--ld-ink)}
+table.ref tr:first-child td{border-top:none}
+table.ref td.key{font-family:var(--ld-font-mono);font-size:12.5px;color:var(--ld-accent);width:220px}
+table.ref td.label{font-weight:600;width:200px}
+table.ref td.render{font-family:var(--ld-font-mono);font-size:12px;color:var(--ld-muted)}
+
+.set-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+.set-card{padding:18px 20px;background:var(--ld-card);border:1px solid var(--ld-line);border-radius:var(--ld-radius-md)}
+.set-card .head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--ld-line)}
+.set-card code{font-size:12.5px;color:var(--ld-accent);background:color-mix(in srgb,var(--ld-accent) 6%,var(--ld-card));padding:3px 8px;border-radius:5px;border:1px solid var(--ld-accent-tint)}
+.set-card .size{font-size:11.5px;color:var(--ld-muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.set-values{display:flex;flex-wrap:wrap;gap:5px}
+.set-values .v{font-family:var(--ld-font-mono);font-size:11.5px;padding:3px 8px;border-radius:5px;background:var(--ld-neutral-bg);color:var(--ld-neutral-ink)}
+
+/* ---- regen block ---- */
+.regen-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:8px}
+.regen-card{background:var(--ld-card);border:1px solid var(--ld-line);border-radius:var(--ld-radius-lg);padding:24px 26px;box-shadow:var(--ld-shadow-sm)}
+.regen-card h3{font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.regen-card h3 .tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ld-accent);background:var(--ld-accent-tint);padding:2px 8px;border-radius:var(--ld-radius-pill)}
+.cmd{font-family:var(--ld-font-mono);font-size:13px;background:var(--ld-ink);color:#e2e8f0;padding:14px 16px;border-radius:8px;line-height:1.55;white-space:pre-wrap;word-break:break-word;margin:8px 0}
+.cmd .prompt{color:var(--ld-accent-glow);margin-right:8px;user-select:none}
+.cmd .env{color:#fbbf24}
+.regen-card p{font-size:14px;color:var(--ld-muted);line-height:1.55;margin-bottom:8px}
+.regen-card ol{padding-left:20px;color:var(--ld-ink);font-size:14px;line-height:1.7}
+.regen-card ol code{background:var(--ld-bg);padding:1px 6px;border-radius:4px;border:1px solid var(--ld-line);font-size:12px;color:var(--ld-accent)}
+
+/* ---- footer ---- */
+footer.pg-foot{padding:40px 0 72px;font-size:13px;color:var(--ld-muted)}
+footer.pg-foot code{background:var(--ld-card);border:1px solid var(--ld-line);padding:2px 8px;border-radius:5px;color:var(--ld-ink)}
+
+/* ---- responsive ---- */
+@media (max-width:900px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat{border-right:none;border-bottom:1px solid var(--ld-line)}
+  .type-body{grid-template-columns:1fr}
+  .type-body > div + div{border-left:none;border-top:1px solid var(--ld-line)}
+  .type-head{grid-template-columns:1fr}
+  .type-head .meta{max-width:none;justify-content:flex-start}
+  .index-grid{grid-template-columns:repeat(2,1fr)}
+  .read-grid,.set-grid,.regen-grid{grid-template-columns:1fr}
+  .kv-row{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .index-grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr}
+}
+`;
 
 function buildHtml(registry, usageSummary) {
   const convergenceEntries = Object.entries(registry.convergenceTypes ?? {});
+  const totalTypes = convergenceEntries.length;
   const cardGridCount = convergenceEntries.filter(([, ct]) => ct.projection === 'card-grid').length;
   const edgeTableCount = convergenceEntries.filter(([, ct]) => ct.projection === 'edge-table').length;
   const nestableCount = convergenceEntries.filter(([, ct]) => ct.nestable).length;
-  const statusSetCount = Object.keys(registry.statusSets ?? {}).length;
-  const entityTypeCount = Object.keys(registry.entityTypes ?? {}).length;
   const sampledTypeCount = convergenceEntries.filter(([key]) => usageSummary.byType[key]?.sectionCount > 0).length;
+  const statusSetEntries = Object.entries(registry.statusSets ?? {});
+  const entityEntries = Object.entries(registry.entityTypes ?? {});
+  const statusSetCount = statusSetEntries.length;
+  const entityTypeCount = entityEntries.length;
 
-  const navLinks = convergenceEntries.map(([key, ct]) => {
-    const color = ct.iconColor ?? '#475569';
-    return `<a href="#${escapeHtml(key)}" class="nav-link" style="--nav-color:${escapeHtml(color)}"><span class="nav-dot"></span>${escapeHtml(ct.name ?? formatKey(key))}</a>`;
+  const indexPills = convergenceEntries.map(([key, ct], i) => {
+    const n = String(i + 1).padStart(2, '0');
+    const glyph = ct.projection === 'edge-table' ? ICON_EDGE : ICON_GRID;
+    return `<a class="index-pill" href="#${escapeHtml(key)}"><span class="n">${n}</span>${glyph}<span>${escapeHtml(ct.name ?? formatKey(key))}</span></a>`;
   }).join('');
 
-  const cards = convergenceEntries.map(([key, ct]) => renderTypeCard(registry, key, ct, usageSummary.byType[key])).join('');
+  const typeCards = convergenceEntries
+    .map(([key, ct]) => renderTypeCard(registry, key, ct, usageSummary.byType[key]))
+    .join('');
 
-  const entityRows = Object.entries(registry.entityTypes ?? {}).map(([key, entity]) => {
-    return `<tr><td><code>${escapeHtml(key)}</code></td><td>${escapeHtml(entity.label ?? formatKey(key))}</td><td>${escapeHtml(entity.refRender ?? 'inline')}</td></tr>`;
+  const entityRows = entityEntries.map(([key, entity]) => {
+    const renderMode = entity.refRender ?? 'inline';
+    return `<tr><td class="key">${escapeHtml(key)}</td><td class="label">${escapeHtml(entity.label ?? formatKey(key))}</td><td class="render">${escapeHtml(renderMode)}</td></tr>`;
   }).join('');
 
-  const statusRows = Object.entries(registry.statusSets ?? {}).map(([key, statusSet]) => {
-    return `<tr><td><code>${escapeHtml(key)}</code></td><td>${escapeHtml(pluralize(statusSet.values?.length ?? 0, 'value'))}</td><td>${escapeHtml((statusSet.values ?? []).join(', '))}</td></tr>`;
+  const statusCards = statusSetEntries.map(([key, set]) => {
+    const values = set.values ?? [];
+    const valueSpans = values.map((v) => `<span class="v">${escapeHtml(v)}</span>`).join('');
+    return `
+    <div class="set-card">
+      <div class="head"><code>${escapeHtml(key)}</code><span class="size">${values.length} value${values.length === 1 ? '' : 's'}</span></div>
+      <div class="set-values">${valueSpans}</div>
+    </div>`;
   }).join('');
+
+  const catalogPathDisplay = usageSummary.catalogPath ?? DEFAULT_CATALOG_PATH;
+  const scannedDocs = usageSummary.scannedDocs ?? 0;
+  const scannedSections = usageSummary.scannedSections ?? 0;
 
   return `<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Living Doc Registry Overview</title>
-<style>
-  :root {
-    --paper: #f6f0e5;
-    --paper-strong: #fffdfa;
-    --ink: #183244;
-    --muted: #5d7284;
-    --line: rgba(24, 50, 68, 0.12);
-    --blue: #225cc5;
-    --teal: #0f7b74;
-    --amber: #a86610;
-    --rose: #b34d67;
-    --mint: #d8f0e8;
-    --neutral: #eef3f6;
-    --shadow: 0 18px 40px rgba(24, 50, 68, 0.07);
-    --radius-xl: 34px;
-    --radius-lg: 22px;
-    --radius-md: 16px;
-    --radius-sm: 12px;
-    --content: 1280px;
-  }
-
-  * { box-sizing: border-box; }
-
-  html {
-    scroll-behavior: smooth;
-  }
-
-  body {
-    margin: 0;
-    background:
-      radial-gradient(circle at top left, rgba(34, 92, 197, 0.10), transparent 26%),
-      radial-gradient(circle at top right, rgba(15, 123, 116, 0.08), transparent 24%),
-      linear-gradient(180deg, #fbf7ef 0%, var(--paper) 100%);
-    color: var(--ink);
-    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
-    line-height: 1.5;
-  }
-
-  a {
-    color: var(--blue);
-    text-decoration: none;
-  }
-
-  a:hover { text-decoration: underline; }
-
-  code {
-    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 0.9em;
-    background: rgba(24, 50, 68, 0.05);
-    border: 1px solid rgba(24, 50, 68, 0.08);
-    border-radius: 7px;
-    padding: 0.1em 0.45em;
-  }
-
-  .page {
-    max-width: var(--content);
-    margin: 0 auto;
-    padding: 38px 24px 72px;
-  }
-
-  .hero,
-  .card,
-  .type-card,
-  .table-card {
-    background: rgba(255, 255, 255, 0.74);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-  }
-
-  .hero {
-    overflow: hidden;
-    position: relative;
-    border-radius: var(--radius-xl);
-    background: linear-gradient(140deg, rgba(255, 253, 250, 0.98), rgba(225, 239, 252, 0.82));
-  }
-
-  .hero::before,
-  .hero::after {
-    content: "";
-    position: absolute;
-    border-radius: 999px;
-    pointer-events: none;
-  }
-
-  .hero::before {
-    width: 280px;
-    height: 280px;
-    top: -90px;
-    right: -80px;
-    background: radial-gradient(circle, rgba(34, 92, 197, 0.14), transparent 68%);
-  }
-
-  .hero::after {
-    width: 260px;
-    height: 260px;
-    left: -80px;
-    bottom: -120px;
-    background: radial-gradient(circle, rgba(15, 123, 116, 0.15), transparent 72%);
-  }
-
-  .hero-inner {
-    position: relative;
-    z-index: 1;
-    padding: 44px;
-    display: grid;
-    gap: 24px;
-  }
-
-  .eyebrow {
-    display: inline-flex;
-    width: fit-content;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(24, 50, 68, 0.06);
-    color: var(--muted);
-    font: 600 13px/1.1 "Helvetica Neue", Arial, sans-serif;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  h1, h2, h3 {
-    margin: 0;
-    line-height: 1.05;
-    font-weight: 700;
-  }
-
-  h1 {
-    font-size: clamp(2.7rem, 5vw, 4.9rem);
-    letter-spacing: -0.045em;
-    max-width: 12ch;
-  }
-
-  h2 {
-    font-size: 1.7rem;
-    letter-spacing: -0.03em;
-  }
-
-  h3 {
-    font-size: 0.82rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    color: var(--muted);
-    margin-bottom: 10px;
-  }
-
-  p {
-    margin: 0;
-    font-size: 1.04rem;
-  }
-
-  .lead {
-    font-size: 1.16rem;
-    max-width: 66ch;
-  }
-
-  .summary-grid,
-  .overview-grid,
-  .detail-grid,
-  .tables-grid {
-    display: grid;
-    gap: 16px;
-  }
-
-  .summary-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .summary-card {
-    padding: 18px 18px 16px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.74);
-  }
-
-  .summary-card strong {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--muted);
-    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .summary-card span {
-    font-size: 1.02rem;
-  }
-
-  main {
-    display: grid;
-    gap: 22px;
-    margin-top: 28px;
-  }
-
-  .card {
-    padding: 26px;
-  }
-
-  .overview-grid {
-    grid-template-columns: 280px minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .sticky-card {
-    position: sticky;
-    top: 20px;
-  }
-
-  .nav-links {
-    display: grid;
-    gap: 8px;
-    margin-top: 18px;
-  }
-
-  .nav-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    color: var(--ink);
-    background: rgba(255, 255, 255, 0.56);
-    border: 1px solid rgba(24, 50, 68, 0.08);
-    text-decoration: none;
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 0.93rem;
-    font-weight: 600;
-  }
-
-  .nav-link:hover {
-    text-decoration: none;
-    background: color-mix(in srgb, var(--nav-color, var(--blue)) 8%, white);
-  }
-
-  .nav-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: var(--nav-color, var(--blue));
-    flex: 0 0 auto;
-  }
-
-  .type-stack {
-    display: grid;
-    gap: 18px;
-  }
-
-  .type-card {
-    padding: 24px;
-  }
-
-  .type-header {
-    display: grid;
-    grid-template-columns: 62px minmax(0, 1fr);
-    gap: 18px;
-    align-items: start;
-  }
-
-  .type-mark {
-    width: 62px;
-    height: 62px;
-    border-radius: 18px;
-    display: grid;
-    place-items: center;
-    color: var(--type-color, var(--blue));
-    background: color-mix(in srgb, var(--type-color, var(--blue)) 10%, white);
-    border: 1px solid color-mix(in srgb, var(--type-color, var(--blue)) 18%, rgba(24, 50, 68, 0.10));
-  }
-
-  .type-kicker {
-    margin-bottom: 8px;
-    color: var(--muted);
-    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .type-title-block p {
-    margin-top: 10px;
-    color: var(--ink);
-  }
-
-  .type-meta,
-  .mini-row,
-  .status-tones,
-  .sample-meta,
-  .pill-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .type-meta {
-    margin-top: 18px;
-  }
-
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(24, 50, 68, 0.10);
-    background: rgba(255, 255, 255, 0.88);
-    color: var(--muted);
-    font: 600 0.81rem/1.2 "Helvetica Neue", Arial, sans-serif;
-  }
-
-  .pill.blue { color: var(--blue); }
-  .pill.teal { color: var(--teal); }
-  .pill.amber { color: var(--amber); }
-  .pill.rose { color: var(--rose); }
-  .pill.mint { color: var(--teal); background: var(--mint); }
-  .pill.neutral { color: var(--muted); background: var(--neutral); }
-
-  .contract-block {
-    margin-top: 18px;
-    background: linear-gradient(135deg, rgba(223, 243, 236, 0.86), rgba(255, 253, 250, 0.92));
-  }
-
-  .sample-block {
-    margin-top: 16px;
-    background: linear-gradient(135deg, rgba(221, 234, 251, 0.74), rgba(255, 253, 250, 0.9));
-  }
-
-  .detail-block {
-    padding: 18px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.7);
-  }
-
-  .instruction-grid {
-    display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
-    gap: 16px;
-  }
-
-  .command-panel {
-    margin-top: 14px;
-    padding: 16px 18px;
-    border-radius: var(--radius-sm);
-    background: rgba(255, 253, 250, 0.95);
-    border: 1px solid rgba(24, 50, 68, 0.10);
-    overflow-x: auto;
-    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 0.92rem;
-    line-height: 1.5;
-  }
-
-  .instruction-list {
-    margin: 12px 0 0;
-    padding-left: 20px;
-  }
-
-  .instruction-list li + li {
-    margin-top: 8px;
-  }
-
-  .detail-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 16px;
-  }
-
-  .source-list,
-  .stack-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 10px;
-  }
-
-  .source-list li,
-  .stack-list li {
-    display: grid;
-    gap: 4px;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(24, 50, 68, 0.08);
-  }
-
-  .source-list li:last-child,
-  .stack-list li:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  .source-list strong,
-  .stack-list strong,
-  .meta-inline strong {
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 0.84rem;
-    color: var(--ink);
-  }
-
-  .source-list span,
-  .stack-list span,
-  .meta-inline {
-    font-size: 0.96rem;
-    color: var(--muted);
-  }
-
-  .meta-inline {
-    margin-top: 10px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .empty {
-    color: var(--muted);
-    font-style: italic;
-  }
-
-  .not-for-block {
-    margin-top: 16px;
-  }
-
-  .sample-list {
-    list-style: none;
-    padding: 0;
-    margin: 12px 0 0;
-    display: grid;
-    gap: 12px;
-  }
-
-  .sample-list li {
-    padding: 14px 0;
-    border-bottom: 1px solid rgba(24, 50, 68, 0.08);
-    display: grid;
-    gap: 8px;
-  }
-
-  .sample-list li:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  .sample-heading {
-    display: grid;
-    gap: 4px;
-  }
-
-  .sample-heading strong {
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 0.92rem;
-    color: var(--ink);
-  }
-
-  .sample-heading span {
-    color: var(--muted);
-    font-size: 0.98rem;
-  }
-
-  .sample-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-
-  .tables-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .table-card {
-    overflow: hidden;
-  }
-
-  .table-card header {
-    padding: 20px 22px 0;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    padding: 14px 16px;
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid var(--line);
-  }
-
-  th {
-    font: 700 0.8rem/1.2 "Helvetica Neue", Arial, sans-serif;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    background: rgba(34, 92, 197, 0.05);
-  }
-
-  tbody tr:last-child td {
-    border-bottom: 0;
-  }
-
-  footer {
-    margin-top: 26px;
-    padding: 0 6px;
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-
-  @media (max-width: 1024px) {
-    .summary-grid,
-    .instruction-grid,
-    .detail-grid,
-    .tables-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .overview-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .sticky-card {
-      position: static;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .page {
-      padding: 20px 14px 48px;
-    }
-
-    .hero-inner,
-    .card,
-    .type-card {
-      padding: 20px;
-    }
-
-    .summary-grid,
-    .instruction-grid,
-    .detail-grid,
-    .tables-grid,
-    .type-header {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Living doc registry overview</title>
+<link rel="stylesheet" href="assets/colors_and_type.css"/>
+<style>${INLINE_STYLES}</style>
 </head>
 <body>
-  <div class="page">
-    <header class="hero">
-      <div class="hero-inner">
-        <div class="eyebrow">Registry Overview</div>
-        <h1>Current convergence type language</h1>
-        <p class="lead">
-          This page is generated directly from <code>scripts/living-doc-registry.json</code>. It shows the current formal type system that drives the compositor and the universal renderer.
-        </p>
-        <div class="summary-grid">
-          <div class="summary-card"><strong>Convergence types</strong><span>${escapeHtml(String(convergenceEntries.length))}</span></div>
-          <div class="summary-card"><strong>Card-grid types</strong><span>${escapeHtml(String(cardGridCount))}</span></div>
-          <div class="summary-card"><strong>Edge-table types</strong><span>${escapeHtml(String(edgeTableCount))}</span></div>
-          <div class="summary-card"><strong>Nestable types</strong><span>${escapeHtml(String(nestableCount))}</span></div>
-          <div class="summary-card"><strong>Registry support</strong><span>${escapeHtml(`${entityTypeCount} entity types / ${statusSetCount} status sets`)}</span></div>
-          <div class="summary-card"><strong>Sampled types</strong><span>${escapeHtml(`${sampledTypeCount} with local examples`)}</span></div>
-        </div>
-      </div>
-    </header>
 
-    <main>
-      <section class="card">
-        <h2>How to read this page</h2>
-        <p>
-          Each convergence type should be treated as a formal reasoning contract, not just a visual template. The description tells you what kind of thing the type is. The structural contract tells you what a valid section should look like. The source and status definitions show which borrowed properties the type depends on. The “not for” block marks nearby patterns that should not be collapsed into this type.
-        </p>
-        <p style="margin-top:14px;">
-          This overview also reads the current local living-doc catalog and shows real sections that implement each type. That makes it easier for both humans and LLMs to see the actual implementation level of a type instead of reasoning from the abstract definition alone.
-        </p>
-        <div class="sample-meta" style="margin-top:16px;">
-          ${renderPill(`${usageSummary.scannedDocs} local docs scanned`, 'blue')}
-          ${renderPill(`${usageSummary.scannedSections} sections indexed`, 'teal')}
-          ${renderPill(`catalog ${usageSummary.catalogPath}`, 'amber')}
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Regenerate This Page</h2>
-        <div class="instruction-grid" style="margin-top:16px;">
-          <div class="detail-block">
-            <h3>Command</h3>
-            <p>Run this from the repo root to rebuild the overview HTML from the current type registry and living-doc catalog.</p>
-            <div class="command-panel">node scripts/render-registry-overview.mjs</div>
-            <p style="margin-top:14px;">Optional: point to a different catalog file for this run.</p>
-            <div class="command-panel">LIVING_DOC_CATALOG_PATH=/path/to/living-docs.json node scripts/render-registry-overview.mjs</div>
-          </div>
-
-          <div class="detail-block">
-            <h3>What Must Be In Place</h3>
-            <ol class="instruction-list">
-              <li><code>scripts/living-doc-registry.json</code> must contain the current convergence types.</li>
-              <li>The living-doc catalog at <code>${escapeHtml(usageSummary.catalogPath)}</code> must contain the docs you want sampled.</li>
-              <li>Each catalog entry should point to a rendered <code>.html</code> living doc with an embedded <code>doc-meta</code> block.</li>
-              <li>If you want JSON source links, the cataloged HTML should have a sibling <code>.json</code> file with the same basename.</li>
-            </ol>
-          </div>
-        </div>
-      </section>
-
-      <section class="overview-grid">
-        <aside class="card sticky-card">
-          <h2>Type Index</h2>
-          <p>Jump directly to a specific convergence type.</p>
-          <nav class="nav-links">
-            ${navLinks}
-          </nav>
-        </aside>
-
-        <div class="type-stack">
-          ${cards}
-        </div>
-      </section>
-
-      <section class="tables-grid">
-        <article class="table-card">
-          <header>
-            <h2>Entity Types</h2>
-            <p>Reference building blocks available to convergence types.</p>
-          </header>
-          <table>
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Label</th>
-                <th>Render mode</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${entityRows}
-            </tbody>
-          </table>
-        </article>
-
-        <article class="table-card">
-          <header>
-            <h2>Status Sets</h2>
-            <p>Shared status vocabularies used by type fields.</p>
-          </header>
-          <table>
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Size</th>
-                <th>Values</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${statusRows}
-            </tbody>
-          </table>
-        </article>
-      </section>
-    </main>
-
-    <footer>
-      Generated from <code>scripts/living-doc-registry.json</code>. Regenerate with <code>node scripts/render-registry-overview.mjs</code>.
-    </footer>
+<div class="top-bar">
+  <div class="logo">L</div>
+  <div class="crumbs">
+    <a href="index.html">Living docs</a>
+    <span class="sep">/</span>
+    <a href="living-doc-compositor.html">Compositor</a>
+    <span class="sep">/</span>
+    <strong>Registry overview</strong>
   </div>
+  <div class="spacer"></div>
+  <a class="top-action" href="#regen">Regenerate</a>
+  <a class="top-action primary" href="#types">Browse types →</a>
+</div>
+
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <span class="eyebrow">Registry overview</span>
+  <h1>The current convergence type <em>language</em>.</h1>
+  <p class="lede">This page is generated directly from <code>scripts/living-doc-registry.json</code>. It shows the formal type system driving the compositor and the universal renderer — each type treated as a reasoning contract, not a visual template.</p>
+  <div class="meta">
+    <span><strong style="color:var(--ld-ink)">${scannedDocs}</strong> local doc${scannedDocs === 1 ? '' : 's'} scanned</span>
+    <span class="dot">·</span>
+    <span><strong style="color:var(--ld-ink)">${scannedSections}</strong> section${scannedSections === 1 ? '' : 's'} indexed</span>
+    <span class="dot">·</span>
+    <span>catalog <code>${escapeHtml(catalogPathDisplay)}</code></span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Convergence types</div><div class="value">${totalTypes}</div><div class="sub">The full vocabulary</div></div>
+    <div class="stat"><div class="label">Card-grid types</div><div class="value">${cardGridCount}</div><div class="sub">Most types project as cards</div></div>
+    <div class="stat"><div class="label">Edge-table types</div><div class="value">${edgeTableCount}</div><div class="sub">Explicit pair relations</div></div>
+    <div class="stat"><div class="label">Nestable types</div><div class="value">${nestableCount}</div><div class="sub">Can contain sub-sections</div></div>
+    <div class="stat"><div class="label">Sampled locally</div><div class="value"><em>${sampledTypeCount}</em></div><div class="sub">With observed examples</div></div>
+  </div>
+</section>
+
+<!-- HOW TO READ -->
+<section class="block" id="read">
+  <span class="eyebrow">How to read this page</span>
+  <h2>Each type is a formal reasoning contract, not a visual template.</h2>
+  <p class="lede">The overview reads the current local living-doc catalog and shows real sections implementing each type. That makes it easier for humans and LLMs alike to see the implementation level instead of reasoning from the abstract alone.</p>
+  <div class="read-grid">
+    <div class="read-card"><h4><span class="n">1</span> Description</h4><p>What kind of thing the type <em>is</em>. One sentence; unambiguous about the convergence it claims.</p></div>
+    <div class="read-card"><h4><span class="n">2</span> Structural contract</h4><p>What a valid section of this type should look like — grid shape, required item semantics, where it applies.</p></div>
+    <div class="read-card"><h4><span class="n">3</span> Sources &amp; status</h4><p>Which borrowed entity types and status sets the type depends on. Borrowed, never duplicated.</p></div>
+    <div class="read-card"><h4><span class="n">4</span> Not for</h4><p>Nearby patterns that should <em>not</em> be collapsed into this type. The guardrail against type drift.</p></div>
+  </div>
+  <div class="read-payoff">Each convergence type should be treated as a reasoning contract. <em>Pick the wrong one and the doc lies to you.</em></div>
+</section>
+
+<!-- TYPE INDEX -->
+<section class="block" id="index">
+  <span class="eyebrow">Type index</span>
+  <h2>Jump directly to a convergence type.</h2>
+  <p class="lede">${totalTypes} types, grouped in order of appearance. Slugs match the anchors used in rendered docs.</p>
+  <div class="index-grid">${indexPills}</div>
+</section>
+
+<!-- TYPES -->
+<section class="block" id="types">
+  <span class="eyebrow">Convergence types</span>
+  <h2>The ${totalTypes} formal types.</h2>
+  <p class="lede">Each card shows the description, structural contract, local samples, borrowed sources, status fields, and guardrails. Borrowed entity types render as <span class="mono" style="background:var(--ld-accent-tint);color:var(--ld-accent);padding:1px 6px;border-radius:4px;font-size:11.5px">chips</span>.</p>
+  <div class="types-wrap">${typeCards}
+  </div>
+</section>
+
+<!-- ENTITY TYPES -->
+<section class="block" id="entities">
+  <span class="eyebrow">Entity types</span>
+  <h2>Reference building blocks.</h2>
+  <p class="lede">${entityTypeCount} entity type${entityTypeCount === 1 ? '' : 's'}, available to convergence types as borrowed sources. A convergence type declares <em>what</em> it borrows; entities declare <em>how</em> they render.</p>
+  <div class="table-wrap">
+    <table class="ref"><thead><tr><th>Key</th><th>Label</th><th>Render mode</th></tr></thead><tbody>${entityRows}</tbody></table>
+  </div>
+</section>
+
+<!-- STATUS SETS -->
+<section class="block" id="status-sets">
+  <span class="eyebrow">Status sets</span>
+  <h2>Shared status vocabularies.</h2>
+  <p class="lede">${statusSetCount} status set${statusSetCount === 1 ? '' : 's'}. Types bind one or more of their own fields to one of these enums — never invent a local one.</p>
+  <div class="set-grid">${statusCards}
+  </div>
+</section>
+
+<!-- REGEN -->
+<section class="block" id="regen">
+  <span class="eyebrow">Regenerate this page</span>
+  <h2>Rebuilt from the registry and the local catalog.</h2>
+  <p class="lede">Run from the repo root to rebuild the overview HTML from the current type registry and living-doc catalog.</p>
+  <div class="regen-grid">
+    <div class="regen-card">
+      <h3>Command <span class="tag">Default</span></h3>
+      <div class="cmd"><span class="prompt">$</span>node scripts/render-registry-overview.mjs</div>
+      <p style="margin-top:14px">Optional — point to a different catalog file for this run:</p>
+      <div class="cmd"><span class="prompt">$</span><span class="env">LIVING_DOC_CATALOG_PATH</span>=/path/to/living-docs.json \\
+  node scripts/render-registry-overview.mjs</div>
+    </div>
+    <div class="regen-card">
+      <h3>What must be in place</h3>
+      <ol>
+        <li><code>scripts/living-doc-registry.json</code> contains the current convergence types.</li>
+        <li>The living-doc catalog at <code>${escapeHtml(catalogPathDisplay)}</code> contains the docs you want sampled.</li>
+        <li>Each catalog entry points to a rendered <code>.html</code> living doc with an embedded <code>doc-meta</code> block.</li>
+        <li>For JSON source links, the cataloged HTML has a sibling <code>.json</code> file with the same basename.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer class="pg-foot">
+  Generated from <code>scripts/living-doc-registry.json</code>. Regenerate with <code>node scripts/render-registry-overview.mjs</code>.
+</footer>
+
+</main>
+
 </body>
 </html>`;
 }
 
-export async function renderRegistryOverview(outputPath = defaultOutputPath) {
+export async function renderRegistryOverview(outputPath = defaultOutputPath, opts = {}) {
   const registry = JSON.parse(await readFile(registryPath, 'utf8'));
   const usageSummary = await collectUsageSamples(registry, outputPath);
+  let linkStats = null;
+  if (opts.verifyLinks !== false) {
+    const results = await verifyPublicUrls(usageSummary);
+    const missing = [...results.values()].filter((v) => v === 'missing').length;
+    linkStats = { checked: results.size, missing };
+  }
   const html = buildHtml(registry, usageSummary);
   await writeFile(outputPath, html);
-  return { outputPath, typeCount: Object.keys(registry.convergenceTypes ?? {}).length };
+  return { outputPath, typeCount: Object.keys(registry.convergenceTypes ?? {}).length, linkStats };
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isDirectRun) {
-  const outputArg = process.argv[2];
+  const args = process.argv.slice(2);
+  const skipVerify = args.includes('--skip-verify');
+  const outputArg = args.find((a) => !a.startsWith('--'));
   const outputPath = outputArg ? path.resolve(outputArg) : defaultOutputPath;
-  const result = await renderRegistryOverview(outputPath);
-  console.log(`Wrote ${path.relative(process.cwd(), result.outputPath)} with ${result.typeCount} convergence types`);
+  const result = await renderRegistryOverview(outputPath, { verifyLinks: !skipVerify });
+  const linkSummary = result.linkStats
+    ? ` · verified ${result.linkStats.checked} public URLs (${result.linkStats.missing} missing)`
+    : '';
+  console.log(`Wrote ${path.relative(process.cwd(), result.outputPath)} with ${result.typeCount} convergence types${linkSummary}`);
 }
