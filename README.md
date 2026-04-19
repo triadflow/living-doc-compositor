@@ -58,7 +58,7 @@ Starters available:
 | `living-doc-template-starter-run-support-ops.json` | Running support and operations |
 | `living-doc-template-starter-write-book.json` | Drafting long-form without losing chapter focus |
 
-Full templates (more depth): `architect-manuscript`, `map-themes-storylines`, `operations-support`, `proof-canonicality`, `surface-delivery`. All in `docs/`.
+Full templates (more depth): `architect-manuscript`, `map-themes-storylines`, `operations-support`, `proof-canonicality`, `surface-delivery`, `monitoring-tracker`. All in `docs/`.
 
 ## Add a convergence type
 
