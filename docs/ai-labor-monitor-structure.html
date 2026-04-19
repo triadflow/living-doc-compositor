@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tracking a live debate — living-doc structure for AI-labor monitoring</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #0f172a;
+    --ink-soft: #334155;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --panel: #f8fafc;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --code-bg: #f1f5f9;
+    --good: #16a34a;
+    --good-soft: #dcfce7;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --warn-line: #fde68a;
+    --violet: #6d28d9;
+    --violet-soft: #ede9fe;
+    --rose: #be123c;
+    --rose-soft: #ffe4e6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    margin: 0 0 4px;
+    font-size: 15px;
+    max-width: 68ch;
+  }
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border: 1px solid var(--warn-line);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin: 16px 0 0;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 40px 0 12px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  h3 { font-size: 14px; margin: 24px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  h4 { font-size: 15px; margin: 18px 0 4px; }
+  p { margin: 0 0 12px; }
+  code {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin: 12px 0;
+  }
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--panel); }
+  tbody tr:hover { background: var(--panel); }
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  li { margin: 4px 0; }
+  .pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .pill.reuse { border-color: var(--accent-soft); background: var(--accent-soft); color: var(--accent); }
+  .pill.new { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+  .pill.maybe { border-color: #e9d5ff; background: var(--violet-soft); color: var(--violet); }
+
+  /* Section walk-through cards */
+  .section-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 14px 0;
+    background: #fff;
+  }
+  .section-card .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .section-card .title { font-weight: 600; font-size: 15px; }
+  .section-card .fields {
+    margin-top: 10px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .section-card .fields .k { display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; margin-right: 6px; }
+
+  /* Mock rendered panel */
+  .mock {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: #fbf7f0;
+    margin: 16px 0;
+    font-family: Georgia, "Palatino Linotype", serif;
+  }
+  .mock .mock-eyebrow {
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #7a4b2a; font-weight: 600; margin-bottom: 6px;
+  }
+  .mock .mock-title { font-size: 19px; font-weight: 700; margin: 0 0 6px; }
+  .mock .mock-affil { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 12.5px; color: #5a5a5a; margin-bottom: 10px; }
+  .mock .mock-field { margin: 8px 0; }
+  .mock .mock-label {
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #7a4b2a; font-weight: 700; margin-bottom: 2px;
+  }
+  .mock .mock-delta {
+    display: inline-block; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 11.5px;
+    padding: 1px 7px; border-radius: 999px; font-weight: 600; letter-spacing: .02em;
+  }
+  .mock .mock-delta.up { background: #dcfce7; color: #166534; }
+  .mock .mock-delta.shifted { background: #fef3c7; color: #92400e; }
+  .mock .mock-delta.stable { background: #f1f5f9; color: #475569; }
+
+  /* Flow diagram */
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 18px 0 10px;
+  }
+  .flow .step {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    position: relative;
+  }
+  .flow .step .n {
+    font-size: 11px; color: var(--accent); font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .flow .step .t { font-weight: 600; margin-top: 4px; }
+  .flow .step .d { color: var(--muted); font-size: 12.5px; margin-top: 4px; line-height: 1.45; }
+  .flow .step::after {
+    content: "→"; position: absolute; right: -10px; top: 50%;
+    transform: translateY(-50%); color: var(--muted); font-size: 14px;
+  }
+  .flow .step:last-child::after { content: ""; }
+
+  /* Periods timeline */
+  .periods {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    margin: 16px 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .periods .period {
+    flex: 1;
+    padding: 12px 14px;
+    border-right: 1px solid var(--line);
+    background: var(--panel);
+    font-size: 13px;
+  }
+  .periods .period:last-child { border-right: none; }
+  .periods .period.current { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .periods .period.future { background: repeating-linear-gradient(45deg, #fff, #fff 5px, var(--panel) 5px, var(--panel) 10px); color: var(--muted); }
+  .periods .period .label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; display: block; margin-bottom: 4px; }
+  .periods .period .summary { font-size: 12.5px; color: var(--muted); }
+  .periods .period.current .summary { color: var(--accent); }
+
+  .ref { color: var(--muted); font-size: 13px; margin-top: 24px; }
+
+  @media (max-width: 780px) {
+    .flow { grid-template-columns: 1fr; }
+    .flow .step::after { content: "↓"; right: 50%; top: auto; bottom: -16px; transform: translateX(50%); }
+    .periods { flex-direction: column; }
+    .periods .period { border-right: none; border-bottom: 1px solid var(--line); }
+    .periods .period:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tracking a live debate</h1>
+  <p class="lede">
+    A proposed living-doc structure for watching the AI-and-labor debate evolve
+    every six months — built on the current synthesis of McAfee, Autor, Acemoglu,
+    Brynjolfsson, and Aghion, and structured to make each check-in a low-friction delta.
+  </p>
+  <span class="status-pill">Design proposal · structure only</span>
+
+  <h2>The job</h2>
+  <p>
+    The source <a href="file:///Users/rene/projects/economists-ai-labor.html">economists-ai-labor.html</a> is a one-shot synthesis. It captures five thinkers' stances as of April 2026 and lists the numbers each one points to. Excellent as a snapshot; brittle as a tracker. Every six months the positions shift, papers land, predictions resolve, and a fresh reader has no way to see what changed without re-doing the archaeology.
+  </p>
+  <p>
+    The job of the living-doc version is different: <strong>be the place where the current state of the debate lives, and where each 6-month check-in lands as an inspectable delta.</strong> A reader in 2028 should see at a glance who shifted, which predictions resolved, and what's still open — without re-reading three years of source material.
+  </p>
+
+  <h2>Why this doesn't fit the usual living-doc templates</h2>
+  <p>
+    Most existing templates are <em>bounded by a piece of work</em> that moves toward an outcome: ship the feature, prove the claim, finish the chapter. This doc is bounded by a <em>topic</em> that never ends — the debate keeps going as long as the world keeps producing evidence. The structural consequence is that <strong>periods become first-class</strong>, alongside sections and facets. Every update must be attributable to a named check-in; every card must be re-derivable from "what did the current period contribute."
+  </p>
+
+  <div class="callout">
+    <strong>The distinctive move.</strong> Add <code>periods</code> as a top-level field next to <code>objectiveFacets</code>. Each period has a name (<code>2026-H1</code>), a window (<code>2026-01-01 → 2026-06-30</code>), and a summary. Every card carries <code>lastUpdatedInPeriod</code> so the reader can see what was touched when. Staleness becomes cadence-aware: the doc is "stale" when the next period is due, not when the wall clock hits N days of inactivity.
+  </div>
+
+  <h2>Objective + facets</h2>
+
+  <p><strong>Objective.</strong> <em>Track the evolution of expert consensus on AI's labor-market impact as evidence accumulates and positions shift — so a reader at any moment knows current stance, latest evidence, and what's still open.</em></p>
+
+  <h3>Objective facets</h3>
+  <ul>
+    <li><code>current-positions-accurate</code> — each expert's stance reflects their most recent published work</li>
+    <li><code>predictions-tracked</code> — every "what to watch" claim has a live resolution status</li>
+    <li><code>indicators-current</code> — the numerical dashboard matches the latest prints</li>
+    <li><code>divergence-map-current</code> — the agreement/split axes reflect current positions, not stale ones</li>
+    <li><code>period-attribution</code> — every update traces back to a named monitoring period</li>
+  </ul>
+
+  <h2>Six sections at a glance</h2>
+  <table>
+    <thead>
+      <tr><th>Section</th><th>Convergence type</th><th>Status</th><th>Carries</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Expert positions</td>
+        <td><code>expert-stance-track</code></td>
+        <td><span class="pill new">new</span></td>
+        <td>One card per thinker; stance, core view, evolution, shift flag, sources</td>
+      </tr>
+      <tr>
+        <td>Empirical predictions</td>
+        <td><code>proof-ladder</code></td>
+        <td><span class="pill reuse">reuse</span></td>
+        <td>Each "what to watch" as a rung with accumulating evidence + resolution</td>
+      </tr>
+      <tr>
+        <td>Indicator dashboard</td>
+        <td><code>indicator-trace</code></td>
+        <td><span class="pill new">new</span></td>
+        <td>One card per tracked metric; latest value, period, forecast, delta</td>
+      </tr>
+      <tr>
+        <td>Consensus & divergence</td>
+        <td><code>position-cluster-map</code></td>
+        <td><span class="pill maybe">new or adapt <code>coherence-map</code></span></td>
+        <td>Two-axis plot — magnitude × institutional-role — thinkers placed, movement visible</td>
+      </tr>
+      <tr>
+        <td>Sources this period</td>
+        <td><code>citation-feed</code></td>
+        <td><span class="pill new">new</span></td>
+        <td>Papers / interviews / op-eds added in the period, dated, attributed</td>
+      </tr>
+      <tr>
+        <td>Period note</td>
+        <td><code>decision-record</code></td>
+        <td><span class="pill reuse">reuse</span></td>
+        <td>One card per check-in: what shifted, what resolved, what matters for next</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Walk-through</h2>
+
+  <div class="section-card">
+    <div class="head">
+      <span class="title">1 · Expert positions <span class="pill new">expert-stance-track</span></span>
+    </div>
+    <p>One card per thinker. The existing <code>maintainer-stance</code> type handles one-off positions on a specific thread; this stretches too far. A public intellectual's stance persists across dozens of works and shifts in small steps — we need fields for <em>evolution since last period</em> and a <em>shift flag</em>, not just a current position.</p>
+    <div class="fields">
+      <span class="k">name</span> <span class="k">affiliation</span> <span class="k">stanceLabel</span> <span class="k">coreView</span> <span class="k">evolutionSinceLastPeriod</span> <span class="k">shiftFlag</span> <span class="k">latestSourceRefs</span> <span class="k">lastUpdatedInPeriod</span>
+    </div>
+  </div>
+
+  <div class="mock">
+    <div class="mock-eyebrow">Expert position · sample render</div>
+    <div class="mock-title">Daron Acemoglu <span class="mock-delta shifted">shift · 2026-H2</span></div>
+    <div class="mock-affil">MIT · 2024 Nobel laureate · co-author, Power and Progress</div>
+    <div class="mock-field"><div class="mock-label">Stance</div>Skeptic — so-so automation still dominant, but narrower case for productivity than six months ago</div>
+    <div class="mock-field"><div class="mock-label">Evolution since 2026-H1</div>New NBER paper softens the 0.55% TFP floor; accepts Brynjolfsson's 2025 productivity print as real but reads it as short-term.</div>
+    <div class="mock-field"><div class="mock-label">Latest sources</div>NBER w33xxx (Oct 2026); Project Syndicate op-ed (Sep 2026); Brookings follow-up with Autor.</div>
+  </div>
+
+  <div class="section-card">
+    <div class="head">
+      <span class="title">2 · Empirical predictions <span class="pill reuse">proof-ladder</span></span>
+    </div>
+    <p>The "What to watch in 2026–2027" list is already a prediction tracker in disguise. Each bullet becomes a rung. Rungs accumulate evidence for/against across periods. Resolution status drives the visible state.</p>
+    <div class="fields">
+      <span class="k">claim</span> <span class="k">expectedDirection</span> <span class="k">evidenceRungs[]</span> <span class="k">resolution</span> <span class="k">resolvedInPeriod</span>
+    </div>
+    <p style="margin-top:10px; color: var(--ink-soft); font-size: 13.5px;">Resolution vocabulary: <code>pending</code> · <code>confirmed</code> · <code>refuted</code> · <code>revised</code>. Refuted and revised carry a note explaining why.</p>
+  </div>
+
+  <div class="section-card">
+    <div class="head">
+      <span class="title">3 · Indicator dashboard <span class="pill new">indicator-trace</span></span>
+    </div>
+    <p>Tracked metrics with a dated latest observation and a delta versus the prior period. Existing status sets are categorical (<code>not-started / drafted / final</code>); indicators want numeric status. Two honest ways forward: (a) add a new kind of numeric status field to the registry, or (b) carry the numeric value as a text field and use a categorical <em>trend</em> slot (<code>rising / stable / falling / resolved</code>). Option (b) is cheaper for a first version.</p>
+    <div class="fields">
+      <span class="k">indicator</span> <span class="k">latestValue</span> <span class="k">asOf</span> <span class="k">forecast</span> <span class="k">deltaVsLastPeriod</span> <span class="k">trend</span> <span class="k">source</span>
+    </div>
+    <p style="margin-top:8px; font-size:13.5px; color: var(--ink-soft);">Candidate indicators: US TFP growth · entry-level employment for 22–25yo in AI-exposed white-collar · wage dispersion within AI-exposed occupations · flexicurity-style wage-insurance adoption · call-centre productivity replications.</p>
+  </div>
+
+  <div class="section-card">
+    <div class="head">
+      <span class="title">4 · Consensus & divergence map <span class="pill maybe">position-cluster-map</span></span>
+    </div>
+    <p>Two-axis plot. The existing <code>coherence-map</code> does facet-to-section carrying; this needs thinker-to-axis placement, which is a different edge pattern. Could adapt or introduce a small new type. Movement between periods is the whole point — a rendered card should show the prior-period position as a ghost.</p>
+    <div class="fields">
+      <span class="k">axisX</span> <span class="k">axisY</span> <span class="k">thinkers[]</span> <span class="k">positions[{thinker,x,y,period}]</span>
+    </div>
+    <p style="margin-top:8px; font-size:13.5px; color: var(--ink-soft);">X-axis: magnitude of AI impact (weak → strong). Y-axis: stance on institutional role (market-led → institution-led).</p>
+  </div>
+
+  <div class="section-card">
+    <div class="head">
+      <span class="title">5 · Sources this period <span class="pill new">citation-feed</span></span>
+    </div>
+    <p>Dated source entries grouped by period. The existing source-material patterns support the reference shape; what's new is period-grouping as a first-class organizing principle. Sources added in 2026-H2 live in that period's group; adding a 2026-H1 source retroactively is allowed but flagged.</p>
+    <div class="fields">
+      <span class="k">title</span> <span class="k">author</span> <span class="k">venue</span> <span class="k">publishedAt</span> <span class="k">url</span> <span class="k">cardsReferenced[]</span> <span class="k">addedInPeriod</span>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="head">
+      <span class="title">6 · Period note <span class="pill reuse">decision-record</span></span>
+    </div>
+    <p>One card per period. Reusing <code>decision-record</code> works because the note <em>is</em> a decision about what the period means. Field fit: the rationale is the shift summary, the context is the evidence that landed, the consequences are what to watch next. Lightly adapted, cleanly reused.</p>
+    <div class="fields">
+      <span class="k">period</span> <span class="k">summary</span> <span class="k">shiftsObserved[]</span> <span class="k">predictionsResolved[]</span> <span class="k">focusForNextPeriod</span>
+    </div>
+  </div>
+
+  <h2>Periods as first-class</h2>
+
+  <p>Every card carries a <code>lastUpdatedInPeriod</code> marker. The doc's <code>periods</code> list at the root records each check-in window and its summary.</p>
+
+  <div class="periods">
+    <div class="period">
+      <span class="label">2026-H1</span>
+      <div class="summary">Baseline. Five positions captured. 4 predictions open, 0 resolved. 15 sources.</div>
+    </div>
+    <div class="period current">
+      <span class="label">2026-H2 · current</span>
+      <div class="summary">Acemoglu softens TFP floor. 1 prediction resolved (productivity print held). 9 new sources.</div>
+    </div>
+    <div class="period future">
+      <span class="label">2027-H1 · due 2027-03</span>
+      <div class="summary">Pending.</div>
+    </div>
+    <div class="period future">
+      <span class="label">2027-H2</span>
+      <div class="summary">Pending.</div>
+    </div>
+  </div>
+
+  <p>Renderer implications: "changed this period" should be visually prominent, "unchanged since baseline" should be quiet. The period dropdown at the top lets a reader rewind the whole doc to any prior period for a clean comparison.</p>
+
+  <h2>Invariants</h2>
+
+  <ul>
+    <li>Every expert-position card must cite at least one source dated in the current or prior period — no unchanged snapshots without evidence.</li>
+    <li>Every prediction rung must carry a resolution status.</li>
+    <li>Every indicator card must have a dated latest value.</li>
+    <li>Every source must have a publication date.</li>
+    <li>The period note for the current period must exist once the period closes.</li>
+    <li>The <code>positions[]</code> on the divergence map must include entries for every thinker in this period.</li>
+  </ul>
+
+  <h2>The sync skill</h2>
+
+  <p>A domain skill — working title <code>/ai-labor-sync</code> — runs on cadence. Given the doc and a period-start date, it performs the archaeology once so the human doesn't have to:</p>
+
+  <div class="flow">
+    <div class="step">
+      <div class="n">1 · scan</div>
+      <div class="t">per-thinker feeds</div>
+      <div class="d">Substacks, NBER, Project Syndicate, major interview outlets, Brookings, PIIE — filtered to the period window.</div>
+    </div>
+    <div class="step">
+      <div class="n">2 · propose</div>
+      <div class="t">stance updates</div>
+      <div class="d">Flags shift candidates per thinker; drafts <em>evolution-since-last-period</em> prose for each.</div>
+    </div>
+    <div class="step">
+      <div class="n">3 · ingest</div>
+      <div class="t">new sources</div>
+      <div class="d">Adds entries to the citation feed, grouped in the current period.</div>
+    </div>
+    <div class="step">
+      <div class="n">4 · resolve</div>
+      <div class="t">prediction rungs</div>
+      <div class="d">Proposes new evidence rungs and resolution transitions; never flips resolution silently.</div>
+    </div>
+    <div class="step">
+      <div class="n">5 · draft</div>
+      <div class="t">period note</div>
+      <div class="d">One-card summary of shifts, resolutions, and focus for next period.</div>
+    </div>
+  </div>
+
+  <p>Output is a proposed patch. The human opens the compositor to review, refine, and accept. The skill never mutates the doc directly — it offers a draft the human ratifies.</p>
+
+  <h2>What's new vs. what reuses</h2>
+
+  <table>
+    <thead><tr><th>Item</th><th>Kind</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>expert-stance-track</code></td><td><span class="pill new">new type</span></td><td>Sustained public-intellectual stance across many works; existing <code>maintainer-stance</code> is one-off</td></tr>
+      <tr><td><code>indicator-trace</code></td><td><span class="pill new">new type</span></td><td>Numeric status with period/forecast/delta; existing status sets are categorical</td></tr>
+      <tr><td><code>citation-feed</code></td><td><span class="pill new">new type</span></td><td>Dated sources with period-grouping as first-class</td></tr>
+      <tr><td><code>position-cluster-map</code></td><td><span class="pill maybe">new or adapt</span></td><td>Thinker-to-axis placement is a different edge pattern from facet-to-section</td></tr>
+      <tr><td><code>proof-ladder</code></td><td><span class="pill reuse">reuse</span></td><td>Predictions-as-rungs with resolution fits cleanly</td></tr>
+      <tr><td><code>decision-record</code></td><td><span class="pill reuse">reuse</span></td><td>Period note is literally a decision about what the period means</td></tr>
+      <tr><td><code>periods</code> at doc root</td><td><span class="pill new">registry extension</span></td><td>Parallel to <code>objectiveFacets</code>; cadence-aware staleness depends on it</td></tr>
+      <tr><td><code>trend</code> status set</td><td><span class="pill new">new status set</span></td><td><code>rising / stable / falling / resolved</code> — needed for <code>indicator-trace</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Honest flags</h2>
+
+  <div class="callout warn">
+    <strong>Numeric status is the real wrinkle.</strong> The compositor's status model is categorical. Indicator dashboards naturally want numbers and deltas. The proposal here (carry the number as text, carry direction as a categorical <code>trend</code>) is a workaround, not a clean fit. If longitudinal-monitoring docs become a pattern (this one plus, say, a market-data tracker and a research-claim watcher), the registry probably needs a proper numeric status field.
+  </div>
+
+  <div class="callout warn">
+    <strong>Renderer wants a period selector.</strong> A doc with periods needs a top-level control to rewind the whole view to a prior period &mdash; otherwise the "what changed" story is illegible. That's new renderer work, not a registry-only change.
+  </div>
+
+  <div class="callout warn">
+    <strong>Scope creep risk.</strong> This pattern is powerful enough that it'll want to swallow every "watch this over time" use case. Semantic stability wins here too &mdash; keep the new types crisp (<code>expert-stance-track</code>, <code>indicator-trace</code>, <code>citation-feed</code>) rather than bundling them into one mega-type that stretches.
+  </div>
+
+  <h2>One rendered period, imagined</h2>
+
+  <p>A reader opens the doc in October 2026. At the top, a period selector shows <strong>2026-H2 · current</strong>. Three cards carry a "shift" badge — Acemoglu softened, Brynjolfsson held firm, McAfee added nuance on weak-link economics. The predictions ladder shows one rung resolved (the 2025 productivity print persisted into 2026), three pending. The indicator dashboard shows entry-level 22–25yo employment in AI-exposed roles down another ~4%. The divergence map shows Acemoglu moving fractionally toward Aghion on the magnitude axis. The period note says "the productivity-jump-persists prediction is holding; expertise-devaluation evidence is thickening; watch wage dispersion in 2027."</p>
+
+  <p>That's what the structure is for. Not to encode the current state prettier than an HTML synthesis page already does, but to make the <em>next</em> check-in a low-friction delta, and the one after that, and the one after that, until the debate either resolves or runs out of steam.</p>
+
+  <p class="ref">
+    Source under study: <code>/Users/rene/projects/economists-ai-labor.html</code> (Apr 2026 synthesis) ·
+    Companion reading: <a href="blog-agreement-is-whats-left.html">Agreement is what's left</a> ·
+    <a href="blog-artifact-and-index.html">The artifact and the index</a> ·
+    <a href="blog-oss-issue-deep-dive.html">Skipping the archaeology</a>
+  </p>
+</div>
+</body>
+</html>

@@ -199,6 +199,33 @@ function buildSnapshotMeta(doc) {
   };
 }
 
+function renderPeriodStrip(periods) {
+  if (!Array.isArray(periods) || periods.length === 0) return '';
+  // Current = last non-future period. Future = explicitly flagged or id sorts after last known.
+  const lastIdx = periods.length - 1;
+  return `
+    <div class="period-strip" role="list" aria-label="Monitoring periods">
+      ${periods
+        .map((p, idx) => {
+          const isCurrent = !p.future && idx === lastIdx;
+          const isFuture = !!p.future;
+          const cls = isCurrent ? 'period-chip current' : isFuture ? 'period-chip future' : 'period-chip';
+          return `
+            <div class="${cls}" role="listitem">
+              <span class="period-label">${escapeHtml(p.id ?? '')}${isCurrent ? ' · current' : ''}</span>
+              ${p.window ? `<span class="period-window">${escapeHtml(p.window)}</span>` : ''}
+              ${p.summary ? `<span class="period-summary">${escapeHtml(p.summary)}</span>` : ''}
+            </div>`;
+        })
+        .join('')}
+    </div>`;
+}
+
+function renderPeriodBadge(period) {
+  if (!period) return '';
+  return `<span class="period-badge" title="Updated in ${escapeHtml(period)}">${escapeHtml(period)}</span>`;
+}
+
 function renderSnapshotPanel(meta) {
   const renderValue = (value, options = {}) => {
     if (!value) return '<span class="snapshot-missing">Unknown</span>';
@@ -440,11 +467,13 @@ function renderCardItem(item, convergenceType) {
   // Item-level ID for anchoring
   const anchorId = item.id ? ` id="${escapeHtml(item.id)}"` : '';
 
+  const periodBadge = item.lastUpdatedInPeriod ? renderPeriodBadge(item.lastUpdatedInPeriod) : '';
+
   return `
     <article class="flow-card"${anchorId}>
       <header class="flow-card-header">
         <div>
-          <h3>${escapeHtml(item.name)}</h3>
+          <h3>${escapeHtml(item.name)}${periodBadge}</h3>
           ${metaRow}
         </div>
         <div class="badge-row">${badges}</div>
@@ -1256,7 +1285,35 @@ const html = `<!doctype html>
       }
       .comp-close.open { display: flex; }
       .comp-close:hover { background: var(--negative-bg); color: var(--negative-ink); border-color: var(--negative-ink); }
+      .period-strip {
+        display: flex; gap: 0; margin: 16px 0 8px; border: 1px solid var(--line);
+        border-radius: 10px; overflow: hidden; font-size: 13px;
+      }
+      .period-chip {
+        flex: 1; padding: 10px 14px; border-right: 1px solid var(--line); background: var(--card);
+      }
+      .period-chip:last-child { border-right: none; }
+      .period-chip.current { background: color-mix(in srgb, var(--accent) 10%, var(--card)); color: var(--accent); font-weight: 600; }
+      .period-chip.future { background: repeating-linear-gradient(45deg, var(--card), var(--card) 5px, var(--neutral-bg) 5px, var(--neutral-bg) 10px); color: var(--muted); }
+      .period-chip .period-label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; display: block; margin-bottom: 3px; letter-spacing: 0.02em; }
+      .period-chip .period-summary { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+      .period-chip.current .period-summary { color: var(--accent); }
+      .period-chip .period-window {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); display: block; margin-top: 2px;
+      }
+      .period-badge {
+        display: inline-flex; align-items: center; gap: 3px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px; padding: 1px 7px; border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 10%, var(--card));
+        color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+        margin-left: 6px;
+      }
+      .period-badge::before { content: "·"; margin-right: 2px; color: color-mix(in srgb, var(--accent) 40%, var(--muted)); }
       @media (max-width: 720px) {
+        .period-strip { flex-direction: column; }
+        .period-chip { border-right: none; border-bottom: 1px solid var(--line); }
+        .period-chip:last-child { border-bottom: none; }
         .sidebar { display: none; }
         .comp-panel { display: none; }
         .content { margin-left: 0; }
@@ -1296,6 +1353,7 @@ const html = `<!doctype html>
           <h1>${escapeHtml(data.title)}</h1>
           ${data.subtitle ? `<p class="subtitle">${escapeHtml(data.subtitle)}</p>` : ''}
           ${data.pills ? `<div class="pill-row">${data.pills.map((p) => `<span class="pill">${escapeHtml(p)}</span>`).join('')}</div>` : ''}
+          ${renderPeriodStrip(data.periods)}
           ${viewSwitchHtml}
         </header>
 
