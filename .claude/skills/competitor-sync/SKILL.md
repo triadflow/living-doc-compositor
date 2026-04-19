@@ -224,12 +224,13 @@ Write a single `living-doc-ai-patch/v1` object to stdout. No prose around it. Th
 ## Principles
 
 1. **Moves vs. citations stay separate.** A press release is both a move (the company shipped) and a source you read about it. File the move in `moves`; file the article about the move in `sources`. Do not conflate.
-2. **Public sources only.** No paid subscription content, no ToS-restricted scraping. If the tracker is confidential intel, the file stays off public hosts.
-3. **Infer intent with evidence.** Write only what the observed behavior supports. Marketing narrative is not strategy; behavior is.
-4. **Never flip posture on a single data point.** A pricing tweak isn't a pivot. A pricing change + repositioned landing page + exec hire might be — but say "might be" in the evolution field if the read is uncertain.
-5. **Preserve history.** Evolution notes and prior positions are the durable record. Append, never overwrite.
-6. **Legal surface is real.** Don't write anything in a tracker you wouldn't want read back in a deposition. Estimate cautiously; mark directional figures as such.
-7. **Honest unknowns.** Unreachable feed, ambiguous signal, failed fetch — record in `meta.warnings` rather than guessing.
+2. **Public sources only, licensed content excluded.** Work from press releases, earnings transcripts, product pages, SEC filings, job postings, public interviews, pricing pages. Do not republish paywalled analyst reports or subscription data. Public-source trackers are fine to share; trackers that draw on confidential intel (private sales calls, paid research) should stay private.
+3. **Distinguish inference from fact in the prose itself.** Observed: "Competitor X raised enterprise pricing 20% in March" (from their pricing page). Inferred: "Competitor X is repositioning toward larger accounts" (read based on several signals). Write so the reader can tell which kind of claim each is.
+4. **Infer intent with evidence.** Marketing narrative is not strategy; behavior is.
+5. **Never flip posture on a single data point.** A pricing tweak isn't a pivot. A pricing change + repositioned landing page + exec hire might be — but say "might be" in the evolution field if the read is uncertain.
+6. **Preserve history.** Evolution notes and prior positions are the durable record. Append, never overwrite.
+7. **Defamation still applies.** False and damaging statements are actionable regardless of whether sources were public. Write only what evidence supports.
+8. **Honest unknowns.** Unreachable feed, ambiguous signal, failed fetch — record in `meta.warnings` rather than guessing.
 
 ## Notes
 
