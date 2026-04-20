@@ -120,7 +120,7 @@ const newConvergenceTypes = {
       'general references or citations',
     ],
     promptGuidance: {
-      operatingThesis: 'Each card describes a different issue and its relationship to the focal one. The relationship is load-bearing — a card without a clear relationship does not belong here.',
+      operatingThesis: 'Each card describes a different issue and its relationship to the focal one. The relationship is required — a card without a clear relationship does not belong here.',
       keepDistinct: [
         'sibling issue identity',
         'github state',

@@ -2819,9 +2819,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 &lt;script&gt;
 (() =&gt; {
-  /* ── capture pristine self-HTML for Save-as-my-build ── */
-  if (!window.__COMPOSITOR_SELF_HTML__) {
+  /* ── capture pristine self-HTML for Save-as-my-build ──
+     Must run after the full document has been parsed; capturing during the
+     script&#39;s own execution returns a truncated DOM and produces a broken
+     downloaded build (missing the bottom half of the compositor). */
+  function captureSelfHtml() {
+    if (window.__COMPOSITOR_SELF_HTML__) return;
     window.__COMPOSITOR_SELF_HTML__ = &#39;&lt;!DOCTYPE html&gt;\n&#39; + document.documentElement.outerHTML;
+  }
+  if (document.readyState === &#39;loading&#39;) {
+    document.addEventListener(&#39;DOMContentLoaded&#39;, captureSelfHtml, { once: true });
+  } else {
+    captureSelfHtml();
   }
   /* ── i18n ── */
   /* &lt;generated:locales&gt; */
@@ -3158,7 +3167,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       &quot;guideLayer4EditingRemove&quot;: &quot;× on hover → delete a node. Facets cascade their coverage; sections intentionally leave coverage edges behind as drift (the visual signal stays visible); invariants are a clean delete.&quot;,
       &quot;guideLayer4EditingPosition&quot;: &quot;Drag a node body → reposition on the canvas (`flowPosition` saves to the node). Double-click → return to column. Reset layout button in the stats bar → clear all custom positions.&quot;,
       &quot;guideLayer4DeepTitle&quot;: &quot;Fingerprint, freshness, and the crystallization moment&quot;,
-      &quot;guideLayer4DeepIntro&quot;: &quot;The fingerprint is cheap to compute and load-bearing. Understanding what it hashes, when to stamp it, and what freshness means turns governance from a static label into a living contract.&quot;,
+      &quot;guideLayer4DeepIntro&quot;: &quot;The fingerprint is cheap to compute and central to governance. Understanding what it hashes, when to stamp it, and what freshness means turns governance from a static label into a living contract.&quot;,
       &quot;guideLayer4DeepHashTitle&quot;: &quot;What the fingerprint hashes&quot;,
       &quot;guideLayer4DeepHashBody&quot;: &quot;A sha256 of each section&#39;s id, convergenceType, and ordered card ids. Stable under prose edits within cards; unstable when sections are added or removed, renamed, or restructured. The choice is deliberate — governance maps to structure, not to content.&quot;,
       &quot;guideLayer4DeepMomentTitle&quot;: &quot;The crystallization moment&quot;,
@@ -5239,6 +5248,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           &quot;succeeded&quot;: &quot;positive&quot;,
           &quot;failed&quot;: &quot;negative&quot;,
           &quot;ambiguous&quot;: &quot;warning&quot;
+        }
+      },
+      &quot;build-lifecycle&quot;: {
+        &quot;values&quot;: [
+          &quot;announced&quot;,
+          &quot;permitting&quot;,
+          &quot;construction&quot;,
+          &quot;energizing&quot;,
+          &quot;operational&quot;,
+          &quot;cancelled&quot;
+        ],
+        &quot;tones&quot;: {
+          &quot;announced&quot;: &quot;neutral&quot;,
+          &quot;permitting&quot;: &quot;neutral&quot;,
+          &quot;construction&quot;: &quot;warning&quot;,
+          &quot;energizing&quot;: &quot;warning&quot;,
+          &quot;operational&quot;: &quot;positive&quot;,
+          &quot;cancelled&quot;: &quot;negative&quot;
         }
       }
     },
@@ -7406,7 +7433,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           &quot;general references or citations&quot;
         ],
         &quot;promptGuidance&quot;: {
-          &quot;operatingThesis&quot;: &quot;Each card describes a different issue and its relationship to the focal one. The relationship is load-bearing — a card without a clear relationship does not belong here.&quot;,
+          &quot;operatingThesis&quot;: &quot;Each card describes a different issue and its relationship to the focal one. The relationship is required — a card without a clear relationship does not belong here.&quot;,
           &quot;keepDistinct&quot;: [
             &quot;sibling issue identity&quot;,
             &quot;github state&quot;,
@@ -8068,6 +8095,109 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         &quot;domain&quot;: &quot;intelligence&quot;,
         &quot;entityShape&quot;: []
       },
+      &quot;build-lifecycle-surface&quot;: {
+        &quot;name&quot;: &quot;Build Lifecycle Surface&quot;,
+        &quot;category&quot;: &quot;monitoring&quot;,
+        &quot;description&quot;: &quot;Parallel lifecycle status across a coherent set of physical or contractual build items. Each card is one item (a datacenter campus, a power-purchase agreement, a plant) progressing through announced → permitting → construction → energizing → operational.&quot;,
+        &quot;structuralContract&quot;: &quot;Two-column card grid of build-lifecycle items. Each card has a current lifecycle status, planned and operational capacity (text), operator attribution, location, first-announced and expected-operational dates, and an optional delay-versus-plan description. Use when tracking the gap between what was announced and what actually gets delivered — not for strategic postures and not for events.&quot;,
+        &quot;notFor&quot;: [
+          &quot;strategic posture tracking (use competitor-stance-track)&quot;,
+          &quot;discrete dated events (use strategic-move-log)&quot;,
+          &quot;numeric indicators (use indicator-trace)&quot;
+        ],
+        &quot;promptGuidance&quot;: {
+          &quot;operatingThesis&quot;: &quot;Each card is one build item moving through a physical or contractual lifecycle. The announced-versus-operational gap at card level is the primary signal this section carries.&quot;,
+          &quot;keepDistinct&quot;: [
+            &quot;lifecycle status (announced / permitting / construction / energizing / operational / cancelled)&quot;,
+            &quot;planned capacity and operational capacity as separate fields&quot;,
+            &quot;operator attribution and location&quot;,
+            &quot;first-announced date and expected-operational date&quot;,
+            &quot;delay versus plan — described, not collapsed into status&quot;
+          ],
+          &quot;inspect&quot;: [
+            &quot;Confirm the current lifecycle state against a dated public source before transitioning status.&quot;,
+            &quot;Check whether operationalCapacity has moved — that is the indicator that matters more than status by itself.&quot;
+          ],
+          &quot;update&quot;: [
+            &quot;Preserve the history by updating expectedOperational with a new date rather than rewriting the original.&quot;,
+            &quot;Capture delays in delayVsPlan narratively; do not collapse a delay into status=cancelled unless there is a formal cancellation.&quot;
+          ],
+          &quot;avoid&quot;: [
+            &quot;Do not use announced capacity as if it were delivered capacity.&quot;,
+            &quot;Do not drop a card when a project is cancelled — mark it cancelled and keep the record.&quot;
+          ]
+        },
+        &quot;icon&quot;: &quot;&lt;rect x=&#39;3&#39; y=&#39;10&#39; width=&#39;4&#39; height=&#39;10&#39; rx=&#39;.8&#39; opacity=&#39;.28&#39;/&gt;&lt;rect x=&#39;9&#39; y=&#39;6&#39; width=&#39;4&#39; height=&#39;14&#39; rx=&#39;.8&#39; opacity=&#39;.5&#39;/&gt;&lt;rect x=&#39;15&#39; y=&#39;3&#39; width=&#39;4&#39; height=&#39;17&#39; rx=&#39;.8&#39; opacity=&#39;.8&#39;/&gt;&lt;path d=&#39;M3 20h18&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39; stroke-width=&#39;1.4&#39;/&gt;&lt;path d=&#39;M6 6l3 0M12 3l3 0&#39; fill=&#39;none&#39; stroke=&#39;currentColor&#39; stroke-width=&#39;1.4&#39; opacity=&#39;.55&#39;/&gt;&quot;,
+        &quot;iconColor&quot;: &quot;#0f766e&quot;,
+        &quot;projection&quot;: &quot;card-grid&quot;,
+        &quot;columns&quot;: 2,
+        &quot;sources&quot;: [
+          {
+            &quot;key&quot;: &quot;sourceRefs&quot;,
+            &quot;entityType&quot;: &quot;content-source&quot;,
+            &quot;label&quot;: &quot;Primary source&quot;
+          },
+          {
+            &quot;key&quot;: &quot;notes&quot;,
+            &quot;entityType&quot;: null,
+            &quot;label&quot;: null
+          }
+        ],
+        &quot;statusFields&quot;: [
+          {
+            &quot;key&quot;: &quot;status&quot;,
+            &quot;statusSet&quot;: &quot;build-lifecycle&quot;
+          }
+        ],
+        &quot;textFields&quot;: [
+          {
+            &quot;key&quot;: &quot;operator&quot;,
+            &quot;label&quot;: &quot;Operator&quot;
+          },
+          {
+            &quot;key&quot;: &quot;location&quot;,
+            &quot;label&quot;: &quot;Location&quot;
+          },
+          {
+            &quot;key&quot;: &quot;plannedCapacity&quot;,
+            &quot;label&quot;: &quot;Planned capacity&quot;
+          },
+          {
+            &quot;key&quot;: &quot;operationalCapacity&quot;,
+            &quot;label&quot;: &quot;Operational capacity&quot;
+          },
+          {
+            &quot;key&quot;: &quot;firstAnnounced&quot;,
+            &quot;label&quot;: &quot;First announced&quot;
+          },
+          {
+            &quot;key&quot;: &quot;expectedOperational&quot;,
+            &quot;label&quot;: &quot;Expected operational&quot;
+          }
+        ],
+        &quot;detailsFields&quot;: [
+          {
+            &quot;key&quot;: &quot;delayVsPlan&quot;,
+            &quot;label&quot;: &quot;Delay vs plan&quot;
+          },
+          {
+            &quot;key&quot;: &quot;milestones&quot;,
+            &quot;label&quot;: &quot;Recent milestones&quot;
+          }
+        ],
+        &quot;aiActions&quot;: [
+          {
+            &quot;id&quot;: &quot;check-lifecycle-transition&quot;,
+            &quot;name&quot;: &quot;Check for lifecycle transition&quot;,
+            &quot;description&quot;: &quot;Read recent public sources touching the card (press, filings, earnings). If a transition to the next lifecycle state is evidenced, propose updating status and add the supporting source to the citation feed.&quot;
+          }
+        ],
+        &quot;domain&quot;: &quot;intelligence&quot;,
+        &quot;entityShape&quot;: [
+          &quot;has-evidence&quot;,
+          &quot;time-series&quot;
+        ]
+      },
       &quot;competitor-stance-track&quot;: {
         &quot;name&quot;: &quot;Competitor Stance Track&quot;,
         &quot;category&quot;: &quot;monitoring&quot;,
@@ -8462,7 +8592,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           &quot;Theme Thread Map&quot;,
           &quot;Storyline Arc Map&quot;
         ],
-        &quot;operatingThesis&quot;: &quot;Treat manuscript architecture as a structural system: acts create load-bearing sequence, scenes carry setup/payoff obligations, and continuity risks should stay explicit before prose polish.&quot;,
+        &quot;operatingThesis&quot;: &quot;Treat manuscript architecture as a structural system: acts create the structural sequence, scenes carry setup/payoff obligations, and continuity risks should stay explicit before prose polish.&quot;,
         &quot;keepDistinct&quot;: [
           &quot;act / part structure&quot;,
           &quot;scene dependency logic&quot;,
@@ -8511,7 +8641,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             &quot;Theme Thread Map&quot;,
             &quot;Storyline Arc Map&quot;
           ],
-          &quot;operatingThesis&quot;: &quot;Treat manuscript architecture as a structural system: acts create load-bearing sequence, scenes carry setup/payoff obligations, and continuity risks should stay explicit before prose polish.&quot;,
+          &quot;operatingThesis&quot;: &quot;Treat manuscript architecture as a structural system: acts create the structural sequence, scenes carry setup/payoff obligations, and continuity risks should stay explicit before prose polish.&quot;,
           &quot;keepDistinct&quot;: [
             &quot;act / part structure&quot;,
             &quot;scene dependency logic&quot;,
@@ -10569,7 +10699,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
                 &quot;why_it_matters&quot;: [
                   {
                     &quot;type&quot;: &quot;info&quot;,
-                    &quot;text&quot;: &quot;&lt;why this location is load-bearing for the focal issue&gt;&quot;
+                    &quot;text&quot;: &quot;&lt;why this location matters for the focal issue&gt;&quot;
                   }
                 ]
               }
@@ -16234,7 +16364,7 @@ open docs/living-doc-compositor.html&lt;/pre&gt;
     const orgName = (branding.orgName || &#39;&#39;).trim();
     const parts = [];
     if (primary) parts.push(`&lt;style id=&quot;ldc-brand-overrides&quot;&gt;:root { --accent: ${primary} !important; }&lt;/style&gt;`);
-    if (orgName) parts.push(`&lt;script&gt;window.__LDC_BRAND__=${JSON.stringify({ orgName, primaryColor: primary })};&lt;\/script&gt;`);
+    if (orgName) parts.push(`\x3Cscript&gt;window.__LDC_BRAND__=${JSON.stringify({ orgName, primaryColor: primary })};&lt;\/script&gt;`);
     return parts.length ? html.replace(&#39;&lt;/head&gt;&#39;, `${parts.join(&#39;&#39;)}&lt;/head&gt;`) : html;
   }
 
@@ -16410,9 +16540,9 @@ Generated ${new Date().toISOString()} from profile \`${meta.profileId}\`.
       .replace(/&lt;/g, &#39;\\u003c&#39;)
       .replace(/\u2028/g, &#39;\\u2028&#39;)
       .replace(/\u2029/g, &#39;\\u2029&#39;);
-    const autoload = `&lt;script id=&quot;ldc-autoload-doc&quot;&gt;window.__LDC_AUTOLOAD_DOC__=${json};&lt;\/script&gt;`;
+    const autoload = `\x3Cscript id=&quot;ldc-autoload-doc&quot;&gt;window.__LDC_AUTOLOAD_DOC__=${json};&lt;\/script&gt;`;
     // Replace any existing autoload script (idempotent re-save).
-    html = html.replace(/&lt;script id=&quot;ldc-autoload-doc&quot;&gt;[\s\S]*?&lt;\/script&gt;/, &#39;&#39;);
+    html = html.replace(/\x3Cscript id=&quot;ldc-autoload-doc&quot;&gt;[\s\S]*?&lt;\/script&gt;/, &#39;&#39;);
     html = html.replace(&#39;&lt;/head&gt;&#39;, `${autoload}&lt;/head&gt;`);
     const slug = slugify(doc.title || &#39;living-doc&#39;) || &#39;living-doc&#39;;
     const blob = new Blob([html], { type: &#39;text/html;charset=utf-8&#39; });
@@ -16947,8 +17077,8 @@ Generated ${new Date().toISOString()} from profile \`${meta.profileId}\`.
     &lt;/style&gt;
   &lt;/head&gt;
   &lt;body&gt;
-    &lt;script type=&quot;application/json&quot; id=&quot;doc-meta&quot;&gt;${metaJ}&lt;\/script&gt;
-    ${sharedLibraryJ ? `&lt;script type=&quot;application/json&quot; id=&quot;shared-library-index-data&quot;&gt;${sharedLibraryJ}&lt;\/script&gt;` : &#39;&#39;}
+    \x3Cscript type=&quot;application/json&quot; id=&quot;doc-meta&quot;&gt;${metaJ}&lt;\/script&gt;
+    ${sharedLibraryJ ? `\x3Cscript type=&quot;application/json&quot; id=&quot;shared-library-index-data&quot;&gt;${sharedLibraryJ}&lt;\/script&gt;` : &#39;&#39;}
     &lt;nav class=&quot;sidebar&quot; aria-label=&quot;Section navigation&quot;&gt;
       &lt;div class=&quot;brand&quot;&gt;${escH(json.brand || &#39;LD&#39;)}&lt;/div&gt;
       ${sidebarH}
@@ -16977,9 +17107,9 @@ Generated ${new Date().toISOString()} from profile \`${meta.profileId}\`.
         ${boardViewH}
       &lt;/div&gt;
     &lt;/div&gt;
-    &lt;script&gt;(()=&gt;{const icons=document.querySelectorAll(&#39;.nav-icon[data-target]&#39;);const sections=[...icons].map(icon=&gt;({icon,el:document.getElementById(icon.dataset.target)})).filter(s=&gt;s.el);let active=null;const activate=icon=&gt;{if(active===icon)return;if(active)active.classList.remove(&#39;active&#39;);icon.classList.add(&#39;active&#39;);active=icon};const observer=new IntersectionObserver(entries=&gt;{for(const entry of entries){if(entry.isIntersecting){const match=sections.find(s=&gt;s.el===entry.target);if(match)activate(match.icon)}}},{rootMargin:&#39;-20% 0px -60% 0px&#39;});for(const{el}of sections)observer.observe(el);if(sections.length&gt;0)activate(sections[0].icon)})();&lt;\/script&gt;
-    &lt;script&gt;(()=&gt;{const buttons=[...document.querySelectorAll(&#39;[data-view-target]&#39;)];const panels=[...document.querySelectorAll(&#39;[data-view-panel]&#39;)];if(!buttons.length)return;const show=view=&gt;{panels.forEach(panel=&gt;{panel.hidden=panel.dataset.viewPanel!==view});buttons.forEach(button=&gt;{const active=button.dataset.viewTarget===view;button.classList.toggle(&#39;active&#39;,active);button.setAttribute(&#39;aria-selected&#39;,active?&#39;true&#39;:&#39;false&#39;)})};buttons.forEach(button=&gt;button.addEventListener(&#39;click&#39;,()=&gt;show(button.dataset.viewTarget)));document.querySelectorAll(&#39;[data-board-select]&#39;).forEach(select=&gt;{const root=select.closest(&#39;.board-view&#39;);const boardPanels=[...(root?.querySelectorAll(&#39;[data-board-panel]&#39;)||[])];const showBoard=id=&gt;boardPanels.forEach(panel=&gt;{panel.hidden=panel.dataset.boardPanel!==id});select.addEventListener(&#39;change&#39;,()=&gt;showBoard(select.value));showBoard(select.value)});show(&#39;document&#39;)})();&lt;\/script&gt;
-    &lt;script&gt;(()=&gt;{const overlay=document.getElementById(&#39;comp-overlay&#39;);const close=document.getElementById(&#39;comp-close&#39;);const toggle=document.getElementById(&#39;comp-toggle&#39;);const frame=document.getElementById(&#39;comp-iframe&#39;);const open=()=&gt;{overlay.classList.add(&#39;open&#39;);close.classList.add(&#39;open&#39;);frame.contentWindow.postMessage({type:&#39;load-document&#39;,doc:JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent)},&#39;*&#39;)};toggle.addEventListener(&#39;click&#39;,open);close.addEventListener(&#39;click&#39;,()=&gt;{overlay.classList.remove(&#39;open&#39;);close.classList.remove(&#39;open&#39;)})})();&lt;\/script&gt;
+    \x3Cscript&gt;(()=&gt;{const icons=document.querySelectorAll(&#39;.nav-icon[data-target]&#39;);const sections=[...icons].map(icon=&gt;({icon,el:document.getElementById(icon.dataset.target)})).filter(s=&gt;s.el);let active=null;const activate=icon=&gt;{if(active===icon)return;if(active)active.classList.remove(&#39;active&#39;);icon.classList.add(&#39;active&#39;);active=icon};const observer=new IntersectionObserver(entries=&gt;{for(const entry of entries){if(entry.isIntersecting){const match=sections.find(s=&gt;s.el===entry.target);if(match)activate(match.icon)}}},{rootMargin:&#39;-20% 0px -60% 0px&#39;});for(const{el}of sections)observer.observe(el);if(sections.length&gt;0)activate(sections[0].icon)})();&lt;\/script&gt;
+    \x3Cscript&gt;(()=&gt;{const buttons=[...document.querySelectorAll(&#39;[data-view-target]&#39;)];const panels=[...document.querySelectorAll(&#39;[data-view-panel]&#39;)];if(!buttons.length)return;const show=view=&gt;{panels.forEach(panel=&gt;{panel.hidden=panel.dataset.viewPanel!==view});buttons.forEach(button=&gt;{const active=button.dataset.viewTarget===view;button.classList.toggle(&#39;active&#39;,active);button.setAttribute(&#39;aria-selected&#39;,active?&#39;true&#39;:&#39;false&#39;)})};buttons.forEach(button=&gt;button.addEventListener(&#39;click&#39;,()=&gt;show(button.dataset.viewTarget)));document.querySelectorAll(&#39;[data-board-select]&#39;).forEach(select=&gt;{const root=select.closest(&#39;.board-view&#39;);const boardPanels=[...(root?.querySelectorAll(&#39;[data-board-panel]&#39;)||[])];const showBoard=id=&gt;boardPanels.forEach(panel=&gt;{panel.hidden=panel.dataset.boardPanel!==id});select.addEventListener(&#39;change&#39;,()=&gt;showBoard(select.value));showBoard(select.value)});show(&#39;document&#39;)})();&lt;\/script&gt;
+    \x3Cscript&gt;(()=&gt;{const overlay=document.getElementById(&#39;comp-overlay&#39;);const close=document.getElementById(&#39;comp-close&#39;);const toggle=document.getElementById(&#39;comp-toggle&#39;);const frame=document.getElementById(&#39;comp-iframe&#39;);const open=()=&gt;{overlay.classList.add(&#39;open&#39;);close.classList.add(&#39;open&#39;);frame.contentWindow.postMessage({type:&#39;load-document&#39;,doc:JSON.parse(document.getElementById(&#39;doc-meta&#39;).textContent)},&#39;*&#39;)};toggle.addEventListener(&#39;click&#39;,open);close.addEventListener(&#39;click&#39;,()=&gt;{overlay.classList.remove(&#39;open&#39;);close.classList.remove(&#39;open&#39;)})})();&lt;\/script&gt;
   &lt;/body&gt;
 &lt;/html&gt;`;
 
@@ -18488,7 +18618,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-04-20T00:16:28.270Z" title="2026-04-20T00:16:28.270Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-20T00:16:28.270Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-04-20T12:05:19.423Z" title="2026-04-20T12:05:19.423Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-04-20T12:05:19.423Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -19253,7 +19383,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-7035d72 (2026-04-20)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-3be1563 (2026-04-20)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

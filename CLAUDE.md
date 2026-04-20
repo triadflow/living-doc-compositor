@@ -54,6 +54,11 @@ Two skills in `.claude/skills/`:
 3. If needed, add a new entity type under `entityTypes`
 4. No renderer changes, no compositor changes — they read from the registry
 
+## Writing style
+
+Banned words — do not use in prose, tickets, or rendered copy:
+- **load-bearing** — overused filler. Say what the thing actually does: "required", "central to the decision", "the discipline that holds the dossier together". Pick one. If none fit, the sentence probably doesn't need the emphasis.
+
 ## Rendered Output
 
 Every rendered HTML file:

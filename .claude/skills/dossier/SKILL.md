@@ -63,7 +63,7 @@ Load the JSON. Extract:
 
 ### 3. Plan the margin notes before drafting the prose
 
-The notes are load-bearing. Identify 5 to 9 specific places where a citation, a methodology caveat, a piece of structural context, or a sharp parenthetical would add value without bloating the main prose. Typical patterns:
+The notes carry real weight in the piece. Identify 5 to 9 specific places where a citation, a methodology caveat, a piece of structural context, or a sharp parenthetical would add value without bloating the main prose. Typical patterns:
 
 - A specific number → note with the methodology and source
 - A named study or paper → note with working-paper number, venue, date
