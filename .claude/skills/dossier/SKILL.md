@@ -41,7 +41,7 @@ Every dossier piece uses the same template spine. Keep the rhythm predictable so
 6. **Pull quote** — one `<blockquote>`. Either from the doc's own citation feed or an on-record statement from the period. Cited with a margin note.
 7. **Punchline card** — one `<div class="punchline">` — dark-bg single line, the thesis at its tightest.
 8. **Watchlist** — `<h2>What to watch in <next period></h2>` followed by a numbered `<ol>` of 3 to 5 items, pulled from the period note's "focus for next period" field.
-9. **Endnotes section** (`<section class="endnotes">`) — must mirror the margin notes in the same order. Hidden by default; shown when layout collapses on narrow screens.
+9. **Endnotes section** (`<section class="endnotes">`) — always shown at the bottom, mirroring the margin notes in the same order. Each `<li>` carries `id="fnN"` matching its `data-fn` number so the in-prose superscript anchor (`href="#fnN"`) jumps to it. The active target endnote highlights with an accent-tint wash via `:target`.
 10. **Article end** — signoff (avatar + byline + living-doc link wrapped in `<em>`). Related dossiers grid (2-card).
 11. **Rail aside** (`<aside class="rail">`) — the margin notes, one `<div class="note">` per footnote, ordered.
 
@@ -90,7 +90,7 @@ Preserve these `<meta>` tags for the index builder:
 
 **Link discipline.** Every link to a living doc, to an external source, or to another dossier piece should be absolute. The piece is meant to travel. The only permitted relative links are the three that travel as one bundle with the piece: `../index.html` (back to dossier index), `../<sibling-slug>/<period>.html` (related dossier card), and the two `../assets/*.css` / `../assets/dossier.js` stylesheets.
 
-**Footnote wiring.** Each `<a class="fn-ref" data-fn="N">` in prose has a matching `<div class="note" data-fn="N">` in the rail *and* a matching `<li>` at position N in `<ol>` inside `<section class="endnotes">`. All three must stay in sync. The numbering in `data-fn` determines rail order and popover labels — it is not decorative.
+**Footnote wiring.** Each `<a class="fn-ref" href="#fnN" data-fn="N">` in prose has a matching `<div class="note" data-fn="N">` in the rail *and* a matching `<li id="fnN">` at position N in `<ol>` inside `<section class="endnotes">`. All three must stay in sync. The `id="fnN"` on each endnote is what makes the superscript anchor jump to the bottom — if you omit it the click silently fails.
 
 ### 5. Write to disk
 
