@@ -16,9 +16,9 @@ Publishes a dossier piece from a research-style living document. One living doc,
 ## Contract
 
 - **Input:** a `docs/<slug>.json` living doc following the compositor registry, with at least one entry in `periods[]`.
-- **Output:** `docs/dossier/<doc-id>/<period>.html` — one self-contained HTML file using the typography template (serif body, single column, ~640px max-width, drop-cap lede, pull-quote block, watchlist block, sources strip). Plus a refreshed `docs/dossier/index.html`.
-- **Length:** 800–1,200 words of prose. Not a summary — a short essay with a thesis.
-- **Publish model:** auto-publish is fine. Git is the safety net — if the piece is wrong, revert. Do not gate behind a `draft/` step.
+- **Output:** `docs/dossier/<doc-id-slug>/<period>.html` — one HTML file using the shared design system (`assets/colors_and_type.css` + `assets/dossier.css` + `assets/dossier.js`). Plus a refreshed `docs/dossier/index.html`.
+- **Length:** 800–1,300 words of prose. Not a summary — a short essay with a thesis.
+- **Publish model:** auto-publish. Git is the safety net — if the piece is wrong, revert. No `draft/` folder, no editorial gate.
 
 ## Voice
 
@@ -31,15 +31,19 @@ Per the project's standing editorial notes:
 
 ## Structure
 
-Every dossier piece has the same seven-part spine. Keep the rhythm predictable so readers can scan and decide whether to read.
+Every dossier piece uses the same template spine. Keep the rhythm predictable so readers can scan and decide whether to read.
 
-1. **Meta bar** — dossier · period · publish date · link back to living doc.
-2. **Kicker + headline + dek** — kicker names the living doc and period; headline is the thesis; dek is one italicised sentence.
-3. **Lede with drop-cap** — the one-paragraph argument. Name the non-obvious thing. End with a hook that forces the reader into the body.
-4. **Body** — 3 to 5 `<h2>` sections. Each section resolves one claim. Pull from the doc's `moves`, `indicators`, `primitives`, and `period-notes` sections — but prose them, do not list them.
-5. **Pull quote** — one. Either from the doc's own citation feed (a source that said something sharp) or an on-record statement from the period. Cited with attribution.
-6. **Watchlist** — numbered list of 3 to 5 items from the period note's "focus for next period" field. This is the one explicitly list-shaped block in the piece.
-7. **Sources strip** — footer. The sources cited in prose plus a link to the living doc.
+1. **Top bar** — `← All dossiers` back-link, logo, top-right meta (date · read time). Sticky on scroll, with a thin progress bar above it.
+2. **Masthead** — eyebrow (`Monitoring · <Topic>`), headline, dek (italic-emphasis on the hook), meta row (author · date · read time · tags).
+3. **TL;DR card** — two short paragraphs. First carries the non-obvious observation. Second carries the mechanism or stake. One `<em>` per paragraph, max.
+4. **Prose body** — 3 to 5 `<h2>` sections. Each section resolves one claim. Pull from the doc's `moves`, `indicators`, `primitives`, and `period-notes` sections — but prose them, do not list them.
+5. **Margin notes** (the distinguishing feature) — 5 to 9 per piece. Each note lives twice: once as a `<span class="fn-popover">` nested inside a `.fn-ref` superscript anchor in prose, and once as a `.note` in the `#rail` aside at the end of the body. Use notes for citations, caveats, and sharp details that would otherwise bloat the prose. Notes should read well on their own — not just "see source X" stubs.
+6. **Pull quote** — one `<blockquote>`. Either from the doc's own citation feed or an on-record statement from the period. Cited with a margin note.
+7. **Punchline card** — one `<div class="punchline">` — dark-bg single line, the thesis at its tightest.
+8. **Watchlist** — `<h2>What to watch in <next period></h2>` followed by a numbered `<ol>` of 3 to 5 items, pulled from the period note's "focus for next period" field.
+9. **Endnotes section** (`<section class="endnotes">`) — must mirror the margin notes in the same order. Hidden by default; shown when layout collapses on narrow screens.
+10. **Article end** — signoff (avatar + byline + living-doc link wrapped in `<em>`). Related dossiers grid (2-card).
+11. **Rail aside** (`<aside class="rail">`) — the margin notes, one `<div class="note">` per footnote, ordered.
 
 ## Execution flow
 
@@ -53,15 +57,25 @@ Load the JSON. Extract:
 - `title`, `subtitle`, `docId`, `scope`
 - The target period from `periods[]`
 - All sections with `lastUpdatedInPeriod === <period>` — these are the cards that moved this period
-- The period note from `sections.find(s => s.id === 'period-notes')` for that period
+- The period note from the `period-notes` section for that period
 - The citation feed — sources added this period
 - Any `callouts` on the doc root — they often carry the author's voice the piece should honour
 
-### 3. Draft the piece
+### 3. Plan the margin notes before drafting the prose
 
-Write the prose directly into the HTML template. Do not use a markdown intermediate — it adds a step and makes typography decisions harder to hold.
+The notes are load-bearing. Identify 5 to 9 specific places where a citation, a methodology caveat, a piece of structural context, or a sharp parenthetical would add value without bloating the main prose. Typical patterns:
 
-The template lives at `docs/dossier/mcp-protocol-monitor/2026-H1.html` as the reference implementation. Copy its structure exactly: the `<head>` meta tags, the CSS block (inlined), the `.meta-bar` → `header.article-head` → `<article>` → `.watchlist` → `<footer.sources>` → `.back` shape.
+- A specific number → note with the methodology and source
+- A named study or paper → note with working-paper number, venue, date
+- A contested framing → note with the disagreement it acknowledges
+- A quoted person → note with the on-record context (where, when, in what forum)
+- An acronym the reader might not know → note expanding it once
+
+Avoid filler notes ("see appendix"). Every note should stand on its own as a sentence or two that a reader in hover or endnote mode will find informative.
+
+### 4. Draft against the template
+
+Use the existing pieces in `docs/dossier/<slug>/2026-H1.html` as reference implementations. Copy the file skeleton exactly — head meta tags, the two stylesheet links, the progress bar, the top bar, the article grid with body + rail, the article-end / related sections, the rail aside at the bottom. Only the content blocks change per piece.
 
 Preserve these `<meta>` tags for the index builder:
 
@@ -74,32 +88,58 @@ Preserve these `<meta>` tags for the index builder:
 <meta name="dossier-summary" content="One-sentence summary for the index card.">
 ```
 
-**Link discipline.** All links pointing *out* of a dossier piece — to a living doc, to an external source, to the dossier index back-link — must use absolute URLs (`https://triadflow.github.io/living-doc-compositor/...` for same-site targets, full URLs for external). The piece is meant to travel: a reader grabbing just the HTML should still be able to reach everything it cites. The only permitted relative link is `../index.html` for the "all dossier pieces" back-link in the meta bar, since the dossier index travels with the pieces as one bundle.
+**Link discipline.** Every link to a living doc, to an external source, or to another dossier piece should be absolute. The piece is meant to travel. The only permitted relative links are the three that travel as one bundle with the piece: `../index.html` (back to dossier index), `../<sibling-slug>/<period>.html` (related dossier card), and the two `../assets/*.css` / `../assets/dossier.js` stylesheets.
 
-### 4. Write to disk
+**Footnote wiring.** Each `<a class="fn-ref" data-fn="N">` in prose has a matching `<div class="note" data-fn="N">` in the rail *and* a matching `<li>` at position N in `<ol>` inside `<section class="endnotes">`. All three must stay in sync. The numbering in `data-fn` determines rail order and popover labels — it is not decorative.
+
+### 5. Write to disk
 
 - `docs/dossier/<doc-id-slug>/<period>.html` (create the subfolder if missing).
 - Where `<doc-id-slug>` is `docId` with the `doc:` prefix stripped.
+- Read-time in minutes = `round(body-word-count / 200)`, matching the top-bar meta and the masthead meta-row and the index card.
 
-### 5. Refresh the index
+### 6. Refresh the index
 
-Read every `docs/dossier/*/*.html` file. Pull the `<meta name="dossier-*">` tags. Rebuild `docs/dossier/index.html` with one `<article class="piece">` entry per file, sorted by `dossier-published-at` descending. Preserve the existing header, dek, and intro.
+Add a new entry to the `DOSSIERS` array in `docs/dossier/index.html`. The entry object shape:
 
-### 6. Report
+```js
+{
+  slug: "<doc-id-slug>-<period>",
+  cat: "Monitoring · <Topic>",
+  tag: "monitoring",
+  title: "<headline ending in period>",
+  dek: "<one sentence from the TL;DR, stripped of em markup>",
+  date: "Mmm DD, YYYY",
+  year: "YYYY",
+  read: "N min",
+  livingDoc: "<absolute GH Pages URL>",
+  href: "<doc-id-slug>/<period>.html"
+}
+```
 
-Report two things to the user:
+Sort the array so newest `date` is first. Keep entries for all previously published pieces.
+
+If a new category is needed (current filter chips: `all`, `monitoring`, `architecture`, `agents`, `workflow`, `case`, `field`), add both the `tag` on the entry and a new `<button class="chip">` in the filter row — do not invent a tag without adding the chip.
+
+### 7. Report
+
+Report four things to the user:
 
 1. The dossier path — relative, clickable in a terminal that supports it.
-2. The word count of the body prose (not the HTML chrome). If under 800 or over 1,300, flag it.
+2. The GH Pages URL.
+3. The word count of the body prose (not the HTML chrome, not the notes). If under 800 or over 1,300, flag it.
+4. The count of margin notes. If fewer than 5 or more than 9, flag it.
 
-Do not open the file in a browser unless the user asks. Do not create a git commit unless the user asks.
+Do not open the file in a browser unless the user asks. Commit + push only if the user explicitly asked ("publish", "ship", "push", "commit").
 
 ## What not to do
 
-- Do not flatten the piece into bullet points. The one permitted list is the watchlist.
-- Do not copy-paste the living doc's status badges or cards into the prose.
-- Do not add "TL;DR" at the top — the dek already does that work.
+- Do not flatten the piece into bullet points. The two permitted lists are the watchlist and the endnotes (the latter is for layout-variant fallback, not prose shape).
+- Do not copy-paste the living doc's status badges, indicator cards, or move cards verbatim into the prose.
+- Do not add a "TL;DR" heading above the card — the `.tldr .label` already handles it.
 - Do not address the reader ("you might wonder…"). Write about the subject, not to the reader.
 - Do not use emojis.
 - Do not end with a "what do you think?" question.
 - Do not claim the protocol/ecosystem/subject is "revolutionary" or "disruptive." Show, don't adjective.
+- Do not leave stub notes ("See source." "Link in appendix."). Every margin note must carry its own small fact.
+- Do not break the fn-ref / rail-note / endnote three-way mirror. If you add a note in prose, add it to both the rail and the endnotes; if you remove a note, remove it from all three.
