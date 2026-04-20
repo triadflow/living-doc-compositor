@@ -68,11 +68,13 @@ Preserve these `<meta>` tags for the index builder:
 ```html
 <meta name="dossier-title" content="...">
 <meta name="dossier-period" content="...">
-<meta name="dossier-living-doc" content="../../<slug>.html">
+<meta name="dossier-living-doc" content="https://triadflow.github.io/living-doc-compositor/<slug>.html">
 <meta name="dossier-living-doc-id" content="doc:...">
 <meta name="dossier-published-at" content="YYYY-MM-DD">
 <meta name="dossier-summary" content="One-sentence summary for the index card.">
 ```
+
+**Link discipline.** All links pointing *out* of a dossier piece — to a living doc, to an external source, to the dossier index back-link — must use absolute URLs (`https://triadflow.github.io/living-doc-compositor/...` for same-site targets, full URLs for external). The piece is meant to travel: a reader grabbing just the HTML should still be able to reach everything it cites. The only permitted relative link is `../index.html` for the "all dossier pieces" back-link in the meta bar, since the dossier index travels with the pieces as one bundle.
 
 ### 4. Write to disk
 
