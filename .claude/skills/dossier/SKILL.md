@@ -119,7 +119,7 @@ Add a new entry to the `DOSSIERS` array in `docs/dossier/index.html`. The entry 
 
 Sort the array so newest `date` is first. Keep entries for all previously published pieces.
 
-If a new category is needed (current filter chips: `all`, `monitoring`, `architecture`, `agents`, `workflow`, `case`, `field`), add both the `tag` on the entry and a new `<button class="chip">` in the filter row — do not invent a tag without adding the chip.
+The filter chips are derived automatically from the `tag` field on each DOSSIERS entry — no manual chip authoring needed. A chip only appears when there is at least one piece behind it; the entire filter row hides when only one category is present. Display labels for tags live in `TAG_LABELS` at the top of the script (extend it if a tag's label needs capitalisation other than plain title case).
 
 ### 7. Report
 

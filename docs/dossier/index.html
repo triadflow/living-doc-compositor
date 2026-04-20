@@ -174,15 +174,8 @@
     </p>
   </section>
 
-  <div class="filter-row">
+  <div class="filter-row" id="filter-row">
     <span class="label">Filter</span>
-    <button class="chip active" data-tag="all">All</button>
-    <button class="chip" data-tag="monitoring">Monitoring</button>
-    <button class="chip" data-tag="architecture">Architecture</button>
-    <button class="chip" data-tag="agents">Agents</button>
-    <button class="chip" data-tag="workflow">Workflow</button>
-    <button class="chip" data-tag="case">Case study</button>
-    <button class="chip" data-tag="field">Field note</button>
   </div>
 
   <section class="list" id="list"></section>
@@ -236,9 +229,47 @@ const DOSSIERS = [
   }
 ];
 
+const TAG_LABELS = {
+  monitoring: 'Monitoring',
+  architecture: 'Architecture',
+  agents: 'Agents',
+  workflow: 'Workflow',
+  case: 'Case study',
+  field: 'Field note'
+};
+
 const list = document.getElementById('list');
 const count = document.getElementById('count');
+const filterRow = document.getElementById('filter-row');
 let activeTag = 'all';
+
+function labelFor(tag){
+  return TAG_LABELS[tag] || tag.charAt(0).toUpperCase() + tag.slice(1);
+}
+
+function buildChips(){
+  const presentTags = [...new Set(DOSSIERS.map(d => d.tag))];
+  // "All" is always first; other chips only appear when they have content behind them
+  const chipTags = ['all', ...presentTags];
+  // Hide the entire filter row when there's only one real category
+  if (presentTags.length <= 1){
+    filterRow.style.display = 'none';
+    return;
+  }
+  const chipNodes = chipTags.map(tag => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (tag === activeTag ? ' active' : '');
+    btn.dataset.tag = tag;
+    btn.textContent = tag === 'all' ? 'All' : labelFor(tag);
+    btn.addEventListener('click', () => {
+      activeTag = tag;
+      filterRow.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.tag === activeTag));
+      render();
+    });
+    return btn;
+  });
+  chipNodes.forEach(n => filterRow.appendChild(n));
+}
 
 function render(){
   const items = activeTag === 'all' ? DOSSIERS : DOSSIERS.filter(d => d.tag === activeTag);
@@ -259,15 +290,7 @@ function render(){
   `).join('');
 }
 
-document.querySelectorAll('.chip').forEach(c => {
-  c.addEventListener('click', () => {
-    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
-    c.classList.add('active');
-    activeTag = c.dataset.tag;
-    render();
-  });
-});
-
+buildChips();
 render();
 </script>
 
