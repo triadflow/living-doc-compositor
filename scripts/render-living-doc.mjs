@@ -1241,9 +1241,10 @@ const html = `<!doctype html>
       .build-link {
         width: 40px; height: 40px; border-radius: 10px;
         display: flex; align-items: center; justify-content: center;
-        color: var(--muted); transition: all 0.15s; flex-shrink: 0; position: relative;
+        color: var(--muted); transition: all 0.15s; flex-shrink: 0; position: relative; cursor: pointer;
       }
       .build-link:hover { background: var(--neutral-bg); color: var(--ink); text-decoration: none; }
+      .build-link:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
       .build-link .nav-tooltip {
         position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
         background: var(--ink); color: #fff; font-size: 12px; font-weight: 600;
@@ -1346,10 +1347,10 @@ const html = `<!doctype html>
       <div class="comp-toggle" id="comp-toggle" title="Open compositor">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </div>
-      <a class="build-link" href="${escapeHtml(data.compositorHome ?? 'https://triadflow.github.io/living-doc-compositor/')}custom-build-gallery.html" target="_blank" rel="noopener" aria-label="Build your tool">
+      <div class="build-link" id="build-link" role="button" tabindex="0" aria-label="Build your tool">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM12 4.15 18.04 7.6 12 11.05 5.96 7.6 12 4.15zM5 9.34l6 3.43v6.89l-6-3.43V9.34zm8 10.32v-6.89l6-3.43v6.89l-6 3.43z"/></svg>
         <span class="nav-tooltip">Build your tool</span>
-      </a>
+      </div>
     </nav>
 
     <div class="comp-overlay" id="comp-overlay">
@@ -1549,6 +1550,26 @@ const html = `<!doctype html>
         // Pass the current document data to the compositor iframe via postMessage
         const docData = JSON.parse(document.getElementById('doc-meta').textContent);
         compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
+      });
+
+      // Open compositor overlay + build-your-tool modal
+      const buildLink = document.getElementById('build-link');
+      const openBuildFromOverlay = () => {
+        cta.classList.remove('show');
+        ctaDismissed = true;
+        compOverlay.classList.add('open');
+        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
+        // Give the iframe a beat to mount if it's the first open, then post both messages
+        const post = () => {
+          compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
+          compIframe.contentWindow.postMessage({ type: 'open-build-modal' }, '*');
+        };
+        if (compIframe.contentDocument?.readyState === 'complete') post();
+        else compIframe.addEventListener('load', post, { once: true }), post();
+      };
+      buildLink?.addEventListener('click', openBuildFromOverlay);
+      buildLink?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBuildFromOverlay(); }
       });
 
       // Auto-open compositor if document has no sections
