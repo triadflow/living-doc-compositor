@@ -42,7 +42,7 @@ Every dossier piece uses the same template spine. Keep the rhythm predictable so
 7. **Punchline card** — one `<div class="punchline">` — dark-bg single line, the thesis at its tightest.
 8. **Watchlist** — `<h2>What to watch in <next period></h2>` followed by a numbered `<ol>` of 3 to 5 items, pulled from the period note's "focus for next period" field.
 9. **Endnotes section** (`<section class="endnotes">`) — always shown at the bottom, mirroring the margin notes in the same order. Each `<li>` carries `id="fnN"` matching its `data-fn` number so the in-prose superscript anchor (`href="#fnN"`) jumps to it. The active target endnote highlights with an accent-tint wash via `:target`.
-10. **Article end** — signoff (avatar + byline + living-doc link wrapped in `<em>`). Related dossiers grid (2-card).
+10. **Article end** — signoff (avatar + byline + living-doc link wrapped in `<em>`). Related dossiers grid (2-card — see **Cross-linking** below).
 11. **Rail aside** (`<aside class="rail">`) — the margin notes, one `<div class="note">` per footnote, ordered.
 
 ## Execution flow
@@ -98,7 +98,19 @@ Preserve these `<meta>` tags for the index builder:
 - Where `<doc-id-slug>` is `docId` with the `doc:` prefix stripped.
 - Read-time in minutes = `round(body-word-count / 200)`, matching the top-bar meta and the masthead meta-row and the index card.
 
-### 6. Refresh the index
+### 6. Back-link from existing pieces
+
+When you add a new piece, the new piece's related-dossiers grid points to two existing pieces — but the *existing* pieces' grids were frozen with the previous corpus. Update them so the new piece appears as a related card on the two most thematically adjacent existing pieces.
+
+Procedure:
+
+1. Identify the two existing pieces whose topics sit closest to the new one. For the Monitoring cohort this is a judgment call — use the substrate/layer relationship (infrastructure ↔ labs ↔ protocol ↔ economics) rather than mechanical recency.
+2. In each of those two pieces, swap the weakest-connection card in the `<section class="related">` grid for a card pointing to the new piece. Preserve the other card.
+3. The card copy should frame the new piece *from the host piece's point of view* — one sentence that tells the reader why it's worth the detour from where they are now.
+
+The grid stays at two cards per piece. Over time this keeps the network roughly balanced rather than over-linked.
+
+### 7. Refresh the index
 
 Add a new entry to the `DOSSIERS` array in `docs/dossier/index.html`. The entry object shape:
 
@@ -121,7 +133,7 @@ Sort the array so newest `date` is first. Keep entries for all previously publis
 
 The filter chips are derived automatically from the `tag` field on each DOSSIERS entry — no manual chip authoring needed. A chip only appears when there is at least one piece behind it; the entire filter row hides when only one category is present. Display labels for tags live in `TAG_LABELS` at the top of the script (extend it if a tag's label needs capitalisation other than plain title case).
 
-### 7. Report
+### 8. Report
 
 Report four things to the user:
 
