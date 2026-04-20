@@ -1,0 +1,240 @@
+{
+  "docId": "doc:inference-economics-watcher",
+  "title": "Inference Economics Watcher",
+  "subtitle": "Public-source tracker of the cost × capability × latency frontier for inference — across frontier labs and third-party providers. Methodology declared up front. Half-year baseline, then quarterly revisions as benchmarks saturate.",
+  "brand": "LD",
+  "scope": "Frontier and near-frontier models from OpenAI, Anthropic, Google, Meta, xAI, DeepSeek, Qwen, Mistral. Third-party inference providers hosting the same model families: AWS Bedrock, Azure, Vertex AI, Together, Fireworks, Groq, Cerebras. Seeded from published pricing pages, benchmark leaderboards, and official lab/provider announcements through April 2026.",
+  "owner": "Living Docs",
+  "version": "2026-H1",
+  "canonicalOrigin": "docs/inference-economics-watcher.json",
+  "sourceCoverage": "April 2026 baseline from public pricing and benchmark sources.",
+  "updated": "2026-04-20T00:00:00.000Z",
+  "pills": ["Monitoring", "Inference", "Cost", "Capability"],
+  "liveReload": true,
+  "objective": "Track the cost × capability × latency frontier of inference over time, so a reader at any period check-in can see which models sit on the pareto frontier, how the frontier is moving, and what the $/capability-point ratio looks like at a chosen benchmark.",
+  "successCondition": "A reader opening the doc at the end of any monitoring period knows the methodology in force, the current position of each tracked model on cost × capability, the direction of travel on cost, latency, and capability indicators, and the major pricing or launch moves of the period.",
+  "objectiveFacets": [
+    { "id": "methodology-declared", "name": "Methodology declared", "description": "Benchmark choices, cost axes, and latency axes are declared in a decision-record at the top of the doc; changes to the methodology are themselves new decision-record entries." },
+    { "id": "frontier-current", "name": "Frontier map current", "description": "Every tracked model has a position on the cost × capability map and its prior-period position preserved." },
+    { "id": "indicators-current", "name": "Indicators current", "description": "Cost, latency, and capability indicators carry a latestValue with an as-of date and a source." },
+    { "id": "moves-logged", "name": "Price and launch moves logged", "description": "Every major pricing change, launch, or access-tier shift in the period is recorded with dateOf, byActor, intent, and observed effect." },
+    { "id": "period-attribution", "name": "Period attribution", "description": "Every update is attributable to a named monitoring period." }
+  ],
+  "periods": [
+    { "id": "2026-H1", "window": "2026-01-01 → 2026-04-20", "summary": "Consolidated baseline as of mid-April 2026. Eight frontier and near-frontier models placed on the cost × GPQA map; four inference providers tracked; five pricing/launch moves logged; seven indicators dashboarded. Quarterly cadence after this — next revision 2026-Q3." }
+  ],
+  "invariants": [
+    { "id": "methodology-cites-choice", "name": "Methodology cites a choice", "statement": "The methodology decision-record must declare which benchmarks, which cost axes, and which latency axes are in force, with rationale for each.", "appliesTo": ["methodology"] },
+    { "id": "model-position-dated", "name": "Every model position is dated", "statement": "Every frontier-map card must carry an asOf date matching the period window.", "appliesTo": ["frontier-map"] },
+    { "id": "move-has-date-and-actor", "name": "Every move has a dateOf and byActor", "statement": "Every strategic-move-log card must carry a dateOf and a byActor reference.", "appliesTo": ["moves"] },
+    { "id": "indicator-dated", "name": "Every indicator is dated", "statement": "Every indicator card must have a latestValue with an as-of date and a source.", "appliesTo": ["cost-indicators", "latency-indicators", "capability-indicators"] },
+    { "id": "source-dated", "name": "Every source has a publication date", "statement": "Every citation card must carry a publishedAt field.", "appliesTo": ["sources"] }
+  ],
+  "metaFingerprint": "",
+  "callouts": [
+    {
+      "tone": "info",
+      "title": "What this tracker is and isn't",
+      "items": [
+        "Built entirely from public sources — published pricing pages, official benchmark claims, provider leaderboards (artificialanalysis.ai, vellum.ai leaderboard, Scale SEAL), mainstream press coverage. No NDA figures.",
+        "Prices are baseline directional values — real cost depends on batch discounts, cached input, negotiated enterprise rates, and self-hosted economics. Where a number is public and precise, it cites the source; where directional, the prose says so.",
+        "Benchmarks saturate. The methodology-decision-record declares the current benchmark set and what the policy is when a benchmark saturates (rotate, retire, or re-weight).",
+        "Quarterly cadence: the pareto frontier moves meaningfully on quarter timescales, not weekly. Weekly cadence would fire on noise. Run /competitor-sync docs/inference-economics-watcher.json 2026-Q3 at the start of Q3."
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "methodology",
+      "title": "Methodology in force (2026-H1)",
+      "convergenceType": "decision-record",
+      "rationale": "Everything downstream in this doc depends on these choices. A change to any of them is a new decision-record entry, not an edit — the prior methodology stays readable so a later reader knows what a given period's numbers actually compared.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        {
+          "id": "method-benchmarks-2026-h1",
+          "name": "Benchmark set: GPQA Diamond + SWE-bench Verified + AIME 2025",
+          "status": "ground-truth",
+          "notes": [
+            { "role": "paragraph", "text": "Three benchmarks tracked, each chosen for still being discriminating at the top in 2026-H1. GPQA Diamond (graduate-level science Q&A) separates frontier from near-frontier. SWE-bench Verified (real GitHub bug fixes) reads coding-agent capability, the workload most builders pay for. AIME 2025 (math olympiad) reads reasoning separately from knowledge." },
+            { "role": "callout", "tone": "warn", "title": "Saturation policy", "items": [
+              "If a tracked benchmark exceeds 95% top-score, it rotates out in the next period and a replacement is declared in a new decision-record entry.",
+              "GPQA Diamond currently sits around 85–88% at frontier — discriminating but approaching rotation. Candidate replacements: Humanity's Last Exam, FrontierMath.",
+              "SWE-bench Verified sits around 70–75% at frontier — comfortable mid-discrimination zone.",
+              "AIME 2025 sits above 90% at frontier — rotation candidate next period; replacement TBD from the 2026 AMO or USAMO pools.",
+              "Benchmark rotation is a methodology change, not a data update — when it happens, a new decision-record card appears and the capability-indicators series annotates the rotation."
+            ]}
+          ],
+          "lastUpdatedInPeriod": "2026-H1"
+        },
+        {
+          "id": "method-cost-axes-2026-h1",
+          "name": "Cost axes: list $/M input, list $/M output, cached $/M input",
+          "status": "ground-truth",
+          "notes": [
+            { "role": "paragraph", "text": "List $/M input and list $/M output are the published per-million-token rates for each model at its default tier on its primary API. Cached $/M input is the discounted rate for cache hits where the provider exposes one — Anthropic and OpenAI explicitly; Google implicit via context caching API. Batch-mode 50% discounts are noted in prose but not tracked as their own axis." },
+            { "role": "callout", "tone": "info", "title": "What we deliberately don't track as axes", "items": [
+              "Negotiated enterprise rates (not public).",
+              "Self-hosted economics on rented GPUs (highly workload-dependent; tracked in prose where publicly claimed).",
+              "Third-party provider rates for the same model family (tracked as a separate provider axis in the providers section, not rolled into list price).",
+              "Per-task cost rollups (depend on prompt engineering and agentic loops; out of scope for this doc)."
+            ]}
+          ],
+          "lastUpdatedInPeriod": "2026-H1"
+        },
+        {
+          "id": "method-latency-axes-2026-h1",
+          "name": "Latency axes: TTFT at 1k-context, sustained throughput (output tokens/sec)",
+          "status": "ground-truth",
+          "notes": [
+            { "role": "paragraph", "text": "TTFT (time to first token) is measured at 1k-token context on a warm connection — the closest proxy to interactive-agent experience. Sustained throughput is output tokens/sec at steady state. p99 and cold-start figures are mentioned in prose where relevant but not tracked as primary axes — they vary too much by region and load." },
+            { "role": "paragraph", "text": "Where the same model is served by multiple providers with materially different throughput (Groq, Cerebras, SambaNova vs. first-party), the provider-specific numbers are captured on the provider's own card. First-party numbers drive the model-level card." }
+          ],
+          "lastUpdatedInPeriod": "2026-H1"
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "title": "Tracked models",
+      "convergenceType": "competitor-stance-track",
+      "rationale": "Eight frontier and near-frontier models tracked by 2026-H1 profile — model family, origin lab, pricing tier, primary capability claim, and the workload it's positioned for. Models are the actors here, not labs, because pricing and capability are model-scoped.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "m-gpt5", "name": "GPT-5 (OpenAI)", "posture": "current", "sector": "Frontier · closed-weight", "stage": "GA on OpenAI API · Azure OpenAI · late 2025 launch", "geography": "Global via OpenAI + Azure", "strategicPosture": "Frontier capability at mid-tier closed-weight pricing", "currentBet": "List pricing well below the Opus-4.7 tier while claiming competitive frontier benchmarks. Position the flagship as the default choice for builders who want top capability without paying the Opus premium.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "GPT-5 family rollout across ChatGPT tiers and API", "Aggressive cache-discount tier for agentic workloads", "Operator agent and memory product bundling" ], "notes": [ { "role": "reference", "text": "OpenAI pricing page and GPT-5 launch blog, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-gpt5-mini", "name": "GPT-5 mini (OpenAI)", "posture": "current", "sector": "Near-frontier · closed-weight · cost-optimised", "stage": "GA on OpenAI API", "geography": "Global via OpenAI + Azure", "strategicPosture": "Volume-tier cost play", "currentBet": "An order of magnitude cheaper than GPT-5, within striking distance on most benchmarks, targeting builders whose workload doesn't need frontier capability.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Mini-tier positioning against Gemini 3 Flash and Haiku 4.5" ], "notes": [ { "role": "reference", "text": "OpenAI pricing page, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-opus-47", "name": "Claude Opus 4.7 (Anthropic)", "posture": "current", "sector": "Frontier · closed-weight · 1M context", "stage": "GA on Anthropic API · AWS Bedrock · Google Vertex", "geography": "Global via Anthropic + hyperscalers", "strategicPosture": "Top-capability-at-premium-pricing posture held", "currentBet": "Hold the premium price point (roughly 10× the GPT-5 tier on output) while leading on coding (SWE-bench), long-context reliability, and MCP-native tool use. Position Opus as the model you pick when correctness matters more than cost.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "1M-context GA across API and Claude Code", "Aggressive prompt-cache discount to reduce effective cost for agent loops", "MCP-native tool use as a capability advantage at frontier" ], "notes": [ { "role": "reference", "text": "Anthropic pricing page and Opus 4.7 launch blog, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-sonnet-46", "name": "Claude Sonnet 4.6 (Anthropic)", "posture": "current", "sector": "Mid-frontier · closed-weight", "stage": "GA on Anthropic API · AWS Bedrock · Google Vertex", "geography": "Global via Anthropic + hyperscalers", "strategicPosture": "Volume tier with frontier-adjacent capability", "currentBet": "Hold the mid-tier price point against GPT-5 and Gemini 3 Pro while matching them on coding and reasoning benchmarks — the workhorse for agentic workloads that can't justify Opus economics.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Claude Code CLI default model", "MCP-native tool use preserved at mid-tier pricing" ], "notes": [ { "role": "reference", "text": "Anthropic pricing page, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-gemini-3-pro", "name": "Gemini 3 Pro (Google)", "posture": "current", "sector": "Frontier · closed-weight · integrated with Google distribution", "stage": "GA on Vertex AI · AI Studio", "geography": "Global via Google Cloud", "strategicPosture": "Frontier capability wired into Google's product stack", "currentBet": "Price Gemini 3 Pro competitively against GPT-5 on list; lean on native integration with Search, Workspace, and Android for builder pull-through. TPU capacity as a margin lever not yet fully visible in pricing.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Gemini 3 family GA on Vertex AI", "Context caching API adoption for long-context workloads" ], "notes": [ { "role": "reference", "text": "Google Cloud Vertex AI pricing page, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-gemini-3-flash", "name": "Gemini 3 Flash (Google)", "posture": "current", "sector": "Near-frontier · closed-weight · cost-optimised", "stage": "GA on Vertex AI · AI Studio", "geography": "Global via Google Cloud", "strategicPosture": "Aggressive volume-tier play", "currentBet": "Price Flash well below GPT-5 mini and Haiku 4.5 to win high-volume / latency-sensitive workloads. TPU economics as the structural advantage behind the aggressive pricing.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Flash-as-default for multimodal volume workloads", "Speculative-decoding deployment for throughput headline" ], "notes": [ { "role": "reference", "text": "Google Cloud Vertex AI pricing page, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-llama4-maverick", "name": "Llama 4 Maverick (Meta · open-weight)", "posture": "current", "sector": "Near-frontier · open-weight · hosted by third-party providers", "stage": "Open-weight release; hosted on Together, Fireworks, Groq, AWS Bedrock", "geography": "Global via third-party inference providers", "strategicPosture": "Ecosystem lever for Meta, commodity inference for everyone else", "currentBet": "Meta ships the weights; third-party providers compete on speed and price. For builders this means a near-frontier option at open-weight economics with provider-choice leverage — no single vendor lock-in.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Llama 4 family open-weights release", "Provider-side speed competition (Groq, Cerebras, SambaNova)" ], "notes": [ { "role": "reference", "text": "Meta Llama release notes and Together/Fireworks/Groq pricing pages, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "m-deepseek-v32", "name": "DeepSeek V3.2 (DeepSeek · open-weight)", "posture": "current", "sector": "Near-frontier · open-weight · cost-leader", "stage": "Open-weight release; hosted by DeepSeek + Together + Fireworks", "geography": "Global via third-party providers; China-origin lab", "strategicPosture": "Cost-leader at open-weight near-frontier", "currentBet": "Ship frontier-competitive capability at roughly an order of magnitude lower cost than Western closed frontier. Forces the cost conversation across the whole market — an exogenous shock to frontier-lab unit economics.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "V3.2 release at aggressively low $/M output rates", "MIT-style open-weight license broadening downstream adoption" ], "notes": [ { "role": "reference", "text": "DeepSeek blog posts and hosted-provider pricing pages, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "providers",
+      "title": "Tracked inference providers",
+      "convergenceType": "competitor-stance-track",
+      "rationale": "Inference providers as a distinct actor class — they don't train frontier models but they sell them, sometimes faster or cheaper than the model's origin. Tracked separately because their competitive dynamic (speed, multi-model catalogue, price-per-token race) is different from a lab's.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "p-together", "name": "Together AI", "posture": "current", "sector": "Third-party inference · open-weight catalogue", "stage": "Private · venture-backed", "geography": "US-based · global API", "strategicPosture": "Multi-model open-weight catalogue at aggressive prices", "currentBet": "Host every meaningful open-weight model (Llama, Qwen, DeepSeek, Mistral) at competitive prices; win on breadth + price. Serverless + dedicated-endpoint hybrid.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Day-zero hosting of major open-weight releases", "Dedicated-endpoint motion for enterprise workloads" ], "notes": [ { "role": "reference", "text": "Together.ai pricing page and blog, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "p-fireworks", "name": "Fireworks AI", "posture": "current", "sector": "Third-party inference · open-weight + fine-tuning", "stage": "Private · venture-backed", "geography": "US-based · global API", "strategicPosture": "Speed-focused open-weight host plus fine-tuning platform", "currentBet": "Differentiate on serving efficiency (speculative decoding, batching) and on fine-tuning / custom-model hosting rather than pure catalogue breadth.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "FireOptimizer for low-latency serving", "Fine-tuning-and-host motion for enterprise" ], "notes": [ { "role": "reference", "text": "Fireworks.ai pricing page, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "p-groq", "name": "Groq", "posture": "current", "sector": "Third-party inference · LPU silicon", "stage": "Private · custom silicon", "geography": "US-based · global API", "strategicPosture": "Speed-at-any-cost LPU play", "currentBet": "Custom LPU inference silicon delivering tokens/sec figures an order of magnitude above GPU-based providers; position as the default for latency-sensitive agentic workloads.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Llama 4 Maverick served at multi-thousand-tokens/sec headline", "LPU data-center buildout for capacity" ], "notes": [ { "role": "reference", "text": "Groq pricing and throughput announcements, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "p-bedrock", "name": "AWS Bedrock", "posture": "current", "sector": "Hyperscaler inference aggregator · managed service", "stage": "GA · global regions", "geography": "Global via AWS regions", "strategicPosture": "Managed multi-model platform tied to AWS workloads", "currentBet": "Host Anthropic, Meta, Mistral, Cohere, Amazon's own Nova family inside AWS identity, networking, and compliance — win on enterprise gravity rather than price.", "evolutionSinceLastPeriod": "Baseline — 2026-H1 initial capture.", "activeInitiatives": [ "Bedrock pricing passthrough for Anthropic and Llama 4", "Provisioned-throughput tier for enterprise workloads" ], "notes": [ { "role": "reference", "text": "AWS Bedrock pricing page, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "moves",
+      "title": "Pricing and launch moves this period",
+      "convergenceType": "strategic-move-log",
+      "rationale": "Discrete actions by labs and providers that reshaped the cost × capability frontier in 2026-H1 — new model launches, price cuts, speculative-decoding rollouts, cache-discount changes.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "move-gpt5-pricing", "name": "OpenAI launches GPT-5 family with sub-GPT-4o list pricing", "outcome": "pending-evaluation", "byCompany": "OpenAI", "moveType": "launch", "dateOf": "2026-01", "intent": "Establish the frontier-capability-at-mid-tier-cost position and pressure Anthropic's Opus-tier margins.", "observedEffect": "Broad market pressure on mid-tier pricing; Gemini 3 Pro responded with matching list rates.", "linkedIndicators": ["indicator-frontier-cost-median"], "notes": [ { "role": "reference", "text": "OpenAI pricing page and launch blog, January 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "move-deepseek-v32", "name": "DeepSeek V3.2 ships at order-of-magnitude lower cost than frontier closed", "outcome": "pending-evaluation", "byCompany": "DeepSeek", "moveType": "launch", "dateOf": "2026-02", "intent": "Demonstrate near-frontier capability at Chinese-stack cost economics; forces a public cost conversation across the whole market.", "observedEffect": "Visible downward pressure on open-weight hosted prices (Together, Fireworks), and public discussion of closed-frontier margin structure.", "linkedIndicators": ["indicator-frontier-cost-median", "indicator-open-vs-closed-cost-gap"], "notes": [ { "role": "reference", "text": "DeepSeek blog and press coverage, February 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "move-anthropic-cache-90", "name": "Anthropic raises prompt-cache discount to 90% on Opus / Sonnet", "outcome": "pending-evaluation", "byCompany": "Anthropic", "moveType": "pricing", "dateOf": "2026-03", "intent": "Make the Opus-tier economics viable for long-running agent loops (where the same system prompt is served repeatedly) without cutting list price.", "observedEffect": "Effective cost for cached agentic workloads drops sharply; MCP-heavy deployments see real-world cost decline even at unchanged headline rate.", "linkedIndicators": ["indicator-cache-discount-prevalence"], "notes": [ { "role": "reference", "text": "Anthropic pricing page update, March 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "move-groq-llama4", "name": "Groq serves Llama 4 Maverick at multi-thousand-tokens/sec headline", "outcome": "pending-evaluation", "byCompany": "Groq", "moveType": "launch", "dateOf": "2026-03", "intent": "Establish an order-of-magnitude throughput lead on open-weight inference; own the latency-sensitive segment.", "observedEffect": "Agentic workloads with real-time constraints visibly shift toward Groq for Llama-4-class models; first-party and GPU-based providers respond with speculative-decoding rollouts.", "linkedIndicators": ["indicator-frontier-throughput"], "notes": [ { "role": "reference", "text": "Groq blog and benchmark coverage, March 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "move-gemini-flash-price", "name": "Google prices Gemini 3 Flash aggressively for multimodal volume", "outcome": "pending-evaluation", "byCompany": "Google", "moveType": "pricing", "dateOf": "2026-02", "intent": "Win high-volume multimodal workloads with TPU-economics pricing that closed competitors can't easily match on GPU-based infrastructure.", "observedEffect": "GPT-5 mini and Haiku 4.5 see volume-workload pressure; open-weight + Groq combinations the main defensive response.", "linkedIndicators": ["indicator-frontier-cost-median"], "notes": [ { "role": "reference", "text": "Google Cloud Vertex AI pricing page and launch blog, February 2026." } ], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "cost-indicators",
+      "title": "Cost indicators",
+      "convergenceType": "indicator-trace",
+      "rationale": "Price-side indicators tracked across periods. Values carry as text with a source; trend is categorical.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "indicator-frontier-cost-median", "name": "Median $/M output tokens at frontier (top 5 models by GPQA)", "trend": "falling", "latestValue": "~$8/M output (median of Opus 4.7, GPT-5, Gemini 3 Pro, Sonnet 4.6, and the best open-weight frontier on Together/Fireworks)", "asOf": "2026-04-20 · public pricing pages", "forecast": "Continued decline expected if DeepSeek-style open-weight pressure persists and Gemini 3 Flash holds its aggressive Flash-tier pricing.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "OpenAI, Anthropic, Google, Together, Fireworks pricing pages, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "indicator-open-vs-closed-cost-gap", "name": "Open-weight vs closed-weight cost gap (same-capability tier)", "trend": "widening", "latestValue": "Open-weight near-frontier (Llama 4 Maverick, DeepSeek V3.2 on Together/Fireworks) is roughly 5–15× cheaper per M output than the closest-capability closed frontier", "asOf": "2026-04-20 · public pricing pages", "forecast": "Gap likely persists or widens as open-weight hosts compete on price; closed frontier defends on capability and ecosystem, not cost.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "Together and Fireworks pricing vs first-party frontier pricing pages, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "indicator-cache-discount-prevalence", "name": "Cache-discount prevalence across frontier labs", "trend": "rising", "latestValue": "Three of four frontier labs (Anthropic, OpenAI, Google) now offer a cache / context-caching discount of 75–90% on repeated input tokens", "asOf": "2026-04-20", "forecast": "Near-universal adoption expected by end of 2026; agentic workloads' effective cost will diverge sharply from headline list price.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "Anthropic, OpenAI, Google pricing page updates, Q1 2026." } ], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "latency-indicators",
+      "title": "Latency indicators",
+      "convergenceType": "indicator-trace",
+      "rationale": "Speed-side indicators — TTFT at 1k-context and sustained throughput at warm state.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "indicator-frontier-ttft", "name": "Frontier TTFT at 1k-context (median across frontier closed-weight models, first-party API)", "trend": "falling", "latestValue": "~0.3–0.6s (Opus 4.7, GPT-5, Gemini 3 Pro, Sonnet 4.6)", "asOf": "2026-04-20 · artificialanalysis.ai latency leaderboard", "forecast": "Continued decline likely as speculative-decoding and context-caching adoption broaden.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "artificialanalysis.ai latency tracking, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "indicator-frontier-throughput", "name": "Frontier output throughput (tokens/sec, best provider per model family)", "trend": "rising", "latestValue": "First-party GPU-based: ~80–150 tok/s at frontier. Groq LPU on open-weight: ~2000+ tok/s headline. Cerebras/SambaNova also in the high-hundreds on open-weight.", "asOf": "2026-04-20 · artificialanalysis.ai throughput leaderboard", "forecast": "Custom-silicon lead on open-weight persists; closed-frontier throughput rises more slowly but steadily.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "artificialanalysis.ai throughput tracking and provider benchmark pages, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "capability-indicators",
+      "title": "Capability indicators",
+      "convergenceType": "indicator-trace",
+      "rationale": "Top-score tracking per benchmark in the current methodology. One indicator per benchmark, plus the open-vs-closed frontier gap.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "indicator-gpqa-top", "name": "Top GPQA Diamond score (any model)", "trend": "rising", "latestValue": "~85–88% (Opus 4.7 / GPT-5 / Gemini 3 Pro range)", "asOf": "2026-04-20 · lab blogs + Scale SEAL / Vellum leaderboards", "forecast": "Saturation approaching; benchmark rotation likely for 2026-Q3.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "GPQA leaderboards and lab-published scores, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "indicator-swebench-top", "name": "Top SWE-bench Verified score (any model)", "trend": "rising", "latestValue": "~72–75% (Opus 4.7 and GPT-5 frontier claims)", "asOf": "2026-04-20 · SWE-bench leaderboard", "forecast": "Rising toward 80%+ plausible within the year if agentic scaffolding improves at current rate; still discriminating into 2026-Q3.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "SWE-bench Verified leaderboard and lab blog claims, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "indicator-aime-top", "name": "Top AIME 2025 score (any model)", "trend": "saturating", "latestValue": "~90%+ (frontier closed models)", "asOf": "2026-04-20 · lab blogs", "forecast": "Saturation imminent; rotation candidate for 2026-Q3. Candidate replacement: USAMO or FrontierMath.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "Lab-published AIME 2025 results, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "indicator-open-vs-closed-capability-gap", "name": "Open-weight vs closed-weight capability gap (GPQA Diamond)", "trend": "stable", "latestValue": "~8–12 points behind closed frontier (Llama 4 Maverick and DeepSeek V3.2 vs Opus 4.7 / GPT-5 / Gemini 3 Pro)", "asOf": "2026-04-20", "forecast": "Gap has been closing slowly; Meta Superintelligence Labs and DeepSeek next-gen could accelerate or flatten it.", "deltaVsLastPeriod": "baseline", "notes": [ { "role": "reference", "text": "Public GPQA leaderboards and Hugging Face, Q1–Q2 2026." } ], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "frontier-map",
+      "title": "Frontier map — cost × GPQA Diamond",
+      "convergenceType": "position-cluster-map",
+      "rationale": "X-axis: list $/M output tokens (log scale implied — order-of-magnitude steps). Y-axis: GPQA Diamond score (points). The pareto frontier is the curve connecting the lowest-cost model at each capability tier; it is implicit in the positions and is noted in each card where a model sits on it.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "pos-opus-47", "name": "Claude Opus 4.7", "movement": "unchallenged", "axisX": "$75/M output · premium tier", "axisY": "~87% GPQA Diamond · frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-gpt5", "name": "GPT-5", "movement": "unchallenged", "axisX": "~$10/M output · mid tier", "axisY": "~85% GPQA Diamond · frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-gemini-3-pro", "name": "Gemini 3 Pro", "movement": "unchallenged", "axisX": "~$5/M output · mid tier", "axisY": "~84% GPQA Diamond · frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-sonnet-46", "name": "Claude Sonnet 4.6", "movement": "unchallenged", "axisX": "~$15/M output · mid tier", "axisY": "~80% GPQA Diamond · near-frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-gpt5-mini", "name": "GPT-5 mini", "movement": "unchallenged", "axisX": "~$2/M output · volume tier", "axisY": "~72% GPQA Diamond · near-frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-gemini-3-flash", "name": "Gemini 3 Flash", "movement": "unchallenged", "axisX": "~$0.60/M output · volume tier", "axisY": "~70% GPQA Diamond · near-frontier · on the cost-side pareto frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-llama4-maverick", "name": "Llama 4 Maverick (Together/Fireworks)", "movement": "unchallenged", "axisX": "~$0.60/M output · open-weight tier", "axisY": "~73% GPQA Diamond · near-frontier · on the cost-side pareto frontier", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "pos-deepseek-v32", "name": "DeepSeek V3.2 (DeepSeek/Together/Fireworks)", "movement": "unchallenged", "axisX": "~$0.30/M output · open-weight tier", "axisY": "~75% GPQA Diamond · near-frontier · cost-side pareto frontier leader", "priorPosition": "baseline — no prior", "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "sources",
+      "title": "Sources",
+      "convergenceType": "citation-feed",
+      "rationale": "Every card cites its source here. Provider pricing pages and benchmark leaderboards are the primary public references; lab blogs are secondary for launch dates and intent.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        { "id": "src-openai-pricing", "name": "OpenAI pricing page and GPT-5 launch blog", "state": "recent", "author": "OpenAI", "venue": "openai.com", "publishedAt": "2026-01", "url": "https://openai.com/api/pricing/", "cardsReferenced": ["models/m-gpt5", "models/m-gpt5-mini", "moves/move-gpt5-pricing"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-anthropic-pricing", "name": "Anthropic pricing page and Opus 4.7 launch", "state": "recent", "author": "Anthropic", "venue": "anthropic.com", "publishedAt": "2026-03", "url": "https://www.anthropic.com/pricing", "cardsReferenced": ["models/m-opus-47", "models/m-sonnet-46", "moves/move-anthropic-cache-90"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-google-pricing", "name": "Google Cloud Vertex AI pricing page and Gemini 3 launch", "state": "recent", "author": "Google", "venue": "cloud.google.com", "publishedAt": "2026-02", "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing", "cardsReferenced": ["models/m-gemini-3-pro", "models/m-gemini-3-flash", "moves/move-gemini-flash-price"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-deepseek", "name": "DeepSeek V3.2 release", "state": "recent", "author": "DeepSeek", "venue": "deepseek.com", "publishedAt": "2026-02", "url": "https://www.deepseek.com", "cardsReferenced": ["models/m-deepseek-v32", "moves/move-deepseek-v32"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-together", "name": "Together AI pricing and catalogue", "state": "recent", "author": "Together AI", "venue": "together.ai", "publishedAt": "2026-04", "url": "https://www.together.ai/pricing", "cardsReferenced": ["providers/p-together", "models/m-llama4-maverick", "models/m-deepseek-v32"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-fireworks", "name": "Fireworks AI pricing", "state": "recent", "author": "Fireworks AI", "venue": "fireworks.ai", "publishedAt": "2026-04", "url": "https://fireworks.ai/pricing", "cardsReferenced": ["providers/p-fireworks", "models/m-llama4-maverick"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-groq", "name": "Groq throughput and pricing announcements", "state": "recent", "author": "Groq", "venue": "groq.com", "publishedAt": "2026-03", "url": "https://groq.com", "cardsReferenced": ["providers/p-groq", "moves/move-groq-llama4"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-bedrock", "name": "AWS Bedrock pricing page", "state": "recent", "author": "AWS", "venue": "aws.amazon.com", "publishedAt": "2026-04", "url": "https://aws.amazon.com/bedrock/pricing/", "cardsReferenced": ["providers/p-bedrock"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-artificialanalysis", "name": "Artificial Analysis inference leaderboard", "state": "recent", "author": "artificialanalysis.ai", "venue": "artificialanalysis.ai", "publishedAt": "2026-04", "url": "https://artificialanalysis.ai", "cardsReferenced": ["latency-indicators/indicator-frontier-ttft", "latency-indicators/indicator-frontier-throughput", "cost-indicators/indicator-frontier-cost-median"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-swebench", "name": "SWE-bench Verified leaderboard", "state": "recent", "author": "SWE-bench team", "venue": "swebench.com", "publishedAt": "2026-04", "url": "https://www.swebench.com", "cardsReferenced": ["capability-indicators/indicator-swebench-top"], "lastUpdatedInPeriod": "2026-H1" },
+        { "id": "src-gpqa", "name": "GPQA Diamond leaderboard aggregated views", "state": "recent", "author": "Scale SEAL / Vellum / lab blogs", "venue": "scale.com / vellum.ai / lab blogs", "publishedAt": "2026-04", "url": "https://scale.com/leaderboard", "cardsReferenced": ["capability-indicators/indicator-gpqa-top", "capability-indicators/indicator-open-vs-closed-capability-gap"], "lastUpdatedInPeriod": "2026-H1" }
+      ]
+    },
+    {
+      "id": "period-notes",
+      "title": "Period notes",
+      "convergenceType": "decision-record",
+      "rationale": "One card per monitoring period summarising what shifted on the frontier, what resolved, and what's worth watching into the next period.",
+      "updated": "2026-04-20T00:00:00.000Z",
+      "data": [
+        {
+          "id": "note-2026-h1",
+          "name": "Period 2026-H1 — baseline",
+          "status": "ground-truth",
+          "notes": [
+            { "role": "paragraph", "text": "Consolidated baseline as of mid-April 2026. Methodology declared (GPQA Diamond + SWE-bench Verified + AIME 2025; list $/M in/out + cached input; TTFT at 1k-context + sustained throughput). Eight frontier and near-frontier models placed on the cost × GPQA map. Four providers tracked. Five moves logged: GPT-5 mid-tier pricing launch, DeepSeek V3.2 open-weight cost shock, Anthropic cache-discount raise, Groq multi-thousand-tok/s on Llama 4, Gemini 3 Flash aggressive volume pricing. Seven indicators across cost, latency, and capability. First full pareto frontier captured with open-weight tier (DeepSeek, Llama 4, Gemini 3 Flash) leading the cost-side frontier at near-frontier capability." },
+            { "role": "callout", "tone": "info", "title": "Focus for 2026-Q3", "items": [
+              "Does AIME 2025 need to rotate out (saturation)? Declare replacement if so.",
+              "Does the open-vs-closed capability gap close meaningfully when the next Llama / DeepSeek / Qwen ship?",
+              "Do speculative-decoding rollouts at OpenAI / Anthropic / Google close the Groq-LPU throughput gap?",
+              "Does cache-discount adoption go universal (force multiplier on effective cost declines)?",
+              "Does any provider ship a cost × capability position that isn't already on the map as a known cluster?"
+            ]}
+          ],
+          "lastUpdatedInPeriod": "2026-H1"
+        }
+      ]
+    }
+  ]
+}
