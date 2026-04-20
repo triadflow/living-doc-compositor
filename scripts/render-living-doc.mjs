@@ -1621,6 +1621,11 @@ ${data.liveReload ? `
       if (!banner) return;
       banner.addEventListener('click', () => location.reload());
 
+      // Skip on file:// — location.origin is "null" and any fetch under that
+      // origin trips a browser console warning without ever succeeding.
+      // Polling only makes sense when served over http(s).
+      if (location.protocol === 'file:') return;
+
       let current;
       try {
         const meta = JSON.parse(document.getElementById('doc-meta').textContent);
