@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>On-device is not a smaller cloud — Dossiers — Living Docs</title>
+<meta name="description" content="In 2026-H1, a phone-class model does real work — transcription, translation, summarization, limited coding — without leaving the device. Three poles (Apple, Google, open-weight) are already competing, and the economics don't map to cloud."/>
+<meta name="dossier-title" content="On-device is not a smaller cloud"/>
+<meta name="dossier-period" content="2026-H1"/>
+<meta name="dossier-living-doc" content="https://triadflow.github.io/living-doc-compositor/on-device-ai-watcher.html"/>
+<meta name="dossier-living-doc-id" content="doc:on-device-ai-watcher"/>
+<meta name="dossier-published-at" content="2026-04-21"/>
+<meta name="dossier-source-commit" content="pending"/>
+<meta name="dossier-summary" content="The phone has crossed a capability threshold for real offline work — transcription, translation, summarization, limited coding. Three poles (Apple Intelligence, Android AICore, open-weight via llama.cpp and MLX) are carving the tier into segments. The economics don't translate from cloud."/>
+<link rel="stylesheet" href="../assets/colors_and_type.css"/>
+<link rel="stylesheet" href="../assets/dossier.css"/>
+</head>
+<body data-layout="margin" data-mode="light">
+
+<div class="progress"><div class="progress-fill" id="progress"></div></div>
+
+<header class="top-bar">
+  <a class="back" href="../index.html">
+    <span class="arrow">←</span>
+    <span>All dossiers</span>
+  </a>
+  <div style="width:1px;height:18px;background:var(--r-line)"></div>
+  <div class="logo">L</div>
+  <div class="spacer"></div>
+  <div class="top-meta">
+    <span>Apr 21, 2026</span>
+    <span class="sep">·</span>
+    <span>7 min</span>
+  </div>
+</header>
+
+<article class="article">
+
+  <div class="body">
+
+    <header class="masthead">
+      <span class="eyebrow">Monitoring · On-device</span>
+      <h1 class="title">On-device is not a smaller cloud.</h1>
+      <p class="dek">
+        In 2026-H1, a phone-class model does real work — transcription, translation, summarization, limited coding — without leaving the device. <em>The tier has its own rules, and three poles are already competing.</em>
+      </p>
+      <div class="meta-row">
+        <span>Rene Luijk</span>
+        <span class="sep">·</span>
+        <span>Apr 21, 2026</span>
+        <span class="sep">·</span>
+        <span>7 min read</span>
+        <span class="sep">·</span>
+        <span class="tag">on-device</span>
+        <span class="tag">mobile</span>
+        <span class="tag">privacy</span>
+        <span class="tag">monitoring</span>
+      </div>
+    </header>
+
+    <aside class="tldr">
+      <span class="label">TL;DR</span>
+      <p>Phone-class MMLU top scores have risen from roughly 60% a year ago to 70–75% in the current wave. Gemma 4 E-variants, Apple Intelligence Foundation Models (GA to third-party developers in iOS 19), and Android AICore reaching the Samsung S25 line have made 2026-H1 the first period where on-device AI ships as a product primitive, not a research demo.</p>
+      <p>The interesting thing is not that phones got smaller models. It is that on-device is <em>a different market with different economics</em> — no per-token cost, battery as the binding constraint, privacy as the default — and three poles (Apple, Google, open-weight) are already carving it into segments.</p>
+    </aside>
+
+    <div class="prose">
+
+      <p>
+        When Omar Sanseviero showed Gemma 4 running on an iPhone, a Raspberry Pi, and — via community work — a Nintendo Switch at the AI Engineer conference in April, the demo landed without hype-ceiling language. It was not framed as research. It was framed as something builders ship today.<a class="fn-ref" href="#fn1" data-fn="1">1<span class="fn-popover"><span class="num">Note 1</span>Omar Sanseviero (Google DeepMind), AI Engineer conference, April 2026. Methodology in force for this dossier: four device tiers (flagship phone, mid-range phone, tablet/laptop, embedded) with named reference devices (iPhone 15 Pro, Pixel 9, MacBook Air M3); three model-size axes (sub-2B, 2–8B, 8B+); three benchmarks at size (MMLU, GSM8K, HumanEval) with noise caveats. Quarterly cadence.</span></a> That framing is the story of on-device AI in 2026-H1. The capability envelope of a phone-class model — under four billion parameters, quantised, runnable on silicon you already own — has crossed thresholds that a year ago read as speculative. Phone-class MMLU top scores have risen from roughly sixty percent in early 2025 to seventy to seventy-five percent in the current wave.<a class="fn-ref" href="#fn2" data-fn="2">2<span class="fn-popover"><span class="num">Note 2</span>Trajectory from lab-published model cards and Hugging Face leaderboard aggregators, early 2025 through April 2026. Small-model scores carry <strong>high format sensitivity</strong> — the same model can swing ten points on prompt format alone — so the 60% → 75% range is directional, not an audited number. The direction, not the decimal, is the thing.</span></a> Transcription, translation, summarization, and limited coding are now viable offline on a three-year-old flagship phone. For the class of workloads that fits inside that envelope, the substrate changed.
+      </p>
+
+      <h2>What actually changed in twelve months</h2>
+
+      <p>
+        The substrate moved in three directions at once. On the model side, Google shipped Gemma 4 E-variants under Apache 2.0 with a novel architectural technique called Per-Layer Embeddings — an embedding table that works as a lookup rather than a matrix multiply, letting two billion parameters stay loaded on the GPU while the rest of the model lives in CPU memory or on disk.<a class="fn-ref" href="#fn3" data-fn="3">3<span class="fn-popover"><span class="num">Note 3</span>Gemma 4 E2B has roughly 4B parameters total but only loads 2B into GPU memory; the per-layer embeddings can sit on disk via llama.cpp's <code>--override-tensor</code> flag. This is a <strong>phone-shaped design decision</strong>, not a cloud-shaped one: it accepts unified-memory constraints and trades some latency for effective capability at the phone size.</span></a> Llama 3.2's 1B and 3B variants reached production maturity on Meta's ExecuTorch mobile runtime. Qwen 2.5, Phi-4 mini, Granite 3, and community distillations of DeepSeek V3 filled out the open-weight tier at comparable sizes.
+      </p>
+
+      <p>
+        On the platform side, Apple Intelligence extended its on-device Foundation Models API to third-party developers through the iOS 19 cycle, so apps no longer need to bundle their own model.<a class="fn-ref" href="#fn4" data-fn="4">4<span class="fn-popover"><span class="num">Note 4</span>Apple Foundation Models API: developer-accessible on Apple Silicon iOS and macOS devices, backed by a ~3B on-device model plus <strong>Private Cloud Compute</strong> as the hybrid escape valve. Gated to Apple Silicon — not portable.</span></a> Android's AICore reached the Samsung S25 flagship line through a System Core integration, meaning app developers can now target on-device AI across Pixel and Samsung via one API.<a class="fn-ref" href="#fn5" data-fn="5">5<span class="fn-popover"><span class="num">Note 5</span>AICore present on Pixel 8+, Pixel 9, Pixel 10, Samsung S24, Samsung S25. Gemini Nano 2 (~3.25B class) is the default model behind it. Qualcomm Snapdragon silicon underneath — the same substrate that powers Windows Copilot+ PCs.</span></a> On the silicon side, Qualcomm's Snapdragon 8 Gen 4 and Snapdragon X Elite now sit underneath both Android phones and Windows Copilot+ laptops, making NPU-accelerated inference a default rather than a premium.
+      </p>
+
+      <h2>Three poles, not two</h2>
+
+      <p>
+        The existing framing of AI markets has two poles — cloud-closed and open-weight. On-device adds a third dimension: <em>platform-locked</em>. Apple Intelligence runs only on Apple Silicon. Gemini Nano via AICore runs only through Android's platform APIs. Both treat on-device AI as a vertical-integration asset — silicon, OS, model, and API layer all controlled by the same entity. Neither is portable. That is not a limitation in their respective strategies; it is the strategy.
+      </p>
+
+      <p>
+        The third pole — Gemma 4 plus Llama 3.2 plus Qwen plus Phi plus the rest — is the portable open-weight stack that runs on llama.cpp, MLX, Ollama, and ExecuTorch. No OS integration, no default behind the Shortcut app or Assistant summons, no platform-level Private Cloud Compute escape valve. In exchange: it runs anywhere, the weights are open, and builders who care about portability or jurisdictional independence can actually deliver. The three poles are not competing for the same workloads. They are carving the tier into segments that correspond to <em>who controls what</em>.
+      </p>
+
+      <blockquote>
+        If you want the most raw intelligence, use Gemini or your model of choice. But for on-device, open models are getting there.<a class="fn-ref" href="#fn6" data-fn="6">6<span class="fn-popover"><span class="num">Note 6</span>Omar Sanseviero, AI Engineer conference, April 2026. A useful read because it comes from inside Google — a lab that is simultaneously shipping Gemini (closed-frontier), Gemini Nano (closed platform-integrated on-device), and Gemma 4 (open-weight on-device). Google is the only lab running all three tiers; the quote is a disarmingly honest summary of where each tier currently belongs.</span></a>
+      </blockquote>
+
+      <h2>Different economics, not smaller ones</h2>
+
+      <p>
+        The easy mistake is to treat on-device as cloud inference made cheaper. It is not. The cost axis changes: there is no per-token bill. The cost is the device, which is already a sunk cost, plus battery and thermal headroom, both of which are workload-specific and non-linear. Latency changes too. Cloud TTFT is a network round-trip plus a cold start; on-device TTFT depends on whether the model is already resident in memory and whether the NPU is warm.<a class="fn-ref" href="#fn7" data-fn="7">7<span class="fn-popover"><span class="num">Note 7</span>Reported community benchmarks on flagship phones (iPhone 15 Pro, Pixel 9 Pro): roughly 20–40 tok/s at sub-2B quantised, 8–15 tok/s at 2–4B quantised. Cold-start to first token: ~500ms–1.5s depending on model size and runtime warmup. Platform-integrated stacks keep a structural TTFT advantage via OS-level warm-state preservation.</span></a> Platform-integrated stacks (Apple Intelligence, AICore) hold a structural warm-state advantage over bundled-model apps because the OS can keep the model loaded across processes.
+      </p>
+
+      <p>
+        Privacy changes too, and not optionally. On-device inference does not leave the device by default. For workloads where that matters — legal drafting, medical summarization, private journaling, anything touching content that shouldn't be logged by a third party — the tier is not a cost optimisation. It is the only tier that meets the requirement. For workloads that don't care about privacy but care about offline viability (subways, planes, field work), the same conclusion lands from a different angle. The economic calculation a builder makes is therefore not cloud-minus-cost; it is cloud-or-on-device-for-this-workload, and the answer increasingly bifurcates by workload rather than scaling down smoothly.
+      </p>
+
+      <h2>What stays cloud, for now</h2>
+
+      <p>
+        Frontier capability doesn't fit on a phone in this cycle.<a class="fn-ref" href="#fn8" data-fn="8">8<span class="fn-popover"><span class="num">Note 8</span>The top of GPQA Diamond (~87%) is held by Claude Opus 4.7 at ~75B+ parameters — see the Inference Economics Watcher dossier for the hosted-inference picture. Phone memory budgets in 2026 comfortably accommodate 4B models at 4-bit quantisation; 8B is laptop-territory; 31B dense is Gemma 4's largest and explicitly a laptop model per Google's own framing.</span></a> The top of GPQA Diamond sits at roughly eighty-seven percent on a seventy-five-billion-parameter closed model. No phone runs that this year. Long-context workloads (a million tokens in working memory) will cross eventually, but not at current phone memory budgets. Anything requiring knowledge of events after the model's training cutoff still needs a cloud call. On-device is a tier, not a ceiling. The useful question in 2026 is which workloads have crossed the on-device threshold — not whether the whole stack has.
+      </p>
+
+      <div class="punchline">
+        On-device is a tier, not a fallback. <em>A phone that can transcribe a meeting, translate a document, and write a function — offline, in your pocket, for free per token — is not a smaller version of a datacenter.</em> It is a different product.
+      </div>
+
+      <h2>What resolves through 2026-Q3</h2>
+
+      <p>
+        Several threads will clarify the tier before the next print. The first is whether any phone-class (sub-4B) model crosses eighty percent on MMLU or GSM8K; threshold-crossing would force the dossier to rotate to harder small-model benchmarks. The second is whether Llama 4's smallest variant ships with first-class ExecuTorch targeting — that decides whether Meta's open-weight mobile story stays competitive with Gemma 4 E-variants. The third is whether the next generation of Snapdragon silicon (X Elite 2, 8 Gen 5) produces a material NPU performance jump that changes what runs. The fourth is whether Apple Foundation Models API adoption by third-party apps produces visible category winners in translation, summarisation, and coding assistance. The fifth, and perhaps the one that resets the picture fastest, is whether the Chinese open-weight community ships phone-class Qwen 3 and DeepSeek next-gen small entries that compete on reasoning benchmarks at sub-2B size.
+      </p>
+
+    </div>
+
+    <section class="watch" aria-label="What to watch in 2026-Q3">
+      <header class="watch-head">
+        <div class="title-row">
+          <h2>What to watch</h2>
+          <span class="sub">Signals tracked into 2026-Q3 and beyond.</span>
+        </div>
+        <span class="period-pill">2026-Q3+</span>
+      </header>
+
+      <ol class="watch-list">
+        <li class="watch-item">
+          <span class="num">1</span>
+          <div class="content">
+            <div class="claim">A phone-class (sub-4B) model crosses 80% on MMLU or GSM8K.</div>
+            <div class="detail">Threshold-crossing triggers <strong>benchmark rotation</strong> in the methodology. Gemma 4 E-variants are the leading candidate; Phi and Qwen would also qualify.</div>
+          </div>
+          <div class="status">
+            <span class="status-pill tracking">Tracking</span>
+            <span class="date">By H2 2026</span>
+          </div>
+        </li>
+
+        <li class="watch-item">
+          <span class="num">2</span>
+          <div class="content">
+            <div class="claim">Llama 4's smallest variant ships with first-class ExecuTorch targeting.</div>
+            <div class="detail">Decides whether Meta's open-weight <strong>mobile story stays competitive</strong> with Gemma 4 at phone scale. Silence would concede the phone-class open-weight lead to Google.</div>
+          </div>
+          <div class="status">
+            <span class="status-pill open">Open</span>
+            <span class="date">H2 2026</span>
+          </div>
+        </li>
+
+        <li class="watch-item">
+          <span class="num">3</span>
+          <div class="content">
+            <div class="claim">Qualcomm Snapdragon X Elite 2 (or 8 Gen 5) delivers a material NPU performance jump.</div>
+            <div class="detail">Silicon cadence is the exogenous force that <strong>resets the tokens/sec ceiling</strong>. A flat generation narrows the platform-integrated advantage; a sharp one widens it.</div>
+          </div>
+          <div class="status">
+            <span class="status-pill open">Open</span>
+            <span class="date">H2 2026 / 2027</span>
+          </div>
+        </li>
+
+        <li class="watch-item">
+          <span class="num">4</span>
+          <div class="content">
+            <div class="claim">Apple Foundation Models API adoption produces visible category winners.</div>
+            <div class="detail">Translation, summarisation, and coding assistance are the obvious candidates. <strong>Breakthrough third-party apps</strong> would validate the platform-integrated bet; absence would read as developer hesitation.</div>
+          </div>
+          <div class="status">
+            <span class="status-pill tracking">Tracking</span>
+            <span class="date">H2 2026</span>
+          </div>
+        </li>
+
+        <li class="watch-item">
+          <span class="num">5</span>
+          <div class="content">
+            <div class="claim">Chinese open-weight community ships phone-class Qwen 3 and DeepSeek next-gen small.</div>
+            <div class="detail">A phone-class entry competing on reasoning benchmarks at sub-2B size <strong>redraws the portable open-weight pole</strong>. Timing is the question, not whether.</div>
+          </div>
+          <div class="status">
+            <span class="status-pill open">Open</span>
+            <span class="date">H2 2026</span>
+          </div>
+        </li>
+      </ol>
+
+      <footer class="watch-foot">
+        <div class="left">
+          <span>Source: <code>on-device-ai-watcher</code></span>
+          <span>·</span>
+          <span>5 signals · next check-in <strong>2026-Q3</strong></span>
+        </div>
+        <a href="https://triadflow.github.io/living-doc-compositor/on-device-ai-watcher.html">View living doc →</a>
+      </footer>
+    </section>
+
+    <div class="prose">
+      <p>
+        The capability-per-phone curve has been quiet for a long time. It is not quiet now. What is worth paying attention to is not the specific scores at specific sizes — those will keep rising. It is that three poles are already competing for different segments of a market that did not exist at this scale twelve months ago.
+      </p>
+    </div>
+
+    <section class="endnotes" aria-label="Notes">
+      <h2>Notes</h2>
+      <ol>
+        <li id="fn1"><span>Omar Sanseviero (Google DeepMind), AI Engineer conference, April 2026. Methodology in force for this dossier: four device tiers (flagship phone, mid-range phone, tablet/laptop, embedded) with named reference devices (iPhone 15 Pro, Pixel 9, MacBook Air M3); three model-size axes (sub-2B, 2–8B, 8B+); three benchmarks at size (MMLU, GSM8K, HumanEval) with noise caveats. Quarterly cadence.</span></li>
+        <li id="fn2"><span>Trajectory from lab-published model cards and Hugging Face leaderboard aggregators, early 2025 through April 2026. Small-model scores carry high format sensitivity — the same model can swing ten points on prompt format alone — so the 60% → 75% range is directional, not an audited number. The direction, not the decimal, is the thing.</span></li>
+        <li id="fn3"><span>Gemma 4 E2B has roughly 4B parameters total but only loads 2B into GPU memory; the per-layer embeddings can sit on disk via llama.cpp's --override-tensor flag. This is a phone-shaped design decision, not a cloud-shaped one: it accepts unified-memory constraints and trades some latency for effective capability at the phone size.</span></li>
+        <li id="fn4"><span>Apple Foundation Models API: developer-accessible on Apple Silicon iOS and macOS devices, backed by a ~3B on-device model plus Private Cloud Compute as the hybrid escape valve. Gated to Apple Silicon — not portable.</span></li>
+        <li id="fn5"><span>AICore present on Pixel 8+, Pixel 9, Pixel 10, Samsung S24, Samsung S25. Gemini Nano 2 (~3.25B class) is the default model behind it. Qualcomm Snapdragon silicon underneath — the same substrate that powers Windows Copilot+ PCs.</span></li>
+        <li id="fn6"><span>Omar Sanseviero, AI Engineer conference, April 2026. A useful read because it comes from inside Google — a lab that is simultaneously shipping Gemini (closed-frontier), Gemini Nano (closed platform-integrated on-device), and Gemma 4 (open-weight on-device). Google is the only lab running all three tiers; the quote is a disarmingly honest summary of where each tier currently belongs.</span></li>
+        <li id="fn7"><span>Reported community benchmarks on flagship phones (iPhone 15 Pro, Pixel 9 Pro): roughly 20–40 tok/s at sub-2B quantised, 8–15 tok/s at 2–4B quantised. Cold-start to first token: ~500ms–1.5s depending on model size and runtime warmup. Platform-integrated stacks keep a structural TTFT advantage via OS-level warm-state preservation.</span></li>
+        <li id="fn8"><span>The top of GPQA Diamond (~87%) is held by Claude Opus 4.7 at ~75B+ parameters — see the Inference Economics Watcher dossier for the hosted-inference picture. Phone memory budgets in 2026 comfortably accommodate 4B models at 4-bit quantisation; 8B is laptop-territory; 31B dense is Gemma 4's largest and explicitly a laptop model per Google's own framing.</span></li>
+      </ol>
+    </section>
+
+    <section class="article-end">
+      <div class="signoff">
+        <div class="avatar">RL</div>
+        <div>
+          <strong>Rene Luijk</strong> · Triadflow<br/>
+          Snapshot of an ongoing investigation. <em><a href="https://triadflow.github.io/living-doc-compositor/on-device-ai-watcher.html" style="color:var(--r-accent);border-bottom:1px solid color-mix(in srgb,var(--r-accent) 35%,transparent)">The living doc keeps moving.</a></em>
+        </div>
+      </div>
+    </section>
+
+    <section class="related">
+      <span class="eyebrow">Related dossiers</span>
+      <div class="related-grid">
+        <a class="related-card" href="../inference-economics-watcher/2026-H1.html">
+          <span class="cat">Monitoring · Economics</span>
+          <h3>Eight points of capability, 250× the cost.</h3>
+          <p>The hosted-inference side of the tier question. What it costs per million tokens when the workload doesn't fit on a phone — and where the 8-point capability gap lives.</p>
+          <div class="meta">Apr 21, 2026 · 7 min</div>
+        </a>
+        <a class="related-card" href="../ai-labs-watcher/2026-H1.html">
+          <span class="cat">Monitoring · Strategy</span>
+          <h3>Half a trillion in capex, six labs, a consolidation already priced in.</h3>
+          <p>The labs building the models behind every tier — including the three running on-device (Google with dual-tier, Apple, and the open-weight community).</p>
+          <div class="meta">Apr 20, 2026 · 7 min</div>
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <aside class="rail" id="rail">
+    <div class="note" data-fn="1">
+      <span class="num">NOTE 1</span>
+      Omar Sanseviero (Google DeepMind), <strong>AI Engineer April 2026</strong>. Methodology: four device tiers, three size axes, three benchmarks at size. Reference devices: iPhone 15 Pro, Pixel 9, MacBook Air M3.
+    </div>
+    <div class="note" data-fn="2">
+      <span class="num">NOTE 2</span>
+      Phone-class MMLU trajectory from lab-published model cards and HF leaderboards: <strong>~60% early 2025 → ~70–75% April 2026</strong>. Format-sensitive — the direction, not the decimal, is the point.
+    </div>
+    <div class="note" data-fn="3">
+      <span class="num">NOTE 3</span>
+      Gemma 4 <strong>Per-Layer Embeddings</strong>: 2B params on GPU, rest on disk via <code>--override-tensor</code>. Phone-shaped design decision — accepts unified-memory constraints and trades latency for effective capability.
+    </div>
+    <div class="note" data-fn="4">
+      <span class="num">NOTE 4</span>
+      Apple <strong>Foundation Models API</strong>: developer-accessible via iOS 19, backed by a ~3B on-device model + Private Cloud Compute hybrid. Apple-Silicon-locked.
+    </div>
+    <div class="note" data-fn="5">
+      <span class="num">NOTE 5</span>
+      <strong>Android AICore</strong> on Pixel 8+, Pixel 9/10, Samsung S24/S25. Gemini Nano 2 default. Qualcomm Snapdragon substrate — shared with Windows Copilot+ PCs.
+    </div>
+    <div class="note" data-fn="6">
+      <span class="num">NOTE 6</span>
+      Sanseviero speaking from <strong>inside Google</strong> — a lab running closed-frontier (Gemini) + closed platform-integrated (Nano) + open-weight (Gemma 4). A summary of where each tier currently belongs.
+    </div>
+    <div class="note" data-fn="7">
+      <span class="num">NOTE 7</span>
+      Flagship-phone tokens/sec: <strong>~20–40 tok/s sub-2B quantised, ~8–15 tok/s at 2–4B</strong>. Cold-start ~500ms–1.5s. Platform-integrated stacks hold a structural TTFT advantage via OS warm-state preservation.
+    </div>
+    <div class="note" data-fn="8">
+      <span class="num">NOTE 8</span>
+      GPQA Diamond frontier (~87%) is held by <strong>Opus 4.7 at 75B+ parameters</strong> — no phone runs that this year. 4B at 4-bit fits a phone; 8B is laptop; 31B dense is Gemma 4's top and explicitly laptop-only per Google.
+    </div>
+  </aside>
+
+</article>
+
+<script src="../assets/dossier.js"></script>
+</body>
+</html>

@@ -91,7 +91,10 @@ for (let i = matches.length - 1; i >= 0; i--) {
   }
   const indent = closeMatch[1];
   const fieldIndent = indent + '  ';
-  const next = cleaned.replace(closeRe, `,\n${fieldIndent}drift: ${drift}\n${indent}}`);
+  // Only prepend a comma if the preceding non-whitespace text isn't already one.
+  const beforeClose = cleaned.slice(0, closeMatch.index).trimEnd();
+  const needsComma = !beforeClose.endsWith(',') && !beforeClose.endsWith('{');
+  const next = cleaned.replace(closeRe, `${needsComma ? ',' : ''}\n${fieldIndent}drift: ${drift}\n${indent}}`);
   out = out.slice(0, index) + next + out.slice(index + length);
   console.error(`  ${href}: drift = ${drift}`);
   changes++;
