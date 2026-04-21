@@ -105,6 +105,22 @@ For each MED+ doc, make targeted edits:
 
 After edits, run `node scripts/render-living-doc.mjs <path.json>` on each touched doc.
 
+### 4b. Refresh the change-log and drift signals
+
+Every integrate-source run that modifies a living-doc JSON becomes a commit that lands in the paired dossier's change-log. After committing the JSON edits (or before, if the integrate-source commit is the same one that ships the changes), run:
+
+```
+# regenerate the "Since this piece was published" aside on every dossier
+node scripts/refresh-dossier-strip.mjs --all
+
+# regenerate drift badges on the dossier index
+node scripts/refresh-dossier-index.mjs
+```
+
+Both scripts read the `<meta name="dossier-source-commit">` stamped on each dossier piece, run `scripts/living-doc-changelog.mjs` from that commit to HEAD, and write results in place. They are idempotent. Do **not** hand-edit the since-publish aside — the script is the source of truth.
+
+If a living-doc JSON is touched but the paired dossier hasn't been republished for this period yet, the change-log simply grows. That is the point: the dossier reader sees the substrate accumulating changes since publication. When the dossier is re-published, the `/dossier` skill will stamp a new `dossier-source-commit`, which resets the anchor.
+
 ### 5. Update matching dossier period pieces (thesis-affecting sources only)
 
 A dossier period piece at `docs/dossier/<doc-id-slug>/<period>.html` needs a touch-up when:
@@ -140,6 +156,7 @@ Report to the user:
 - Don't rewrite a dossier's thesis from a single source. Multiple independent sources, or a user's explicit decision, are the triggers for a thesis-level rewrite.
 - Don't commit / push without an explicit instruction.
 - Don't delete source citations on existing cards when adding new ones — the citation-feed accumulates.
+- Don't hand-edit the "Since this piece was published" aside on a dossier — `scripts/refresh-dossier-strip.mjs` is the source of truth. Same rule for the drift badge on the dossier index (`scripts/refresh-dossier-index.mjs`).
 
 ## Edge cases
 

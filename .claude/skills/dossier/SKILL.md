@@ -85,8 +85,11 @@ Preserve these `<meta>` tags for the index builder:
 <meta name="dossier-living-doc" content="https://triadflow.github.io/living-doc-compositor/<slug>.html">
 <meta name="dossier-living-doc-id" content="doc:...">
 <meta name="dossier-published-at" content="YYYY-MM-DD">
+<meta name="dossier-source-commit" content="<short-sha>">
 <meta name="dossier-summary" content="One-sentence summary for the index card.">
 ```
+
+**`dossier-source-commit` matters for the change-log.** Set it to the short SHA of the commit the living-doc JSON was in when this piece was written. Get it via `git log -1 --format=%h -- docs/<slug>.json`. This anchor lets `scripts/living-doc-changelog.mjs` compute a card-level diff between publish time and HEAD, surfaced both inside the living doc (as a `change-log` convergence-type section) and on this piece as a "Since this piece was published" strip. Without the stamp, the change-log can't anchor — it will fall back to the commit that touched the HTML, which is usually wrong.
 
 **Link discipline.** Every link to a living doc, to an external source, or to another dossier piece should be absolute. The piece is meant to travel. The only permitted relative links are the three that travel as one bundle with the piece: `../index.html` (back to dossier index), `../<sibling-slug>/<period>.html` (related dossier card), and the two `../assets/*.css` / `../assets/dossier.js` stylesheets.
 

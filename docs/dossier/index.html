@@ -133,6 +133,24 @@
   .entry .read .arrow{display:inline-block;margin-left:4px;transition:transform .15s}
   .entry:hover .read{color:var(--ld-accent)}
   .entry:hover .read .arrow{transform:translateX(3px)}
+  .entry .drift-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:11.5px;font-weight:600;
+    color:var(--ld-accent);
+    background:var(--ld-accent-tint);
+    padding:3px 10px;border-radius:var(--ld-radius-pill);
+    margin-top:4px;
+    font-variant-numeric:tabular-nums;
+  }
+  .entry .drift-badge .drift-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--ld-accent);
+    animation:drift-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes drift-pulse{
+    0%,100%{opacity:1}
+    50%{opacity:.35}
+  }
 
   .foot{
     padding:48px 0 72px;color:var(--ld-muted);
@@ -201,7 +219,8 @@ const DOSSIERS = [
     year: "2026",
     read: "7 min",
     livingDoc: "https://triadflow.github.io/living-doc-compositor/inference-economics-watcher.html",
-    href: "inference-economics-watcher/2026-H1.html"
+    href: "inference-economics-watcher/2026-H1.html",,
+    drift: 4
   },
   {
     slug: "ai-eval-ecosystem-2026-H1",
@@ -213,7 +232,8 @@ const DOSSIERS = [
     year: "2026",
     read: "5 min",
     livingDoc: "https://triadflow.github.io/living-doc-compositor/ai-eval-ecosystem.html",
-    href: "ai-eval-ecosystem/2026-H1.html"
+    href: "ai-eval-ecosystem/2026-H1.html",
+    drift: 0
   },
   {
     slug: "ai-datacenter-buildout-2026-H1",
@@ -225,7 +245,8 @@ const DOSSIERS = [
     year: "2026",
     read: "6 min",
     livingDoc: "https://triadflow.github.io/living-doc-compositor/ai-datacenter-buildout.html",
-    href: "ai-datacenter-buildout/2026-H1.html"
+    href: "ai-datacenter-buildout/2026-H1.html",
+    drift: 1
   },
   {
     slug: "ai-labs-watcher-2026-H1",
@@ -237,7 +258,8 @@ const DOSSIERS = [
     year: "2026",
     read: "7 min",
     livingDoc: "https://triadflow.github.io/living-doc-compositor/ai-labs-watcher.html",
-    href: "ai-labs-watcher/2026-H1.html"
+    href: "ai-labs-watcher/2026-H1.html",
+    drift: 4
   },
   {
     slug: "ai-labor-monitor-2026-H1",
@@ -249,7 +271,8 @@ const DOSSIERS = [
     year: "2026",
     read: "6 min",
     livingDoc: "https://triadflow.github.io/living-doc-compositor/ai-labor-monitor.html",
-    href: "ai-labor-monitor/2026-H1.html"
+    href: "ai-labor-monitor/2026-H1.html",
+    drift: 0
   },
   {
     slug: "mcp-protocol-monitor-2026-H1",
@@ -261,7 +284,8 @@ const DOSSIERS = [
     year: "2026",
     read: "5 min",
     livingDoc: "https://triadflow.github.io/living-doc-compositor/mcp-protocol-monitor.html",
-    href: "mcp-protocol-monitor/2026-H1.html"
+    href: "mcp-protocol-monitor/2026-H1.html",
+    drift: 0
   }
 ];
 
@@ -310,7 +334,14 @@ function buildChips(){
 function render(){
   const items = activeTag === 'all' ? DOSSIERS : DOSSIERS.filter(d => d.tag === activeTag);
   count.textContent = `${items.length} dossier${items.length === 1 ? '' : 's'}`;
-  list.innerHTML = items.map(d => `
+  list.innerHTML = items.map(d => {
+    const driftBadge = (typeof d.drift === 'number' && d.drift > 0)
+      ? `<span class="drift-badge" title="Card-level changes on the living doc since this piece was published">
+           <span class="drift-dot"></span>
+           ${d.drift} change${d.drift === 1 ? '' : 's'} since publish
+         </span>`
+      : '';
+    return `
     <a class="entry" href="${d.href}">
       <div class="date-col">
         ${d.date.split(', ')[0]}
@@ -320,10 +351,12 @@ function render(){
         <span class="cat">${d.cat}</span>
         <h3 class="entry-title">${d.title}</h3>
         <p class="dek">${d.dek}</p>
+        ${driftBadge}
       </div>
       <div class="read">${d.read}<span class="arrow">→</span></div>
     </a>
-  `).join('');
+  `;
+  }).join('');
 }
 
 buildChips();
