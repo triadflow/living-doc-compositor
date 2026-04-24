@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { readFile, writeFile } from 'node:fs/promises';
-import { execSync } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFileSync, execSync } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncCompositorEmbeds } from './sync-compositor-embeds.mjs';
@@ -13,10 +14,50 @@ const compositorPath = path.join(__dirname, '..', 'docs', 'living-doc-compositor
 
 /* ── Load registry + doc ── */
 
-const docPath = process.argv[2];
+function printUsageAndExit(code = 1) {
+  console.error('Usage: render-living-doc.mjs <doc.json> [--commit] [--message "Commit message"]');
+  process.exit(code);
+}
+
+const argv = process.argv.slice(2);
+let docPath = '';
+let shouldCommit = false;
+let commitMessageOverride = '';
+
+for (let i = 0; i < argv.length; i += 1) {
+  const arg = argv[i];
+  if (!arg) continue;
+  if (arg === '--help' || arg === '-h') {
+    printUsageAndExit(0);
+  }
+  if (arg === '--commit') {
+    shouldCommit = true;
+    continue;
+  }
+  if (arg === '--message' || arg === '--commit-message') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    commitMessageOverride = next;
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith('--')) {
+    console.error(`Unknown option: ${arg}`);
+    printUsageAndExit(1);
+  }
+  if (!docPath) {
+    docPath = arg;
+    continue;
+  }
+  console.error(`Unexpected extra argument: ${arg}`);
+  printUsageAndExit(1);
+}
+
 if (!docPath) {
-  console.error('Usage: render-living-doc.mjs <doc.json>');
-  process.exit(1);
+  printUsageAndExit(1);
 }
 
 const resolvedDocPath = path.resolve(docPath);
@@ -36,6 +77,105 @@ try {
   buildVersion = `v0.1.0-${hash} (${date})`;
 } catch {};
 const htmlPath = resolvedDocPath.replace(/\.json$/, '.html');
+
+function runGit(args, options = {}) {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    ...options,
+  }).trim();
+}
+
+function resolveRepoRootForPath(filePath) {
+  try {
+    return runGit(['-C', path.dirname(filePath), 'rev-parse', '--show-toplevel']);
+  } catch {
+    return '';
+  }
+}
+
+function toRepoPath(repoRoot, absPath) {
+  return path.relative(repoRoot, absPath).split(path.sep).join('/');
+}
+
+async function commitRenderedDoc({
+  repoRoot,
+  resolvedDocPath,
+  htmlPath,
+  title,
+  commitMessageOverride,
+}) {
+  const relDoc = toRepoPath(repoRoot, resolvedDocPath);
+  const relHtml = toRepoPath(repoRoot, htmlPath);
+  const targetPaths = [relDoc, relHtml];
+  const status = runGit(['-C', repoRoot, 'status', '--porcelain', '--', ...targetPaths]);
+  if (!status) {
+    console.log(`No commit needed for ${relDoc} and ${relHtml}`);
+    return null;
+  }
+
+  let headRef = '';
+  try {
+    headRef = runGit(['-C', repoRoot, 'symbolic-ref', '-q', 'HEAD']);
+  } catch {
+    throw new Error(`Cannot --commit in detached HEAD for repo ${repoRoot}`);
+  }
+
+  let parent = '';
+  try {
+    parent = runGit(['-C', repoRoot, 'rev-parse', '--verify', 'HEAD']);
+  } catch {
+    parent = '';
+  }
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'living-doc-commit-'));
+  const tempIndex = path.join(tempDir, 'index');
+  const gitEnv = { ...process.env, GIT_INDEX_FILE: tempIndex };
+
+  try {
+    if (parent) {
+      runGit(['-C', repoRoot, 'read-tree', 'HEAD'], { env: gitEnv });
+    }
+    try {
+      runGit(['-C', repoRoot, 'add', '--', ...targetPaths], { env: gitEnv });
+    } catch (error) {
+      const stderr = String(error?.stderr ?? error?.message ?? '').trim();
+      throw new Error(`Failed to stage rendered doc paths for commit: ${stderr || targetPaths.join(', ')}`);
+    }
+
+    let hasDiff = true;
+    if (parent) {
+      hasDiff = false;
+      try {
+        runGit(['-C', repoRoot, 'diff', '--cached', '--quiet', 'HEAD', '--', ...targetPaths], { env: gitEnv });
+      } catch (error) {
+        if (error?.status === 1) {
+          hasDiff = true;
+        } else {
+          throw error;
+        }
+      }
+    }
+    if (!hasDiff) {
+      console.log(`No commit needed for ${relDoc} and ${relHtml}`);
+      return null;
+    }
+
+    const tree = runGit(['-C', repoRoot, 'write-tree'], { env: gitEnv });
+    const message = commitMessageOverride || `Update living doc: ${title || path.basename(relDoc, '.json')}`;
+    const commitTreeArgs = ['-C', repoRoot, 'commit-tree', tree];
+    if (parent) commitTreeArgs.push('-p', parent);
+    const commitSha = runGit(commitTreeArgs, {
+      env: gitEnv,
+      input: `${message}\n`,
+    });
+    const updateRefArgs = ['-C', repoRoot, 'update-ref', headRef, commitSha];
+    if (parent) updateRefArgs.push(parent);
+    runGit(updateRefArgs);
+    console.log(`Committed ${relDoc} and ${relHtml} in ${path.basename(repoRoot)} as ${commitSha.slice(0, 7)}`);
+    return commitSha;
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
 
 /* ── Helpers ── */
 
@@ -185,7 +325,22 @@ function describeSourceCoverage(syncHints) {
   return pairs.map(([key, value]) => `${key}: ${value}`).join(' · ');
 }
 
+function renderSnapshotTeam(team) {
+  if (!Array.isArray(team) || team.length === 0) return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px">${team
+    .map((member) => `<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#eef2ff;border:1px solid #c7d2fe;color:#312e81;font-size:12px;font-weight:600">${escapeHtml(String(member?.login ?? '').trim())}</span>`)
+    .filter(Boolean)
+    .join('')}</div>`;
+}
+
 function buildSnapshotMeta(doc) {
+  const team = Array.isArray(doc?.repoState?.collaborators)
+    ? doc.repoState.collaborators
+        .map((entry) => ({
+          login: String(entry?.login ?? '').trim(),
+        }))
+        .filter((entry) => entry.login)
+    : [];
   return {
     docId: readDocField(doc, 'docId', ['id']) || `doc:${slugifyValue(path.basename(resolvedDocPath, path.extname(resolvedDocPath))) || 'living-doc'}`,
     title: String(doc?.title ?? '').trim() || 'Untitled Living Doc',
@@ -193,10 +348,20 @@ function buildSnapshotMeta(doc) {
     owner: readDocField(doc, 'owner', ['owningTeam']),
     generatedAt: snapshotGeneratedAt,
     version: readDocField(doc, 'version', ['revision']),
+    owningRepoUrl: readDocField(doc, 'owningRepoUrl', ['repoUrl', 'locationUrl']),
     canonicalOrigin: readDocField(doc, 'canonicalOrigin', ['canonicalUrl']) || defaultCanonicalOrigin,
     derivedFrom: readDocField(doc, 'derivedFrom', ['derivedFromSnapshot', 'derivedFromVersion']),
     sourceCoverage: readDocField(doc, 'sourceCoverage') || describeSourceCoverage(doc?.syncHints),
+    team,
   };
+}
+
+function normalizeUpdateSource(doc) {
+  const raw = doc?.updateSource;
+  if (!raw || typeof raw !== 'object') return null;
+  const manifestUrl = String(raw.manifestUrl ?? '').trim();
+  if (!manifestUrl) return null;
+  return { manifestUrl };
 }
 
 function renderPeriodStrip(periods) {
@@ -229,6 +394,7 @@ function renderPeriodBadge(period) {
 function renderSnapshotPanel(meta) {
   const renderValue = (value, options = {}) => {
     if (!value) return '<span class="snapshot-missing">Unknown</span>';
+    if (options.html) return value;
     if (options.time) {
       return timestampHtml(value, {
         relativeToSnapshot: options.relativeToSnapshot ?? !options.snapshotAnchor,
@@ -261,6 +427,8 @@ function renderSnapshotPanel(meta) {
         ${item('Owner / Team', meta.owner)}
         ${item('Generated', meta.generatedAt, { time: true, relativeToSnapshot: false, snapshotAnchor: true })}
         ${item('Version / Revision', meta.version, { code: true })}
+        ${item('Location URL', meta.owningRepoUrl)}
+        ${item('Team', renderSnapshotTeam(meta.team), { wide: true, html: true })}
         ${item('Canonical Origin', meta.canonicalOrigin, { code: true })}
         ${item('Derived From', meta.derivedFrom, { code: true })}
         ${item('Source Coverage', meta.sourceCoverage, { wide: true })}
@@ -906,6 +1074,7 @@ const viewSwitchHtml = boardDimensions.length > 0
           </div>`
   : '';
 const snapshotMeta = buildSnapshotMeta(data);
+const updateSource = normalizeUpdateSource(data);
 const metaJson = JSON.stringify(data, null, 2).replace(/<\/script/gi, '<\\/script');
 const registryJson = JSON.stringify(registry, null, 2).replace(/<\/script/gi, '<\\/script');
 const i18nJson = JSON.stringify(i18n, null, 2).replace(/<\/script/gi, '<\\/script');
@@ -1657,6 +1826,114 @@ ${data.liveReload ? `
       window.addEventListener('beforeunload', () => clearInterval(timer));
     })();
     </script>` : ''}
+${updateSource ? `
+    <!-- ── Latest artifact refresh (opt-in via updateSource.manifestUrl) ──
+         Checks a remote manifest for a newer committed version of this doc.
+         On plain file:// docs, refresh means "open the latest artifact" rather
+         than pretending the local file can be overwritten in place. -->
+    <div id="ld-update-banner" role="status" aria-live="polite" hidden>
+      <span class="ld-update-dot" aria-hidden="true"></span>
+      <span>
+        Update available
+        <span class="ld-update-version" data-update-version></span>
+      </span>
+      <button type="button" class="ld-update-action" data-update-action>Refresh</button>
+    </div>
+    <style>
+      #ld-update-banner {
+        position: fixed; left: 20px; bottom: 20px; z-index: 9998;
+        display: inline-flex; align-items: center; gap: 12px;
+        padding: 10px 14px; border-radius: 999px;
+        background: #0f172a; color: #fff;
+        font: 600 13px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.20);
+      }
+      #ld-update-banner[hidden] { display: none; }
+      #ld-update-banner .ld-update-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #fbbf24;
+        animation: ld-update-pulse 2s infinite;
+      }
+      #ld-update-banner .ld-update-version {
+        color: rgba(255, 255, 255, 0.82);
+        margin-left: 4px;
+      }
+      #ld-update-banner .ld-update-action {
+        appearance: none;
+        border: none;
+        border-radius: 999px;
+        padding: 7px 12px;
+        background: #f8fafc;
+        color: #0f172a;
+        font: inherit;
+        cursor: pointer;
+      }
+      #ld-update-banner .ld-update-action:hover { background: #e2e8f0; }
+      @keyframes ld-update-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55); }
+        70%  { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+      }
+    </style>
+    <script>
+    (() => {
+      const banner = document.getElementById('ld-update-banner');
+      const action = banner?.querySelector('[data-update-action]');
+      const versionLabel = banner?.querySelector('[data-update-version]');
+      if (!banner || !action || !versionLabel) return;
+
+      let latest = null;
+
+      function normalizeManifestEntry(payload, docId) {
+        if (!payload || typeof payload !== 'object') return null;
+        if (payload.docs && docId && typeof payload.docs === 'object') {
+          const nested = payload.docs[docId];
+          return nested && typeof nested === 'object' ? nested : null;
+        }
+        if (!payload.docId || !docId || payload.docId === docId) return payload;
+        return null;
+      }
+
+      action.addEventListener('click', () => {
+        if (!latest?.htmlUrl) return;
+        location.href = latest.htmlUrl;
+      });
+
+      async function check() {
+        let meta;
+        try {
+          meta = JSON.parse(document.getElementById('doc-meta').textContent);
+        } catch (e) { return; }
+
+        const manifestUrl = String(meta?.updateSource?.manifestUrl ?? '').trim();
+        if (!manifestUrl) return;
+
+        const currentDocId = String(meta.docId ?? '').trim();
+        const currentVersion = String(meta.version ?? meta.metaFingerprint ?? '').trim();
+
+        try {
+          const response = await fetch(manifestUrl, { cache: 'no-store' });
+          if (!response.ok) return;
+          const payload = await response.json();
+          const entry = normalizeManifestEntry(payload, currentDocId);
+          if (!entry) return;
+
+          const nextVersion = String(entry.version ?? '').trim();
+          const htmlUrl = String(entry.htmlUrl ?? '').trim();
+          if (!nextVersion || !htmlUrl || nextVersion === currentVersion) return;
+
+          latest = { version: nextVersion, htmlUrl };
+          versionLabel.textContent = '(' + (currentVersion || 'current') + ' → ' + nextVersion + ')';
+          banner.hidden = false;
+        } catch (e) { /* remote manifest unavailable — silent */ }
+      }
+
+      check();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+    })();
+    </script>` : ''}
   </body>
 </html>
 `;
@@ -1665,3 +1942,17 @@ await writeFile(htmlPath, html.replace(/[ \t]+$/gm, ''));
 const relDoc = path.relative(process.cwd(), resolvedDocPath);
 const relHtml = path.relative(process.cwd(), htmlPath);
 console.log(`Wrote ${relHtml} from ${relDoc}`);
+
+if (shouldCommit) {
+  const repoRoot = resolveRepoRootForPath(resolvedDocPath);
+  if (!repoRoot) {
+    throw new Error(`Cannot --commit because ${resolvedDocPath} is not inside a git repository.`);
+  }
+  await commitRenderedDoc({
+    repoRoot,
+    resolvedDocPath,
+    htmlPath,
+    title: String(data?.title ?? '').trim(),
+    commitMessageOverride: commitMessageOverride.trim(),
+  });
+}
