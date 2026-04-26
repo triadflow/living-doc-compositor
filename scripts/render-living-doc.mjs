@@ -11,11 +11,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
 const i18nPath = path.join(__dirname, 'living-doc-i18n.json');
 const compositorPath = path.join(__dirname, '..', 'docs', 'living-doc-compositor.html');
+const aiRenderGraphRuntimePath = path.join(__dirname, '..', '..', 'ai-render-graph', 'dist', 'browser', 'ai-render-graph.file.js');
 
 /* ── Load registry + doc ── */
 
 function printUsageAndExit(code = 1) {
-  console.error('Usage: render-living-doc.mjs <doc.json> [--commit] [--message "Commit message"]');
+  console.error('Usage: render-living-doc.mjs <doc.json> [--ai-enhanced] [--ai-endpoint URL] [--ai-model NAME] [--ai-timeout-ms N] [--commit] [--message "Commit message"]');
   process.exit(code);
 }
 
@@ -23,6 +24,10 @@ const argv = process.argv.slice(2);
 let docPath = '';
 let shouldCommit = false;
 let commitMessageOverride = '';
+let aiEnhancedFlag = false;
+let aiEndpointOverride = '';
+let aiModelOverride = '';
+let aiTimeoutMsOverride = '';
 
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
@@ -34,6 +39,10 @@ for (let i = 0; i < argv.length; i += 1) {
     shouldCommit = true;
     continue;
   }
+  if (arg === '--ai-enhanced') {
+    aiEnhancedFlag = true;
+    continue;
+  }
   if (arg === '--message' || arg === '--commit-message') {
     const next = argv[i + 1];
     if (!next) {
@@ -41,6 +50,36 @@ for (let i = 0; i < argv.length; i += 1) {
       printUsageAndExit(1);
     }
     commitMessageOverride = next;
+    i += 1;
+    continue;
+  }
+  if (arg === '--ai-endpoint') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    aiEndpointOverride = next;
+    i += 1;
+    continue;
+  }
+  if (arg === '--ai-model') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    aiModelOverride = next;
+    i += 1;
+    continue;
+  }
+  if (arg === '--ai-timeout-ms') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    aiTimeoutMsOverride = next;
     i += 1;
     continue;
   }
@@ -68,6 +107,19 @@ const compositorHtml = await readFile(compositorPath, 'utf8');
 const data = JSON.parse(await readFile(resolvedDocPath, 'utf8'));
 const snapshotGeneratedAt = new Date().toISOString();
 const defaultCanonicalOrigin = path.relative(process.cwd(), resolvedDocPath) || resolvedDocPath;
+const docAiEnhancement = data.aiEnhancement && typeof data.aiEnhancement === 'object' ? data.aiEnhancement : {};
+const aiEnhancement = {
+  enabled: aiEnhancedFlag || docAiEnhancement.enabled === true,
+  endpoint: String(aiEndpointOverride || docAiEnhancement.endpoint || '').trim(),
+  model: String(aiModelOverride || docAiEnhancement.model || '').trim(),
+  timeoutMs: (() => {
+    const raw = aiTimeoutMsOverride || docAiEnhancement.timeoutMs;
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? value : 45000;
+  })(),
+  autoRun: docAiEnhancement.autoRun !== false,
+  useJsonResponseFormat: docAiEnhancement.useJsonResponseFormat === true,
+};
 
 // Version from git
 let buildVersion = 'dev';
@@ -301,6 +353,704 @@ function renderCallout(callout) {
     </section>`;
 }
 
+/* ── AI-enhanced export helpers ── */
+
+function safeJsonForScript(value) {
+  return JSON.stringify(value, null, 2).replace(/<\/script/gi, '<\\/script');
+}
+
+function safeInlineScriptSource(value) {
+  return String(value ?? '').replace(/<\/script/gi, '<\\/script');
+}
+
+function normalizeAiNotes(notes) {
+  if (!Array.isArray(notes)) return [];
+  return notes
+    .map((note) => {
+      const normalized = normalizeNote(note);
+      if (!normalized) return '';
+      return normalized.title ? `${normalized.title}: ${normalized.text}` : normalized.text;
+    })
+    .filter(Boolean);
+}
+
+function normalizeAiTickets(tickets) {
+  if (!Array.isArray(tickets)) return [];
+  return tickets
+    .map((ticket) => {
+      if (!ticket || typeof ticket !== 'object') return String(ticket ?? '').trim();
+      return {
+        issueNumber: String(ticket.issueNumber ?? '').trim(),
+        issueUrl: String(ticket.issueUrl ?? '').trim(),
+        title: String(ticket.title ?? '').trim(),
+      };
+    })
+    .filter((ticket) => (typeof ticket === 'string' ? ticket : (ticket.issueNumber || ticket.issueUrl || ticket.title)));
+}
+
+function normalizeInvariantTexts(doc) {
+  if (!Array.isArray(doc?.invariants)) return [];
+  return doc.invariants
+    .map((inv) => {
+      if (typeof inv === 'string') return inv.trim();
+      if (!inv || typeof inv !== 'object') return '';
+      const name = String(inv.name ?? inv.id ?? '').trim();
+      const statement = String(inv.statement ?? inv.description ?? '').trim();
+      if (name && statement) return `${name}: ${statement}`;
+      return statement || name;
+    })
+    .filter(Boolean);
+}
+
+function buildDocRootAiContext(doc) {
+  return {
+    title: String(doc?.title ?? '').trim(),
+    scope: String(doc?.scope ?? '').trim(),
+    objective: String(doc?.objective ?? '').trim(),
+    successCondition: String(doc?.successCondition ?? '').trim(),
+    invariants: normalizeInvariantTexts(doc),
+    updated: String(doc?.updated ?? '').trim(),
+  };
+}
+
+function buildSectionAiContext(section) {
+  const callout = normalizeCallout(section?.callout);
+  return {
+    id: String(section?.id ?? '').trim(),
+    title: String(section?.title ?? '').trim(),
+    convergenceType: String(section?.convergenceType ?? '').trim(),
+    updated: String(section?.updated ?? '').trim(),
+    callout: callout ? {
+      tone: callout.tone,
+      title: callout.title,
+      items: callout.items,
+    } : null,
+  };
+}
+
+function buildTypeAiContext(ct) {
+  return {
+    promptGuidance: ct?.promptGuidance ?? null,
+    sources: ct?.sources ?? [],
+    statusFields: ct?.statusFields ?? [],
+    textFields: ct?.textFields ?? [],
+    detailsFields: ct?.detailsFields ?? [],
+    aiProfiles: ct?.aiProfiles ?? [],
+  };
+}
+
+function buildAiObjectSchema(properties, required = Object.keys(properties)) {
+  return {
+    type: 'object',
+    required,
+    properties,
+  };
+}
+
+function buildAiOutputExample(schema) {
+  if (!schema || typeof schema !== 'object') return '<value>';
+  if (schema.type === 'object') {
+    return Object.fromEntries(
+      Object.entries(schema.properties || {}).map(([key, value]) => [key, buildAiOutputExample(value)]),
+    );
+  }
+  if (schema.type === 'array') {
+    return [buildAiOutputExample(schema.items)];
+  }
+  if (schema.type === 'string' && Array.isArray(schema.enum) && schema.enum.length > 0) {
+    return schema.enum[0];
+  }
+  if (schema.type === 'string') return '<string>';
+  return '<value>';
+}
+
+function buildAiPrompt({
+  convergenceLabel,
+  payload,
+  tasks,
+  rules,
+  outputSchema,
+}) {
+  return [
+    'You are producing a read-only advisory summary for one living-doc section.',
+    '',
+    `Convergence type: ${convergenceLabel}`,
+    `Operating thesis: ${payload.typeContext.promptGuidance?.operatingThesis ?? ''}`,
+    `Keep distinct: ${JSON.stringify(payload.typeContext.promptGuidance?.keepDistinct ?? [])}`,
+    `Avoid: ${JSON.stringify(payload.typeContext.promptGuidance?.avoid ?? [])}`,
+    '',
+    'Use the provided task input JSON as the grounded document context.',
+    'Do not assume access to any source beyond that input.',
+    '',
+    'Task:',
+    ...tasks.map((task, index) => `${index + 1}. ${task}`),
+    '',
+    'Return exactly this JSON shape:',
+    JSON.stringify(buildAiOutputExample(outputSchema), null, 2),
+    '',
+    'Rules:',
+    ...rules.map((rule) => `- ${rule}`),
+    '- Write concise reader-facing copy that can sit inside the living doc without assistant preamble.',
+    '- When evidence is missing, say what is missing from the provided section data instead of guessing.',
+    '- Return JSON only.',
+    '- Include every required key shown in the JSON shape.',
+    '- Do not wrap the result under extra keys like result, output, data, or response.',
+    '- For list fields, return arrays of plain strings only.',
+  ].join('\n');
+}
+
+function normalizeDesignCodeSpecFlowItems(items) {
+  return items.map((item) => ({
+    name: String(item?.name ?? '').trim(),
+    feature: String(item?.feature ?? '').trim(),
+    kind: String(item?.kind ?? '').trim(),
+    status: String(item?.status ?? '').trim(),
+    codeStatus: String(item?.codeStatus ?? '').trim(),
+    updated: String(item?.updated ?? '').trim(),
+    designRefs: Array.isArray(item?.pageIds) ? item.pageIds : [],
+    defaultNodeRefs: Array.isArray(item?.defaultNodeIds) ? item.defaultNodeIds : [],
+    codeRefs: Array.isArray(item?.codeRefs) ? item.codeRefs : [],
+    specRefs: Array.isArray(item?.specRefIds) ? item.specRefIds : [],
+    interactionRefs: Array.isArray(item?.interactionSurfaceIds) ? item.interactionSurfaceIds : [],
+    tickets: normalizeAiTickets(item?.ticketIds),
+    notes: normalizeAiNotes(item?.notes),
+  }));
+}
+
+function normalizeVerificationSurfaceItems(items) {
+  return items.map((item) => ({
+    name: String(item?.name ?? '').trim(),
+    status: String(item?.status ?? '').trim(),
+    priority: String(item?.priority ?? '').trim(),
+    updated: String(item?.updated ?? '').trim(),
+    currentCoverage: String(item?.currentCoverage ?? '').trim(),
+    nextStep: String(item?.nextStep ?? '').trim(),
+    gaps: Array.isArray(item?.gaps) ? item.gaps.map((gap) => String(gap ?? '').trim()).filter(Boolean) : [],
+    flowRefs: Array.isArray(item?.flowIds) ? item.flowIds : [],
+    pageRefs: Array.isArray(item?.pageIds) ? item.pageIds : [],
+    interactionRefs: Array.isArray(item?.interactionSurfaceIds) ? item.interactionSurfaceIds : [],
+    automationRefs: Array.isArray(item?.automationPaths) ? item.automationPaths : [],
+    apiRefs: Array.isArray(item?.apiRefs) ? item.apiRefs : [],
+    tickets: normalizeAiTickets(item?.ticketIds),
+    notes: normalizeAiNotes(item?.notes),
+  }));
+}
+
+function normalizeProofLadderItems(items) {
+  return items.map((item, index) => ({
+    order: index + 1,
+    name: String(item?.name ?? '').trim(),
+    status: String(item?.status ?? '').trim(),
+    updated: String(item?.updated ?? '').trim(),
+    tickets: normalizeAiTickets(item?.ticketIds),
+    notes: normalizeAiNotes(item?.notes),
+  }));
+}
+
+const AI_TYPE_SPECS = {
+  'design-code-spec-flow': {
+    normalizeItems: normalizeDesignCodeSpecFlowItems,
+    profiles: {
+      'surface-brief': {
+        resultAliases: {
+          headline: ['title', 'brief', 'overviewTitle', 'surfaceBrief', 'surfaceTitle'],
+          summary: ['overview', 'briefSummary', 'surfaceSummary', 'summaryText'],
+          currentFocus: ['focus', 'focusPoints', 'priorities', 'items', 'checklist'],
+        },
+        fields: [
+          { field: 'headline', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'Surface brief will appear here when local AI runs.' },
+          { field: 'summary', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'This advisory stays grounded in the current section data and convergence-type semantics.' },
+          { field: 'currentFocus', render: 'list', tag: 'ul', className: 'section-ai-list', fallback: ['Current focus items will appear here.'] },
+        ],
+        outputSchema: buildAiObjectSchema({
+          headline: { type: 'string' },
+          summary: { type: 'string' },
+          currentFocus: { type: 'array', items: { type: 'string' } },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Design-Code-Spec Flow',
+            payload,
+            tasks: [
+              'Summarize the current surface in plain language.',
+              'Identify the single strongest current alignment risk.',
+              'List the two or three most important current focus points.',
+            ],
+            rules: [
+              'Ground every claim in the provided section data only.',
+              'Do not invent missing design, code, or spec facts.',
+              'Do not reduce the section to implementation status only.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+      'alignment-risk-note': {
+        resultAliases: {
+          surface: ['riskSurface', 'highestRiskSurface', 'surfaceName', 'focus', 'targetSurface'],
+          reason: ['why', 'rationale', 'risk', 'riskReason', 'explanation'],
+        },
+        fields: [
+          { field: 'surface', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'The highest-risk surface will appear here.' },
+          { field: 'reason', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'The reason this alignment risk matters will appear here.' },
+        ],
+        outputSchema: buildAiObjectSchema({
+          surface: { type: 'string' },
+          reason: { type: 'string' },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Design-Code-Spec Flow',
+            payload,
+            tasks: [
+              'Identify the single strongest current alignment risk in this section.',
+              'Name the surface card where it appears.',
+              'Explain why that risk matters to the shipped surface.',
+            ],
+            rules: [
+              'Ground every claim in the provided section data only.',
+              'Prefer the most concrete design-code-spec drift rather than generic delivery risk.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+      'review-checklist': {
+        resultAliases: {
+          items: ['checklist', 'reviewChecklist', 'steps', 'checks', 'focusPoints', 'list'],
+        },
+        fields: [
+          { field: 'items', render: 'list', tag: 'ul', className: 'section-ai-list', fallback: ['A local review checklist will appear here.'] },
+        ],
+        outputSchema: buildAiObjectSchema({
+          items: { type: 'array', items: { type: 'string' } },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Design-Code-Spec Flow',
+            payload,
+            tasks: [
+              'Generate a short local review checklist for a human walking this surface before share or handoff.',
+              'Keep the checklist concrete and tied to the current section data.',
+            ],
+            rules: [
+              'Ground every checklist item in the provided section data only.',
+              'Return three to five checklist items.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+    },
+  },
+  'verification-surface': {
+    normalizeItems: normalizeVerificationSurfaceItems,
+    profiles: {
+      'verification-brief': {
+        resultAliases: {
+          headline: ['title', 'brief', 'readinessHeadline', 'summaryTitle'],
+          readinessSummary: ['summary', 'briefSummary', 'readiness', 'overview'],
+        },
+        fields: [
+          { field: 'headline', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'Verification brief will appear here when local AI runs.' },
+          { field: 'readinessSummary', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'The summary should describe current readiness from explicit evidence only.' },
+        ],
+        outputSchema: buildAiObjectSchema({
+          headline: { type: 'string' },
+          readinessSummary: { type: 'string' },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Verification Surface',
+            payload,
+            tasks: [
+              'Summarize the current readiness posture from actual evidence.',
+              'Make the difference between current coverage and missing evidence explicit.',
+            ],
+            rules: [
+              'Ground every statement in the provided section data only.',
+              'Do not treat planned work as completed evidence.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+      'weakest-signal-note': {
+        resultAliases: {
+          probe: ['signal', 'weakestSignal', 'surface', 'targetProbe', 'focus'],
+          reason: ['why', 'rationale', 'weaknessReason', 'explanation'],
+          missingEvidenceType: ['evidenceType', 'gapType', 'missingType'],
+        },
+        fields: [
+          { field: 'probe', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'The weakest current signal will appear here.' },
+          { field: 'reason', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'The reason this weakens the readiness claim will appear here.' },
+          { field: 'missingEvidenceType', render: 'text', tag: 'p', className: 'section-ai-meta', fallback: 'The missing evidence type will appear here.' },
+        ],
+        outputSchema: buildAiObjectSchema({
+          probe: { type: 'string' },
+          reason: { type: 'string' },
+          missingEvidenceType: {
+            type: 'string',
+            enum: ['automation', 'api', 'interaction', 'gap'],
+          },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Verification Surface',
+            payload,
+            tasks: [
+              'Identify the single weakest current evidence signal.',
+              'Name the probe where the weakness appears.',
+              'Classify the missing evidence type as automation, api, interaction, or gap.',
+            ],
+            rules: [
+              'Ground every statement in the provided section data only.',
+              'Focus on evidence weakness, not generic implementation incompleteness.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+      'next-verification-loop': {
+        resultAliases: {
+          focus: ['title', 'loopFocus', 'nextLoop', 'headline'],
+          evidenceToCollect: ['evidence', 'nextEvidence', 'requiredEvidence', 'items'],
+          gapsToRetireFirst: ['gaps', 'priorityGaps', 'retireFirst', 'firstGaps'],
+        },
+        fields: [
+          { field: 'focus', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'The next verification focus will appear here.' },
+          { field: 'evidenceToCollect', render: 'list', tag: 'ul', className: 'section-ai-list', fallback: ['Evidence to collect will appear here.'] },
+          { field: 'gapsToRetireFirst', render: 'list', tag: 'ul', className: 'section-ai-list', fallback: ['Priority gaps will appear here.'] },
+        ],
+        outputSchema: buildAiObjectSchema({
+          focus: { type: 'string' },
+          evidenceToCollect: { type: 'array', items: { type: 'string' } },
+          gapsToRetireFirst: { type: 'array', items: { type: 'string' } },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Verification Surface',
+            payload,
+            tasks: [
+              'Describe the next tight verification loop.',
+              'List the evidence to collect next.',
+              'List the gaps that should be retired first.',
+            ],
+            rules: [
+              'Ground every statement in the provided section data only.',
+              'Keep the next loop action-oriented and evidence-bearing.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+    },
+  },
+  'proof-ladder': {
+    normalizeItems: normalizeProofLadderItems,
+    profiles: {
+      'proof-state-brief': {
+        resultAliases: {
+          closedThroughRung: ['proofBoundary', 'currentBoundary', 'boundary', 'closedThrough'],
+          summary: ['brief', 'overview', 'proofSummary'],
+          notYetProven: ['openBoundary', 'remainingProofGap', 'notProven', 'remainingGap'],
+        },
+        fields: [
+          { field: 'closedThroughRung', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'The current proof boundary will appear here.' },
+          { field: 'summary', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'The current proof summary will appear here.' },
+          { field: 'notYetProven', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'What is not yet proven will appear here.' },
+        ],
+        outputSchema: buildAiObjectSchema({
+          closedThroughRung: { type: 'string' },
+          summary: { type: 'string' },
+          notYetProven: { type: 'string' },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Proof Ladder',
+            payload,
+            tasks: [
+              'State what the ladder currently proves.',
+              'Name the current proof boundary.',
+              'State clearly what is not yet proven.',
+            ],
+            rules: [
+              'Respect rung ordering.',
+              'Do not flatten the ladder into unordered progress.',
+              'Distinguish what is already proven from what is only planned.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+      'weakest-open-rung': {
+        resultAliases: {
+          rung: ['targetRung', 'openRung', 'weakestRung', 'firstOpenRung'],
+          missingEvidence: ['requiredEvidence', 'evidenceGap', 'whyOpen', 'missingProof'],
+        },
+        fields: [
+          { field: 'rung', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'The first unsatisfied rung will appear here.' },
+          { field: 'missingEvidence', render: 'text', tag: 'p', className: 'section-ai-copy', fallback: 'The missing evidence for closure will appear here.' },
+        ],
+        outputSchema: buildAiObjectSchema({
+          rung: { type: 'string' },
+          missingEvidence: { type: 'string' },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Proof Ladder',
+            payload,
+            tasks: [
+              'Identify the first unsatisfied rung in the ladder.',
+              'Describe the missing evidence for closure.',
+            ],
+            rules: [
+              'Respect rung ordering.',
+              'Do not skip over weaker open rungs.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+      'next-stronger-proof': {
+        resultAliases: {
+          targetRung: ['rung', 'nextRung', 'proofTarget', 'focus'],
+          requiredEvidence: ['evidence', 'items', 'checklist', 'nextEvidence'],
+        },
+        fields: [
+          { field: 'targetRung', render: 'text', tag: 'h3', className: 'section-ai-title', fallback: 'The next stronger proof target will appear here.' },
+          { field: 'requiredEvidence', render: 'list', tag: 'ul', className: 'section-ai-list', fallback: ['Required evidence will appear here.'] },
+        ],
+        outputSchema: buildAiObjectSchema({
+          targetRung: { type: 'string' },
+          requiredEvidence: { type: 'array', items: { type: 'string' } },
+        }),
+        buildPrompt(payload, profile) {
+          return buildAiPrompt({
+            convergenceLabel: 'Proof Ladder',
+            payload,
+            tasks: [
+              'Describe the next evidence shape that would strengthen the ladder.',
+              'Name the target rung and the required evidence.',
+            ],
+            rules: [
+              'Respect rung ordering.',
+              'Do not redesign the ladder.',
+            ],
+            outputSchema: profile.outputSchema,
+          });
+        },
+      },
+    },
+  },
+};
+
+function enabledAiProfilesForSection(section, ct) {
+  if (!aiEnhancement.enabled) return [];
+  const typeSpec = AI_TYPE_SPECS[section?.convergenceType];
+  if (!typeSpec) return [];
+  const validIds = new Set((ct?.aiProfiles ?? []).map((profile) => profile.id));
+  const defaultIds = (ct?.aiProfiles ?? [])
+    .filter((profile) => profile.defaultVisible === true)
+    .map((profile) => String(profile.id ?? '').trim())
+    .filter(Boolean);
+  const enabledIds = Array.isArray(section?.ai?.enabledProfiles)
+    ? section.ai.enabledProfiles.map((value) => String(value ?? '').trim()).filter(Boolean)
+    : [];
+  const disabledIds = new Set(Array.isArray(section?.ai?.disabledProfiles)
+    ? section.ai.disabledProfiles.map((value) => String(value ?? '').trim()).filter(Boolean)
+    : []);
+  return [...new Set([...defaultIds, ...enabledIds])]
+    .filter((id) => !disabledIds.has(id) && validIds.has(id) && typeSpec.profiles[id]);
+}
+
+function buildSectionAiPayload(section, ct, doc, typeSpec) {
+  return {
+    docRootContext: buildDocRootAiContext(doc),
+    sectionContext: buildSectionAiContext(section),
+    typeContext: buildTypeAiContext(ct),
+    normalizedItems: typeSpec.normalizeItems(deriveSectionItems(section, ct, doc)),
+  };
+}
+
+function buildSectionAiTaskInput(section, payload) {
+  return {
+    docRootContext: { const: payload.docRootContext },
+    sectionContext: { const: payload.sectionContext },
+    typeContext: { const: payload.typeContext },
+    normalizedItems: { const: payload.normalizedItems },
+    sourceText: { from: `props.sources.${section.id}.text` },
+  };
+}
+
+const AI_SLOT_COPY = {
+  'section-brief': {
+    label: 'Section brief',
+    description: 'Reader orientation from this section only.',
+  },
+  'section-weakness-note': {
+    label: 'Evidence weakness',
+    description: 'A focused risk note from the current evidence.',
+  },
+  'section-next-loop': {
+    label: 'Next evidence loop',
+    description: 'Concrete follow-up work grounded in this section.',
+  },
+};
+
+function aiSlotCopy(slot) {
+  return AI_SLOT_COPY[slot] || {
+    label: slot || 'Advisory',
+    description: 'Document-grounded local advisory.',
+  };
+}
+
+function renderAiField(taskId, fieldSpec) {
+  const attrs = [
+    `data-ai-task="${escapeHtml(taskId)}"`,
+    `data-ai-field="${escapeHtml(fieldSpec.field)}"`,
+    `data-ai-path="${escapeHtml(fieldSpec.field)}"`,
+  ];
+  if (fieldSpec.render === 'list') attrs.push('data-ai-render="list"');
+  const className = fieldSpec.className ? ` class="${escapeHtml(fieldSpec.className)}"` : '';
+  if (fieldSpec.render === 'list') {
+    const fallbackItems = Array.isArray(fieldSpec.fallback) ? fieldSpec.fallback : [String(fieldSpec.fallback ?? '').trim()].filter(Boolean);
+    attrs.push(`data-ai-fallback='${escapeHtml(JSON.stringify(fallbackItems))}'`);
+    return `<${fieldSpec.tag || 'ul'}${className} ${attrs.join(' ')}>${fallbackItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</${fieldSpec.tag || 'ul'}>`;
+  }
+  const fallbackText = String(fieldSpec.fallback ?? '').trim();
+  attrs.push(`data-ai-fallback="${escapeHtml(fallbackText)}"`);
+  return `<${fieldSpec.tag || 'p'}${className} ${attrs.join(' ')}>${escapeHtml(fallbackText)}</${fieldSpec.tag || 'p'}>`;
+}
+
+function renderAiTaskCard(task) {
+  const slotCopy = aiSlotCopy(task.slot);
+  return `
+    <article class="section-ai-card" data-ai-task-block="${escapeHtml(task.id)}" data-ai-slot="${escapeHtml(task.slot)}">
+      <header class="section-ai-card-header">
+        <div>
+          <strong>${escapeHtml(task.name)}</strong>
+          <span class="section-ai-slot">${escapeHtml(slotCopy.label)}</span>
+        </div>
+        <div class="section-ai-card-actions">
+          <span class="section-ai-status" data-ai-status="${escapeHtml(task.id)}">Ready</span>
+          <button class="section-ai-run section-ai-run-card" type="button" data-ai-run-task="${escapeHtml(task.id)}" aria-label="Run ${escapeHtml(task.name)}">Run</button>
+        </div>
+      </header>
+      <p class="section-ai-profile-copy">${escapeHtml(task.description || slotCopy.description)}</p>
+      ${task.fields.map((fieldSpec) => renderAiField(task.id, fieldSpec)).join('')}
+      <p class="section-ai-message" data-ai-message="${escapeHtml(task.id)}">Ready for a document-grounded section pass.</p>
+    </article>`;
+}
+
+function renderSectionAi(sectionAi) {
+  if (!sectionAi || sectionAi.tasks.length === 0) return '';
+  const endpointReady = aiEnhancement.endpoint && aiEnhancement.model;
+  const summary = endpointReady
+    ? `Configured for ${aiEnhancement.model}. This pass reads the current section only and writes no source data.`
+    : 'Local model settings are not configured; default section guidance remains visible.';
+  return `
+    <section class="section-ai" data-ai-source="${escapeHtml(sectionAi.sectionId)}">
+      <div class="section-ai-toolbar">
+        <div>
+          <h3>Section advisory</h3>
+          <p>${escapeHtml(summary)}</p>
+        </div>
+        <button class="section-ai-run" type="button" data-ai-run="${escapeHtml(sectionAi.sectionId)}"${endpointReady ? '' : ' disabled'}>${endpointReady ? 'Run section pass' : 'Needs model config'}</button>
+      </div>
+      <div class="section-ai-grid">
+        ${sectionAi.tasks.map((task) => renderAiTaskCard(task)).join('')}
+      </div>
+    </section>`;
+}
+
+function buildDocumentAiArtifacts(doc, sections) {
+  const sectionsBySectionId = new Map();
+  const tasks = [];
+
+  for (const section of sections) {
+    const ct = registry.convergenceTypes[section.convergenceType];
+    if (!ct) continue;
+    const typeSpec = AI_TYPE_SPECS[section.convergenceType];
+    if (!typeSpec) continue;
+    const enabledProfiles = enabledAiProfilesForSection(section, ct);
+    if (enabledProfiles.length === 0) continue;
+
+    const payload = buildSectionAiPayload(section, ct, doc, typeSpec);
+    const taskInput = buildSectionAiTaskInput(section, payload);
+    const profileMetaById = new Map((ct.aiProfiles ?? []).map((profile) => [profile.id, profile]));
+    const sectionTasks = enabledProfiles.map((profileId) => {
+      const impl = typeSpec.profiles[profileId];
+      const profileMeta = profileMetaById.get(profileId);
+      return {
+        id: `${section.id}:${profileId}`,
+        sectionId: section.id,
+        profileId,
+        name: profileMeta?.name ?? profileId,
+        description: profileMeta?.description ?? '',
+        slot: profileMeta?.slot ?? 'section-brief',
+        prompt: impl.buildPrompt(payload, impl),
+        input: taskInput,
+        outputSchema: impl.outputSchema,
+        resultAliases: impl.resultAliases ?? {},
+        fields: impl.fields,
+      };
+    });
+
+    sectionsBySectionId.set(section.id, {
+      sectionId: section.id,
+      tasks: sectionTasks,
+    });
+    tasks.push(...sectionTasks);
+  }
+
+  return {
+    enabled: aiEnhancement.enabled,
+    sectionsBySectionId,
+    tasks,
+    serializableSpec: tasks.length > 0 ? {
+      tasks: Object.fromEntries(tasks.map((task) => [task.id, {
+        type: 'inference',
+        prompt: task.prompt,
+        input: task.input,
+        outputSchema: task.outputSchema,
+        cache: false,
+      }])),
+      layout: {
+        type: 'static-html',
+      },
+    } : null,
+    serializableMeta: tasks.length > 0 ? {
+      runtime: {
+        endpoint: aiEnhancement.endpoint,
+        model: aiEnhancement.model,
+        timeoutMs: aiEnhancement.timeoutMs,
+        autoRun: aiEnhancement.autoRun,
+        useJsonResponseFormat: aiEnhancement.useJsonResponseFormat,
+      },
+      sections: [...sectionsBySectionId.values()].map((section) => ({
+        sectionId: section.sectionId,
+        taskIds: section.tasks.map((task) => task.id),
+      })),
+      taskMeta: Object.fromEntries(tasks.map((task) => [task.id, {
+        sectionId: task.sectionId,
+        profileId: task.profileId,
+        name: task.name,
+        slot: task.slot,
+        resultAliases: task.resultAliases,
+      }])),
+    } : null,
+  };
+}
+
+let documentAiArtifacts = {
+  enabled: false,
+  sectionsBySectionId: new Map(),
+  tasks: [],
+  serializableSpec: null,
+  serializableMeta: null,
+};
+
 function slugifyValue(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -417,9 +1167,13 @@ function renderSnapshotPanel(meta) {
           <div class="snapshot-eyebrow">Portable Snapshot</div>
           <h2 class="snapshot-title">Identity and lineage</h2>
         </div>
-        <span class="snapshot-pill">HTML Snapshot</span>
+        <div class="snapshot-actions">
+          <span class="snapshot-pill">HTML Snapshot</span>
+          <button type="button" class="doc-diff-btn" id="doc-diff-toggle">Show local diff</button>
+        </div>
       </div>
       <p class="snapshot-note">This standalone HTML is a shareable snapshot and may drift from its canonical origin.</p>
+      <div class="doc-diff-status" id="doc-diff-status" hidden></div>
       <div class="snapshot-grid">
         ${item('Doc ID', meta.docId, { code: true })}
         ${item('Title', meta.title)}
@@ -591,7 +1345,11 @@ function renderDetails(items, label) {
 
 /* ── Convergence type renderers ── */
 
-function renderCardItem(item, convergenceType) {
+function renderCardDomKey(item) {
+  return String(item?.id || item?.figmaName || item?.name || '').trim();
+}
+
+function renderCardItem(item, convergenceType, sectionId) {
   const ct = registry.convergenceTypes[convergenceType];
   if (!ct) return '';
 
@@ -634,11 +1392,15 @@ function renderCardItem(item, convergenceType) {
 
   // Item-level ID for anchoring
   const anchorId = item.id ? ` id="${escapeHtml(item.id)}"` : '';
+  const dataAttrs = [
+    sectionId ? ` data-section-id="${escapeHtml(sectionId)}"` : '',
+    renderCardDomKey(item) ? ` data-card-key="${escapeHtml(renderCardDomKey(item))}"` : '',
+  ].join('');
 
   const periodBadge = item.lastUpdatedInPeriod ? renderPeriodBadge(item.lastUpdatedInPeriod) : '';
 
   return `
-    <article class="flow-card"${anchorId}>
+    <article class="flow-card"${anchorId}${dataAttrs}>
       <header class="flow-card-header">
         <div>
           <h3>${escapeHtml(item.name)}${periodBadge}</h3>
@@ -998,6 +1760,7 @@ function renderSection(section) {
 
   // Callout
   const calloutHtml = section.callout ? renderCallout(section.callout) : '';
+  const sectionAiHtml = renderSectionAi(documentAiArtifacts.sectionsBySectionId.get(section.id));
 
   // Stat cards
   const statsHtml = section.stats
@@ -1017,7 +1780,7 @@ function renderSection(section) {
   let contentHtml = '';
   if (projection === 'card-grid') {
     const cols = Math.max(1, Number(ct.columns ?? 2));
-    contentHtml = `<div class="card-grid" style="--grid-cols:${escapeHtml(String(cols))}">${items.map((item) => renderCardItem(item, section.convergenceType)).join('')}</div>`;
+    contentHtml = `<div class="card-grid" style="--grid-cols:${escapeHtml(String(cols))}">${items.map((item) => renderCardItem(item, section.convergenceType, section.id)).join('')}</div>`;
   } else if (projection === 'edge-table') {
     contentHtml = renderEdgeTable(items, section.convergenceType);
   }
@@ -1027,13 +1790,16 @@ function renderSection(section) {
     : '';
 
   return `
-    <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}">
+    <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}" data-section-id="${escapeHtml(section.id)}">
       <h2>${icon} ${escapeHtml(section.title)}${sectionUpdated}</h2>
       ${freshnessBannerHtml}
       ${calloutHtml}
-      ${statsHtml}
-      ${pillsHtml}
-      ${contentHtml}
+      ${sectionAiHtml}
+      <div data-ai-source="${escapeHtml(section.id)}">
+        ${statsHtml}
+        ${pillsHtml}
+        ${contentHtml}
+      </div>
     </section>`;
 }
 
@@ -1064,6 +1830,7 @@ function buildSidebar(sections) {
 /* ── Assemble HTML ── */
 
 const sections = data.sections ?? [];
+documentAiArtifacts = buildDocumentAiArtifacts(data, sections);
 const boardDimensions = buildBoardDimensions(sections);
 const boardViewHtml = renderBoardView(boardDimensions);
 const viewSwitchHtml = boardDimensions.length > 0
@@ -1078,6 +1845,9 @@ const updateSource = normalizeUpdateSource(data);
 const metaJson = JSON.stringify(data, null, 2).replace(/<\/script/gi, '<\\/script');
 const registryJson = JSON.stringify(registry, null, 2).replace(/<\/script/gi, '<\\/script');
 const i18nJson = JSON.stringify(i18n, null, 2).replace(/<\/script/gi, '<\\/script');
+const aiSpecJson = documentAiArtifacts.serializableSpec ? safeJsonForScript(documentAiArtifacts.serializableSpec) : '';
+const aiMetaJson = documentAiArtifacts.serializableMeta ? safeJsonForScript(documentAiArtifacts.serializableMeta) : '';
+const aiRenderGraphRuntimeSource = documentAiArtifacts.serializableSpec ? safeInlineScriptSource(await readFile(aiRenderGraphRuntimePath, 'utf8')) : '';
 
 const html = `<!doctype html>
 <html lang="en">
@@ -1158,6 +1928,7 @@ const html = `<!doctype html>
         box-shadow: var(--shadow-sm);
       }
       .snapshot-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+      .snapshot-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
       .snapshot-eyebrow {
         display: inline-flex; padding: 4px 10px; border-radius: 999px;
         background: rgba(37,99,235,.12); color: var(--accent); font-size: 11px;
@@ -1170,6 +1941,20 @@ const html = `<!doctype html>
         font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;
       }
       .snapshot-note { margin: 12px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; max-width: 70ch; }
+      .doc-diff-btn {
+        appearance: none; border: 1px solid var(--line); border-radius: 999px;
+        background: var(--card); color: var(--ink); font: inherit; font-size: 12px;
+        font-weight: 700; padding: 7px 12px; cursor: pointer;
+      }
+      .doc-diff-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .doc-diff-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .doc-diff-status {
+        margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
+        background: rgba(255,255,255,.82); color: var(--muted); font-size: 12.5px; line-height: 1.5;
+      }
+      .doc-diff-status strong { color: var(--ink); }
+      .doc-diff-status code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+      .doc-diff-status-error { color: var(--negative-ink); border-color: color-mix(in srgb, var(--negative-ink) 24%, var(--line)); background: color-mix(in srgb, var(--negative-bg) 78%, var(--card)); }
       .snapshot-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 18px; }
       .snapshot-item {
         padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
@@ -1271,6 +2056,42 @@ const html = `<!doctype html>
       }
       .section { margin-top: 48px; padding-top: 36px; border-top: 1px solid var(--line); }
       .section:first-of-type { border-top: none; padding-top: 0; }
+      .section.ld-diff-added, .flow-card.ld-diff-added {
+        border-color: color-mix(in srgb, #16a34a 40%, var(--line));
+        background: color-mix(in srgb, #16a34a 6%, var(--card));
+      }
+      .section.ld-diff-changed, .flow-card.ld-diff-changed {
+        border-color: color-mix(in srgb, #2563eb 40%, var(--line));
+        background: color-mix(in srgb, #2563eb 4%, var(--card));
+      }
+      .section.ld-diff-removed, .flow-card.ld-diff-removed {
+        border-color: color-mix(in srgb, #dc2626 40%, var(--line));
+        background: color-mix(in srgb, #dc2626 5%, var(--card));
+      }
+      .ld-diff-pill {
+        display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+        border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .doc-diff-pill-inline { display: inline-flex; margin-left: 10px; vertical-align: middle; }
+      .ld-diff-pill-added { background: color-mix(in srgb, #16a34a 12%, #fff); color: #166534; }
+      .ld-diff-pill-changed { background: color-mix(in srgb, #2563eb 12%, #fff); color: #1d4ed8; }
+      .ld-diff-pill-removed { background: color-mix(in srgb, #dc2626 12%, #fff); color: #b91c1c; }
+      .doc-diff-removed-list {
+        margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+        border: 1px solid color-mix(in srgb, #dc2626 24%, var(--line));
+        background: color-mix(in srgb, #dc2626 4%, var(--card));
+      }
+      .doc-diff-inline-added {
+        background: color-mix(in srgb, #16a34a 12%, transparent);
+        color: #166534; border-radius: 4px; padding: 0 2px; font-weight: 600;
+      }
+      .doc-diff-inline-removed {
+        background: color-mix(in srgb, #dc2626 10%, transparent);
+        color: #991b1b; border-radius: 4px; padding: 0 2px; text-decoration: line-through;
+      }
+      .doc-diff-removed-list strong { display: block; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #b91c1c; }
+      .doc-diff-removed-list ul { margin: 0; padding-left: 18px; color: var(--ink); }
+      .doc-diff-removed-list li + li { margin-top: 4px; }
       .section h2 {
         margin: 0 0 20px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
         display: flex; align-items: center; gap: 10px;
@@ -1307,6 +2128,71 @@ const html = `<!doctype html>
         margin-top: 4px;
       }
       .callout-table-wrap { margin-top: 14px; overflow-x: auto; }
+      .section-ai {
+        margin-top: 20px; padding: 18px 20px; border-radius: var(--radius);
+        border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, var(--card)), var(--card));
+        box-shadow: var(--shadow-sm);
+      }
+      .section-ai-toolbar {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px;
+      }
+      .section-ai-toolbar h3 {
+        margin: 0 0 4px; font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+      }
+      .section-ai-toolbar p {
+        margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 70ch;
+      }
+      .section-ai-run {
+        appearance: none; border: 1px solid var(--line); border-radius: 999px;
+        background: var(--card); color: var(--ink); font: inherit; font-size: 12px;
+        font-weight: 700; padding: 7px 12px; cursor: pointer; white-space: nowrap;
+      }
+      .section-ai-run:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+      .section-ai-run:disabled { opacity: 0.6; cursor: not-allowed; }
+      .section-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .section-ai-card {
+        border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+        padding: 14px; box-shadow: var(--shadow-sm);
+      }
+      .section-ai-card[data-ai-slot="section-brief"] {
+        grid-column: 1 / -1;
+        border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+      }
+      .section-ai-card-header {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px;
+      }
+      .section-ai-card-actions {
+        display: flex; align-items: center; gap: 8px;
+      }
+      .section-ai-slot {
+        display: inline-flex; margin-top: 6px; padding: 4px 8px; border-radius: 999px;
+        background: var(--neutral-bg); color: var(--neutral-ink); font-size: 10px; font-weight: 800;
+        letter-spacing: 0.05em; text-transform: uppercase;
+      }
+      .section-ai-status {
+        display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px;
+        background: var(--neutral-bg); color: var(--neutral-ink); font-size: 10px; font-weight: 800;
+        letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
+      }
+      .section-ai-status[data-state="running"] { background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--accent); }
+      .section-ai-status[data-state="done"] { background: var(--positive-bg); color: var(--positive-ink); }
+      .section-ai-status[data-state="error"] { background: var(--negative-bg); color: var(--negative-ink); }
+      .section-ai-run-card { padding: 5px 9px; font-size: 11px; }
+      .section-ai-profile-copy { margin: -2px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .section-ai-title { margin: 0 0 8px; font-size: 14px; line-height: 1.4; letter-spacing: -0.01em; }
+      .section-ai-copy, .section-ai-meta { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+      .section-ai-meta {
+        display: inline-flex; padding: 4px 8px; border-radius: 999px; background: var(--neutral-bg);
+        color: var(--neutral-ink); font-size: 11px; font-weight: 700; margin-bottom: 0;
+      }
+      .section-ai-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+      .section-ai-list li + li { margin-top: 6px; }
+      .section-ai-message {
+        margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55;
+      }
+      .section-ai-message[data-tone="error"] { color: var(--negative-ink); }
+      .section-ai-message[data-tone="done"] { color: var(--positive-ink); }
       .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 20px; }
       .stat-card, .flow-card, .page-card, .table-card {
         background: var(--card); border: 1px solid var(--line);
@@ -1399,6 +2285,7 @@ const html = `<!doctype html>
         .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
         .card-grid { grid-template-columns: 1fr; }
         .snapshot-grid { grid-template-columns: 1fr; }
+        .section-ai-grid { grid-template-columns: 1fr; }
       }
       /* ── Compositor overlay ── */
       .comp-toggle {
@@ -1509,6 +2396,8 @@ const html = `<!doctype html>
   </head>
   <body>
     <script type="application/json" id="doc-meta">${metaJson}</script>
+    ${documentAiArtifacts.serializableSpec ? `<script type="application/ai-render-graph+json" id="doc-ai-spec">${aiSpecJson}</script>` : ''}
+    ${documentAiArtifacts.serializableMeta ? `<script type="application/json" id="doc-ai-meta">${aiMetaJson}</script>` : ''}
 
     <nav class="sidebar" aria-label="Section navigation">
       <div class="brand">${escapeHtml(data.brand ?? 'LD')}</div>
@@ -1673,6 +2562,252 @@ const html = `<!doctype html>
       const compOverlay = document.getElementById('comp-overlay');
       const compToggle = document.getElementById('comp-toggle');
       const compIframe = document.getElementById('comp-iframe');
+      const diffToggle = document.getElementById('doc-diff-toggle');
+      const diffStatus = document.getElementById('doc-diff-status');
+      const LOCAL_DIFF_SERVER = localStorage.getItem('ap-server') || 'http://localhost:4322';
+
+      function resolveDocPath() {
+        if (typeof window.LD_DOC_ABS_PATH === 'string' && window.LD_DOC_ABS_PATH) return window.LD_DOC_ABS_PATH;
+        try {
+          if (window.parent && window.parent !== window && typeof window.parent.LD_DOC_ABS_PATH === 'string' && window.parent.LD_DOC_ABS_PATH) {
+            return window.parent.LD_DOC_ABS_PATH;
+          }
+        } catch {}
+        const override = localStorage.getItem('ap-doc-path');
+        if (override) return override;
+        const meta = JSON.parse(document.getElementById('doc-meta').textContent);
+        if (typeof meta?.canonicalOrigin === 'string' && meta.canonicalOrigin.startsWith('/')) return meta.canonicalOrigin;
+        return null;
+      }
+
+      function cardKey(card, index) {
+        return String(card?.id || card?.figmaName || card?.name || ('index-' + index));
+      }
+
+      function changedFields(baseObj, nextObj, excluded = []) {
+        const ignore = new Set(excluded);
+        const keys = new Set([...(baseObj ? Object.keys(baseObj) : []), ...(nextObj ? Object.keys(nextObj) : [])]);
+        return [...keys].filter((key) => !ignore.has(key) && JSON.stringify(baseObj?.[key] ?? null) !== JSON.stringify(nextObj?.[key] ?? null));
+      }
+
+      function escapeDiffHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function flattenDiffText(value) {
+        if (value == null) return '';
+        if (typeof value === 'string') return value;
+        if (Array.isArray(value)) {
+          return value.map((entry) => {
+            if (typeof entry === 'string') return entry;
+            if (entry && typeof entry === 'object') {
+              if (typeof entry.text === 'string' && entry.text.trim()) return entry.text;
+              if (typeof entry.statement === 'string' && entry.statement.trim()) return entry.statement;
+              if (typeof entry.name === 'string' && entry.name.trim()) return entry.name;
+            }
+            return JSON.stringify(entry);
+          }).filter(Boolean).join('\\n');
+        }
+        if (typeof value === 'object') {
+          if (typeof value.text === 'string' && value.text.trim()) return value.text;
+          if (typeof value.statement === 'string' && value.statement.trim()) return value.statement;
+          if (typeof value.name === 'string' && value.name.trim()) return value.name;
+        }
+        return JSON.stringify(value, null, 2);
+      }
+
+      function textPieces(value) {
+        if (value == null) return [];
+        if (typeof value === 'string') return [value];
+        if (Array.isArray(value)) {
+          return value.map((entry) => flattenDiffText(entry)).filter((entry) => entry && entry.trim());
+        }
+        return [flattenDiffText(value)].filter((entry) => entry && entry.trim());
+      }
+
+      function changedFragments(baseCard, currentCard, fields) {
+        function changedFragment(beforeText, afterText) {
+          const beforeTokens = String(beforeText || '').split(/(\s+)/);
+          const afterTokens = String(afterText || '').split(/(\s+)/);
+          let prefix = 0;
+          while (prefix < beforeTokens.length && prefix < afterTokens.length && beforeTokens[prefix] === afterTokens[prefix]) {
+            prefix += 1;
+          }
+          let beforeSuffix = beforeTokens.length - 1;
+          let afterSuffix = afterTokens.length - 1;
+          while (beforeSuffix >= prefix && afterSuffix >= prefix && beforeTokens[beforeSuffix] === afterTokens[afterSuffix]) {
+            beforeSuffix -= 1;
+            afterSuffix -= 1;
+          }
+          const beforeChanged = beforeTokens.slice(prefix, beforeSuffix + 1).join('').trim();
+          const afterChanged = afterTokens.slice(prefix, afterSuffix + 1).join('').trim();
+          return {
+            before: beforeChanged || String(beforeText || '').trim(),
+            after: afterChanged || String(afterText || '').trim(),
+          };
+        }
+
+        const rows = [];
+        fields.forEach((field) => {
+          const beforePieces = textPieces(baseCard?.[field]);
+          const afterPieces = textPieces(currentCard?.[field]);
+          const pieceCount = Math.max(beforePieces.length, afterPieces.length);
+          for (let index = 0; index < pieceCount; index += 1) {
+            const beforeText = beforePieces[index] || '';
+            const afterText = afterPieces[index] || '';
+            if (!beforeText && !afterText) continue;
+            if (beforeText === afterText) continue;
+            const fragment = changedFragment(beforeText, afterText);
+            if (fragment.before || fragment.after) rows.push(fragment);
+          }
+        });
+        return rows;
+      }
+
+      function applyInlineFragmentDiff(root, beforeText, afterText) {
+        if (!root || !afterText) return false;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = node.nodeValue || '';
+          const index = text.indexOf(afterText);
+          if (index === -1) continue;
+          const fragment = document.createDocumentFragment();
+          if (index > 0) fragment.appendChild(document.createTextNode(text.slice(0, index)));
+          if (beforeText) {
+            const removed = document.createElement('span');
+            removed.className = 'doc-diff-inline-removed';
+            removed.textContent = beforeText;
+            fragment.appendChild(removed);
+          }
+          const added = document.createElement('span');
+          added.className = 'doc-diff-inline-added';
+          added.textContent = afterText;
+          fragment.appendChild(added);
+          if (index + afterText.length < text.length) {
+            fragment.appendChild(document.createTextNode(text.slice(index + afterText.length)));
+          }
+          const parent = node.parentNode;
+          if (!parent) return false;
+          parent.replaceChild(fragment, node);
+          return true;
+        }
+        return false;
+      }
+
+      function computeDiff(baseDoc, currentDoc) {
+        const diff = { summary: { sectionsAdded: 0, sectionsRemoved: 0, sectionsChanged: 0, cardsAdded: 0, cardsRemoved: 0, cardsChanged: 0 }, sections: {} };
+        const currentSections = Array.isArray(currentDoc?.sections) ? currentDoc.sections : [];
+        const baseSections = Array.isArray(baseDoc?.sections) ? baseDoc.sections : [];
+        const currentById = new Map(currentSections.map((section, index) => [String(section?.id || ('section-' + index)), section]));
+        const baseById = new Map(baseSections.map((section, index) => [String(section?.id || ('section-' + index)), section]));
+        const sectionIds = [...new Set([...currentById.keys(), ...baseById.keys()])];
+
+        sectionIds.forEach((sectionId) => {
+          const currentSection = currentById.get(sectionId) || null;
+          const baseSection = baseById.get(sectionId) || null;
+          const currentCards = Array.isArray(currentSection?.data) ? currentSection.data : [];
+          const baseCards = Array.isArray(baseSection?.data) ? baseSection.data : [];
+          const currentCardMap = new Map(currentCards.map((card, index) => [cardKey(card, index), card]));
+          const baseCardMap = new Map(baseCards.map((card, index) => [cardKey(card, index), card]));
+          const cardKeys = [...new Set([...currentCardMap.keys(), ...baseCardMap.keys()])];
+          const cards = {};
+          const removedCards = [];
+          cardKeys.forEach((key) => {
+            const currentCard = currentCardMap.get(key);
+            const baseCard = baseCardMap.get(key);
+            if (currentCard && !baseCard) {
+              cards[key] = { changeType: 'added' };
+              diff.summary.cardsAdded += 1;
+              return;
+            }
+            if (!currentCard && baseCard) {
+              removedCards.push(baseCard);
+              diff.summary.cardsRemoved += 1;
+              return;
+            }
+            const fields = changedFields(baseCard, currentCard);
+            cards[key] = { changeType: fields.length ? 'changed' : 'unchanged', changedFields: fields, baseCard, currentCard };
+            if (fields.length) diff.summary.cardsChanged += 1;
+          });
+          const sectionFields = changedFields(baseSection, currentSection, ['data']);
+          let changeType = 'unchanged';
+          if (currentSection && !baseSection) changeType = 'added';
+          else if (!currentSection && baseSection) changeType = 'removed';
+          else if (sectionFields.length || removedCards.length || Object.values(cards).some((entry) => entry.changeType !== 'unchanged')) changeType = 'changed';
+          if (changeType === 'added') diff.summary.sectionsAdded += 1;
+          else if (changeType === 'removed') diff.summary.sectionsRemoved += 1;
+          else if (changeType === 'changed') diff.summary.sectionsChanged += 1;
+          diff.sections[sectionId] = { changeType, cards, removedCards };
+        });
+        return diff;
+      }
+
+      function diffClass(changeType) {
+        if (changeType === 'added') return 'ld-diff-added';
+        if (changeType === 'changed') return 'ld-diff-changed';
+        if (changeType === 'removed') return 'ld-diff-removed';
+        return '';
+      }
+
+      function diffPill(changeType) {
+        if (changeType === 'added') return '<span class="ld-diff-pill ld-diff-pill-added">new</span>';
+        if (changeType === 'changed') return '<span class="ld-diff-pill ld-diff-pill-changed">changed</span>';
+        if (changeType === 'removed') return '<span class="ld-diff-pill ld-diff-pill-removed">removed</span>';
+        return '';
+      }
+
+      function clearDocDiff() {
+        document.querySelectorAll('.ld-diff-added, .ld-diff-changed, .ld-diff-removed').forEach((el) => {
+          el.classList.remove('ld-diff-added', 'ld-diff-changed', 'ld-diff-removed');
+        });
+        document.querySelectorAll('.doc-diff-pill-inline, .doc-diff-removed-list').forEach((el) => el.remove());
+      }
+
+      function applyDocDiff(diff, baseRef) {
+        clearDocDiff();
+        Object.entries(diff.sections || {}).forEach(([sectionId, info]) => {
+          const sectionEl = document.querySelector('.section[data-section-id="' + CSS.escape(sectionId) + '"]');
+          if (!sectionEl) return;
+          const sectionClass = diffClass(info.changeType);
+          if (sectionClass) {
+            sectionEl.classList.add(sectionClass);
+            const heading = sectionEl.querySelector('h2');
+            if (heading) {
+              heading.insertAdjacentHTML('beforeend', '<span class="doc-diff-pill-inline">' + diffPill(info.changeType) + '</span>');
+            }
+          }
+          Object.entries(info.cards || {}).forEach(([cardId, cardInfo]) => {
+            if (!cardInfo || cardInfo.changeType === 'unchanged') return;
+            const cardEl = sectionEl.querySelector('.flow-card[data-card-key="' + CSS.escape(cardId) + '"]');
+            if (!cardEl) return;
+            const cardClass = diffClass(cardInfo.changeType);
+            if (cardClass) cardEl.classList.add(cardClass);
+            const header = cardEl.querySelector('.flow-card-header');
+            if (header) header.insertAdjacentHTML('beforeend', '<span class="doc-diff-pill-inline">' + diffPill(cardInfo.changeType) + '</span>');
+            if (cardInfo.changeType === 'changed' && Array.isArray(cardInfo.changedFields) && cardInfo.changedFields.length) {
+              changedFragments(cardInfo.baseCard, cardInfo.currentCard, cardInfo.changedFields).forEach((fragment) => {
+                applyInlineFragmentDiff(cardEl, fragment.before, fragment.after);
+              });
+            }
+          });
+          if (Array.isArray(info.removedCards) && info.removedCards.length) {
+            sectionEl.insertAdjacentHTML('beforeend',
+              '<div class="doc-diff-removed-list">' +
+                '<strong>Removed from local version</strong>' +
+                '<ul>' + info.removedCards.map((card) => '<li>' + (card?.name || card?.figmaName || card?.id || 'Unnamed item') + '</li>').join('') + '</ul>' +
+              '</div>');
+          }
+        });
+        diffStatus.hidden = false;
+        diffStatus.className = 'doc-diff-status';
+        diffStatus.innerHTML = '<strong>Local diff</strong> vs <code>' + baseRef + '</code> · +' + diff.summary.cardsAdded + ' new · ~' + diff.summary.cardsChanged + ' changed · -' + diff.summary.cardsRemoved + ' removed';
+      }
 
       // CTA i18n
       const ctaStrings = {
@@ -1721,6 +2856,58 @@ const html = `<!doctype html>
         compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
       });
 
+      diffToggle?.addEventListener('click', async () => {
+        if (diffToggle.classList.contains('active')) {
+          diffToggle.classList.remove('active');
+          diffToggle.textContent = 'Show local diff';
+          clearDocDiff();
+          diffStatus.hidden = true;
+          diffStatus.textContent = '';
+          return;
+        }
+        const docPath = resolveDocPath();
+        if (!docPath) {
+          diffStatus.hidden = false;
+          diffStatus.className = 'doc-diff-status doc-diff-status-error';
+          diffStatus.textContent = 'Cannot resolve local doc path for diff.';
+          return;
+        }
+        diffToggle.disabled = true;
+        diffToggle.textContent = 'Loading local diff…';
+        diffStatus.hidden = false;
+        diffStatus.className = 'doc-diff-status';
+        diffStatus.textContent = 'Loading local diff…';
+        try {
+          const response = await fetch(LOCAL_DIFF_SERVER + '/api/local-diff/base', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ docPath }),
+          });
+          if (!response.ok) {
+            let message = 'server returned ' + response.status;
+            try {
+              const body = await response.json();
+              if (body?.error) message = body.error;
+            } catch {}
+            throw new Error(message);
+          }
+          const payload = await response.json();
+          const currentDoc = JSON.parse(document.getElementById('doc-meta').textContent);
+          const diff = computeDiff(payload.baseDoc || {}, currentDoc);
+          applyDocDiff(diff, payload.baseRef || 'base');
+          diffToggle.classList.add('active');
+          diffToggle.textContent = 'Hide local diff';
+        } catch (error) {
+          diffStatus.hidden = false;
+          diffStatus.className = 'doc-diff-status doc-diff-status-error';
+          diffStatus.textContent = String(error.message || error);
+          diffToggle.classList.remove('active');
+          diffToggle.textContent = 'Show local diff';
+        } finally {
+          diffToggle.disabled = false;
+        }
+      });
+
       // Open compositor overlay + build-your-tool modal
       const buildLink = document.getElementById('build-link');
       const openBuildFromOverlay = () => {
@@ -1746,8 +2933,428 @@ const html = `<!doctype html>
       if (docSections.length === 0) {
         compOverlay.classList.add('open');
       }
+
+      window.addEventListener('message', (event) => {
+        if (event.source !== compIframe.contentWindow) return;
+        const payload = event.data;
+        if (!payload || payload.type !== 'living-doc-open-href') return;
+        const href = String(payload.href || '').trim();
+        if (!href) return;
+        const target = payload.target === '_self' ? '_self' : '_blank';
+        window.open(href, target, target === '_blank' ? 'noopener' : undefined);
+      });
     })();
     </script>
+${documentAiArtifacts.serializableSpec ? `
+    <script>${aiRenderGraphRuntimeSource}</script>
+    <script>
+    (() => {
+      const runtimeApi = window.AiRenderGraph;
+      const specScript = document.getElementById('doc-ai-spec');
+      const metaScript = document.getElementById('doc-ai-meta');
+      if (!runtimeApi || !specScript || !metaScript) return;
+
+      let spec;
+      let meta;
+      try {
+        spec = JSON.parse(specScript.textContent);
+        meta = JSON.parse(metaScript.textContent);
+      } catch (error) {
+        console.error('Failed to parse AI advisory scripts', error);
+        return;
+      }
+
+      const hasModelConfig = Boolean(meta.runtime?.endpoint && meta.runtime?.model);
+      const sections = Array.isArray(meta.sections) ? meta.sections : [];
+      const sectionTaskIds = new Map(sections.map((section) => [section.sectionId, Array.isArray(section.taskIds) ? section.taskIds : []]));
+      const sectionButtons = Array.from(document.querySelectorAll('[data-ai-run]'));
+      const taskButtons = Array.from(document.querySelectorAll('[data-ai-run-task]'));
+      let mounted = null;
+      const persistedTaskResults = new Map();
+
+      function taskIds() {
+        return Object.keys(spec.tasks || {});
+      }
+
+      function statusElements(taskId) {
+        return Array.from(document.querySelectorAll('[data-ai-status]')).filter((el) => el.dataset.aiStatus === taskId);
+      }
+
+      function messageElements(taskId) {
+        return Array.from(document.querySelectorAll('[data-ai-message]')).filter((el) => el.dataset.aiMessage === taskId);
+      }
+
+      function fieldElements(taskId) {
+        return Array.from(document.querySelectorAll('[data-ai-task]')).filter((el) => el.dataset.aiTask === taskId);
+      }
+
+      function taskRunButtons(taskId) {
+        return taskButtons.filter((button) => button.dataset.aiRunTask === taskId);
+      }
+
+      function cloneTaskOutput(value) {
+        if (value === undefined) return undefined;
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function readTaskPath(value, path) {
+        if (!path) return value;
+        return String(path).split('.').reduce((current, part) => {
+          if (current == null) return undefined;
+          if (Array.isArray(current)) {
+            const index = Number(part);
+            return Number.isInteger(index) ? current[index] : undefined;
+          }
+          if (typeof current === 'object') return current[part];
+          return undefined;
+        }, value);
+      }
+
+      function renderTaskFieldValue(el, value) {
+        if (el.dataset.aiRender === 'list') {
+          const items = Array.isArray(value)
+            ? value
+            : value == null
+              ? []
+              : [value];
+          el.innerHTML = items.map((item) => '<li>' + String(item)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;') + '</li>').join('');
+          return;
+        }
+        if (el.tagName.toLowerCase() === 'pre') {
+          el.textContent = JSON.stringify(value, null, 2);
+          return;
+        }
+        el.textContent = value == null ? '' : String(value);
+      }
+
+      function persistTaskResult(taskId, output, message) {
+        persistedTaskResults.set(taskId, {
+          output: cloneTaskOutput(output),
+          message: String(message || '').trim(),
+        });
+      }
+
+      function applyPersistedTaskResult(taskId) {
+        const persisted = persistedTaskResults.get(taskId);
+        if (!persisted) return;
+        fieldElements(taskId).forEach((el) => {
+          renderTaskFieldValue(el, readTaskPath(persisted.output, el.dataset.aiPath || ''));
+          delete el.dataset.aiStatus;
+          el.removeAttribute('aria-busy');
+        });
+        setTaskStatus(taskId, 'Ready', 'done');
+        setTaskMessage(taskId, persisted.message || 'Advisory updated from validated local output.', 'done');
+        taskRunButtons(taskId).forEach((button) => { button.disabled = false; });
+      }
+
+      function restorePersistedTaskResults(excludedTaskIds = []) {
+        const excluded = new Set(excludedTaskIds);
+        taskIds().forEach((taskId) => {
+          if (excluded.has(taskId)) return;
+          applyPersistedTaskResult(taskId);
+        });
+      }
+
+      function setTaskStatus(taskId, text, state = 'idle') {
+        statusElements(taskId).forEach((el) => {
+          el.textContent = text;
+          el.dataset.state = state;
+        });
+      }
+
+      function setTaskMessage(taskId, text, tone = 'muted') {
+        messageElements(taskId).forEach((el) => {
+          el.textContent = text;
+          el.dataset.tone = tone;
+        });
+      }
+
+      function restoreTaskFields(taskId) {
+        fieldElements(taskId).forEach((el) => {
+          const fallback = el.dataset.aiFallback || '';
+          if (el.dataset.aiRender === 'list') {
+            let items = [];
+            try {
+              items = JSON.parse(fallback);
+            } catch {}
+            el.innerHTML = items.map((item) => '<li>' + String(item)
+              .replaceAll('&', '&amp;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;') + '</li>').join('');
+          } else {
+            el.textContent = fallback;
+          }
+          delete el.dataset.aiStatus;
+          el.removeAttribute('aria-busy');
+        });
+      }
+
+      function restoreAllTasks() {
+        taskIds().forEach((taskId) => {
+          restoreTaskFields(taskId);
+          setTaskStatus(taskId, hasModelConfig ? 'Ready' : 'Config needed', 'idle');
+          setTaskMessage(
+            taskId,
+            hasModelConfig ? 'Ready for a document-grounded section pass.' : 'Add a local AI endpoint and model before running this section pass.',
+            hasModelConfig ? 'muted' : 'error',
+          );
+          taskRunButtons(taskId).forEach((button) => { button.disabled = !hasModelConfig; });
+        });
+        sectionButtons.forEach((button) => { button.disabled = !hasModelConfig; });
+      }
+
+      function currentTaskStatus(taskId) {
+        if (!mounted) return 'idle';
+        return mounted.runtime.getTask(taskId)?.status || 'idle';
+      }
+
+      function normalizeAiKey(value) {
+        return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      }
+
+      function unwrapTaskResult(value) {
+        let current = value;
+        for (let depth = 0; depth < 3; depth += 1) {
+          if (!current || typeof current !== 'object' || Array.isArray(current)) return current;
+          const keys = Object.keys(current);
+          if (keys.length !== 1) return current;
+          const key = normalizeAiKey(keys[0]);
+          if (!['result', 'output', 'data', 'response', 'answer', 'json'].includes(key)) return current;
+          current = current[keys[0]];
+        }
+        return current;
+      }
+
+      function findAliasedValue(obj, aliases) {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return undefined;
+        for (const alias of aliases) {
+          if (alias in obj) return obj[alias];
+        }
+        const normalizedAliases = aliases.map(normalizeAiKey);
+        for (const [key, value] of Object.entries(obj)) {
+          if (normalizedAliases.includes(normalizeAiKey(key))) return value;
+        }
+        return undefined;
+      }
+
+      function stringFromValue(value) {
+        if (typeof value === 'string') return value.trim();
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        if (Array.isArray(value)) {
+          return value.map((entry) => stringFromValue(entry)).filter(Boolean).join('; ').trim();
+        }
+        if (value && typeof value === 'object') {
+          const nested = findAliasedValue(value, ['text', 'label', 'title', 'name', 'summary', 'headline', 'value', 'item', 'reason', 'description', 'content']);
+          if (nested !== undefined && nested !== value) return stringFromValue(nested);
+        }
+        return '';
+      }
+
+      function listFromValue(value) {
+        if (Array.isArray(value)) {
+          return value.map((entry) => stringFromValue(entry)).filter(Boolean);
+        }
+        if (typeof value === 'string') {
+          const pieces = value
+            .split(/\\n|•|- |\\* |; /)
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+          return pieces.length > 0 ? pieces : [value.trim()].filter(Boolean);
+        }
+        if (value && typeof value === 'object') {
+          const nested = findAliasedValue(value, ['items', 'list', 'checklist', 'steps', 'checks', 'focus', 'focusPoints', 'requiredEvidence', 'evidenceToCollect', 'gapsToRetireFirst']);
+          if (nested !== undefined && nested !== value) return listFromValue(nested);
+        }
+        const single = stringFromValue(value);
+        return single ? [single] : [];
+      }
+
+      function enumFromValue(value, allowed) {
+        const raw = stringFromValue(value);
+        if (!raw) return '';
+        const normalized = normalizeAiKey(raw);
+        for (const entry of allowed || []) {
+          if (normalizeAiKey(entry) === normalized) return entry;
+        }
+        const aliases = {
+          automated: 'automation',
+          automationcoverage: 'automation',
+          testautomation: 'automation',
+          endpoint: 'api',
+          apiedge: 'api',
+          apievidence: 'api',
+          ui: 'interaction',
+          interactionsurface: 'interaction',
+          ux: 'interaction',
+          missinggap: 'gap',
+          evidencegap: 'gap',
+        };
+        const match = aliases[normalized];
+        return match && allowed.includes(match) ? match : raw;
+      }
+
+      function coerceToSchema(schema, value, aliasesByField = {}) {
+        if (!schema || typeof schema !== 'object') return value;
+        if (schema.type === 'object') {
+          const source = unwrapTaskResult(value);
+          const out = {};
+          for (const [key, childSchema] of Object.entries(schema.properties || {})) {
+            const aliases = [key, ...(aliasesByField[key] || [])];
+            let childValue = source && typeof source === 'object' && !Array.isArray(source)
+              ? findAliasedValue(source, aliases)
+              : undefined;
+            if (childValue && typeof childValue === 'object' && !Array.isArray(childValue)) {
+              const nestedDirectValue = findAliasedValue(childValue, [key]);
+              if (nestedDirectValue !== undefined) childValue = nestedDirectValue;
+            }
+            if (childValue === undefined && source && typeof source === 'object' && !Array.isArray(source)) {
+              const nestedObjects = Object.values(source).filter((entry) => (
+                entry && typeof entry === 'object' && !Array.isArray(entry)
+              ));
+              if (nestedObjects.length === 1) {
+                childValue = findAliasedValue(nestedObjects[0], aliases);
+              }
+            }
+            if (childValue === undefined && source && typeof source === 'object' && !Array.isArray(source) && Object.keys(schema.properties || {}).length === 1) {
+              childValue = source;
+            }
+            out[key] = coerceToSchema(childSchema, childValue, aliasesByField);
+          }
+          return out;
+        }
+        if (schema.type === 'array') {
+          return listFromValue(value).map((entry) => coerceToSchema(schema.items, entry, aliasesByField));
+        }
+        if (schema.type === 'string') {
+          return Array.isArray(schema.enum) && schema.enum.length > 0
+            ? enumFromValue(value, schema.enum)
+            : stringFromValue(value);
+        }
+        return value;
+      }
+
+      function createModelAdapter() {
+        const baseAdapter = runtimeApi.createOpenAICompatibleModelAdapter({
+          model: meta.runtime.model,
+          endpoint: meta.runtime.endpoint,
+          timeoutMs: meta.runtime.timeoutMs,
+          ...(meta.runtime.useJsonResponseFormat ? { responseFormat: 'json_object' } : {}),
+        });
+        function isRetryableModelParseError(error) {
+          const message = String(error?.message || error || '').toLowerCase();
+          return message.includes('did not contain json')
+            || message.includes('contained incomplete json')
+            || message.includes('was not valid json');
+        }
+        const tolerantAdapter = {
+          async run(request) {
+            let raw;
+            let lastError;
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              try {
+                raw = await baseAdapter.run(request);
+                lastError = null;
+                break;
+              } catch (error) {
+                lastError = error;
+                if (!isRetryableModelParseError(error) || attempt === 2) throw error;
+                setTaskMessage(request.taskId, 'Local output was not valid JSON; retrying with the same document payload...', 'muted');
+              }
+            }
+            if (lastError) throw lastError;
+            const aliasesByField = meta.taskMeta?.[request.taskId]?.resultAliases || {};
+            return coerceToSchema(request.schema, raw, aliasesByField);
+          },
+        };
+        return runtimeApi.createQueuedModelAdapter(tolerantAdapter, { concurrency: 1 });
+      }
+
+      function attachRuntimeEvents(current) {
+        current.runtime.on('task:started', (event) => {
+          setTaskStatus(event.taskId, 'Running', 'running');
+          setTaskMessage(event.taskId, 'Reading this section with the local model...', 'muted');
+          taskRunButtons(event.taskId).forEach((button) => { button.disabled = true; });
+        });
+        current.runtime.on('task:succeeded', (event) => {
+          const latency = event.snapshot.latencyMs ? ' in ' + event.snapshot.latencyMs + 'ms' : '';
+          const successMessage = 'Section advisory updated from validated local output' + latency + '.';
+          persistTaskResult(event.taskId, event.snapshot.output, successMessage);
+          setTaskStatus(event.taskId, 'Ready', 'done');
+          setTaskMessage(event.taskId, successMessage, 'done');
+          taskRunButtons(event.taskId).forEach((button) => { button.disabled = false; });
+        });
+        current.runtime.on('task:failed', (event) => {
+          setTaskStatus(event.taskId, 'Error', 'error');
+          setTaskMessage(event.taskId, 'Section advisory failed: ' + (event.error?.message || 'AI task failed.'), 'error');
+          taskRunButtons(event.taskId).forEach((button) => { button.disabled = false; });
+        });
+      }
+
+      function mountFreshRuntime(options = {}) {
+        const excludedTaskIds = Array.isArray(options.excludedTaskIds) ? options.excludedTaskIds : [];
+        if (mounted) mounted.unmount();
+        restoreAllTasks();
+        mounted = runtimeApi.mountAiRenderHtml({
+          spec,
+          autoRun: false,
+          collectSources: true,
+          models: { default: createModelAdapter() },
+        });
+        attachRuntimeEvents(mounted);
+        restorePersistedTaskResults(excludedTaskIds);
+        return mounted;
+      }
+
+      function ensureRuntime(taskIdsToRun = []) {
+        if (!mounted) return mountFreshRuntime();
+        const shouldRemount = taskIdsToRun.some((taskId) => currentTaskStatus(taskId) === 'success');
+        if (!shouldRemount) return mounted;
+        taskIdsToRun.forEach((taskId) => {
+          persistedTaskResults.delete(taskId);
+        });
+        return mountFreshRuntime({ excludedTaskIds: taskIdsToRun });
+      }
+
+      async function runTask(taskId) {
+        if (!hasModelConfig) return;
+        const current = ensureRuntime([taskId]);
+        await current.runtime.ensureTask(taskId).catch(() => {});
+      }
+
+      async function runSection(sectionId, button) {
+        if (!hasModelConfig) return;
+        const sectionTaskIdsToRun = sectionTaskIds.get(sectionId) || [];
+        if (sectionTaskIdsToRun.length === 0) return;
+        const current = ensureRuntime(sectionTaskIdsToRun);
+        if (button) button.disabled = true;
+        try {
+          for (const taskId of sectionTaskIdsToRun) {
+            await current.runtime.ensureTask(taskId).catch(() => {});
+          }
+        } finally {
+          if (button) button.disabled = false;
+        }
+      }
+
+      sectionButtons.forEach((button) => {
+        button.addEventListener('click', () => runSection(button.dataset.aiRun, button));
+      });
+
+      taskButtons.forEach((button) => {
+        button.addEventListener('click', () => runTask(button.dataset.aiRunTask));
+      });
+
+      restoreAllTasks();
+      if (meta.runtime?.autoRun && hasModelConfig) {
+        sections.forEach((section) => {
+          void runSection(section.sectionId);
+        });
+      }
+    })();
+    </script>` : ''}
 ${data.liveReload ? `
     <!-- ── Live reload (opt-in via liveReload: true in doc JSON) ──
          Poller asks the serving host for the current fingerprint every 20s.

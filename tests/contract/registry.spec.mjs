@@ -75,6 +75,18 @@ function assertAiAction(action, label) {
   assert.ok(typeof action.description === 'string' && action.description.trim(), `${label}.description must be a non-empty string`);
 }
 
+function assertAiProfile(profile, label) {
+  assert.ok(profile && typeof profile === 'object', `${label} must be an object`);
+  assert.ok(typeof profile.id === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(profile.id), `${label}.id must be a kebab-case slug`);
+  assert.ok(typeof profile.name === 'string' && profile.name.trim(), `${label}.name must be a non-empty string`);
+  assert.ok(typeof profile.description === 'string' && profile.description.trim(), `${label}.description must be a non-empty string`);
+  assert.ok(
+    typeof profile.slot === 'string' && ['section-brief', 'section-weakness-note', 'section-next-loop'].includes(profile.slot),
+    `${label}.slot must be one of the supported advisory slots`,
+  );
+  assert.strictEqual(typeof profile.defaultVisible, 'boolean', `${label}.defaultVisible must be a boolean`);
+}
+
 if (registry.generalAiActions !== undefined) {
   assert.ok(Array.isArray(registry.generalAiActions), 'generalAiActions must be an array');
   assert.ok(registry.generalAiActions.length > 0, 'generalAiActions must not be empty when declared');
@@ -96,6 +108,22 @@ for (const [typeId, typeDef] of Object.entries(registry.convergenceTypes)) {
     assert.ok(!ids.has(a.id), `${typeId}.aiActions has duplicate id "${a.id}"`);
     ids.add(a.id);
   });
+}
+
+for (const [typeId, typeDef] of Object.entries(registry.convergenceTypes)) {
+  if (typeDef.aiProfiles === undefined) continue;
+  assert.ok(Array.isArray(typeDef.aiProfiles), `${typeId}.aiProfiles must be an array`);
+  assert.ok(typeDef.aiProfiles.length > 0, `${typeId}.aiProfiles must not be empty when declared`);
+  const ids = new Set();
+  typeDef.aiProfiles.forEach((profile, i) => {
+    assertAiProfile(profile, `${typeId}.aiProfiles[${i}]`);
+    assert.ok(!ids.has(profile.id), `${typeId}.aiProfiles has duplicate id "${profile.id}"`);
+    ids.add(profile.id);
+  });
+  assert.ok(
+    typeDef.aiProfiles.some((profile) => profile.defaultVisible),
+    `${typeId}.aiProfiles must declare at least one default-visible profile`,
+  );
 }
 
 console.log(`registry contract ok: ${Object.keys(registry.convergenceTypes).length} convergence types`);
