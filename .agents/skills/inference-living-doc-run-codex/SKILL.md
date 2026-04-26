@@ -24,6 +24,31 @@ Track two separate readiness states throughout the run:
 
 Coverage and governance tools can support `documentReady`; they do not prove `objectiveReady` by themselves.
 
+## Harness Tool Map
+
+Use the explicit tool surface for each harness step. Prefer MCP when available, use the CLI fallback when not, and record the required output in the living doc before moving to the next gate.
+
+| Harness step | Primary tools | CLI / local fallback | Required output |
+| --- | --- | --- | --- |
+| Scope and source target | Source MCP/app tools for the system named by the user | `gh issue view`, `gh pr view`, `gh issue list`, `git remote -v`, `git status --short` | Objective, success condition, source URLs/ids, write/commit policy |
+| Deep objective exploration | GitHub MCP/app, repo/filesystem tools | `gh issue view --json ...`, `gh pr view --json ...`, `rg`, `git log`, `git show`, package scripts/docs reads | Issue facts, linked source material, initial code/test/doc anchors, constraints |
+| Registry structure selection | `living_doc_registry_summary`, `living_doc_registry_match_objective` | `node .agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs registry-summary`; `... match-structure` | Selected strategy, convergence types, deferred types, rationale |
+| Type contract reading | `living_doc_registry_explain_type` | Read `scripts/living-doc-registry.json` entries for selected types | Type contracts, status fields, source shapes, prompt guidance |
+| Objective decomposition | `living_doc_objective_decompose` | Manual decomposition recorded in doc JSON | Objective facets mapped to success condition |
+| Initial doc creation | `living_doc_scaffold` | `node .agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs scaffold`; manual JSON patch when needed | Fresh run doc JSON path with initial sections, cards, facets, invariants |
+| Source/card hydration | `living_doc_sources_add` | Direct JSON edit/patch using source data from `gh`, `git`, `rg`, files | Typed cards, source refs, code anchors, issue orbit, findings, attempts |
+| Coverage mapping | `living_doc_coverage_map`, `living_doc_coverage_find_gaps` | `node .agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs coverage-check --doc <doc.json>` | Coverage edges, uncovered facets, invalid edges |
+| Governance setup/check | `living_doc_governance_list_invariants`, `living_doc_governance_evaluate`, `living_doc_governance_suggest_invariant` | `node .agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs governance-check --doc <doc.json>` | Operational invariants, violations, refinement actions |
+| Render | `living_doc_render` | `node scripts/render-living-doc.mjs <doc.json>` | Rendered HTML path and render success/failure evidence |
+| Checkpoint commit | GitHub/git tool if available | `git add <doc.json> <doc.html> <owned-artifacts>; git commit -m "ldoc: <gate> <objective>"` | Commit SHA containing only run-owned files |
+| Implementation/source work | Normal Codex shell/edit/test tools plus source MCP/app tools | `apply_patch`, repo scripts, `npm test`, targeted package tests, `gh issue/pr` commands when in scope | Actual objective work, linked attempts/findings/evidence |
+| Structure reflection | `living_doc_structure_reflect`, `living_doc_structure_refine` | coverage/governance checks plus manual doc patch | Confirmed structure or revised sections/types/rationales |
+| Durable source creation | `living_doc_sources_create`, `living_doc_sources_link` | `gh issue create`, markdown/test fixture creation, direct doc linking | Created source artifact and backlink from doc card/section |
+| Trap handling | `living_doc_governance_classify_trap`, `living_doc_governance_suggest_invariant`, `living_doc_governance_refine_invariant` | Manual invariant update plus governance check | Trap classification and durable invariant when warranted |
+| Final readiness | `living_doc_coverage_evaluate_success_condition`, `living_doc_governance_evaluate`, `living_doc_render` | coverage-check, governance-check, renderer, repo tests | `documentReady`, `objectiveReady`, final doc paths, final commit SHA |
+
+Do not treat this table as advisory. If a primary tool is unavailable, use the fallback and record that fallback in the doc. If both primary and fallback are blocked, record the blocker and stop at the next checkpoint with `objectiveReady=false`.
+
 ## Workflow
 
 ### 1. Establish Scope
