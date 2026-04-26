@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Inference Living Doc Run Codex Skill</title>
+    <meta name="description" content="A static overview of the inference-living-doc-run-codex skill and its objective-first living-doc harness." />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f8fb;
+        --card: #ffffff;
+        --ink: #172033;
+        --muted: #627086;
+        --line: #dfe6ef;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --green-bg: #ecfdf5;
+        --green-ink: #166534;
+        --amber-bg: #fffbeb;
+        --amber-ink: #92400e;
+        --red-bg: #fef2f2;
+        --red-ink: #991b1b;
+        --neutral-bg: #f1f5f9;
+        --neutral-ink: #475569;
+        --max: 1120px;
+        --radius: 10px;
+        --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.65 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+      code {
+        padding: 1px 6px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--neutral-bg);
+        font-size: 0.9em;
+      }
+      pre {
+        margin: 0;
+        padding: 16px 18px;
+        overflow-x: auto;
+        border-radius: var(--radius);
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+      pre code { padding: 0; border: 0; background: transparent; color: inherit; }
+
+      .wrap {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: 36px 28px 72px;
+      }
+      .page-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 28px;
+        align-items: end;
+        padding: 28px 0 34px;
+        border-bottom: 1px solid var(--line);
+      }
+      .eyebrow {
+        display: inline-flex;
+        margin-bottom: 14px;
+        padding: 5px 11px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0 0 12px;
+        max-width: 820px;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+      }
+      .subtitle {
+        margin: 0;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.55;
+      }
+      .meta-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+      .meta-card strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      .meta-card code {
+        display: inline-block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+      }
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .pill {
+        display: inline-flex;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .toc {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        margin: 0 -28px;
+        padding: 12px 28px;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in srgb, var(--bg) 90%, white);
+        backdrop-filter: blur(10px);
+      }
+      .toc-inner {
+        max-width: var(--max);
+        margin: 0 auto;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+      }
+      .toc a {
+        flex: 0 0 auto;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--neutral-ink);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .toc a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+      section {
+        padding: 46px 0 0;
+      }
+      .section-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 18px;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.18;
+        letter-spacing: -0.02em;
+      }
+      .section-lede {
+        margin: 0;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .section-tag {
+        justify-self: end;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .card ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+      }
+      .card li { margin: 4px 0; }
+      .number {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 900;
+      }
+      .callout {
+        margin-top: 16px;
+        padding: 18px 20px;
+        border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--accent-soft) 45%, var(--card));
+      }
+      .callout strong { display: block; margin-bottom: 6px; }
+      .callout p { margin: 0; color: var(--muted); }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: stretch;
+      }
+      .status {
+        padding: 18px;
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        background: var(--card);
+      }
+      .status.good { border-color: color-mix(in srgb, var(--green-ink) 22%, var(--line)); background: color-mix(in srgb, var(--green-bg) 68%, var(--card)); }
+      .status.warn { border-color: color-mix(in srgb, var(--amber-ink) 22%, var(--line)); background: color-mix(in srgb, var(--amber-bg) 72%, var(--card)); }
+      .status.bad { border-color: color-mix(in srgb, var(--red-ink) 22%, var(--line)); background: color-mix(in srgb, var(--red-bg) 76%, var(--card)); }
+      .status h3 { margin: 0 0 8px; }
+      .status p { margin: 0; color: var(--muted); }
+
+      .flow {
+        display: grid;
+        gap: 10px;
+      }
+      .flow-row {
+        display: grid;
+        grid-template-columns: 46px minmax(0, 1fr);
+        gap: 14px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+      }
+      .flow-num {
+        display: inline-flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        background: var(--accent);
+        color: white;
+        font-weight: 900;
+      }
+      .flow-row h3 { margin: 0 0 4px; font-size: 15px; }
+      .flow-row p { margin: 0; color: var(--muted); }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+        font-size: 14px;
+      }
+      th, td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+      tr:last-child td { border-bottom: 0; }
+      th {
+        background: var(--neutral-bg);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .formula {
+        margin-top: 18px;
+        padding: 24px;
+        border-radius: var(--radius);
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: clamp(22px, 3vw, 34px);
+        line-height: 1.18;
+        letter-spacing: -0.025em;
+        font-weight: 850;
+      }
+      .formula span { color: #93c5fd; }
+
+      .footer {
+        margin-top: 56px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 860px) {
+        .wrap { padding: 24px 18px 56px; }
+        .page-header, .section-head, .split, .grid-2, .grid-3, .grid-4 {
+          grid-template-columns: 1fr;
+        }
+        .section-tag { justify-self: start; }
+        .toc { margin: 0 -18px; padding: 10px 18px; }
+      }
+
+      @media print {
+        .toc { position: static; margin: 0; padding: 0 0 16px; border: 0; background: transparent; }
+        .toc-inner { flex-wrap: wrap; }
+        body { background: white; }
+        .card, .status, .flow-row, .meta-card, .table-wrap { box-shadow: none; }
+        section { break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="page-header">
+        <div>
+          <span class="eyebrow">Codex skill</span>
+          <h1>Inference Living Doc Run Codex</h1>
+          <p class="subtitle">An objective-first harness for solving bounded work while keeping a typed living document as working memory, governance, evidence, and handoff state.</p>
+          <div class="pill-row">
+            <span class="pill">Objective execution</span>
+            <span class="pill">Governed memory</span>
+            <span class="pill">Checkpointed evidence</span>
+            <span class="pill">Momentum layer</span>
+          </div>
+        </div>
+        <aside class="meta-card">
+          <strong>Skill path</strong>
+          <code>.agents/skills/inference-living-doc-run-codex/SKILL.md</code>
+        </aside>
+      </header>
+
+      <nav class="toc" aria-label="Page sections">
+        <div class="toc-inner">
+          <a href="#purpose">Purpose</a>
+          <a href="#contract">Contract</a>
+          <a href="#momentum">Momentum</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#control">Control Points</a>
+          <a href="#readiness">Readiness</a>
+          <a href="#use">When To Use</a>
+        </div>
+      </nav>
+
+      <section id="purpose">
+        <div class="section-head">
+          <div>
+            <h2>What The Skill Is For</h2>
+            <p class="section-lede">It gives Codex a controlled way to solve domain-heavy work without losing track of objective, evidence, source ownership, and final readiness.</p>
+          </div>
+          <span class="section-tag">Purpose</span>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <span class="number">1</span>
+            <h3>Build a governed working doc</h3>
+            <p>Create a fresh objective-specific living doc, or continue an explicitly named run doc, with facets, sections, source links, invariants, and rendered HTML.</p>
+          </article>
+          <article class="card">
+            <span class="number">2</span>
+            <h3>Use it while doing the work</h3>
+            <p>The doc is not a detached summary. It steers implementation, investigation, verification, trap handling, and handoff.</p>
+          </article>
+          <article class="card">
+            <span class="number">3</span>
+            <h3>Keep objective completion separate</h3>
+            <p>A coherent document can support completion, but it does not prove the objective is complete. The skill tracks both states explicitly.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="contract">
+        <div class="section-head">
+          <div>
+            <h2>Operational Contract</h2>
+            <p class="section-lede">When invoked on an issue, task, ticket, source artifact, or objective, the skill is an execution harness. Codex must attempt to complete the objective in the current run.</p>
+          </div>
+          <span class="section-tag">Contract</span>
+        </div>
+        <div class="split">
+          <article class="status good">
+            <h3>The living doc is working state</h3>
+            <p>It stores the objective frame, source cards, code anchors, attempts, verification evidence, governance, and residual risks.</p>
+          </article>
+          <article class="status warn">
+            <h3>The living doc is not automatically the deliverable</h3>
+            <p>Unless the objective is itself to create or update a living doc, Codex must still do the actual implementation, investigation, or operational work.</p>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>Default commit policy</strong>
+          <p>Checkpoint-commit run doc artifacts at harness gates. Do not commit source-code or source-system changes unless the objective requires it or the user requests it.</p>
+        </div>
+      </section>
+
+      <section id="momentum">
+        <div class="section-head">
+          <div>
+            <h2>Momentum Layer</h2>
+            <p class="section-lede">The recent skill update adds a rule above the harness: every doc or governance action must justify itself by enabling the next objective action.</p>
+          </div>
+          <span class="section-tag">Momentum</span>
+        </div>
+        <div class="flow">
+          <div class="flow-row">
+            <span class="flow-num">1</span>
+            <div>
+              <h3>Advance the objective</h3>
+              <p>Make source progress first: inspect, implement, test, investigate, update an issue, or reach an evidenced blocker.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <span class="flow-num">2</span>
+            <div>
+              <h3>Update the doc with the smallest useful change</h3>
+              <p>Record only the state or evidence that helps the next step stay coherent.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <span class="flow-num">3</span>
+            <div>
+              <h3>Run the minimum necessary control point</h3>
+              <p>Governance, coverage, render, or checkpoint only as deeply as the uncertainty and risk require.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <span class="flow-num">4</span>
+            <div>
+              <h3>Continue immediately</h3>
+              <p>After a successful checkpoint, move to the next implementation, investigation, or verification action.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formula"><span>Keep the gates.</span> Shorten the gate depth. <span>Force objective action after each gate.</span></div>
+      </section>
+
+      <section id="workflow">
+        <div class="section-head">
+          <div>
+            <h2>The Run Shape</h2>
+            <p class="section-lede">The full workflow remains available, but the new momentum rules prevent the harness from becoming the work.</p>
+          </div>
+          <span class="section-tag">Workflow</span>
+        </div>
+        <div class="grid-4">
+          <article class="card">
+            <h3>Scope</h3>
+            <p>Identify objective, success condition, source systems, write policy, and commit mode.</p>
+          </article>
+          <article class="card">
+            <h3>Explore</h3>
+            <p>Read issue facts, linked sources, repo files, tests, docs, history, constraints, and prior attempts.</p>
+          </article>
+          <article class="card">
+            <h3>Structure</h3>
+            <p>Select registry-backed convergence types, facets, invariants, and section rationales.</p>
+          </article>
+          <article class="card">
+            <h3>Create</h3>
+            <p>Scaffold the run doc, add useful source cards, render, govern, and checkpoint.</p>
+          </article>
+          <article class="card">
+            <h3>Work</h3>
+            <p>Implement, investigate, verify, update source systems, and record concrete attempts and evidence.</p>
+          </article>
+          <article class="card">
+            <h3>Reflect</h3>
+            <p>Adjust structure only when discoveries show a missing carrier, wrong type, or governance trap.</p>
+          </article>
+          <article class="card">
+            <h3>Verify</h3>
+            <p>Run tests, source checks, coverage checks, governance checks, and render checks that match the risk.</p>
+          </article>
+          <article class="card">
+            <h3>Finalize</h3>
+            <p>Report readiness, final doc paths, evidence, commits, residual risks, and whether the objective is complete.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="control">
+        <div class="section-head">
+          <div>
+            <h2>Control Points And Budget Rules</h2>
+            <p class="section-lede">The harness keeps strong gates, but now limits pure document activity in non-blocked runs.</p>
+          </div>
+          <span class="section-tag">Control</span>
+        </div>
+        <div class="grid-2">
+          <article class="status good">
+            <h3>Objective Progress Invariant</h3>
+            <p>Every checkpoint must name the next implementation action, investigation action, verification action, or evidenced blocker.</p>
+          </article>
+          <article class="status bad">
+            <h3>Harness Budget Rule</h3>
+            <p>Do not perform more than one pure-harness cycle in a row unless a governance violation blocks objective work.</p>
+          </article>
+        </div>
+        <div class="table-wrap" style="margin-top: 16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Control Point</th>
+                <th>Why It Exists</th>
+                <th>Minimal Valid Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Coverage</td>
+                <td>Confirms facets have carriers and invalid edges are not hiding drift.</td>
+                <td>Run a quick coverage check and fix only blocking gaps.</td>
+              </tr>
+              <tr>
+                <td>Governance</td>
+                <td>Prevents false completion, type-boundary drift, and unsupported status upgrades.</td>
+                <td>Evaluate applicable invariants before status upgrades or source writes.</td>
+              </tr>
+              <tr>
+                <td>Render</td>
+                <td>Proves the living doc is visible and standalone.</td>
+                <td>Render after meaningful doc changes or record a render blocker.</td>
+              </tr>
+              <tr>
+                <td>Checkpoint</td>
+                <td>Preserves the audit trail and makes the next action explicit.</td>
+                <td>Commit only run-owned doc artifacts unless source commits are in scope.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="readiness">
+        <div class="section-head">
+          <div>
+            <h2>Two Readiness States</h2>
+            <p class="section-lede">The skill is explicit about the difference between a coherent document and a completed objective.</p>
+          </div>
+          <span class="section-tag">Readiness</span>
+        </div>
+        <div class="grid-2">
+          <article class="card">
+            <h3><code>documentReady</code></h3>
+            <p>The run doc is coherent, rendered, covered, governed, and has no unhandled structural or invariant problems.</p>
+            <ul>
+              <li>JSON and HTML exist</li>
+              <li>Coverage has no invalid edges</li>
+              <li>Governance has no unresolved violations</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3><code>objectiveReady</code></h3>
+            <p>The actual success condition is satisfied by implementation, investigation, verification, or an evidenced blocker.</p>
+            <ul>
+              <li>Work is done or blocked with evidence</li>
+              <li>Tests or source checks support the status</li>
+              <li>Residual risks are explicit</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="use">
+        <div class="section-head">
+          <div>
+            <h2>When To Use It</h2>
+            <p class="section-lede">Use the skill when the work benefits from durable, typed state during inference rather than a one-off answer.</p>
+          </div>
+          <span class="section-tag">Usage</span>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <h3>Good Fit</h3>
+            <ul>
+              <li>GitHub issues with code, tests, and prior context</li>
+              <li>Stuck investigations with multiple source systems</li>
+              <li>Domain-heavy implementation tasks</li>
+              <li>Work that needs explicit verification evidence</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Use Minimal Depth</h3>
+            <ul>
+              <li>Small or well-understood subtasks</li>
+              <li>Low-risk source edits</li>
+              <li>Clear issue scopes with obvious tests</li>
+              <li>Follow-up runs with fresh context already captured</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Use Full Depth</h3>
+            <ul>
+              <li>Ambiguous objectives</li>
+              <li>High-risk source writes</li>
+              <li>State-heavy or cross-system tasks</li>
+              <li>Repeated traps, loops, or false-completion risk</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>Shortest accurate description</strong>
+          <p>The skill is a living-doc harness for doing real work with governed memory. The momentum layer keeps that harness objective-directed.</p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        Static page generated from <code>.agents/skills/inference-living-doc-run-codex/SKILL.md</code>. No external assets or runtime dependencies.
+      </footer>
+    </main>
+  </body>
+</html>

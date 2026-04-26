@@ -1,0 +1,305 @@
+{
+  "docId": "doc:ai-local-advisory-demo",
+  "title": "AI Local Advisory Demo",
+  "subtitle": "First vertical slice for AI-enhanced living-doc exports",
+  "brand": "LD",
+  "scope": "Show how a rendered living doc can expose document-grounded local AI advisory slots for the first three convergence types.",
+  "owner": "Living Doc Compositor",
+  "version": "demo-v1",
+  "canonicalOrigin": "docs/ai-local-advisory-demo.json",
+  "sourceCoverage": "Document payload only",
+  "updated": "2026-04-26T00:00:00.000Z",
+  "objective": "Demonstrate a standalone living-doc export that can run local advisory tasks over its own typed document content without mutating the canonical source.",
+  "successCondition": "The rendered HTML exposes section-level local AI advisory cards, embeds a typed AI spec, and keeps normal document rendering intact when no local model is used.",
+  "invariants": [
+    {
+      "id": "document-grounded",
+      "name": "Document grounded only",
+      "statement": "Every advisory result must derive from the document payload embedded in the export."
+    },
+    {
+      "id": "standalone-html",
+      "name": "Standalone HTML preserved",
+      "statement": "The exported living doc must remain fully standalone and readable even if no local model endpoint is available."
+    },
+    {
+      "id": "read-only-advisory",
+      "name": "Read-only advisory",
+      "statement": "The advisory layer must not change canonical document content or replace Cmd-K editing."
+    }
+  ],
+  "aiEnhancement": {
+    "enabled": true,
+    "endpoint": "http://127.0.0.1:1234/v1/chat/completions",
+    "model": "gemma-4-e4b-it",
+    "timeoutMs": 45000,
+    "autoRun": false
+  },
+  "sections": [
+    {
+      "id": "delivery-surface",
+      "title": "Delivery Surface",
+      "convergenceType": "design-code-spec-flow",
+      "updated": "2026-04-26T00:00:00.000Z",
+      "ai": {
+        "enabledProfiles": [
+          "surface-brief",
+          "alignment-risk-note",
+          "review-checklist"
+        ]
+      },
+      "callout": {
+        "tone": "info",
+        "title": "Intent",
+        "items": [
+          "Use one exported living doc to show the advisory layer in context.",
+          "Keep the feature additive to the current renderer rather than creating a second authoring flow."
+        ]
+      },
+      "data": [
+        {
+          "id": "renderer-flag",
+          "name": "Renderer enhancement mode",
+          "feature": "Optional exported advisory surface",
+          "kind": "render-mode",
+          "status": "ground-truth",
+          "codeStatus": "implemented",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "codeRefs": [
+            "scripts/render-living-doc.mjs"
+          ],
+          "specRefIds": [
+            "issue-135-scope"
+          ],
+          "interactionSurfaceIds": [
+            "section-ai-run"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "135",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/135",
+              "title": "Add AI Render Graph based living-doc export enhancement"
+            }
+          ],
+          "notes": [
+            "The export now knows how to emit advisory regions and an embedded AI spec."
+          ]
+        },
+        {
+          "id": "runtime-integration",
+          "name": "AI Render Graph browser runtime",
+          "feature": "Library-native standalone inference flow",
+          "kind": "runtime",
+          "status": "ground-truth",
+          "codeStatus": "implemented",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "codeRefs": [
+            "scripts/render-living-doc.mjs"
+          ],
+          "specRefIds": [
+            "ai-render-graph-browser-runtime"
+          ],
+          "interactionSurfaceIds": [
+            "doc-ai-spec"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "135",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/135",
+              "title": "Add AI Render Graph based living-doc export enhancement"
+            }
+          ],
+          "notes": [
+            "The export now embeds the real ai-render-graph browser runtime from the local vendor repo while staying a standalone HTML artifact."
+          ]
+        },
+        {
+          "id": "type-mapping",
+          "name": "Type-driven advisory mapping",
+          "feature": "First three convergence types",
+          "kind": "schema",
+          "status": "ground-truth",
+          "codeStatus": "implemented",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "codeRefs": [
+            "scripts/living-doc-registry.json",
+            "scripts/render-living-doc.mjs"
+          ],
+          "specRefIds": [
+            "first-three-types-mapping-spec"
+          ],
+          "interactionSurfaceIds": [
+            "section-ai-card"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "135",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/135",
+              "title": "Add AI Render Graph based living-doc export enhancement"
+            }
+          ],
+          "notes": [
+            "Prompt construction and output schemas are grounded in convergence type semantics rather than ad hoc per-document rules."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verification-surface",
+      "title": "Verification Surface",
+      "convergenceType": "verification-surface",
+      "updated": "2026-04-26T00:00:00.000Z",
+      "ai": {
+        "enabledProfiles": [
+          "verification-brief",
+          "weakest-signal-note",
+          "next-verification-loop"
+        ]
+      },
+      "callout": {
+        "tone": "warn",
+        "title": "Boundary",
+        "items": [
+          "This first pass is document-grounded only.",
+          "The export does not assume internet search, repo crawling, or other external tools."
+        ]
+      },
+      "data": [
+        {
+          "id": "contract-proof",
+          "name": "Contract-level render proof",
+          "status": "ready",
+          "priority": "high",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "currentCoverage": "Contract tests verify that AI advisory UI, embedded spec, separate advisory metadata, and expected task bindings appear in the rendered HTML.",
+          "nextStep": "Keep the ai-render-graph spec contract stable as more convergence types and profiles are added.",
+          "gaps": [
+            "Contract tests do not exercise a real local model response yet."
+          ],
+          "automationPaths": [
+            "tests/contract/render.spec.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "135",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/135",
+              "title": "Add AI Render Graph based living-doc export enhancement"
+            }
+          ],
+          "notes": [
+            "This proves the export shape, not model quality."
+          ]
+        },
+        {
+          "id": "browser-proof",
+          "name": "Browser-level rendered proof",
+          "status": "ready",
+          "priority": "high",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "currentCoverage": "A Playwright test loads the rendered HTML and checks that section advisory blocks and task bindings are visible.",
+          "nextStep": "Broaden browser checks as more task types and UI affordances are introduced.",
+          "gaps": [
+            "No visual regression layer exists yet for advisory-card presentation."
+          ],
+          "automationPaths": [
+            "tests/e2e/ai-enhanced-rendered-doc.spec.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "135",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/135",
+              "title": "Add AI Render Graph based living-doc export enhancement"
+            }
+          ],
+          "notes": [
+            "This confirms the exported document can show the advisory surface in a browser."
+          ]
+        },
+        {
+          "id": "grounding-boundary",
+          "name": "Document-only grounding boundary",
+          "status": "partial",
+          "priority": "medium",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "currentCoverage": "Prompts include document root context, section context, type guidance, and normalized items only.",
+          "nextStep": "Decide later whether to layer optional tool-backed enrichment on top of this base mode.",
+          "gaps": [
+            "No explicit search-enabled mode exists yet."
+          ],
+          "apiRefs": [
+            "http://127.0.0.1:1234/v1/chat/completions"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "135",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/135",
+              "title": "Add AI Render Graph based living-doc export enhancement"
+            }
+          ],
+          "notes": [
+            "The current scope stays intentionally narrow so local models like Gemma can be useful from the export alone."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "updated": "2026-04-26T00:00:00.000Z",
+      "ai": {
+        "enabledProfiles": [
+          "proof-state-brief",
+          "weakest-open-rung",
+          "next-stronger-proof"
+        ]
+      },
+      "callout": {
+        "tone": "success",
+        "title": "Current proof posture",
+        "items": [
+          "The system can now render type-aware advisory slots inside an exported living doc.",
+          "The remaining proof gap is real task hydration with stable mocked and live local-model coverage."
+        ]
+      },
+      "data": [
+        {
+          "id": "rung-export-shape",
+          "name": "Embedded export shape exists",
+          "status": "ready",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "notes": [
+            "The export now includes a typed advisory spec and section task bindings."
+          ]
+        },
+        {
+          "id": "rung-ui-proof",
+          "name": "Advisory UI appears in a rendered doc",
+          "status": "ready",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "notes": [
+            "The advisory cards are visible in a real rendered HTML document with section-level run controls."
+          ]
+        },
+        {
+          "id": "rung-task-hydration",
+          "name": "Hydrated advisory outputs from model calls",
+          "status": "ready",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "notes": [
+            "The ai-render-graph runtime now makes real local-model calls from the exported HTML, and browser coverage includes mocked hydration proof."
+          ]
+        },
+        {
+          "id": "rung-library-native-dataflow",
+          "name": "Library-native source-bound task inputs",
+          "status": "ready",
+          "updated": "2026-04-26T00:00:00.000Z",
+          "notes": [
+            "Task input now binds through ai-render-graph source collection from rendered document sections instead of relying only on prepacked constant payloads."
+          ]
+        }
+      ]
+    }
+  ]
+}

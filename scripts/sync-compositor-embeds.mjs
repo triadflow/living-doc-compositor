@@ -9,6 +9,11 @@ const docsPath = path.join(repoRoot, 'docs');
 const compositorPath = path.join(repoRoot, 'docs', 'living-doc-compositor.html');
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
 const i18nPath = path.join(__dirname, 'living-doc-i18n.json');
+const rendererPath = path.join(__dirname, 'render-living-doc.mjs');
+const fingerprintPath = path.join(__dirname, 'meta-fingerprint.mjs');
+const syncEmbedsSourcePath = path.join(__dirname, 'sync-compositor-embeds.mjs');
+const jszipPath = path.join(__dirname, 'vendor', 'jszip.min.js');
+const profilesDir = path.join(__dirname, 'living-doc-profiles');
 
 const LOCALES_START = '  /* <generated:locales> */';
 const LOCALES_END = '  /* </generated:locales> */';
@@ -16,6 +21,20 @@ const REGISTRY_START = '  /* <generated:embedded-registry> */';
 const REGISTRY_END = '  /* </generated:embedded-registry> */';
 const TEMPLATES_START = '  /* <generated:embedded-templates> */';
 const TEMPLATES_END = '  /* </generated:embedded-templates> */';
+const PROFILES_START = '  /* <generated:embedded-profiles> */';
+const PROFILES_END = '  /* </generated:embedded-profiles> */';
+const RENDERER_START = '  /* <generated:embedded-renderer> */';
+const RENDERER_END = '  /* </generated:embedded-renderer> */';
+const SYNC_EMBEDS_START = '  /* <generated:embedded-sync-embeds> */';
+const SYNC_EMBEDS_END = '  /* </generated:embedded-sync-embeds> */';
+const FINGERPRINT_START = '  /* <generated:embedded-fingerprint> */';
+const FINGERPRINT_END = '  /* </generated:embedded-fingerprint> */';
+const JSZIP_START = '/* <generated:embedded-jszip> */';
+const JSZIP_END = '/* </generated:embedded-jszip> */';
+
+function escapeClosingScript(code) {
+  return String(code).replace(/<\/script/gi, '<\\/script');
+}
 
 function indentBlock(text, indent = '  ') {
   return String(text)
@@ -70,13 +89,35 @@ async function loadEmbeddedTemplates() {
   return templates;
 }
 
+async function loadEmbeddedProfiles() {
+  let names;
+  try {
+    names = (await readdir(profilesDir))
+      .filter((n) => n.endsWith('.json') && n !== 'index.json')
+      .sort();
+  } catch {
+    return [];
+  }
+  const profiles = [];
+  for (const name of names) {
+    const body = await readFile(path.join(profilesDir, name), 'utf8');
+    try { profiles.push(JSON.parse(body)); } catch {}
+  }
+  return profiles;
+}
+
 export async function syncCompositorEmbeds(options = {}) {
   const { write = true } = options;
-  const [html, registryJson, i18nJson, templates] = await Promise.all([
+  const [html, registryJson, i18nJson, templates, profiles, rendererSrc, fingerprintSrc, syncEmbedsSrc, jszipSrc] = await Promise.all([
     readFile(compositorPath, 'utf8'),
     readFile(registryPath, 'utf8'),
     readFile(i18nPath, 'utf8'),
     loadEmbeddedTemplates(),
+    loadEmbeddedProfiles(),
+    readFile(rendererPath, 'utf8'),
+    readFile(fingerprintPath, 'utf8'),
+    readFile(syncEmbedsSourcePath, 'utf8'),
+    readFile(jszipPath, 'utf8').catch(() => ''),
   ]);
 
   const registry = JSON.parse(registryJson);
@@ -85,14 +126,29 @@ export async function syncCompositorEmbeds(options = {}) {
   const localesBlock = indentBlock(`const LOCALES = ${JSON.stringify(locales, null, 2)};`);
   const registryBlock = indentBlock(`const EMBEDDED_REGISTRY = ${JSON.stringify(registry, null, 2)};`);
   const templatesBlock = indentBlock(`const EMBEDDED_TEMPLATES = ${JSON.stringify(templates, null, 2)};`);
+  const profilesBlock = indentBlock(`const EMBEDDED_PROFILES = ${JSON.stringify(profiles, null, 2)};`);
+  // Source-as-string embeds: base64-encoded so the contents can't contain our own marker strings
+  // (sync-compositor-embeds.mjs inlines itself; the markers must not match as substrings on re-run).
+  const toB64 = (s) => Buffer.from(String(s), 'utf8').toString('base64');
+  const rendererBlock = indentBlock(`const EMBEDDED_RENDERER_B64 = ${JSON.stringify(toB64(rendererSrc))};`);
+  const fingerprintBlock = indentBlock(`const EMBEDDED_FINGERPRINT_B64 = ${JSON.stringify(toB64(fingerprintSrc))};`);
+  const syncEmbedsBlock = indentBlock(`const EMBEDDED_SYNC_EMBEDS_B64 = ${JSON.stringify(toB64(syncEmbedsSrc))};`);
+  // JSZip: inlined verbatim into its own <script> tag. Defensive escape of </script.
+  const jszipBlock = jszipSrc ? escapeClosingScript(jszipSrc) : '/* JSZip not vendored — run scripts/vendor/jszip.min.js download to enable offline bundle export */';
 
-  const withLocales = replaceMarkedBlock(html, LOCALES_START, LOCALES_END, localesBlock);
-  const withRegistry = replaceMarkedBlock(withLocales, REGISTRY_START, REGISTRY_END, registryBlock);
-  const syncedHtml = replaceMarkedBlock(withRegistry, TEMPLATES_START, TEMPLATES_END, templatesBlock);
+  let out = html;
+  out = replaceMarkedBlock(out, LOCALES_START, LOCALES_END, localesBlock);
+  out = replaceMarkedBlock(out, REGISTRY_START, REGISTRY_END, registryBlock);
+  out = replaceMarkedBlock(out, TEMPLATES_START, TEMPLATES_END, templatesBlock);
+  out = replaceMarkedBlock(out, PROFILES_START, PROFILES_END, profilesBlock);
+  out = replaceMarkedBlock(out, RENDERER_START, RENDERER_END, rendererBlock);
+  out = replaceMarkedBlock(out, FINGERPRINT_START, FINGERPRINT_END, fingerprintBlock);
+  out = replaceMarkedBlock(out, SYNC_EMBEDS_START, SYNC_EMBEDS_END, syncEmbedsBlock);
+  out = replaceMarkedBlock(out, JSZIP_START, JSZIP_END, jszipBlock);
 
-  if (syncedHtml !== html) {
+  if (out !== html) {
     if (write) {
-      await writeFile(compositorPath, syncedHtml);
+      await writeFile(compositorPath, out);
     }
     return { changed: true, path: compositorPath };
   }

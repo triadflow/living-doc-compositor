@@ -1,0 +1,1114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dossier System Status - Living Doc Compositor</title>
+<style>
+  :root {
+    --paper: #f6efe5;
+    --paper-2: #fff8ef;
+    --ink: #161311;
+    --muted: #635b54;
+    --line: rgba(22, 19, 17, 0.12);
+    --panel: rgba(255, 248, 239, 0.78);
+    --blue: #1b62ff;
+    --blue-soft: rgba(27, 98, 255, 0.12);
+    --orange: #ff6d3a;
+    --orange-soft: rgba(255, 109, 58, 0.12);
+    --green: #127a52;
+    --green-soft: rgba(18, 122, 82, 0.12);
+    --shadow: 0 20px 60px rgba(39, 27, 18, 0.12);
+    --radius-xl: 28px;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --max: 1240px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top left, rgba(27, 98, 255, 0.15), transparent 26%),
+      radial-gradient(circle at 85% 12%, rgba(255, 109, 58, 0.18), transparent 24%),
+      linear-gradient(180deg, #fbf5ea 0%, #f3eadc 100%);
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    line-height: 1.5;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(22, 19, 17, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(22, 19, 17, 0.035) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 90%);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .wrap {
+    width: min(calc(100% - 32px), var(--max));
+    margin: 0 auto;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(18px);
+    background: rgba(246, 239, 229, 0.78);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .topbar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--blue), #5f93ff 62%, #d8e3ff 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+  }
+
+  .topnav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .topnav a {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.45);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  main {
+    padding: 30px 0 88px;
+  }
+
+  .hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 36px;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.75), transparent 24%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 248, 239, 0.7));
+    box-shadow: var(--shadow);
+    padding: 34px 28px 28px;
+  }
+
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -80px -80px auto;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 109, 58, 0.32), rgba(255, 109, 58, 0));
+    pointer-events: none;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 18px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow strong {
+    color: var(--blue);
+  }
+
+  h1, h2, h3 {
+    margin: 0;
+    font-weight: 600;
+    line-height: 0.98;
+  }
+
+  h1 {
+    max-width: 10.5ch;
+    font-size: clamp(3.2rem, 8vw, 6.6rem);
+    letter-spacing: -0.05em;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.95fr);
+    gap: 26px;
+    align-items: end;
+  }
+
+  .hero-copy p {
+    max-width: 62ch;
+    margin: 18px 0 0;
+    font-size: 18px;
+    color: var(--muted);
+  }
+
+  .hero-panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    background: rgba(22, 19, 17, 0.92);
+    color: #fff8ef;
+    padding: 22px;
+  }
+
+  .hero-panel-label {
+    margin: 0 0 10px;
+    color: rgba(255, 248, 239, 0.68);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .hero-panel ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 8px;
+    font-size: 15px;
+  }
+
+  section {
+    margin-top: 22px;
+  }
+
+  .section-shell {
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    padding: 24px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .section-header p {
+    margin: 8px 0 0;
+    max-width: 70ch;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .section-tag {
+    flex: none;
+    padding: 9px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .stat {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.58);
+    padding: 18px;
+    min-height: 132px;
+  }
+
+  .stat-label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .stat strong {
+    display: block;
+    margin-top: 18px;
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    letter-spacing: -0.05em;
+  }
+
+  .stat p {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .columns-3,
+  .columns-2 {
+    display: grid;
+    gap: 16px;
+  }
+
+  .columns-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .columns-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.56);
+    padding: 18px;
+  }
+
+  .card h3 {
+    font-size: 1.15rem;
+    letter-spacing: -0.03em;
+  }
+
+  .card p {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .card ul {
+    margin: 14px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+
+  .architecture-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 220px;
+  }
+
+  .architecture-card::before {
+    content: "";
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(27, 98, 255, 0.08);
+  }
+
+  .architecture-kicker,
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .architecture-kicker {
+    margin-bottom: 14px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--muted);
+  }
+
+  .timeline {
+    display: grid;
+    gap: 14px;
+  }
+
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.56);
+    padding: 16px;
+  }
+
+  .timeline-step {
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--blue), #4b82ff);
+    color: white;
+    padding: 12px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .timeline-item p {
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .pill {
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--muted);
+  }
+
+  .pill-blue {
+    background: var(--blue-soft);
+    color: var(--blue);
+    border-color: rgba(27, 98, 255, 0.2);
+  }
+
+  .pill-orange {
+    background: var(--orange-soft);
+    color: #b84d24;
+    border-color: rgba(255, 109, 58, 0.2);
+  }
+
+  .pill-green {
+    background: var(--green-soft);
+    color: var(--green);
+    border-color: rgba(18, 122, 82, 0.2);
+  }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .flow-step {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.56);
+    padding: 18px;
+    min-height: 210px;
+  }
+
+  .flow-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -8px;
+    width: 16px;
+    height: 2px;
+    background: rgba(27, 98, 255, 0.28);
+  }
+
+  .flow-step strong,
+  .doc-card strong {
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .flow-step h3,
+  .doc-card h3 {
+    margin-top: 12px;
+  }
+
+  .doc-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .doc-stack {
+    display: grid;
+    gap: 14px;
+  }
+
+  .doc-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.58);
+    padding: 18px;
+  }
+
+  .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .doc-list,
+  .rule-list {
+    margin: 14px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+
+  .rule-list li + li,
+  .doc-list li + li {
+    margin-top: 8px;
+  }
+
+  .doc-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .doc-links a,
+  .command a {
+    display: inline-flex;
+    padding: 9px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--ink);
+    font-size: 13px;
+  }
+
+  .command-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .command {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: #171513;
+    color: #fff8ef;
+    padding: 18px;
+  }
+
+  .command p {
+    margin: 0 0 14px;
+    color: rgba(255, 248, 239, 0.72);
+  }
+
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  code {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+
+  .footer-note {
+    margin-top: 22px;
+    padding: 16px 18px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.56);
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .fade-up {
+    animation: fade-up 700ms ease both;
+  }
+
+  .delay-1 { animation-delay: 70ms; }
+  .delay-2 { animation-delay: 120ms; }
+  .delay-3 { animation-delay: 170ms; }
+  .delay-4 { animation-delay: 220ms; }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 1120px) {
+    .stats,
+    .columns-3,
+    .flow,
+    .doc-split,
+    .command-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .hero-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .flow-step:not(:last-child)::after {
+      display: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .wrap {
+      width: min(calc(100% - 20px), var(--max));
+    }
+
+    .topbar-inner,
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .stats,
+    .columns-3,
+    .columns-2,
+    .flow,
+    .doc-split,
+    .command-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .timeline-item {
+      grid-template-columns: 1fr;
+    }
+
+    .hero,
+    .section-shell {
+      padding: 20px;
+      border-radius: 24px;
+    }
+
+    h1 {
+      max-width: none;
+      font-size: clamp(2.9rem, 16vw, 4.5rem);
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Dossier System / Current State</span>
+      </div>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#system">System</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#rules">Rules</a>
+        <a href="#docs">Portfolio</a>
+        <a href="#commands">Commands</a>
+      </nav>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <section class="hero fade-up">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow"><strong>Static Snapshot</strong><span>April 21, 2026</span></div>
+          <h1>Dossier system: what exists now.</h1>
+          <p>
+            The dossier-backed research track is now a separate app surface with its own generated registry,
+            publish flow, fact-check preflight, latest-piece change-log policy, and explicit workflow metadata
+            contract. The goal is fewer silent mistakes, not more hand-maintained registry work.
+          </p>
+        </div>
+        <aside class="hero-panel fade-up delay-1">
+          <p class="hero-panel-label">Status now</p>
+          <ul>
+            <li>General registry and dossier registry are deliberately separate.</li>
+            <li>Real dossier pair health check returns 0 errors and 0 warnings.</li>
+            <li>The dossier registry is on <code>living-doc-dossiers/v3</code>.</li>
+            <li>Latest-piece-only change-log policy is implemented and tested.</li>
+            <li>Dossier workflow metadata now lives in one manifest.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section id="system" class="section-shell fade-up delay-1">
+      <div class="section-header">
+        <div>
+          <div class="section-tag">System Shape</div>
+          <h2>Three surfaces, three different jobs</h2>
+          <p>
+            The hardening work converged on a clean split: the general living-doc app keeps its own registry,
+            while the dossier app owns its own registry and workflow metadata. The substrate stays the paired
+            living-doc JSON/HTML plus dossier HTML.
+          </p>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat fade-up delay-1">
+          <span class="stat-label">Paired docs</span>
+          <strong>7</strong>
+          <p>Dossier-backed research living docs in the current registry.</p>
+        </div>
+        <div class="stat fade-up delay-2">
+          <span class="stat-label">Published pieces</span>
+          <strong>7</strong>
+          <p>One published dossier piece per paired doc so far.</p>
+        </div>
+        <div class="stat fade-up delay-3">
+          <span class="stat-label">Health check</span>
+          <strong>0 / 0</strong>
+          <p>Current pair check result: 0 errors, 0 warnings.</p>
+        </div>
+        <div class="stat fade-up delay-4">
+          <span class="stat-label">Dedicated sync</span>
+          <strong>3</strong>
+          <p>Docs with domain-specific sync skills today.</p>
+        </div>
+        <div class="stat fade-up delay-2">
+          <span class="stat-label">Generic sync</span>
+          <strong>4</strong>
+          <p>Docs that still use the generic <code>living-doc</code> path.</p>
+        </div>
+        <div class="stat fade-up delay-3">
+          <span class="stat-label">Closed tickets</span>
+          <strong>5</strong>
+          <p>#109 through #113 are now closed.</p>
+        </div>
+      </div>
+
+      <div class="columns-3" style="margin-top:18px">
+        <article class="card architecture-card fade-up delay-1">
+          <div class="architecture-kicker">General app</div>
+          <h3><code>~/.gtd/living-docs.json</code></h3>
+          <p>
+            Operational inventory for the shared living-doc library. Dossier-backed research docs do not need
+            to appear here and are now flagged if they overlap by accident.
+          </p>
+          <ul>
+            <li>General library scope only</li>
+            <li>No dossier ownership data</li>
+            <li>No dossier workflow authority</li>
+          </ul>
+        </article>
+
+        <article class="card architecture-card fade-up delay-2">
+          <div class="architecture-kicker">Dossier app</div>
+          <h3><code>scripts/dossier-workflow-metadata.json</code></h3>
+          <p>
+            Source of truth for cadence, expected source classes, and generic vs dedicated sync ownership
+            after the registry split.
+          </p>
+          <ul>
+            <li>Cadence per paired doc</li>
+            <li>Source-class expectations</li>
+            <li>Preferred skill assignment</li>
+          </ul>
+        </article>
+
+        <article class="card architecture-card fade-up delay-3">
+          <div class="architecture-kicker">Generated dossier registry</div>
+          <h3><code>~/.gtd/living-doc-dossiers.json</code></h3>
+          <p>
+            Dedicated registry for the dossier app. Generated from the living docs, dossier HTML pieces,
+            and workflow manifest. Current schema: <code>living-doc-dossiers/v3</code>.
+          </p>
+          <ul>
+            <li>Lookup for publish and fact-check flow</li>
+            <li>Per-piece period and commit data</li>
+            <li>Derived workflow hints, not edited by hand</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-shell fade-up delay-2">
+      <div class="section-header">
+        <div>
+          <div class="section-tag">What Landed</div>
+          <h2>Four implementation slices shipped</h2>
+          <p>
+            The system is no longer just a proposal. It has a real publish path, a preflight review path,
+            enforced pair invariants, and a policy for multi-piece history.
+          </p>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <article class="timeline-item">
+          <div class="timeline-step">877eb21</div>
+          <div>
+            <h3>Separate dossier registry + publish workflow</h3>
+            <p>
+              The dossier registry became a dedicated app surface, independent from the general registry.
+              <code>publish-dossier.mjs</code> now stamps meta, refreshes drift surfaces, regenerates the
+              registry, and runs pair checks.
+            </p>
+          </div>
+        </article>
+
+        <article class="timeline-item">
+          <div class="timeline-step">e95b3b2</div>
+          <div>
+            <h3>Fact-check preflight</h3>
+            <p>
+              <code>prepare-dossier-fact-check.mjs</code> resolves a living-doc / dossier pair through the
+              registry, classifies blocking failures vs warnings, and prepares a grounded review packet.
+            </p>
+          </div>
+        </article>
+
+        <article class="timeline-item">
+          <div class="timeline-step">1e0853d</div>
+          <div>
+            <h3>Canonical change-log policy</h3>
+            <p>
+              The living doc now keeps one canonical <code>change-log</code> for the latest published dossier
+              piece only. Older pieces rely on their own inline "Since this piece was published" aside.
+            </p>
+          </div>
+        </article>
+
+        <article class="timeline-item">
+          <div class="timeline-step">7cbff4a</div>
+          <div>
+            <h3>Workflow metadata contract</h3>
+            <p>
+              Cadence, source classes, and sync ownership are now explicit and machine-checkable through the
+              dossier workflow metadata manifest and pair health check.
+            </p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="workflow" class="section-shell fade-up delay-2">
+      <div class="section-header">
+        <div>
+          <div class="section-tag">Workflow</div>
+          <h2>What the operator flow looks like now</h2>
+          <p>
+            The publishing track is now a sequence of checked operations instead of a memory exercise spread
+            across conventions.
+          </p>
+        </div>
+        <a class="section-tag" href="./dossier/index.html">Open dossier index</a>
+      </div>
+
+      <div class="flow">
+        <article class="flow-step">
+          <strong>1 / substrate</strong>
+          <h3>Research living doc exists</h3>
+          <p>
+            The living doc JSON/HTML is the structured substrate: <code>docId</code>, periods, sections, public
+            URL, and current state.
+          </p>
+        </article>
+
+        <article class="flow-step">
+          <strong>2 / freeze</strong>
+          <h3>Dossier piece is written</h3>
+          <p>
+            The dossier HTML owns publication facts: title, period, frozen source commit, published date,
+            summary, and paired living-doc reference.
+          </p>
+        </article>
+
+        <article class="flow-step">
+          <strong>3 / preflight</strong>
+          <h3>Pair checks and fact-check prep</h3>
+          <p>
+            Pair health validates the dossier contract. Fact-check prep surfaces blocking problems, warnings,
+            and drift after the frozen commit.
+          </p>
+        </article>
+
+        <article class="flow-step">
+          <strong>4 / publish</strong>
+          <h3>One command refreshes the app surfaces</h3>
+          <p>
+            Publishing updates dossier meta, refreshes or skips the living-doc change-log according to the
+            canonical-piece policy, refreshes the strip and index, and regenerates the registry.
+          </p>
+        </article>
+
+        <article class="flow-step">
+          <strong>5 / registry</strong>
+          <h3>The dossier app sees one clean state</h3>
+          <p>
+            <code>living-doc-dossiers/v3</code> becomes the machine-readable surface for paired docs, pieces,
+            cadence, source classes, and sync ownership.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="rules" class="section-shell fade-up delay-3">
+      <div class="section-header">
+        <div>
+          <div class="section-tag">Guardrails</div>
+          <h2>The rules the system now enforces</h2>
+          <p>
+            The point of the new registry and workflow manifest is not more bureaucracy. It is to turn quiet
+            drift into visible failures before publication.
+          </p>
+        </div>
+      </div>
+
+      <div class="columns-2">
+        <article class="card">
+          <div class="chips">
+            <span class="pill pill-blue">Hard errors</span>
+          </div>
+          <ul class="rule-list">
+            <li>Every dossier piece must resolve to exactly one living doc.</li>
+            <li>Dossier-backed docs must not overlap with the general registry.</li>
+            <li>Required dossier meta fields must all be present.</li>
+            <li><code>(livingDocId, period)</code> must stay unique.</li>
+            <li><code>dossier-source-commit</code> must resolve in git.</li>
+            <li>The living doc must declare the dossier period in <code>periods[]</code>.</li>
+            <li>The public living-doc URL on the dossier must match the paired doc.</li>
+            <li>Every paired doc must have workflow metadata with cadence, source classes, and a valid sync mode + skill.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <div class="chips">
+            <span class="pill pill-orange">Warnings</span>
+            <span class="pill pill-green">Policy</span>
+          </div>
+          <ul class="rule-list">
+            <li>Missing living-doc <code>change-log</code> only matters for the latest published dossier piece.</li>
+            <li>Older dossier pieces do not get to overwrite the canonical living-doc <code>change-log</code>.</li>
+            <li>Older pieces rely on their own inline drift aside as the authoritative drift surface for that piece.</li>
+            <li>Missing fact-check pass is still treated as an operator warning surface.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="docs" class="section-shell fade-up delay-3">
+      <div class="section-header">
+        <div>
+          <div class="section-tag">Current Portfolio</div>
+          <h2>Seven paired docs in the dossier app</h2>
+          <p>
+            The registry now carries both the pairing information and the workflow stance for each current
+            dossier-backed research doc.
+          </p>
+        </div>
+      </div>
+
+      <div class="doc-split">
+        <div class="doc-stack">
+          <article class="doc-card">
+            <strong>Dedicated sync</strong>
+            <h3>AI and Labor: Economist Position Tracker</h3>
+            <div class="doc-meta">
+              <span class="pill pill-blue">ai-labor-sync</span>
+              <span class="pill">half-yearly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-20</span>
+            </div>
+            <p>Workflow rationale: stable half-year cadence, repeated expert-feed archaeology, dedicated review path.</p>
+            <ul class="doc-list">
+              <li>Expert publication feeds</li>
+              <li>Working papers and policy essays</li>
+              <li>Major interviews and op-eds</li>
+              <li>Labor-market indicators</li>
+            </ul>
+            <div class="doc-links">
+              <a href="./ai-labor-monitor.html">Open living doc</a>
+              <a href="./dossier/ai-labor-monitor/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+
+          <article class="doc-card">
+            <strong>Dedicated sync</strong>
+            <h3>AI Labs Watcher</h3>
+            <div class="doc-meta">
+              <span class="pill pill-blue">competitor-sync</span>
+              <span class="pill">weekly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-20</span>
+            </div>
+            <p>Workflow rationale: stable recurring lab scan across blog, pricing, press, earnings, and public appearances.</p>
+            <ul class="doc-list">
+              <li>Company blogs and press releases</li>
+              <li>Earnings commentary</li>
+              <li>Product and pricing pages</li>
+              <li>Major interviews and public appearances</li>
+            </ul>
+            <div class="doc-links">
+              <a href="./ai-labs-watcher.html">Open living doc</a>
+              <a href="./dossier/ai-labs-watcher/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+
+          <article class="doc-card">
+            <strong>Dedicated sync</strong>
+            <h3>Inference Economics Watcher</h3>
+            <div class="doc-meta">
+              <span class="pill pill-blue">competitor-sync</span>
+              <span class="pill">quarterly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-21</span>
+            </div>
+            <p>Workflow rationale: stable move + indicator update pattern around provider pricing and benchmark frontier shifts.</p>
+            <ul class="doc-list">
+              <li>Provider pricing pages</li>
+              <li>Benchmark leaderboards</li>
+              <li>Launch blogs and model cards</li>
+              <li>Mainstream coverage of pricing and capability shifts</li>
+            </ul>
+            <div class="doc-links">
+              <a href="./inference-economics-watcher.html">Open living doc</a>
+              <a href="./dossier/inference-economics-watcher/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+        </div>
+
+        <div class="doc-stack">
+          <article class="doc-card">
+            <strong>Generic sync</strong>
+            <h3>AI Datacenter Build-Out Monitor</h3>
+            <div class="doc-meta">
+              <span class="pill pill-orange">living-doc</span>
+              <span class="pill">quarterly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-20</span>
+            </div>
+            <p>Quarterly cadence is clear, but the source mix is still broad enough that generic dossier review remains the right default.</p>
+            <div class="doc-links">
+              <a href="./ai-datacenter-buildout.html">Open living doc</a>
+              <a href="./dossier/ai-datacenter-buildout/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+
+          <article class="doc-card">
+            <strong>Generic sync</strong>
+            <h3>AI Eval &amp; Safety Ecosystem</h3>
+            <div class="doc-meta">
+              <span class="pill pill-orange">living-doc</span>
+              <span class="pill">quarterly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-20</span>
+            </div>
+            <p>Evaluator, framework, and access-arrangement coverage is regular enough for cadence, but not yet narrow enough for a dedicated sync skill.</p>
+            <div class="doc-links">
+              <a href="./ai-eval-ecosystem.html">Open living doc</a>
+              <a href="./dossier/ai-eval-ecosystem/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+
+          <article class="doc-card">
+            <strong>Generic sync</strong>
+            <h3>MCP Protocol Monitor</h3>
+            <div class="doc-meta">
+              <span class="pill pill-orange">living-doc</span>
+              <span class="pill">quarterly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-20</span>
+            </div>
+            <p>Protocol, client, SDK, and governance change all matter, so the generic path is still the right coordinating skill.</p>
+            <div class="doc-links">
+              <a href="./mcp-protocol-monitor.html">Open living doc</a>
+              <a href="./dossier/mcp-protocol-monitor/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+
+          <article class="doc-card">
+            <strong>Generic sync</strong>
+            <h3>On-Device AI Watcher</h3>
+            <div class="doc-meta">
+              <span class="pill pill-orange">living-doc</span>
+              <span class="pill">quarterly</span>
+              <span class="pill pill-green">2026-H1 published 2026-04-21</span>
+            </div>
+            <p>Model, runtime, and platform surfaces are still too mixed for a single dedicated sync skill, even though the cadence is stable.</p>
+            <div class="doc-links">
+              <a href="./on-device-ai-watcher.html">Open living doc</a>
+              <a href="./dossier/on-device-ai-watcher/2026-H1.html">Open dossier</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands" class="section-shell fade-up delay-4">
+      <div class="section-header">
+        <div>
+          <div class="section-tag">Operator Surface</div>
+          <h2>The commands that define the workflow now</h2>
+          <p>
+            These are the operative entry points for the dossier app as it exists today.
+          </p>
+        </div>
+      </div>
+
+      <div class="command-grid">
+        <article class="command">
+          <p>Regenerate the dossier registry</p>
+          <pre>node scripts/export-living-doc-dossiers.mjs</pre>
+        </article>
+
+        <article class="command">
+          <p>Check pairing and workflow invariants</p>
+          <pre>node scripts/check-dossier-pairs.mjs --json</pre>
+        </article>
+
+        <article class="command">
+          <p>Prepare a fact-check pass for a paired dossier</p>
+          <pre>node scripts/prepare-dossier-fact-check.mjs doc:on-device-ai-watcher 2026-H1</pre>
+        </article>
+
+        <article class="command">
+          <p>Run the publish workflow for an existing piece</p>
+          <pre>node scripts/publish-dossier.mjs docs/dossier/on-device-ai-watcher/2026-H1.html</pre>
+        </article>
+      </div>
+
+      <div class="footer-note">
+        Static snapshot of the current implementation state on April 21, 2026. If new dossier pieces or new
+        dedicated skills land later, this page should be refreshed alongside the dossier workflow metadata
+        manifest and generated registry.
+      </div>
+    </section>
+  </main>
+</body>
+</html>

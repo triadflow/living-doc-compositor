@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proof Ladder Overview — GitHub Collaboration Mock</title>
+<meta name="description" content="Mock of Proof Ladder Overview with GitHub-backed collaboration surfaced directly in the document." />
+<style>
+  :root {
+    color-scheme: light;
+    --canvas: #0b1020;
+    --canvas-soft: #111827;
+    --canvas-line: #26324a;
+    --canvas-ink: #e6edf3;
+    --canvas-muted: #98a2b3;
+
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --ink: #1a2332;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --positive-bg: #ecfdf5;
+    --positive-ink: #166534;
+    --warning-bg: #fffbeb;
+    --warning-ink: #92400e;
+    --negative-bg: #fef2f2;
+    --negative-ink: #991b1b;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+    --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 24px 70px rgba(0,0,0,0.28);
+    --sidebar: 56px;
+    --max: 1240px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.05), transparent 28%),
+      linear-gradient(180deg, var(--canvas) 0%, #0f172a 100%);
+    color: var(--canvas-ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; text-decoration: none; }
+  a:hover { text-decoration: none; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--neutral-bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+
+  .mock-frame {
+    max-width: var(--max);
+    margin: 28px auto 56px;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    box-shadow: var(--shadow-lg);
+  }
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 42px;
+    padding: 0 14px;
+    background: #eef2f7;
+    border-bottom: 1px solid var(--line);
+  }
+  .dots { display: inline-flex; gap: 6px; }
+  .dot { width: 11px; height: 11px; border-radius: 999px; background: #cbd5e1; }
+  .dot.red { background: #fb7185; }
+  .dot.yellow { background: #fbbf24; }
+  .dot.green { background: #34d399; }
+  .address {
+    min-width: 0;
+    flex: 1;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .doc-shell {
+    min-height: 980px;
+    display: grid;
+    grid-template-columns: var(--sidebar) 1fr;
+  }
+  .sidebar {
+    background: var(--card);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 4px;
+  }
+  .brand {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+  .nav-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .nav-icon.active {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+  }
+
+  .content {
+    padding: 28px 28px 42px;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 13px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .topbar .spacer { flex: 1; }
+
+  .page-header h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+  .subtitle {
+    margin: 0 0 18px;
+    color: var(--muted);
+    max-width: 920px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .pill-row, .badge-row, .meta-row, .action-row, .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pill, .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .chip.info { background: var(--accent-light); color: var(--accent); border-color: transparent; }
+  .chip.good { background: var(--positive-bg); color: var(--positive-ink); border-color: transparent; }
+  .chip.warn { background: var(--warning-bg); color: var(--warning-ink); border-color: transparent; }
+  .chip.bad { background: var(--negative-bg); color: var(--negative-ink); border-color: transparent; }
+
+  .callout {
+    margin-top: 20px;
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+    background: color-mix(in srgb, var(--accent) 5%, var(--card));
+    box-shadow: var(--shadow-sm);
+  }
+  .callout p { margin: 0 0 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .stat-card, .panel, .section-card, .rung-card, .thread-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+  .stat-card {
+    padding: 20px;
+  }
+  .stat-card h3 {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat-card .value {
+    margin-top: 6px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .stat-card .note {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.82fr);
+    gap: 18px;
+    margin-top: 20px;
+  }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+
+  .panel {
+    padding: 18px;
+  }
+  .panel-eyebrow {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 19px;
+    letter-spacing: -0.02em;
+  }
+  .panel p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .section-card {
+    padding: 18px;
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .section-head h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .section-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .item-list {
+    display: grid;
+    gap: 10px;
+  }
+  .item {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .item h4 {
+    margin: 0 0 5px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .item p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.8px;
+    line-height: 1.5;
+  }
+
+  .rung-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .rung-card {
+    padding: 14px;
+  }
+  .rung-card h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+  .rung-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .badge-positive { background: var(--positive-bg); color: var(--positive-ink); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning-ink); }
+  .badge-negative { background: var(--negative-bg); color: var(--negative-ink); }
+  .badge-neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+
+  .thread-card {
+    padding: 14px;
+  }
+  .thread-card h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .thread-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.8px;
+    line-height: 1.5;
+  }
+  .thread-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  @media (max-width: 1060px) {
+    .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .main-grid { grid-template-columns: 1fr; }
+    .rung-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .doc-shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .content { padding: 20px 16px 40px; }
+    .canvas-header { padding: 28px 16px 16px; }
+    .summary-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-frame">
+  <div class="browser-bar">
+    <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+    <div class="address">http://localhost:4321/api/resources/living-doc/12</div>
+  </div>
+  <div class="doc-shell">
+    <aside class="sidebar">
+      <div class="brand">OL</div>
+      <a href="#coherence" class="nav-icon">OC</a>
+      <a href="#explain" class="nav-icon">EX</a>
+      <a href="#operating" class="nav-icon">OM</a>
+      <a href="#ladder" class="nav-icon active">PL</a>
+      <a href="#support" class="nav-icon">SS</a>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <span class="tab active">Document</span>
+        <span class="tab">Board</span>
+        <span class="tab">Flow</span>
+        <span class="tab">GitHub</span>
+        <div class="spacer"></div>
+        <span class="tab">`main`</span>
+        <span class="tab">`docs/proof-ladder-overview.json`</span>
+      </div>
+
+      <header class="page-header">
+        <h1>Proof Ladder Overview</h1>
+        <p class="subtitle">Track the proof work as a living status map for the intended operating model, not as a presentation. Updated 2026-04-24.</p>
+        <div class="pill-row">
+          <span class="pill">Updated 2026-04-24</span>
+          <span class="pill">21 components</span>
+          <span class="pill">Track &amp; Back parser maintainers</span>
+        </div>
+      </header>
+
+      <section class="callout">
+        <p><strong>Objective</strong> Prove that the system can take new real emails and turn them into working parser coverage on the intended operating model, including shared outer-layer fixes when needed, without harness redesign.</p>
+        <p><strong>Success condition</strong> Level 7 reached: repeatable proof across merchants and proof layers without harness redesign.</p>
+      </section>
+
+      <div class="summary-grid">
+        <article class="stat-card">
+          <h3>Current Frontier</h3>
+          <div class="value">Level 6</div>
+          <div class="note">Autonomous shared-runtime repair and resume remains the active frontier.</div>
+        </article>
+        <article class="stat-card">
+          <h3>Closed Rungs</h3>
+          <div class="value">1–5</div>
+          <div class="note">Level 5 is closed as proof evidence. Level 6 remains partial.</div>
+        </article>
+        <article class="stat-card">
+          <h3>Canonical State</h3>
+          <div class="value"><code>origin/main</code></div>
+          <div class="note">Rendered from <code>docs/proof-ladder-overview.json</code>.</div>
+        </article>
+        <article class="stat-card">
+          <h3>GitHub Focus</h3>
+          <div class="value">#148</div>
+          <div class="note">Repeatability is the current GitHub-tracked frontier.</div>
+        </article>
+      </div>
+
+      <div class="main-grid">
+        <div class="stack">
+          <section class="section-card" id="coherence">
+            <div class="section-head">
+              <div>
+                <h3>Objective Coherence</h3>
+                <p>Objective facets, coverage, and invariants stay visible next to the operating model, ladder, and supporting surface.</p>
+              </div>
+              <div class="chip-row">
+                <span class="chip info">5 facets</span>
+                <span class="chip good">Fingerprint stamped</span>
+              </div>
+            </div>
+            <div class="item-list">
+              <div class="item">
+                <h4>Proof integrity</h4>
+                <p>Guardrails, enforcement, and runtime visibility that make proof claims trustworthy.</p>
+              </div>
+              <div class="item">
+                <h4>Escalating proof</h4>
+                <p>Seven ordered rungs from one AWS email payload to repeatable cross-merchant proof.</p>
+              </div>
+              <div class="item">
+                <h4>Repeat across merchants</h4>
+                <p>The success condition remains Level 7, not a lower rung interpreted optimistically.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-card" id="ladder">
+            <div class="section-head">
+              <div>
+                <h3>Proof Ladder</h3>
+                <p>Actual rung state from the current living doc.</p>
+              </div>
+              <div class="chip-row">
+                <span class="chip good">Levels 1–5 closed</span>
+                <span class="chip warn">Level 6 partial</span>
+              </div>
+            </div>
+            <div class="rung-grid">
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-positive">Ready</span></div>
+                <h4>Level 1 — One Real AWS Email To Useful Payload</h4>
+                <p><code>#143</code> · <code>#prepare 23941644863</code> · <code>#deploy 23941759126</code></p>
+              </article>
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-positive">Ready</span></div>
+                <h4>Level 2 — Next Eligible Email By Predeclared Rule</h4>
+                <p><code>#145</code> · <code>#153</code> · <code>#154</code> · <code>#155</code></p>
+              </article>
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-positive">Ready</span></div>
+                <h4>Level 3 — Direct Claim From Live Queue Surface</h4>
+                <p><code>#146</code> · <code>#157</code> · <code>#175</code> · <code>#trackandback-lead#356</code></p>
+              </article>
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-positive">Ready</span></div>
+                <h4>Level 4 — Small Batch Across Merchants</h4>
+                <p><code>#147</code> · <code>#186</code> · <code>#187</code> · <code>#188</code></p>
+              </article>
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-positive">Ready</span></div>
+                <h4>Level 5 — Cumulative Carry-Forward Across Batch</h4>
+                <p><code>#191</code> · <code>#192</code> · <code>#193</code> · <code>#194</code> · <code>#195</code> · <code>#196</code></p>
+              </article>
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-warning">Partial</span></div>
+                <h4>Level 6 — Autonomous Shared-Runtime Repair And Resume</h4>
+                <p><code>#197</code> · <code>#198</code> · <code>#199</code> · <code>#200</code> · <code>#201</code> · <code>#202</code> · <code>#204</code> · <code>#trackandback-lead#476</code></p>
+              </article>
+              <article class="rung-card">
+                <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+                <h4>Level 7 — Repeat Later Without Redesign</h4>
+                <p><code>#148</code> remains the repeatability umbrella, but stays blocked behind Level 6 closure.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="section-card" id="support">
+            <div class="section-head">
+              <div>
+                <h3>Supporting Surface</h3>
+                <p>The infrastructure and runbook layer the ladder consumes.</p>
+              </div>
+              <div class="chip-row">
+                <span class="chip good">5 built surfaces</span>
+              </div>
+            </div>
+            <div class="item-list">
+              <div class="item">
+                <h4>Terraform-Managed Proof Runtime</h4>
+                <p><code>#157</code> · <code>#130</code> · <code>#devops#138</code></p>
+              </div>
+              <div class="item">
+                <h4>Historical Pilot Replay / Raw S3 Backfill</h4>
+                <p><code>#164</code> · <code>#167</code></p>
+              </div>
+              <div class="item">
+                <h4>Normal Parser Path Hydration Into Live Queue</h4>
+                <p><code>#175</code> · <code>#trackandback-lead#353</code> · <code>#trackandback-lead#354</code></p>
+              </div>
+              <div class="item">
+                <h4>Terraform-Managed Raw Email Manifest Reader</h4>
+                <p><code>#147</code> · <code>#187</code></p>
+              </div>
+              <div class="item">
+                <h4>Evidence Bundle And Runbook</h4>
+                <p><code>#131</code> · <code>#130</code></p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="stack">
+          <section class="panel">
+            <div class="panel-eyebrow">GitHub Surface</div>
+            <h2>Canonical file and shared threads</h2>
+            <div class="item-list">
+              <div class="item">
+                <h4>Accepted source</h4>
+                <p><code>docs/proof-ladder-overview.json</code> on <code>origin/main</code></p>
+              </div>
+              <div class="item">
+                <h4>Current frontier</h4>
+                <p><code>trackandback-parser-mvp#148</code> carries Level 7 repeatability.</p>
+              </div>
+              <div class="item">
+                <h4>Same-case handoff proof</h4>
+                <p><code>#204</code> plus <code>trackandback-lead#476</code> anchor Level 6 support evidence for same-case handoff and replay.</p>
+              </div>
+              <div class="item">
+                <h4>Hydration path</h4>
+                <p><code>trackandback-lead#353</code> and <code>#354</code> remain part of the live queue support surface.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-eyebrow">Current Threads</div>
+            <h2>GitHub-linked coordination</h2>
+            <div class="thread-list">
+              <article class="thread-card">
+                <div class="badge-row"><span class="badge badge-warning">Blocked next rung</span></div>
+                <h4>Repeatability without redesign</h4>
+                <p><code>#148</code> stays visible, but only becomes active after Level 6 is genuinely closed.</p>
+              </article>
+              <article class="thread-card">
+                <div class="badge-row"><span class="badge badge-warning">Current frontier</span></div>
+                <h4>Autonomous outer-layer repair</h4>
+                <p><code>#197–#204</code> and <code>trackandback-lead#476</code> prove useful handoff and replay surfaces, but not Level 6 closure.</p>
+              </article>
+              <article class="thread-card">
+                <div class="badge-row"><span class="badge badge-neutral">Evidence surface</span></div>
+                <h4>Evidence bundle and runbook</h4>
+                <p><code>#131</code> and <code>#130</code> define the proof-bearing evidence layer.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-eyebrow">Local Operator</div>
+            <h2>Actions on the current doc</h2>
+            <div class="actions">
+              <span class="btn primary">Draft section patch</span>
+              <span class="btn">Refresh coherence</span>
+              <span class="btn">Prepare PR note</span>
+              <span class="btn">Open linked issue</span>
+              <span class="btn">Summarize frontier</span>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proof Ladder Registry Extension Shape</title>
+<meta name="description" content="Presentation page for the proposed proof-ladder registry extension shape." />
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --ink: #1a2332;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --line-strong: #cbd5e1;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --teal: #0f766e;
+    --teal-soft: rgba(15, 118, 110, 0.1);
+    --positive-bg: #ecfdf5;
+    --positive-ink: #166534;
+    --warning-bg: #fffbeb;
+    --warning-ink: #92400e;
+    --negative-bg: #fef2f2;
+    --negative-ink: #991b1b;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+    --canvas: #0b1020;
+    --canvas-soft: #111827;
+    --canvas-line: #26324a;
+    --canvas-ink: #e6edf3;
+    --canvas-muted: #98a2b3;
+    --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 32px 80px rgba(8, 13, 24, 0.34);
+    --max: 1240px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.05), transparent 28%),
+      linear-gradient(180deg, var(--canvas) 0%, #0f172a 100%);
+    color: var(--canvas-ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  code {
+    font-size: 0.9em;
+    background: var(--neutral-bg);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 1px 6px;
+  }
+
+  .wrap {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+  }
+  .hero {
+    padding: 28px;
+    border: 1px solid var(--canvas-line);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at top right, rgba(37,99,235,0.18), transparent 26%),
+      linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    box-shadow: var(--shadow-lg);
+  }
+  .eyebrow {
+    color: #9ec5ff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 10px 0 12px;
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    max-width: 900px;
+  }
+  .lede {
+    max-width: 860px;
+    margin: 0;
+    color: var(--canvas-muted);
+    font-size: 17px;
+  }
+  .pill-row, .mini-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--canvas-line);
+    background: var(--canvas-soft);
+    color: var(--canvas-ink);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .deck {
+    margin-top: 24px;
+    display: grid;
+    gap: 18px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .card, .wide-card {
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+  .card { padding: 20px; }
+  .wide-card { padding: 24px; }
+  .card h2, .wide-card h2 {
+    margin: 0 0 10px;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+  .card p, .wide-card p {
+    margin: 0;
+    color: var(--muted);
+  }
+  .section-kicker {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  ul {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+  li + li { margin-top: 6px; }
+
+  .compare {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .compare-box {
+    padding: 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .compare-box h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+
+  .logic-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.8fr 1.1fr;
+    gap: 14px;
+    align-items: stretch;
+    margin-top: 14px;
+  }
+  .logic-col {
+    padding: 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .logic-col h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .logic-item {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    margin-bottom: 10px;
+  }
+  .logic-item:last-child { margin-bottom: 0; }
+  .logic-item strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .logic-item span {
+    display: block;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .arrow-col {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .signal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .signal {
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .signal .label {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .signal .value {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .signal .note {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+
+  .status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .badge.good { background: var(--positive-bg); color: var(--positive-ink); }
+  .badge.warn { background: var(--warning-bg); color: var(--warning-ink); }
+  .badge.bad { background: var(--negative-bg); color: var(--negative-ink); }
+  .badge.neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+
+  pre {
+    margin: 14px 0 0;
+    padding: 18px;
+    overflow: auto;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: #0f172a;
+    color: #dbeafe;
+    font-size: 12.5px;
+    line-height: 1.55;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+
+  .foot {
+    margin-top: 8px;
+    color: var(--canvas-muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 960px) {
+    .grid-2, .grid-3, .compare, .logic-grid, .signal-grid {
+      grid-template-columns: 1fr;
+    }
+    .arrow-col { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Convergence Type Proposal</div>
+      <h1>Proof Ladder Registry Extension Shape</h1>
+      <p class="lede">Make ladder prominence native to the convergence type system by teaching <code>proof-ladder</code> how to derive frontier, closure, inversion, and summary-worthy signals from its own ordered state.</p>
+      <div class="pill-row">
+        <span class="pill">Proposal only</span>
+        <span class="pill">No live registry patch yet</span>
+        <span class="pill">Centered on <code>proof-ladder</code></span>
+      </div>
+    </section>
+
+    <section class="deck">
+      <div class="grid-2">
+        <article class="card">
+          <div class="section-kicker">Problem</div>
+          <h2>Current registry shape stops too early</h2>
+          <p>The current type defines ordering and status, which is enough to render a ladder section. It does not define canonical derived state for UI or inference.</p>
+          <ul>
+            <li>No type-level definition of the current frontier</li>
+            <li>No contiguous closed-prefix logic</li>
+            <li>No inversion rule beyond one AI action</li>
+            <li>No type-native summary eligibility for hero or snapshot surfaces</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="section-kicker">Move</div>
+          <h2>Teach the convergence type its own semantics</h2>
+          <p>Add two optional fields on convergence types:</p>
+          <ul>
+            <li><code>stateSemantics</code> — how ordered state is interpreted and derived</li>
+            <li><code>summarySemantics</code> — which derived signals deserve prominence</li>
+          </ul>
+          <div class="status-row">
+            <span class="badge good">source of truth stays on the type</span>
+            <span class="badge neutral">summary surfaces consume, not invent</span>
+          </div>
+        </article>
+      </div>
+
+      <article class="wide-card">
+        <div class="section-kicker">Before / After</div>
+        <h2>What changes in the system boundary</h2>
+        <div class="compare">
+          <div class="compare-box">
+            <h3>Before</h3>
+            <ul>
+              <li><code>proof-ladder</code> says “ordered probe section”</li>
+              <li>Consumers infer frontier logic ad hoc</li>
+              <li>Hero or snapshot prominence depends on UI heuristics</li>
+              <li>Meaning leaks into renderer or prompts</li>
+            </ul>
+          </div>
+          <div class="compare-box">
+            <h3>After</h3>
+            <ul>
+              <li><code>proof-ladder</code> declares how ladder state derives</li>
+              <li>Frontier and closed-prefix become canonical signals</li>
+              <li>Prominence becomes eligible through <code>summarySemantics</code></li>
+              <li>Consumers read the type instead of hard-coding rules</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Exact Shape</div>
+        <h2>Registry extension</h2>
+<pre>{
+  "stateSemantics": {
+    "kind": "ordered-ladder",
+    "orderedBy": "data-order",
+    "itemUnit": "rung",
+    "statusKey": "status",
+    "closedStatuses": ["ready"],
+    "activeStatuses": ["partial", "blocked"],
+    "futureStatuses": ["planned"],
+    "frontierRule": {
+      "kind": "first-status-not-in",
+      "statuses": ["ready"]
+    },
+    "closedPrefixRule": {
+      "kind": "contiguous-prefix-in-statuses",
+      "statuses": ["ready"]
+    },
+    "inversionRule": {
+      "kind": "status-after-open-prefix",
+      "openStatuses": ["partial", "planned", "blocked"],
+      "invalidLaterStatuses": ["ready"]
+    },
+    "derivedSignals": [
+      { "id": "closedPrefixCount", "kind": "contiguous-prefix-count" },
+      { "id": "currentFrontierItem", "kind": "first-item-with-status-not-in" },
+      { "id": "currentFrontierStatus", "kind": "status-of-signal" },
+      { "id": "nextRungItem", "kind": "next-item-after-signal" },
+      { "id": "isFullyClosed", "kind": "all-items-in-statuses" },
+      { "id": "hasInversion", "kind": "violates-rule" }
+    ]
+  },
+  "summarySemantics": {
+    "headlineSignal": "currentFrontierItem",
+    "prominentSignals": [
+      "currentFrontierItem",
+      "currentFrontierStatus",
+      "closedPrefixCount",
+      "nextRungItem"
+    ]
+  }
+}</pre>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Interpretation Flow</div>
+        <h2>How the type now behaves</h2>
+        <div class="logic-grid">
+          <div class="logic-col">
+            <h3>Input section</h3>
+            <div class="logic-item">
+              <strong>Ordered rung items</strong>
+              <span>The section’s <code>data</code> array remains the canonical ordered ladder.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Rung statuses</strong>
+              <span>Status continues to use the existing <code>probe-status</code> set: <code>planned</code>, <code>partial</code>, <code>ready</code>, <code>blocked</code>.</span>
+            </div>
+          </div>
+          <div class="arrow-col">→</div>
+          <div class="logic-col">
+            <h3>Derived by the type</h3>
+            <div class="logic-item">
+              <strong>Frontier</strong>
+              <span>First item not in <code>ready</code>.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Closed prefix</strong>
+              <span>Contiguous leading run of <code>ready</code> items.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Inversion</strong>
+              <span>Any later <code>ready</code> after an open prefix.</span>
+            </div>
+          </div>
+          <div class="arrow-col">→</div>
+          <div class="logic-col">
+            <h3>Consumed by surfaces</h3>
+            <div class="logic-item">
+              <strong>Hero / top summary</strong>
+              <span>Can prominently surface the frontier and closed count.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Status snapshot</strong>
+              <span>Can compress ladder state without inventing ladder logic.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Flow / integrity views</strong>
+              <span>Can highlight inversion or invalid closure patterns.</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Current Doc Example</div>
+        <h2>What this derives on the current Proof Ladder Overview</h2>
+        <p>The proposal matches the current live ladder state exactly. These values become type-native derived signals rather than UI guesses.</p>
+        <div class="signal-grid">
+          <div class="signal">
+            <span class="label">Closed Prefix Count</span>
+            <span class="value">5</span>
+            <span class="note">Levels 1–5 are contiguous <code>ready</code>.</span>
+          </div>
+          <div class="signal">
+            <span class="label">Current Frontier</span>
+            <span class="value">Level 6</span>
+            <span class="note">First rung not in <code>ready</code>.</span>
+          </div>
+          <div class="signal">
+            <span class="label">Frontier Status</span>
+            <span class="value">partial</span>
+            <span class="note">Autonomous shared-runtime repair and resume remains open.</span>
+          </div>
+          <div class="signal">
+            <span class="label">Next Rung</span>
+            <span class="value">Level 7</span>
+            <span class="note">Repeat later without redesign stays behind the current frontier.</span>
+          </div>
+          <div class="signal">
+            <span class="label">Fully Closed</span>
+            <span class="value">false</span>
+            <span class="note">The ladder is not complete.</span>
+          </div>
+          <div class="signal">
+            <span class="label">Has Inversion</span>
+            <span class="value">false</span>
+            <span class="note">No later <code>ready</code> rung appears after an open rung.</span>
+          </div>
+        </div>
+      </article>
+
+      <div class="grid-3">
+        <article class="card">
+          <div class="section-kicker">Architectural Effect</div>
+          <h2>Meaning stays attached to the type</h2>
+          <p>The convergence type system becomes a registry of structural meaning and derivation rules, not only a rendering registry.</p>
+        </article>
+        <article class="card">
+          <div class="section-kicker">Consumer Effect</div>
+          <h2>Summary surfaces stop guessing</h2>
+          <p><code>status-snapshot</code>, hero summaries, and integrity views can consume derived ladder signals without re-implementing ladder semantics.</p>
+        </article>
+        <article class="card">
+          <div class="section-kicker">Generalization</div>
+          <h2>Reusable pattern</h2>
+          <p>If this holds up, <code>stateSemantics</code> and <code>summarySemantics</code> can extend other ordered or stateful convergence types later.</p>
+        </article>
+      </div>
+
+      <article class="wide-card">
+        <div class="section-kicker">Next Step</div>
+        <h2>Decision points before patching the registry</h2>
+        <ul>
+          <li>Confirm that <code>stateSemantics</code> and <code>summarySemantics</code> should be generic top-level convergence-type fields.</li>
+          <li>Decide whether the compositor consumes these directly or exposes them to AI/sync layers first.</li>
+          <li>Then patch <code>scripts/living-doc-registry.json</code> with <code>proof-ladder</code> as the first adopter.</li>
+        </ul>
+      </article>
+
+      <p class="foot">Source proposal: <code>docs/proof-ladder-registry-extension-shape.md</code></p>
+    </section>
+  </div>
+</body>
+</html>

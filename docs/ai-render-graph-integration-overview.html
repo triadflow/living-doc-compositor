@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Render Graph Integration Overview</title>
+<meta name="description" content="Static overview of the recommended AI Render Graph integration shape for living-doc-compositor." />
+<style>
+  :root {
+    color-scheme: light;
+    --canvas: #0a1224;
+    --canvas-soft: #111b34;
+    --canvas-line: #263654;
+    --canvas-ink: #e7eefb;
+    --canvas-muted: #9eb0ce;
+    --bg: #edf2f8;
+    --card: #ffffff;
+    --ink: #182235;
+    --muted: #61758f;
+    --line: #dbe4ef;
+    --line-strong: #c2d0df;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.09);
+    --teal: #0f766e;
+    --teal-soft: rgba(15, 118, 110, 0.12);
+    --gold: #a16207;
+    --gold-soft: rgba(161, 98, 7, 0.13);
+    --rose: #be123c;
+    --rose-soft: rgba(190, 18, 60, 0.11);
+    --positive-bg: #ecfdf5;
+    --positive-ink: #166534;
+    --warning-bg: #fffbeb;
+    --warning-ink: #92400e;
+    --negative-bg: #fff1f2;
+    --negative-ink: #9f1239;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 34px 82px rgba(6, 12, 24, 0.34);
+    --max: 1260px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 26%),
+      linear-gradient(180deg, var(--canvas) 0%, #0e172d 100%);
+    color: var(--canvas-ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  code {
+    font-size: 0.9em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--neutral-bg);
+    color: var(--ink);
+  }
+  pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid #24344f;
+    background: #0d172b;
+    color: #dbe7fb;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .wrap {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+
+  .hero {
+    padding: 30px;
+    border-radius: 22px;
+    border: 1px solid var(--canvas-line);
+    background:
+      radial-gradient(circle at top right, rgba(37, 99, 235, 0.2), transparent 30%),
+      radial-gradient(circle at 20% 10%, rgba(15, 118, 110, 0.18), transparent 24%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+    box-shadow: var(--shadow-lg);
+  }
+  .eyebrow {
+    color: #aac8ff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 10px 0 12px;
+    max-width: 980px;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+  }
+  .lede {
+    max-width: 860px;
+    margin: 0;
+    color: var(--canvas-muted);
+    font-size: 17px;
+  }
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--canvas-line);
+    background: rgba(10, 18, 36, 0.4);
+    color: var(--canvas-ink);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .deck {
+    margin-top: 24px;
+    display: grid;
+    gap: 18px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .card, .wide-card {
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .card { padding: 20px; }
+  .wide-card { padding: 24px; }
+  .section-kicker {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .card h2, .wide-card h2 {
+    margin: 0 0 10px;
+    font-size: 23px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .card p, .wide-card p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .logic-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.8fr 1.05fr;
+    gap: 14px;
+    align-items: stretch;
+    margin-top: 14px;
+  }
+  .logic-col {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .logic-col h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+  .logic-item {
+    margin-bottom: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--card);
+  }
+  .logic-item:last-child { margin-bottom: 0; }
+  .logic-item strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+  .logic-item span {
+    display: block;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .logic-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .compare {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .compare-box {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .compare-box h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+
+  .signal {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 14px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .signal-positive {
+    background: var(--positive-bg);
+    color: var(--positive-ink);
+  }
+  .signal-warning {
+    background: var(--warning-bg);
+    color: var(--warning-ink);
+  }
+  .signal-negative {
+    background: var(--negative-bg);
+    color: var(--negative-ink);
+  }
+
+  .stack {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+  .stack-label {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .stack-body h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .stack-body p {
+    margin: 0;
+    color: var(--muted);
+  }
+  .stack-body ul {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+  .stack-body li + li { margin-top: 6px; }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .flow-step {
+    position: relative;
+    min-height: 154px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+  .flow-step::after {
+    content: "->";
+    position: absolute;
+    top: 50%;
+    right: -13px;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .flow-step:last-child::after { display: none; }
+  .flow-step .num {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 900;
+  }
+  .flow-step h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+  .flow-step p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1.08fr 0.92fr;
+    gap: 18px;
+  }
+  .list-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .list-card {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .list-card h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+  .list-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+
+  .footer-note {
+    margin-top: 18px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    color: var(--muted);
+  }
+  .footer-note strong { color: var(--ink); }
+
+  @media (max-width: 1100px) {
+    .grid-2, .grid-3, .split, .logic-grid, .flow, .compare, .list-grid {
+      grid-template-columns: 1fr;
+    }
+    .stack-row {
+      grid-template-columns: 1fr;
+    }
+    .flow-step::after { display: none; }
+    .logic-arrow { display: none; }
+  }
+
+  @media (max-width: 720px) {
+    .wrap {
+      padding: 24px 14px 44px;
+    }
+    .hero, .wide-card, .card {
+      padding: 18px;
+    }
+    h1 {
+      font-size: 34px;
+    }
+    .lede {
+      font-size: 15px;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Living Doc Compositor / Issue 135 Stance</div>
+      <h1>AI Render Graph should land as a type-aware, opt-in advisory export layer.</h1>
+      <p class="lede">The integration fits this repo if it stays read-only, preserves the normal standalone export path, and hangs its semantics off the existing convergence type system instead of inventing a second AI schema. The exported page may hydrate local inference slots, but it must not become the canonical mutation path.</p>
+      <div class="pill-row">
+        <span class="pill">Opt-in export only</span>
+        <span class="pill">Read-only advisory slots</span>
+        <span class="pill">Type-aware profiles</span>
+        <span class="pill">No Cmd-K replacement</span>
+        <span class="pill">Prefer embedded runtime over vendor link</span>
+      </div>
+    </section>
+
+    <section class="deck">
+      <div class="grid-2">
+        <article class="card">
+          <div class="section-kicker">Decision Boundary</div>
+          <h2>What this is for</h2>
+          <p>Use AI Render Graph to add local, runtime-only reading aids to an exported doc: a brief, a staleness note, a risk callout, or a checklist computed from selected sections.</p>
+          <div class="signal signal-positive">Good fit for exported-doc reader assist</div>
+          <ul>
+            <li>Summarize a large section set into a short brief.</li>
+            <li>Highlight which section looks stale, blocked, or under-specified.</li>
+            <li>Generate a local review checklist before sharing.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <div class="section-kicker">Hard Boundary</div>
+          <h2>What this is not for</h2>
+          <p>The integration should not alter the meaning of a living doc export. The doc stays readable without a model server, and no runtime hydration path gets to mutate canonical JSON.</p>
+          <div class="signal signal-negative">Do not turn hydration into authoring</div>
+          <ul>
+            <li>Do not replace the existing Cmd-K propose/apply path.</li>
+            <li>Do not let runtime inference write source JSON.</li>
+            <li>Do not require remote hosting or cloud API keys.</li>
+          </ul>
+        </article>
+      </div>
+
+      <article class="wide-card">
+        <div class="section-kicker">Separation Of Concerns</div>
+        <h2>Keep Cmd-K and AI Render Graph sharply distinct.</h2>
+        <p>There are already two different product surfaces in play. One is a local mutation workflow. The other is a runtime advisory layer inside an export. They should share vocabulary, but not responsibilities.</p>
+        <div class="compare">
+          <div class="compare-box">
+            <h3>Existing Cmd-K AI pass</h3>
+            <ul>
+              <li>Runs as a propose/apply workflow.</li>
+              <li>Produces accepted patch items and disk changes.</li>
+              <li>Belongs to authoring and maintenance.</li>
+              <li>Should remain the only AI-assisted mutation path.</li>
+            </ul>
+          </div>
+          <div class="compare-box">
+            <h3>Proposed AI Render Graph layer</h3>
+            <ul>
+              <li>Runs inside an exported document at read time.</li>
+              <li>Fills advisory slots only.</li>
+              <li>Belongs to interpretation, review, and orientation.</li>
+              <li>Must remain optional and non-canonical.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Recommended Architecture</div>
+        <h2>The integration boundary should live across three layers, not one.</h2>
+        <p>The current convergence type system already defines what a section means. AI support should extend that semantic layer, while leaving section enablement and runtime wiring in the document/export surfaces.</p>
+        <div class="logic-grid">
+          <div class="logic-col">
+            <h3>Registry / Type System</h3>
+            <div class="logic-item">
+              <strong>Defines valid advisory profiles</strong>
+              <span>Each convergence type declares which AI views make sense: brief, stale note, risk scan, checklist, and similar typed profiles.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Reuses existing semantics</strong>
+              <span>Prompt seeds come from <code>promptGuidance</code>, <code>sources</code>, <code>statusFields</code>, <code>textFields</code>, and <code>detailsFields</code>.</span>
+            </div>
+          </div>
+          <div class="logic-arrow">feeds</div>
+          <div class="logic-col">
+            <h3>Section / Document</h3>
+            <div class="logic-item">
+              <strong>Enables profiles intentionally</strong>
+              <span>A section opts into one or more registry-defined AI profiles. Nothing is globally on by default.</span>
+            </div>
+            <div class="logic-item">
+              <strong>Keeps canonical content separate</strong>
+              <span>The section still stores only source truth. AI slots are derived export affordances.</span>
+            </div>
+          </div>
+        </div>
+        <div class="logic-grid">
+          <div class="logic-col">
+            <h3>Export / Render</h3>
+            <div class="logic-item">
+              <strong>Builds the runtime contract</strong>
+              <span>The renderer emits markers, slots, embedded spec, and the mount script only when the export mode explicitly enables enhancement.</span>
+            </div>
+          </div>
+          <div class="logic-arrow">runs on</div>
+          <div class="logic-col">
+            <h3>Local Runtime</h3>
+            <div class="logic-item">
+              <strong>Hydrates only from local inference</strong>
+              <span>The final HTML may call a local OpenAI-compatible endpoint, but remains readable even if that endpoint is absent.</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Config Split</div>
+        <h2>Put the right information in the right place.</h2>
+        <p>The useful split is semantic defaults at the type layer, enablement at the section layer, and machine-specific runtime config at export time.</p>
+        <div class="stack">
+          <div class="stack-row">
+            <div class="stack-label">Convergence type</div>
+            <div class="stack-body">
+              <h3>Registry declares typed AI profiles.</h3>
+              <p>This answers: "What advisory AI views are valid for this kind of section?" It should not answer where the model runs or which endpoint to call.</p>
+              <ul>
+                <li>Allowed profile ids such as <code>brief</code> or <code>staleness-note</code>.</li>
+                <li>Expected output fields and slot shape.</li>
+                <li>Prompt seeds derived from the type's existing semantic contract.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-label">Section or document</div>
+            <div class="stack-body">
+              <h3>Content opts into specific profiles.</h3>
+              <p>This answers: "Do we want advisory hydration here?" It should be possible to enable it for one section, skip it for another, and keep the rest of the document unchanged.</p>
+              <ul>
+                <li>Enable only the profiles that help this section.</li>
+                <li>Keep the doc readable without hydration.</li>
+                <li>Do not store generated advisory text as canonical fields by default.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-label">Export mode</div>
+            <div class="stack-body">
+              <h3>Runtime config stays outside the type system.</h3>
+              <p>This answers: "How should this HTML run on this machine?" That includes endpoint, model, file-open mode, and whether the runtime JS is embedded into the export.</p>
+              <ul>
+                <li><code>enabled</code>, <code>endpoint</code>, <code>model</code>, <code>timeoutMs</code></li>
+                <li>Whether the runtime is embedded or loaded from a local sidecar</li>
+                <li>Validation of the emitted AI Render Graph spec before write</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Proposed Export Flow</div>
+        <h2>Render first, enhance second, hydrate last.</h2>
+        <p>The renderer should preserve the normal static export contract, then layer AI affordances on top only when enhancement is requested.</p>
+        <div class="flow">
+          <div class="flow-step">
+            <div class="num">01</div>
+            <h3>Read canonical JSON</h3>
+            <p>Interpret the living doc with the current registry and section semantics exactly as the normal exporter already does.</p>
+          </div>
+          <div class="flow-step">
+            <div class="num">02</div>
+            <h3>Resolve allowed profiles</h3>
+            <p>Collect AI profiles from convergence types, then filter to the ones explicitly enabled on the selected sections or document.</p>
+          </div>
+          <div class="flow-step">
+            <div class="num">03</div>
+            <h3>Emit markers and slots</h3>
+            <p>Add <code>data-ai-source</code> to source regions and <code>data-ai-task</code> to read-only output slots without altering core content.</p>
+          </div>
+          <div class="flow-step">
+            <div class="num">04</div>
+            <h3>Embed validated spec</h3>
+            <p>Generate an AI Render Graph spec from the type-aware profile set and validate it before writing the final HTML.</p>
+          </div>
+          <div class="flow-step">
+            <div class="num">05</div>
+            <h3>Hydrate locally if available</h3>
+            <p>When the page is opened, the embedded runtime may call a local model server and fill advisory slots. Without that server, the export still works.</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="split">
+        <article class="wide-card">
+          <div class="section-kicker">Registry Shape</div>
+          <h2>Example: extend convergence types with typed AI profiles.</h2>
+          <p>This keeps the AI affordance anchored to the type system instead of inventing a separate parallel schema.</p>
+<pre>{
+  "convergenceTypes": {
+    "verification-surface": {
+      "aiProfiles": {
+        "brief": {
+          "allowed": true,
+          "sourceMode": "section",
+          "uses": [
+            "promptGuidance",
+            "sources",
+            "statusFields",
+            "textFields",
+            "detailsFields"
+          ],
+          "outputs": {
+            "headline": "string",
+            "summary": "string",
+            "nextActions": "string[]"
+          }
+        },
+        "staleness-note": {
+          "allowed": true,
+          "sourceMode": "section",
+          "outputs": {
+            "staleArea": "string",
+            "reason": "string",
+            "suggestedCheck": "string"
+          }
+        }
+      }
+    }
+  }
+}</pre>
+        </article>
+
+        <article class="wide-card">
+          <div class="section-kicker">Section And Export Shape</div>
+          <h2>Enable per section, configure per export.</h2>
+          <p>The document selects which profiles to expose. The export supplies machine-specific runtime details.</p>
+<pre>{
+  "id": "verification-main",
+  "convergenceType": "verification-surface",
+  "ai": {
+    "enabledProfiles": [
+      "brief",
+      "staleness-note"
+    ]
+  }
+}
+
+{
+  "aiEnhancement": {
+    "enabled": true,
+    "runtime": "file-open",
+    "embedRuntime": true,
+    "model": "gemma-4-e4b-it",
+    "endpoint": "http://127.0.0.1:1234/v1/chat/completions"
+  }
+}</pre>
+        </article>
+      </div>
+
+      <article class="wide-card">
+        <div class="section-kicker">HTML Contract</div>
+        <h2>The export should prefer embedded runtime, not an external vendor link.</h2>
+        <p>The cleanest version for this repo is to use the library as a build dependency, validate and generate at render time, then inline the runtime into the final HTML so the export remains self-contained.</p>
+<pre>&lt;section data-ai-source="verification-main"&gt;
+  ... rendered living doc content ...
+&lt;/section&gt;
+
+&lt;aside data-ai-task="brief.summary"&gt;
+  Static fallback summary shown when no local model is available.
+&lt;/aside&gt;
+
+&lt;script type="application/ai-render-graph+json"&gt;
+{ "...validated type-aware spec..." }
+&lt;/script&gt;
+
+&lt;script&gt;
+  /* embedded ai-render-graph runtime */
+  /* embedded mount code with local endpoint config */
+&lt;/script&gt;</pre>
+          <div class="signal signal-warning">A separate <code>vendor/ai-render-graph.file.js</code> sidecar is possible, but weaker than the repo's standalone-export contract.</div>
+        </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Use Cases</div>
+        <h2>Adopt it first where advisory text is clearly useful and clearly non-canonical.</h2>
+        <div class="list-grid">
+          <div class="list-card">
+            <h3>Good first use cases</h3>
+            <ul>
+              <li>Convergence brief for a large exported doc.</li>
+              <li>Staleness or risk note across selected sections.</li>
+              <li>Short review checklist before sharing.</li>
+              <li>Reader orientation block for dense verification or proof docs.</li>
+            </ul>
+          </div>
+          <div class="list-card">
+            <h3>Not good first use cases</h3>
+            <ul>
+              <li>Editing or patching canonical JSON.</li>
+              <li>Replacing section content with model output.</li>
+              <li>Default behavior on every export.</li>
+              <li>Public pages that must behave identically on all machines.</li>
+            </ul>
+          </div>
+          <div class="list-card">
+            <h3>Why the type system matters</h3>
+            <ul>
+              <li>Different convergence types need different advisory shapes.</li>
+              <li>The registry already describes what each section means.</li>
+              <li>Prompt seeds should come from those semantics, not freeform prompts alone.</li>
+            </ul>
+          </div>
+          <div class="list-card">
+            <h3>Why the export boundary matters</h3>
+            <ul>
+              <li>Model and endpoint are machine-local concerns.</li>
+              <li>Normal static exports must remain unchanged.</li>
+              <li>The HTML still needs graceful degradation without runtime hydration.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Recommended Scope</div>
+        <h2>If issue 135 moves forward, the narrow version is the right version.</h2>
+        <p>Proceed with an opt-in enhanced export path that generates read-only AI Render Graph slots from registry-aware profiles. Do not turn it into a general AI templating surface, and do not let it collapse the existing distinction between export-time advice and authoring-time mutation.</p>
+        <div class="footer-note">
+          <strong>Short version:</strong> integrate the library, but keep the export standalone, keep the hydration advisory, and let the convergence type system define what kinds of AI views are legitimate for each section.
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

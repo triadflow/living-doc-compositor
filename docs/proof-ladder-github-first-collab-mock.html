@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proof Ladder Overview — GitHub-First Collaboration Mock</title>
+<meta name="description" content="GitHub-first collaboration mock for the Proof Ladder Overview living doc." />
+<style>
+  :root {
+    color-scheme: light;
+    --canvas: #0b1020;
+    --canvas-soft: #111827;
+    --canvas-line: #26324a;
+    --canvas-ink: #e6edf3;
+    --canvas-muted: #98a2b3;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --ink: #1a2332;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --positive-bg: #ecfdf5;
+    --positive-ink: #166534;
+    --warning-bg: #fffbeb;
+    --warning-ink: #92400e;
+    --negative-bg: #fef2f2;
+    --negative-ink: #991b1b;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+    --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 24px 70px rgba(0,0,0,0.28);
+    --sidebar: 56px;
+    --max: 1320px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.05), transparent 28%),
+      linear-gradient(180deg, var(--canvas) 0%, #0f172a 100%);
+    color: var(--canvas-ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--neutral-bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: var(--ink);
+  }
+  .mock-frame {
+    max-width: var(--max);
+    margin: 28px auto 56px;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    box-shadow: var(--shadow-lg);
+  }
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 42px;
+    padding: 0 14px;
+    background: #eef2f7;
+    border-bottom: 1px solid var(--line);
+  }
+  .dots { display: inline-flex; gap: 6px; }
+  .dot { width: 11px; height: 11px; border-radius: 999px; background: #cbd5e1; }
+  .dot.red { background: #fb7185; }
+  .dot.yellow { background: #fbbf24; }
+  .dot.green { background: #34d399; }
+  .address {
+    min-width: 0;
+    flex: 1;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .doc-shell {
+    min-height: 980px;
+    display: grid;
+    grid-template-columns: var(--sidebar) 1fr;
+  }
+  .sidebar {
+    background: var(--card);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 4px;
+  }
+  .brand {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+  .nav-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .nav-icon.active {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+  }
+  .content { padding: 28px 28px 40px; }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 13px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .topbar .spacer { flex: 1; }
+  .page-header h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+  .subtitle {
+    margin: 0 0 18px;
+    color: var(--muted);
+    max-width: 940px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .pill-row, .chip-row, .actions, .badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pill, .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .chip.good { background: var(--positive-bg); color: var(--positive-ink); border-color: transparent; }
+  .chip.warn { background: var(--warning-bg); color: var(--warning-ink); border-color: transparent; }
+  .chip.bad { background: var(--negative-bg); color: var(--negative-ink); border-color: transparent; }
+  .chip.info { background: color-mix(in srgb, var(--accent) 12%, white); color: var(--accent); border-color: transparent; }
+  .hero {
+    padding: 18px 20px;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+    background: color-mix(in srgb, var(--accent) 5%, var(--card));
+    box-shadow: var(--shadow-sm);
+  }
+  .hero p { margin: 0; color: var(--muted); }
+  .layout {
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1.2fr) 380px;
+    gap: 18px;
+    margin-top: 20px;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 18px;
+  }
+  .panel-eyebrow {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .panel p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .item, .thread, .proposal, .review, .provenance {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .item h3, .thread h3, .proposal h3, .review h3, .provenance h3 {
+    margin: 0 0 5px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .item p, .thread p, .proposal p, .review p, .provenance p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.8px;
+    line-height: 1.5;
+  }
+  .ghost-copy {
+    min-height: 1.2em;
+    color: transparent !important;
+    user-select: none;
+  }
+  .section-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 18px;
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .section-head h2 {
+    margin: 0 0 5px;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+  }
+  .section-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .rung {
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    margin-bottom: 10px;
+  }
+  .rung:last-child { margin-bottom: 0; }
+  .rung h3 {
+    margin: 0 0 5px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .rung p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.8px;
+    line-height: 1.5;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .badge.good { background: var(--positive-bg); color: var(--positive-ink); }
+  .badge.warn { background: var(--warning-bg); color: var(--warning-ink); }
+  .badge.bad { background: var(--negative-bg); color: var(--negative-ink); }
+  .badge.neutral { background: var(--neutral-bg); color: var(--neutral-ink); }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  @media (max-width: 1120px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .doc-shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .content { padding: 20px 16px 32px; }
+  }
+</style>
+</head>
+<body>
+  <div class="mock-frame">
+    <div class="browser-bar">
+      <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+      <div class="address">http://localhost:4321/api/resources/living-doc/12?view=github-first</div>
+    </div>
+    <div class="doc-shell">
+      <aside class="sidebar">
+        <div class="brand">PL</div>
+        <div class="nav-icon">OC</div>
+        <div class="nav-icon">EX</div>
+        <div class="nav-icon">SS</div>
+        <div class="nav-icon">OM</div>
+        <div class="nav-icon active">PL</div>
+        <div class="nav-icon">SF</div>
+      </aside>
+      <main class="content">
+        <div class="topbar">
+          <span class="tab">Document</span>
+          <span class="tab active">Working State</span>
+          <span class="tab">Flow</span>
+          <span class="tab">Compare</span>
+          <div class="spacer"></div>
+          <span class="tab">`main`</span>
+          <span class="tab">`docs/proof-ladder-overview.json`</span>
+        </div>
+
+        <header class="page-header">
+          <h1>Proof Ladder Overview</h1>
+          <p class="subtitle">Track the proof work as a living status map for the intended operating model, not as a presentation. Updated 2026-04-24.</p>
+          <div class="pill-row">
+            <span class="pill">Shared state on <code>main</code></span>
+            <span class="pill">Local working copy has changes</span>
+            <span class="pill">Levels 1–5 closed, Level 6 partial</span>
+          </div>
+        </header>
+
+        <div class="layout">
+          <section class="panel">
+            <div class="panel-eyebrow">Shared Document</div>
+            <h2>Canonical structure</h2>
+            <div class="stack">
+              <div class="item">
+                <h3>Objective Coherence</h3>
+                <p class="ghost-copy">.</p>
+              </div>
+              <div class="item">
+                <h3>Explain this doc</h3>
+                <p class="ghost-copy">.</p>
+              </div>
+              <div class="item">
+                <h3>Status Snapshot</h3>
+                <p class="ghost-copy">.</p>
+              </div>
+              <div class="item">
+                <h3>Operating Model</h3>
+                <p class="ghost-copy">.</p>
+              </div>
+              <div class="item" style="border-color:#bfdbfe;background:color-mix(in srgb, var(--accent) 5%, white);">
+                <h3>Proof Ladder</h3>
+                <p>Focused section with local changes.</p>
+              </div>
+              <div class="item">
+                <h3>Supporting Surface</h3>
+                <p class="ghost-copy">.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-card">
+            <div class="section-head">
+              <div>
+                <h2>Proof Ladder</h2>
+                <p>Shared state with local working edits</p>
+              </div>
+              <div class="chip-row">
+                <span class="chip good">Shared accepted state</span>
+                <span class="chip warn">2 local edits</span>
+                <span class="chip info">Not yet reconciled</span>
+              </div>
+            </div>
+
+            <div class="rung">
+              <div class="badge-row"><span class="badge good">Ready</span></div>
+              <h3>Level 5 — Cumulative Carry-Forward Across Batch</h3>
+              <p class="ghost-copy">.</p>
+            </div>
+
+            <div class="rung" style="border-color:#fcd34d;background:#fffdf5;">
+              <div class="badge-row"><span class="badge warn">Partial</span></div>
+              <h3>Level 6 — Autonomous Shared-Runtime Repair And Resume</h3>
+              <p>Shared state: same-case replay is support evidence only; autonomy remains open.</p>
+            </div>
+
+            <div class="rung" style="border-color:#bfdbfe;background:color-mix(in srgb, var(--accent) 5%, white);">
+              <div class="badge-row"><span class="badge warn">Local edit</span></div>
+              <h3>Local change on Level 6</h3>
+              <p>Add one compact evidence note for replay workflows <code>24869518266</code> and <code>24869550944</code>. Status stays unchanged.</p>
+            </div>
+
+            <div class="rung">
+              <div class="badge-row"><span class="badge neutral">Planned</span></div>
+              <h3>Level 7 — Repeat Later Without Redesign</h3>
+              <p class="ghost-copy">.</p>
+            </div>
+
+            <div class="actions" style="margin-top:14px;">
+              <span class="btn primary">Review local changes</span>
+              <span class="btn">Compare to shared</span>
+              <span class="btn">Prepare reconciliation</span>
+            </div>
+          </section>
+
+          <aside class="stack">
+            <section class="panel">
+              <div class="panel-eyebrow">Working State</div>
+              <h2>Local versus shared</h2>
+              <div class="stack">
+                <div class="thread">
+                  <div class="badge-row"><span class="badge good">Shared</span></div>
+                  <h3>Canonical document</h3>
+                  <p>Current accepted state from <code>main</code>.</p>
+                </div>
+                <div class="thread">
+                  <div class="badge-row"><span class="badge warn">Local</span></div>
+                  <h3>Working document</h3>
+                  <p>Contains edits not yet reconciled back into shared state.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-eyebrow">Inference Layer</div>
+              <h2>Local operator help</h2>
+              <div class="proposal">
+                <div class="badge-row"><span class="badge warn">Available</span></div>
+                <h3>Inference can manage version state locally</h3>
+                <p>Inspect local changes, compare against shared state, help resolve drift, and prepare a clean convergence back to the shared repo.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-eyebrow">Reconciliation</div>
+              <h2>Current gap</h2>
+              <div class="review">
+                <div class="badge-row"><span class="badge warn">Pending</span></div>
+                <h3>Local changes are not yet canonical</h3>
+                <p>The working document is valid locally, but shared state has not been updated yet.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-eyebrow">History</div>
+              <h2>Shared provenance</h2>
+              <div class="provenance">
+                <div class="badge-row"><span class="badge good">Merged</span></div>
+                <h3>Last accepted update</h3>
+                <p>The canonical document already records support evidence for same-case replay after shared-runtime delivery without changing Level 6 closure.</p>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

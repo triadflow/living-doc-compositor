@@ -225,6 +225,50 @@ async function rerender(docPath) {
   if (r.status !== 0) throw new Error(`render failed: ${r.stderr || r.stdout}`);
 }
 
+function normalizeDocPath(docPath) {
+  let normalizedDocPath = String(docPath || '');
+  if (normalizedDocPath.endsWith('.html')) {
+    normalizedDocPath = normalizedDocPath.replace(/\.html$/, '.json');
+  }
+  return normalizedDocPath;
+}
+
+function deriveCanonicalBranch(doc) {
+  return (
+    doc?.canonicalBranch ||
+    doc?.repoState?.canonicalBranch ||
+    doc?.repoState?.defaultBranch ||
+    doc?.branch ||
+    'main'
+  );
+}
+
+async function loadGitBaseDoc(docPath) {
+  const normalizedDocPath = normalizeDocPath(docPath);
+  if (!existsSync(normalizedDocPath)) {
+    throw new Error(`docPath does not exist: ${normalizedDocPath}`);
+  }
+
+  const docRepoRoot = findRepoRoot(normalizedDocPath);
+  const relPath = path.relative(docRepoRoot, normalizedDocPath).split(path.sep).join('/');
+  const currentDoc = JSON.parse(await readFile(normalizedDocPath, 'utf8'));
+  const branch = deriveCanonicalBranch(currentDoc);
+  const refs = [...new Set([`origin/${branch}`, branch, 'HEAD'])];
+
+  for (const ref of refs) {
+    const r = spawnSync('git', ['show', `${ref}:${relPath}`], {
+      cwd: docRepoRoot,
+      encoding: 'utf8',
+    });
+    if (r.status !== 0 || !(r.stdout || '').trim()) continue;
+    try {
+      return { baseDoc: JSON.parse(r.stdout), baseRef: ref, docRepoRoot };
+    } catch {}
+  }
+
+  return { baseDoc: currentDoc, baseRef: 'working-tree', docRepoRoot };
+}
+
 // ── HTTP ──────────────────────────────────────────────────────────────────
 
 function cors(res) {
@@ -345,6 +389,17 @@ async function handleApply(req, res) {
   return json(res, 200, { ok: true, log, sideResults, doc: working });
 }
 
+async function handleLocalDiffBase(req, res) {
+  const body = await readBody(req);
+  if (!body?.docPath) return json(res, 400, { error: 'missing docPath' });
+  const { baseDoc, baseRef } = await loadGitBaseDoc(body.docPath);
+  return json(res, 200, {
+    baseDoc,
+    baseRef,
+    comparedAt: new Date().toISOString(),
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') { cors(res); res.statusCode = 204; res.end(); return; }
@@ -367,6 +422,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/ai-pass/apply') {
       return await handleApply(req, res);
+    }
+    if (req.method === 'POST' && url.pathname === '/api/local-diff/base') {
+      return await handleLocalDiffBase(req, res);
     }
 
     return json(res, 404, { error: 'not found' });

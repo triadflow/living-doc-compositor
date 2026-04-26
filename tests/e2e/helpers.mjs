@@ -1,9 +1,21 @@
 import { expect } from '@playwright/test';
 
-export async function openLocalCompositor(page) {
-  await page.addInitScript(() => {
+const SETTINGS_STORAGE_KEY = 'living-doc-compositor-settings';
+
+export async function openLocalCompositor(
+  page,
+  {
+    preferManifest = false,
+    includeSiblingDiscovery = false,
+  } = {},
+) {
+  await page.addInitScript(({ settingsStorageKey, preferManifest, includeSiblingDiscovery }) => {
     localStorage.clear();
-  });
+    localStorage.setItem(settingsStorageKey, JSON.stringify({
+      preferManifest,
+      includeSiblingDiscovery,
+    }));
+  }, { settingsStorageKey: SETTINGS_STORAGE_KEY, preferManifest, includeSiblingDiscovery });
   await page.goto('/docs/living-doc-compositor.html');
   await expect(page.locator('#top-bar')).toContainText('Living Doc Compositor');
   await expect(page.locator('[data-rail-mode="structure"]')).toBeVisible();

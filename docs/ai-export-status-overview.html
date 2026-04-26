@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Export Status Overview</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --paper: #fffdf8;
+        --paper-strong: #fffaf1;
+        --ink: #1c2a2d;
+        --muted: #5f6e70;
+        --line: #d9d0c2;
+        --accent: #0f766e;
+        --accent-soft: #d8f0ec;
+        --warn: #b45309;
+        --warn-soft: #fff0d9;
+        --danger: #b42318;
+        --danger-soft: #fde7e4;
+        --ok: #166534;
+        --ok-soft: #e6f7ea;
+        --shadow: 0 18px 45px rgba(34, 33, 28, 0.08);
+        --radius: 22px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background:
+          radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 28%),
+          radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.08), transparent 24%),
+          var(--bg);
+        color: var(--ink);
+      }
+
+      body {
+        font: 16px/1.6 "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      }
+
+      h1, h2, h3, .eyebrow, .metric-value, .pill, .state-chip, .step-label {
+        font-family: "Avenir Next Condensed", "Gill Sans", "Trebuchet MS", sans-serif;
+      }
+
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 24px 72px;
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(145deg, rgba(255, 250, 241, 0.92), rgba(255, 253, 248, 0.98));
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 32px;
+        box-shadow: var(--shadow);
+        padding: 34px 34px 28px;
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -40px -60px auto;
+        width: 280px;
+        height: 280px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(15, 118, 110, 0.16), transparent 68%);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+        gap: 28px;
+        margin-top: 18px;
+        align-items: start;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(38px, 7vw, 66px);
+        line-height: 0.95;
+        letter-spacing: -0.05em;
+      }
+
+      .hero p {
+        margin: 14px 0 0;
+        max-width: 62ch;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--line);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .hero-side {
+        display: grid;
+        gap: 14px;
+      }
+
+      .state-panel, .metric-panel, .section, .timeline {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .state-panel {
+        padding: 18px 18px 16px;
+        background: linear-gradient(180deg, rgba(216, 240, 236, 0.55), rgba(255, 253, 248, 0.96));
+      }
+
+      .state-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ok);
+        background: var(--ok-soft);
+        border-radius: 999px;
+        padding: 7px 12px;
+      }
+
+      .state-panel h2 {
+        margin: 16px 0 8px;
+        font-size: 28px;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .state-panel p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric-panel {
+        padding: 16px 16px 14px;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      .metric-value {
+        margin-top: 6px;
+        font-size: 28px;
+        line-height: 1;
+        letter-spacing: -0.05em;
+      }
+
+      .metric-copy {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 22px;
+      }
+
+      .section {
+        padding: 22px 22px 18px;
+      }
+
+      .span-7 { grid-column: span 7; }
+      .span-5 { grid-column: span 5; }
+      .span-4 { grid-column: span 4; }
+      .span-8 { grid-column: span 8; }
+      .span-12 { grid-column: span 12; }
+
+      .section h2 {
+        margin: 0 0 12px;
+        font-size: 26px;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .section-intro {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+
+      .card-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .card {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: var(--paper-strong);
+      }
+
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 19px;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .card ul {
+        margin: 12px 0 0 18px;
+        padding: 0;
+      }
+
+      .card li + li {
+        margin-top: 6px;
+      }
+
+      .status-stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .status-row {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+        padding: 14px 0;
+        border-top: 1px solid rgba(217, 208, 194, 0.7);
+      }
+
+      .status-row:first-child {
+        padding-top: 0;
+        border-top: none;
+      }
+
+      .step-label {
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .step-label.ok { color: var(--ok); }
+      .step-label.warn { color: var(--warn); }
+      .step-label.danger { color: var(--danger); }
+
+      .status-row p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .timeline {
+        margin-top: 22px;
+        padding: 22px;
+      }
+
+      .timeline h2 {
+        margin: 0 0 14px;
+        font-size: 26px;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .timeline-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .timeline-card {
+        min-height: 180px;
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: var(--paper-strong);
+      }
+
+      .timeline-card .kicker {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      .timeline-card h3 {
+        margin: 10px 0 8px;
+        font-size: 21px;
+        line-height: 1.02;
+        letter-spacing: -0.03em;
+      }
+
+      .timeline-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .callout {
+        padding: 16px 18px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        margin-top: 14px;
+      }
+
+      .callout strong {
+        display: block;
+        margin-bottom: 6px;
+        font-family: "Avenir Next Condensed", "Gill Sans", "Trebuchet MS", sans-serif;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+      }
+
+      .callout p {
+        margin: 0;
+      }
+
+      .callout.ok {
+        background: var(--ok-soft);
+        border-color: rgba(22, 101, 52, 0.18);
+      }
+
+      .callout.warn {
+        background: var(--warn-soft);
+        border-color: rgba(180, 83, 9, 0.18);
+      }
+
+      .foot {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 980px) {
+        .hero-grid,
+        .timeline-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .span-7, .span-5, .span-4, .span-8, .span-12 {
+          grid-column: span 12;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .wrap { padding: 18px 14px 48px; }
+        .hero { padding: 24px 20px; border-radius: 24px; }
+        .section, .timeline { padding: 18px; }
+        .metric-grid { grid-template-columns: 1fr; }
+        .status-row { grid-template-columns: 1fr; gap: 6px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="eyebrow">AI Export Status • Living Doc Compositor</div>
+        <div class="hero-grid">
+          <div>
+            <h1>Where We Are With AI-Enhanced Living-Doc Exports</h1>
+            <p>
+              The work is now past concept and past fragile demo territory. The renderer can produce standalone
+              living-doc exports with embedded local AI advisory slots, backed by the local
+              <code>ai-render-graph</code> runtime, with first-slice type-system support and real local inference.
+            </p>
+            <div class="pill-row">
+              <span class="pill">First 3 convergence types wired</span>
+              <span class="pill">Standalone HTML preserved</span>
+              <span class="pill">Read-only advisory boundary intact</span>
+              <span class="pill">Cross-section persistence fixed</span>
+            </div>
+          </div>
+          <div class="hero-side">
+            <div class="state-panel">
+              <div class="state-chip">Current State: Real Vertical Slice</div>
+              <h2>Stable enough to show</h2>
+              <p>
+                The exported document now behaves like a multi-card advisory surface rather than a one-shot widget.
+                You can run one section, then another, without wiping earlier successful results.
+              </p>
+            </div>
+            <div class="metric-grid">
+              <div class="metric-panel">
+                <div class="metric-label">Type Coverage</div>
+                <div class="metric-value">3</div>
+                <div class="metric-copy">`design-code-spec-flow`, `verification-surface`, `proof-ladder`</div>
+              </div>
+              <div class="metric-panel">
+                <div class="metric-label">Browser Checks</div>
+                <div class="metric-value">6</div>
+                <div class="metric-copy">Targeted Playwright checks now cover normalization, retry, error state, and persistence.</div>
+              </div>
+              <div class="metric-panel">
+                <div class="metric-label">Execution Mode</div>
+                <div class="metric-value">Local</div>
+                <div class="metric-copy">Document-grounded inference against a local OpenAI-compatible endpoint.</div>
+              </div>
+              <div class="metric-panel">
+                <div class="metric-label">Artifact Type</div>
+                <div class="metric-value">HTML</div>
+                <div class="metric-copy">Standalone exported doc remains readable even without a running model.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="section span-7">
+          <h2>What Works Now</h2>
+          <p class="section-intro">
+            The important part is that this is no longer only a design direction. There is a coherent implementation path in the renderer and a working exported sample.
+          </p>
+          <div class="card-list">
+            <div class="card">
+              <h3>Type-aware advisory export exists</h3>
+              <p>
+                The renderer emits advisory regions, a real AI Render Graph spec, advisory metadata, and a local-model runtime path
+                using convergence-type <code>aiProfiles</code> instead of ad hoc per-document prompts.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Standalone export contract is preserved</h3>
+              <p>
+                The exported living doc still behaves as a normal standalone HTML artifact when no model is present.
+                AI is an optional enhancement layer, not a precondition for reading the document.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Local model behavior is materially hardened</h3>
+              <ul>
+                <li>Near-miss JSON shapes are normalized into the expected typed fields.</li>
+                <li>Malformed JSON gets retry handling before surfacing an error.</li>
+                <li>Nested wrapper outputs are recovered when they still clearly contain the intended profile payload.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Lifecycle persistence is fixed</h3>
+              <p>
+                Successful results now survive later section runs. The exported advisory surface no longer clears earlier successful cards
+                just because the user ran a different section afterward.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <article class="section span-5">
+          <h2>Current Boundaries</h2>
+          <div class="status-stack">
+            <div class="status-row">
+              <div class="step-label ok">In</div>
+              <p>Document-grounded prompts, local-model inference, first-three-type support, standalone HTML, typed advisory slots, retry/error states, and persistence across reruns.</p>
+            </div>
+            <div class="status-row">
+              <div class="step-label warn">Not Yet</div>
+              <p>Broader type rollout, tool-backed search, internet-grounded inference, final visual polish, and broader product-default decisions about which profiles should always be shown.</p>
+            </div>
+            <div class="status-row">
+              <div class="step-label danger">Out of Scope</div>
+              <p>Canonical document mutation, replacing Cmd-K, turning advisory output into source truth, or making network/tool access the default inference assumption.</p>
+            </div>
+          </div>
+
+          <div class="callout ok">
+            <strong>Most important structural fact</strong>
+            <p>
+              This is a read-only reader aid attached to rendered exports. The source JSON remains canonical.
+            </p>
+          </div>
+
+          <div class="callout warn">
+            <strong>Most important remaining product question</strong>
+            <p>
+              How far the first three profile sets should go before widening type coverage. The next leverage is product quality, not more plumbing.
+            </p>
+          </div>
+        </article>
+      </section>
+
+      <section class="timeline">
+        <h2>What Changed Recently</h2>
+        <div class="timeline-grid">
+          <div class="timeline-card">
+            <div class="kicker">Phase 1</div>
+            <h3>Spec to Slice</h3>
+            <p>
+              The repo moved from integration stance and mapping spec into an actual renderer path with embedded advisory slots and a working sample.
+            </p>
+          </div>
+          <div class="timeline-card">
+            <div class="kicker">Phase 2</div>
+            <h3>Library-Native Runtime</h3>
+            <p>
+              The export switched from a placeholder idea to using the local <code>ai-render-graph</code> runtime and a real typed spec shape.
+            </p>
+          </div>
+          <div class="timeline-card">
+            <div class="kicker">Phase 3</div>
+            <h3>Recovery Hardening</h3>
+            <p>
+              Prompt handling, alias recovery, malformed JSON retry, and error-state handling were tightened against real local-model behavior.
+            </p>
+          </div>
+          <div class="timeline-card">
+            <div class="kicker">Phase 4</div>
+            <h3>Persistence Fix</h3>
+            <p>
+              The runtime lifecycle bug was closed so the advisory surface can now act like a stable multi-card reader layer across multiple runs.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="section span-8">
+          <h2>What This Means Practically</h2>
+          <p class="section-intro">
+            If someone asks whether this is “real” yet, the answer is yes, but with a specific meaning.
+          </p>
+          <div class="card-list">
+            <div class="card">
+              <h3>It is real enough to demonstrate in a living doc</h3>
+              <p>
+                You can open an exported living doc, run advisory slots against a local model, and see typed results land back into the rendered page with meaningful state handling.
+              </p>
+            </div>
+            <div class="card">
+              <h3>It is not yet the final product surface</h3>
+              <p>
+                The system is strong on architecture and implementation truth now. The main unfinished work is product maturity:
+                deciding default profiles, shaping stronger copy/visual rhythm, and extending only after the first three feel solid.
+              </p>
+            </div>
+            <div class="card">
+              <h3>The repo is no longer blocked on unknown integration risk</h3>
+              <p>
+                The major uncertainties about runtime embedding, task typing, local-model calls, standalone export behavior, and cross-run stability have already been turned into working code.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <article class="section span-4">
+          <h2>Immediate Next Moves</h2>
+          <div class="card-list">
+            <div class="card">
+              <h3>Refine the first three types</h3>
+              <p>Keep tuning prompts, slot language, and per-profile payload shaping using the now-stable surface.</p>
+            </div>
+            <div class="card">
+              <h3>Decide product defaults</h3>
+              <p>Choose which advisory profiles should be visible by default and which should remain explicit opt-ins.</p>
+            </div>
+            <div class="card">
+              <h3>Only then widen coverage</h3>
+              <p>Do not broaden to more convergence types until the current first slice feels materially solid as a reader experience.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <p class="foot">
+        Snapshot summary for the current implementation state in <code>living-doc-compositor</code>. This page is static and standalone.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Render Graph Mapping Spec — First Three Convergence Types</title>
+<meta name="description" content="Operational mapping spec for the first three convergence types in the living-doc to AI Render Graph integration." />
+<style>
+  :root {
+    color-scheme: light;
+    --canvas: #091226;
+    --canvas-soft: #101a33;
+    --canvas-line: #283a60;
+    --canvas-ink: #e7eefb;
+    --canvas-muted: #9bafcf;
+    --bg: #edf3f9;
+    --card: #ffffff;
+    --ink: #172134;
+    --muted: #61758f;
+    --line: #dbe5ef;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.1);
+    --teal: #0f766e;
+    --teal-soft: rgba(15, 118, 110, 0.12);
+    --gold: #a16207;
+    --gold-soft: rgba(161, 98, 7, 0.12);
+    --green: #166534;
+    --green-soft: #ecfdf5;
+    --rose: #9f1239;
+    --rose-soft: #fff1f2;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 34px 84px rgba(6, 12, 24, 0.34);
+    --max: 1360px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 26%),
+      linear-gradient(180deg, var(--canvas) 0%, #0d1730 100%);
+    color: var(--canvas-ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  code {
+    font-size: 0.9em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--neutral-bg);
+    color: var(--ink);
+  }
+  pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid #263859;
+    background: #0d172b;
+    color: #dce8fc;
+    font-size: 12.6px;
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+  .hero {
+    padding: 30px;
+    border-radius: 22px;
+    border: 1px solid var(--canvas-line);
+    background:
+      radial-gradient(circle at top right, rgba(37,99,235,0.2), transparent 28%),
+      radial-gradient(circle at 16% 14%, rgba(15,118,110,0.16), transparent 22%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+    box-shadow: var(--shadow-lg);
+  }
+  .eyebrow {
+    color: #aac7ef;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 10px 0 12px;
+    max-width: 1080px;
+    font-size: clamp(34px, 5vw, 56px);
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+  }
+  .lede {
+    max-width: 920px;
+    margin: 0;
+    color: var(--canvas-muted);
+    font-size: 17px;
+  }
+  .pill-row, .toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pill-row { margin-top: 18px; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--canvas-line);
+    background: rgba(10, 18, 36, 0.42);
+    color: var(--canvas-ink);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .toc {
+    margin-top: 20px;
+  }
+  .toc a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--canvas-line);
+    background: var(--canvas-soft);
+    color: var(--canvas-ink);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .deck {
+    margin-top: 24px;
+    display: grid;
+    gap: 18px;
+  }
+  .grid-2, .grid-3, .split {
+    display: grid;
+    gap: 18px;
+  }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .split { grid-template-columns: 1.06fr 0.94fr; }
+  .card, .wide-card {
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .card { padding: 20px; }
+  .wide-card { padding: 24px; }
+  .section-kicker {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .card h2, .wide-card h2 {
+    margin: 0 0 10px;
+    font-size: 23px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .card p, .wide-card p, .stack-body p, .slot-card p, .note {
+    margin: 0;
+    color: var(--muted);
+  }
+  ul {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+  li + li { margin-top: 6px; }
+  .type-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .chip-delivery { background: var(--teal-soft); color: var(--teal); }
+  .chip-verify { background: var(--green-soft); color: var(--green); }
+  .chip-proof { background: var(--gold-soft); color: var(--gold); }
+  .stack {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 210px 1fr;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .stack-label {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .stack-body h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+  }
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .profile-card, .slot-card {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+  .profile-card h3, .slot-card h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+  .slot-badge {
+    display: inline-flex;
+    margin-top: 12px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .table {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 210px 1fr 1fr;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .row.head {
+    background: #dfe8f5;
+    color: var(--ink);
+    font-weight: 900;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+  }
+  .row div {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .row.head div {
+    color: var(--ink);
+    font-size: 11px;
+  }
+  .note {
+    margin-top: 16px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+  .note strong { color: var(--ink); }
+  .callout {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    font-size: 13.5px;
+  }
+  .callout.positive {
+    background: var(--green-soft);
+    color: var(--green);
+  }
+  .callout.warning {
+    background: #fffbeb;
+    color: #92400e;
+  }
+  .callout.negative {
+    background: var(--rose-soft);
+    color: var(--rose);
+  }
+  @media (max-width: 1120px) {
+    .grid-2, .grid-3, .split, .profile-grid {
+      grid-template-columns: 1fr;
+    }
+    .stack-row, .row {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 24px 14px 44px; }
+    .hero, .wide-card, .card { padding: 18px; }
+    h1 { font-size: 34px; }
+    .lede { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Living Doc To AI Render Graph / Operational Spec</div>
+      <h1>The missing layer is the exact type-specific mapping from living-doc content into typed AI tasks.</h1>
+      <p class="lede">This page specifies that layer for the first three convergence types. It is deliberately document-grounded: the model gets curated content from the exported document plus convergence-type semantics, not internet search, live repo lookups, or external tool calls. The goal is to make implementation straightforward instead of interpretive.</p>
+      <div class="pill-row">
+        <span class="pill">Document-grounded only</span>
+        <span class="pill">Exact input slices</span>
+        <span class="pill">Prompt templates</span>
+        <span class="pill">Exact output schemas</span>
+        <span class="pill">Explicit slot bindings</span>
+      </div>
+      <nav class="toc">
+        <a href="#common-contract">Common Contract</a>
+        <a href="#design-code-spec-flow">Design-Code-Spec Flow</a>
+        <a href="#verification-surface">Verification Surface</a>
+        <a href="#proof-ladder">Proof Ladder</a>
+      </nav>
+    </section>
+
+    <section class="deck">
+      <article class="wide-card" id="common-contract">
+        <div class="section-kicker">Common Contract</div>
+        <h2>Every profile should be built from the same four payload layers.</h2>
+        <p>The renderer should not hand the model arbitrary HTML or the whole document blob. It should build a small structured payload with stable fields, then let each convergence type add its own normalized item shape.</p>
+        <div class="stack">
+          <div class="stack-row">
+            <div class="stack-label">Doc Root Context</div>
+            <div class="stack-body">
+              <h3>Always include a small document envelope.</h3>
+              <ul>
+                <li><code>doc.title</code></li>
+                <li><code>doc.scope</code></li>
+                <li><code>doc.objective</code></li>
+                <li><code>doc.successCondition</code> if present</li>
+                <li><code>doc.invariants</code> as plain strings if present</li>
+                <li><code>doc.updated</code></li>
+              </ul>
+            </div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-label">Section Context</div>
+            <div class="stack-body">
+              <h3>Always include the target section envelope.</h3>
+              <ul>
+                <li><code>section.id</code></li>
+                <li><code>section.title</code></li>
+                <li><code>section.convergenceType</code></li>
+                <li><code>section.updated</code></li>
+                <li><code>section.callout</code> if present</li>
+              </ul>
+            </div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-label">Type Context</div>
+            <div class="stack-body">
+              <h3>Always include the semantic contract from the registry.</h3>
+              <ul>
+                <li><code>type.promptGuidance</code></li>
+                <li><code>type.sources</code></li>
+                <li><code>type.statusFields</code></li>
+                <li><code>type.textFields</code> if present</li>
+                <li><code>type.detailsFields</code> if present</li>
+              </ul>
+            </div>
+          </div>
+          <div class="stack-row">
+            <div class="stack-label">Normalized Items</div>
+            <div class="stack-body">
+              <h3>Then add a type-specific normalized item list.</h3>
+              <p>The renderer should transform each card in <code>section.data</code> into a small stable JSON shape for that convergence type. That normalized list is what the prompt works over.</p>
+            </div>
+          </div>
+        </div>
+        <div class="callout positive">Implementation rule: prompt over normalized JSON, not over rendered HTML.</div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Shared Render Rule</div>
+        <h2>Every type gets the same slot grammar.</h2>
+        <div class="table">
+          <div class="row head">
+            <div>Slot id</div>
+            <div>Bound field</div>
+            <div>Placement</div>
+          </div>
+          <div class="row">
+            <div><code>section-brief</code></div>
+            <div>Main summary object for the type</div>
+            <div>Render above the canonical card grid, clearly labeled as local AI advisory.</div>
+          </div>
+          <div class="row">
+            <div><code>section-weakness-note</code></div>
+            <div>Highest-risk or weakest-open object</div>
+            <div>Render as one inline advisory callout between the section heading and the grid.</div>
+          </div>
+          <div class="row">
+            <div><code>section-next-loop</code></div>
+            <div>Action-oriented next-step object or list</div>
+            <div>Render below the grid or in the section footer as a collapsible block.</div>
+          </div>
+        </div>
+        <div class="note"><strong>Labeling rule:</strong> every advisory slot should say some version of “Local AI advisory” so readers do not confuse it with canonical section content.</div>
+      </article>
+
+      <article class="wide-card" id="design-code-spec-flow">
+        <div class="type-banner">
+          <span class="type-chip chip-delivery">Delivery Type</span>
+          <code>design-code-spec-flow</code>
+        </div>
+        <h2>Exact mapping for Design-Code-Spec Flow</h2>
+        <p>This type is about a product surface seen through design artifacts, code refs, spec refs, tracked interactions, and tickets. The AI region should compress surface state and expose the biggest alignment risk.</p>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h3><code>surface-brief</code></h3>
+            <p>One short summary of the current product surface and the two or three most important current delivery focus points.</p>
+            <span class="slot-badge">bind to section-brief</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>alignment-risk-note</code></h3>
+            <p>One explicit callout naming the surface card where design/code/spec drift appears most dangerous right now.</p>
+            <span class="slot-badge">bind to section-weakness-note</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>review-checklist</code></h3>
+            <p>Three to five local review checks a human should walk before sharing or handoff.</p>
+            <span class="slot-badge">bind to section-next-loop</span>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:18px">
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Exact normalized item shape</div>
+              <div class="stack-body">
+<pre>{
+  "name": item.name,
+  "feature": item.feature,
+  "kind": item.kind,
+  "status": item.status,
+  "codeStatus": item.codeStatus,
+  "updated": item.updated,
+  "designRefs": item.pageIds || [],
+  "defaultNodeRefs": item.defaultNodeIds || [],
+  "codeRefs": item.codeRefs || [],
+  "specRefs": item.specRefIds || [],
+  "interactionRefs": item.interactionSurfaceIds || [],
+  "tickets": item.ticketIds || [],
+  "notes": item.notes || []
+}</pre>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Exact prompt construction</div>
+              <div class="stack-body">
+                <h3>Prompt template</h3>
+<pre>You are producing a read-only advisory summary for one living-doc section.
+
+Convergence type: Design-Code-Spec Flow
+Operating thesis: {{type.promptGuidance.operatingThesis}}
+Keep distinct: {{type.promptGuidance.keepDistinct}}
+Avoid: {{type.promptGuidance.avoid}}
+
+Document:
+{{docRootContext}}
+
+Section:
+{{sectionContext}}
+
+Normalized items:
+{{normalizedItems}}
+
+Task:
+1. Summarize the current surface in plain language.
+2. Identify the single strongest current alignment risk.
+3. Produce a short local review checklist.
+
+Rules:
+- Ground every claim in the provided section data only.
+- Do not invent missing design, code, or spec facts.
+- Do not reduce the section to implementation status only.
+- Return JSON only.</pre>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Exact output schema</div>
+              <div class="stack-body">
+<pre>{
+  "surfaceBrief": {
+    "headline": "string",
+    "summary": "string",
+    "currentFocus": ["string"]
+  },
+  "alignmentRisk": {
+    "surface": "string",
+    "reason": "string"
+  },
+  "reviewChecklist": {
+    "items": ["string"]
+  }
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Exact slot bindings</div>
+              <div class="stack-body">
+<pre>data-ai-task="surface-brief.headline"
+  -> surfaceBrief.headline
+
+data-ai-task="surface-brief.summary"
+  -> surfaceBrief.summary
+
+data-ai-task="surface-brief.current-focus"
+  -> surfaceBrief.currentFocus
+
+data-ai-task="section-weakness-note.surface"
+  -> alignmentRisk.surface
+
+data-ai-task="section-weakness-note.reason"
+  -> alignmentRisk.reason
+
+data-ai-task="section-next-loop.items"
+  -> reviewChecklist.items</pre>
+              </div>
+            </div>
+            <div class="slot-card">
+              <h3>Default export placement</h3>
+              <p>Put the brief block directly under the section title. Put the alignment risk note immediately below the brief. Put the checklist below the grid, collapsed by default.</p>
+            </div>
+            <div class="callout warning">Do not bind AI output into the canonical cards themselves for this type.</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card" id="verification-surface">
+        <div class="type-banner">
+          <span class="type-chip chip-verify">Verification Type</span>
+          <code>verification-surface</code>
+        </div>
+        <h2>Exact mapping for Verification Surface</h2>
+        <p>This type is evidence-rich. The local model should summarize readiness based on explicit coverage, next-step, gaps, automation, API refs, and ticket context, then identify the weakest current signal.</p>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h3><code>verification-brief</code></h3>
+            <p>Summarize the actual readiness posture from evidence already present in the section.</p>
+            <span class="slot-badge">bind to section-brief</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>weakest-signal-note</code></h3>
+            <p>Identify the probe where the current evidence is weakest and explain why that weakens the readiness claim.</p>
+            <span class="slot-badge">bind to section-weakness-note</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>next-verification-loop</code></h3>
+            <p>Produce the next tight verification loop: focus, evidence to collect, and gaps to retire first.</p>
+            <span class="slot-badge">bind to section-next-loop</span>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:18px">
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Exact normalized item shape</div>
+              <div class="stack-body">
+<pre>{
+  "name": item.name,
+  "status": item.status,
+  "priority": item.priority,
+  "updated": item.updated,
+  "currentCoverage": item.currentCoverage,
+  "nextStep": item.nextStep,
+  "gaps": item.gaps || [],
+  "flowRefs": item.flowIds || [],
+  "pageRefs": item.pageIds || [],
+  "interactionRefs": item.interactionSurfaceIds || [],
+  "automationRefs": item.automationPaths || [],
+  "apiRefs": item.apiRefs || [],
+  "tickets": item.ticketIds || [],
+  "notes": item.notes || []
+}</pre>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Exact prompt construction</div>
+              <div class="stack-body">
+<pre>You are producing a read-only advisory summary for one living-doc section.
+
+Convergence type: Verification Surface
+Operating thesis: {{type.promptGuidance.operatingThesis}}
+Keep distinct: {{type.promptGuidance.keepDistinct}}
+Avoid: {{type.promptGuidance.avoid}}
+
+Document:
+{{docRootContext}}
+
+Section:
+{{sectionContext}}
+
+Normalized items:
+{{normalizedItems}}
+
+Task:
+1. Summarize current readiness from actual evidence.
+2. Identify the single weakest current signal.
+3. Describe the next verification loop.
+
+Rules:
+- Ground every statement in the provided section data only.
+- Distinguish current coverage from missing evidence.
+- Do not treat planned work as completed evidence.
+- Return JSON only.</pre>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Exact output schema</div>
+              <div class="stack-body">
+<pre>{
+  "verificationBrief": {
+    "headline": "string",
+    "readinessSummary": "string"
+  },
+  "weakestSignal": {
+    "probe": "string",
+    "reason": "string",
+    "missingEvidenceType": "automation | api | interaction | gap"
+  },
+  "nextLoop": {
+    "focus": "string",
+    "evidenceToCollect": ["string"],
+    "gapsToRetireFirst": ["string"]
+  }
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Exact slot bindings</div>
+              <div class="stack-body">
+<pre>data-ai-task="section-brief.headline"
+  -> verificationBrief.headline
+
+data-ai-task="section-brief.summary"
+  -> verificationBrief.readinessSummary
+
+data-ai-task="section-weakness-note.probe"
+  -> weakestSignal.probe
+
+data-ai-task="section-weakness-note.reason"
+  -> weakestSignal.reason
+
+data-ai-task="section-next-loop.focus"
+  -> nextLoop.focus
+
+data-ai-task="section-next-loop.evidence"
+  -> nextLoop.evidenceToCollect
+
+data-ai-task="section-next-loop.gaps"
+  -> nextLoop.gapsToRetireFirst</pre>
+              </div>
+            </div>
+            <div class="slot-card">
+              <h3>Default export placement</h3>
+              <p>Brief and weakest-signal note should appear above the section grid. The next-loop action block should appear below the grid because it reads as a follow-on action, not a frame for interpreting the evidence cards.</p>
+            </div>
+            <div class="callout positive">This type should mention weak evidence, not only missing implementation.</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card" id="proof-ladder">
+        <div class="type-banner">
+          <span class="type-chip chip-proof">Proof Type</span>
+          <code>proof-ladder</code>
+        </div>
+        <h2>Exact mapping for Proof Ladder</h2>
+        <p>This type is ordered. The model must reason over rung sequence and current closure boundary, not produce a generic “progress summary.” The first unsatisfied rung is the key analytic output.</p>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h3><code>proof-state-brief</code></h3>
+            <p>State what the ladder currently proves, through which rung, and what is still not justified.</p>
+            <span class="slot-badge">bind to section-brief</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>weakest-open-rung</code></h3>
+            <p>Identify the first rung that is not actually satisfied and describe the missing evidence for closure.</p>
+            <span class="slot-badge">bind to section-weakness-note</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>next-stronger-proof</code></h3>
+            <p>Describe the next evidence shape that would increase proof strength without redesigning the ladder.</p>
+            <span class="slot-badge">bind to section-next-loop</span>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:18px">
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Exact normalized item shape</div>
+              <div class="stack-body">
+<pre>{
+  "order": index + 1,
+  "name": item.name,
+  "status": item.status,
+  "updated": item.updated,
+  "tickets": item.ticketIds || [],
+  "notes": item.notes || []
+}</pre>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Exact prompt construction</div>
+              <div class="stack-body">
+<pre>You are producing a read-only advisory summary for one living-doc section.
+
+Convergence type: Proof Ladder
+Operating thesis: {{type.promptGuidance.operatingThesis}}
+Keep distinct: {{type.promptGuidance.keepDistinct}}
+Avoid: {{type.promptGuidance.avoid}}
+
+Document:
+{{docRootContext}}
+
+Section:
+{{sectionContext}}
+
+Ordered proof rungs:
+{{normalizedItems}}
+
+Task:
+1. State what the ladder currently proves.
+2. Identify the first unsatisfied rung.
+3. Describe the next stronger proof move.
+
+Rules:
+- Respect rung ordering.
+- Do not flatten the ladder into unordered progress.
+- Distinguish what is already proven from what is only planned.
+- Return JSON only.</pre>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Exact output schema</div>
+              <div class="stack-body">
+<pre>{
+  "proofStateBrief": {
+    "closedThroughRung": "string",
+    "summary": "string",
+    "notYetProven": "string"
+  },
+  "weakestOpenRung": {
+    "rung": "string",
+    "missingEvidence": "string"
+  },
+  "nextStrongerProof": {
+    "targetRung": "string",
+    "requiredEvidence": ["string"]
+  }
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Exact slot bindings</div>
+              <div class="stack-body">
+<pre>data-ai-task="section-brief.boundary"
+  -> proofStateBrief.closedThroughRung
+
+data-ai-task="section-brief.summary"
+  -> proofStateBrief.summary
+
+data-ai-task="section-brief.not-yet-proven"
+  -> proofStateBrief.notYetProven
+
+data-ai-task="section-weakness-note.rung"
+  -> weakestOpenRung.rung
+
+data-ai-task="section-weakness-note.reason"
+  -> weakestOpenRung.missingEvidence
+
+data-ai-task="section-next-loop.target"
+  -> nextStrongerProof.targetRung
+
+data-ai-task="section-next-loop.required-evidence"
+  -> nextStrongerProof.requiredEvidence</pre>
+              </div>
+            </div>
+            <div class="slot-card">
+              <h3>Default export placement</h3>
+              <p>Put the proof-state brief above the ladder, because it frames the whole sequence. Put the weakest-open-rung callout between the brief and the ladder. Put the next-stronger-proof block at the ladder footer.</p>
+            </div>
+            <div class="callout negative">This type should never say “the project is progressing well” without naming the actual proof boundary.</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Explicit Non-Goals</div>
+        <h2>What this mapping spec does not do</h2>
+        <div class="grid-3">
+          <div class="card">
+            <h2>Not web search</h2>
+            <p>No internet lookup is assumed in these prompts. Everything is derived from document content plus type semantics.</p>
+          </div>
+          <div class="card">
+            <h2>Not card mutation</h2>
+            <p>These outputs are advisory overlays in the export. They are not fed back into canonical card fields.</p>
+          </div>
+          <div class="card">
+            <h2>Not renderer freedom</h2>
+            <p>The renderer should not improvise the payload shape per document. It should follow these type-level mappings exactly for the first pass.</p>
+          </div>
+        </div>
+        <div class="note"><strong>Completion bar for this phase:</strong> once these three mappings are implemented, the integration can truthfully say it supports type-driven, document-grounded AI export for a meaningful first slice rather than just having a general idea.</div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

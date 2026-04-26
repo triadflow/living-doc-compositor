@@ -2,7 +2,10 @@ import { expect, test } from '@playwright/test';
 import { openLocalCompositor, openTopMenu } from './helpers.mjs';
 
 test('loads a sanitized local library manifest and opens an editable entry', async ({ page }) => {
-  await openLocalCompositor(page);
+  await openLocalCompositor(page, {
+    preferManifest: true,
+    includeSiblingDiscovery: false,
+  });
 
   await openTopMenu(page);
   await page.locator('#top-settings').click();

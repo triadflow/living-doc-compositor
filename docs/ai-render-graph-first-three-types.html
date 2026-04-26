@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Render Graph — First Three Convergence Types</title>
+<meta name="description" content="Static specification for prompt and export UX definitions across the first three convergence types for AI Render Graph integration." />
+<style>
+  :root {
+    color-scheme: light;
+    --canvas: #0b1326;
+    --canvas-soft: #111c35;
+    --canvas-line: #2a3a5c;
+    --canvas-ink: #e8eefb;
+    --canvas-muted: #9fb0cb;
+    --bg: #eef3f9;
+    --card: #ffffff;
+    --ink: #162033;
+    --muted: #63758d;
+    --line: #dbe5f0;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.09);
+    --teal: #0f766e;
+    --teal-soft: rgba(15, 118, 110, 0.1);
+    --gold: #a16207;
+    --gold-soft: rgba(161, 98, 7, 0.12);
+    --rose: #be123c;
+    --rose-soft: rgba(190, 18, 60, 0.11);
+    --positive-bg: #ecfdf5;
+    --positive-ink: #166534;
+    --warning-bg: #fffbeb;
+    --warning-ink: #92400e;
+    --negative-bg: #fff1f2;
+    --negative-ink: #9f1239;
+    --neutral-bg: #f1f5f9;
+    --neutral-ink: #475569;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 34px 84px rgba(7, 14, 28, 0.34);
+    --max: 1320px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255,255,255,0.06), transparent 26%),
+      linear-gradient(180deg, var(--canvas) 0%, #0f1830 100%);
+    color: var(--canvas-ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  code {
+    font-size: 0.9em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--neutral-bg);
+    color: var(--ink);
+  }
+  pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid #253655;
+    background: #0d172b;
+    color: #dbe7fb;
+    font-size: 12.75px;
+    line-height: 1.55;
+  }
+
+  .wrap {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+  .hero {
+    padding: 30px;
+    border-radius: 22px;
+    border: 1px solid var(--canvas-line);
+    background:
+      radial-gradient(circle at top right, rgba(37,99,235,0.2), transparent 30%),
+      radial-gradient(circle at 14% 14%, rgba(15,118,110,0.16), transparent 24%),
+      linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+    box-shadow: var(--shadow-lg);
+  }
+  .eyebrow {
+    color: #aacaef;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 10px 0 12px;
+    max-width: 1040px;
+    font-size: clamp(36px, 5vw, 58px);
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+  }
+  .lede {
+    max-width: 920px;
+    margin: 0;
+    color: var(--canvas-muted);
+    font-size: 17px;
+  }
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--canvas-line);
+    background: rgba(10, 18, 36, 0.42);
+    color: var(--canvas-ink);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .toc a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--canvas-line);
+    background: var(--canvas-soft);
+    color: var(--canvas-ink);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .deck {
+    margin-top: 24px;
+    display: grid;
+    gap: 18px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .split {
+    display: grid;
+    grid-template-columns: 1.12fr 0.88fr;
+    gap: 18px;
+  }
+  .card, .wide-card {
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .card { padding: 20px; }
+  .wide-card { padding: 24px; }
+  .section-kicker {
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .card h2, .wide-card h2 {
+    margin: 0 0 10px;
+    font-size: 23px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .card p, .wide-card p {
+    margin: 0;
+    color: var(--muted);
+  }
+  ul {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+  li + li { margin-top: 6px; }
+
+  .type-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .type-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .chip-delivery {
+    background: var(--teal-soft);
+    color: var(--teal);
+  }
+  .chip-verify {
+    background: var(--positive-bg);
+    color: var(--positive-ink);
+  }
+  .chip-proof {
+    background: var(--gold-soft);
+    color: var(--gold);
+  }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .profile-card {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+  .profile-card h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+  .profile-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .slot {
+    display: inline-flex;
+    margin-top: 12px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .stack {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 188px 1fr;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .stack-label {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .stack-body h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+  }
+  .stack-body p {
+    margin: 0;
+    color: var(--muted);
+  }
+  .stack-body ul {
+    margin-top: 10px;
+  }
+
+  .ux-shell {
+    padding: 18px;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #fbfdff 0%, #f0f6ff 100%);
+  }
+  .ux-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ux-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #bfdbfe;
+  }
+  .ux-dot:nth-child(2) { background: #93c5fd; }
+  .ux-dot:nth-child(3) { background: #60a5fa; }
+  .ux-bar {
+    flex: 1;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .ux-section {
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+  }
+  .ux-section + .ux-section {
+    margin-top: 12px;
+  }
+  .ux-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .ux-title strong {
+    font-size: 14px;
+  }
+  .ux-tag {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--neutral-bg);
+    color: var(--neutral-ink);
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .ux-ai-card {
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #bfdbfe;
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  }
+  .ux-ai-card h4 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  .ux-ai-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.75px;
+    line-height: 1.5;
+  }
+  .ux-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .ux-chip {
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .table {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 190px 1fr 1fr;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .row.head {
+    background: #dfe8f5;
+    color: var(--ink);
+    font-weight: 900;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+  }
+  .row div {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .row.head div {
+    color: var(--ink);
+    font-size: 11px;
+  }
+
+  .note {
+    margin-top: 16px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    color: var(--muted);
+  }
+  .note strong { color: var(--ink); }
+
+  @media (max-width: 1100px) {
+    .grid-2, .grid-3, .split, .profile-grid {
+      grid-template-columns: 1fr;
+    }
+    .stack-row, .row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .wrap {
+      padding: 24px 14px 44px;
+    }
+    .hero, .wide-card, .card {
+      padding: 18px;
+    }
+    h1 {
+      font-size: 34px;
+    }
+    .lede {
+      font-size: 15px;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">AI Render Graph / Prompt And Export UX Spec</div>
+      <h1>The first three convergence types should define concrete advisory profiles, not generic AI slots.</h1>
+      <p class="lede">This first-pass spec covers three types that exercise different reasoning modes: product-surface convergence, evidence-rich verification, and staged proof. For each type, the export layer should know which advisory profiles are valid, what source material to feed them, what JSON shape to expect back, and where the resulting read-only slots belong in the rendered HTML.</p>
+      <div class="pill-row">
+        <span class="pill">3 types only</span>
+        <span class="pill">Prompt shape specified</span>
+        <span class="pill">Output schema specified</span>
+        <span class="pill">Export UX slot specified</span>
+        <span class="pill">Read-only hydration only</span>
+      </div>
+      <nav class="toc">
+        <a href="#design-code-spec-flow">Design-Code-Spec Flow</a>
+        <a href="#verification-surface">Verification Surface</a>
+        <a href="#proof-ladder">Proof Ladder</a>
+      </nav>
+    </section>
+
+    <section class="deck">
+      <div class="grid-3">
+        <article class="card">
+          <div class="section-kicker">Selection Logic</div>
+          <h2>Why these three</h2>
+          <p>They are not three variants of the same section. Together they cover one shipping surface, one evidence surface, and one staged-proof surface, which is enough to validate the type-driven approach before widening the set.</p>
+        </article>
+        <article class="card">
+          <div class="section-kicker">Prompt Rule</div>
+          <h2>Prompts must be type-seeded</h2>
+          <p>Each prompt should be composed from the convergence type's existing semantic contract: <code>promptGuidance</code>, source fields, status fields, text fields, and details fields. No freeform prompt authorship should be required per document.</p>
+        </article>
+        <article class="card">
+          <div class="section-kicker">UX Rule</div>
+          <h2>Slots must feel like overlays</h2>
+          <p>The export should present advisory results as clearly secondary to the canonical section content. They should read like local review aids, not like new section data.</p>
+        </article>
+      </div>
+
+      <article class="wide-card" id="design-code-spec-flow">
+        <div class="type-banner">
+          <span class="type-chip chip-delivery">Delivery Type</span>
+          <code>design-code-spec-flow</code>
+        </div>
+        <h2>Design-Code-Spec Flow should get delivery-oriented advisory views.</h2>
+        <p>This type is about one product surface seen through design intent, code refs, spec refs, interactions, and tickets. The AI layer should help a reader orient to drift and next review moves, not produce generic feature summaries.</p>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h3><code>surface-brief</code></h3>
+            <p>Compress the section into one short headline, one summary paragraph, and a short list of the most important current delivery moves.</p>
+            <span class="slot">Top-of-section brief card</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>alignment-risk-note</code></h3>
+            <p>Identify the most likely design/code/spec drift point and explain why it matters to the shipped surface.</p>
+            <span class="slot">Inline risk callout</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>review-checklist</code></h3>
+            <p>Generate a short local checklist for a human reviewer walking the surface before share or handoff.</p>
+            <span class="slot">Collapsible checklist panel</span>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:18px">
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Prompt ingredients</div>
+              <div class="stack-body">
+                <h3>What the renderer should feed</h3>
+                <ul>
+                  <li><code>promptGuidance.operatingThesis</code> and <code>keepDistinct</code></li>
+                  <li>Per-card status and code status</li>
+                  <li>Design refs, code refs, spec refs, interactions, tickets, notes</li>
+                  <li>Section title and card titles</li>
+                </ul>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Prompt intent</div>
+              <div class="stack-body">
+                <h3>What the prompt should ask</h3>
+                <p>Summarize the surface as a convergence of intent, implementation, and interaction. Call out the most important current alignment risk without collapsing the section into generic implementation status.</p>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Output contract</div>
+              <div class="stack-body">
+                <h3>What JSON should come back</h3>
+<pre>{
+  "headline": "string",
+  "summary": "string",
+  "currentFocus": ["string"],
+  "highestRisk": {
+    "surface": "string",
+    "reason": "string"
+  },
+  "reviewChecklist": ["string"]
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="ux-shell">
+            <div class="ux-header">
+              <span class="ux-dot"></span>
+              <span class="ux-dot"></span>
+              <span class="ux-dot"></span>
+              <div class="ux-bar">docs/feature-surface.html</div>
+            </div>
+            <div class="ux-section">
+              <div class="ux-title">
+                <strong>Design-Code-Spec Flow</strong>
+                <span class="ux-tag">AI advisory</span>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Surface brief</h4>
+                <p>The primary submit path is real enough to demo, but the strongest delivery risk is still the empty-state recovery path drifting from spec and implementation coverage.</p>
+                <div class="ux-chip-row">
+                  <span class="ux-chip">2 current focus items</span>
+                  <span class="ux-chip">1 alignment risk</span>
+                </div>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Review checklist</h4>
+                <p>Confirm the primary submit state, error handling, empty-state recovery, and spec-linked interaction edges before handoff.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card" id="verification-surface">
+        <div class="type-banner">
+          <span class="type-chip chip-verify">Verification Type</span>
+          <code>verification-surface</code>
+        </div>
+        <h2>Verification Surface should produce evidence-oriented advisory views.</h2>
+        <p>This type is already rich in evidence fields such as coverage, next step, gaps, automation, APIs, interactions, and tickets. The AI layer should help compress readiness truth and highlight where evidence is weak or missing.</p>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h3><code>verification-brief</code></h3>
+            <p>Summarize the section's readiness posture in plain language while preserving the difference between current coverage and missing evidence.</p>
+            <span class="slot">Top-of-section brief card</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>weakest-signal-note</code></h3>
+            <p>Name the probe or block where evidence is currently weakest, and explain whether the weakness is missing automation, unclear API surface, or unresolved gaps.</p>
+            <span class="slot">Inline weakest-signal note</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>next-verification-loop</code></h3>
+            <p>Generate a compact next loop: what to check next, what evidence would count, and which gaps should be retired first.</p>
+            <span class="slot">Action block below summary</span>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:18px">
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Prompt ingredients</div>
+              <div class="stack-body">
+                <h3>What the renderer should feed</h3>
+                <ul>
+                  <li><code>promptGuidance</code>, especially coverage, next step, gaps, automation, and APIs</li>
+                  <li>Probe status and priority from each card</li>
+                  <li><code>currentCoverage</code>, <code>nextStep</code>, and <code>gaps</code> text fields</li>
+                  <li>Automation paths, API refs, interaction refs, and tickets</li>
+                </ul>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Prompt intent</div>
+              <div class="stack-body">
+                <h3>What the prompt should ask</h3>
+                <p>Describe readiness from actual evidence, not aspiration. Highlight the weakest evidence surface and propose the next verification loop in a way that respects the section's existing proof boundaries.</p>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Output contract</div>
+              <div class="stack-body">
+                <h3>What JSON should come back</h3>
+<pre>{
+  "headline": "string",
+  "readinessSummary": "string",
+  "weakestSignal": {
+    "probe": "string",
+    "reason": "string",
+    "missingEvidenceType": "automation | api | interaction | gap"
+  },
+  "nextLoop": {
+    "focus": "string",
+    "evidenceToCollect": ["string"],
+    "gapsToRetireFirst": ["string"]
+  }
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="ux-shell">
+            <div class="ux-header">
+              <span class="ux-dot"></span>
+              <span class="ux-dot"></span>
+              <span class="ux-dot"></span>
+              <div class="ux-bar">docs/verification-surface.html</div>
+            </div>
+            <div class="ux-section">
+              <div class="ux-title">
+                <strong>Verification Surface</strong>
+                <span class="ux-tag">AI advisory</span>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Verification brief</h4>
+                <p>Coverage exists for the main path, but the current readiness claim is still constrained by one probe with only partial automation and unresolved API ambiguity.</p>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Weakest signal</h4>
+                <p>The weakest signal is the replay contract probe because the current evidence still depends on manual interpretation of an API edge.</p>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Next verification loop</h4>
+                <p>Automate the replay contract probe, collect a clean pass/fail artifact, and retire the API ambiguity before expanding the readiness claim.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card" id="proof-ladder">
+        <div class="type-banner">
+          <span class="type-chip chip-proof">Proof Type</span>
+          <code>proof-ladder</code>
+        </div>
+        <h2>Proof Ladder should emphasize staged proof truth, not generic progress.</h2>
+        <p>This type is ordered. The AI layer has to respect that ordering and treat each rung as an increase in proof strength. The most useful advisory outputs are the current closure state, the weakest unsatisfied rung, and the next stronger proof step.</p>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h3><code>proof-state-brief</code></h3>
+            <p>Summarize what the ladder currently proves, up to which rung, and what that proof still does not justify.</p>
+            <span class="slot">Top-of-section proof summary</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>weakest-open-rung</code></h3>
+            <p>Identify the first rung that is not actually satisfied and explain what evidence is missing for closure.</p>
+            <span class="slot">Inline rung callout</span>
+          </div>
+          <div class="profile-card">
+            <h3><code>next-stronger-proof</code></h3>
+            <p>Generate a concise statement of the next evidence shape that would increase proof strength without redesigning the ladder.</p>
+            <span class="slot">Action card at ladder footer</span>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:18px">
+          <div class="stack">
+            <div class="stack-row">
+              <div class="stack-label">Prompt ingredients</div>
+              <div class="stack-body">
+                <h3>What the renderer should feed</h3>
+                <ul>
+                  <li><code>promptGuidance</code> for staged escalation and ladder ordering</li>
+                  <li>Rung order as it appears in the section</li>
+                  <li>Rung status and notes</li>
+                  <li>Any ticket refs or evidence notes linked to each rung</li>
+                </ul>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Prompt intent</div>
+              <div class="stack-body">
+                <h3>What the prompt should ask</h3>
+                <p>State what the current ladder genuinely proves, identify the first unsatisfied rung, and describe the next stronger proof move without flattening the ladder into a progress checklist.</p>
+              </div>
+            </div>
+            <div class="stack-row">
+              <div class="stack-label">Output contract</div>
+              <div class="stack-body">
+                <h3>What JSON should come back</h3>
+<pre>{
+  "currentProofBoundary": {
+    "closedThroughRung": "string",
+    "summary": "string",
+    "notYetProven": "string"
+  },
+  "weakestOpenRung": {
+    "rung": "string",
+    "missingEvidence": "string"
+  },
+  "nextStrongerProof": {
+    "targetRung": "string",
+    "requiredEvidence": ["string"]
+  }
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="ux-shell">
+            <div class="ux-header">
+              <span class="ux-dot"></span>
+              <span class="ux-dot"></span>
+              <span class="ux-dot"></span>
+              <div class="ux-bar">docs/proof-ladder-overview.html</div>
+            </div>
+            <div class="ux-section">
+              <div class="ux-title">
+                <strong>Proof Ladder</strong>
+                <span class="ux-tag">AI advisory</span>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Proof state brief</h4>
+                <p>The ladder currently supports replayable evidence through the semantic equivalence rung, but it does not yet justify live production drift claims.</p>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Weakest open rung</h4>
+                <p>The first open rung is production drift detection because no same-shape operational evidence has been collected under live conditions.</p>
+              </div>
+              <div class="ux-ai-card">
+                <h4>Next stronger proof</h4>
+                <p>Collect one live drift case using the current ladder shape, then replay and verify it without introducing a new harness or changing the rung model.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Cross-Type UI Rules</div>
+        <h2>The export UX should use the same slot grammar across all three types.</h2>
+        <p>The content changes by type, but the placement language should stay recognizable so readers know these are advisory overlays, not canonical content.</p>
+        <div class="table">
+          <div class="row head">
+            <div>Slot</div>
+            <div>Purpose</div>
+            <div>Rule</div>
+          </div>
+          <div class="row">
+            <div><code>section-brief</code></div>
+            <div>Top-of-section compression block for the current type.</div>
+            <div>Always render above the section data grid and mark clearly as local AI advisory.</div>
+          </div>
+          <div class="row">
+            <div><code>risk-or-weakness-note</code></div>
+            <div>One inline callout for the most important current limitation.</div>
+            <div>Render inside the section body, but visually distinct from canonical callouts.</div>
+          </div>
+          <div class="row">
+            <div><code>next-loop</code></div>
+            <div>Short action-oriented list for review or proof progression.</div>
+            <div>Render near the footer or below the brief, never mixed into the canonical cards.</div>
+          </div>
+        </div>
+        <div class="note">
+          <strong>UI principle:</strong> every AI region should be collapsible, clearly labeled as advisory, and safe to ignore. The document must remain fully usable if hydration never occurs.
+        </div>
+      </article>
+
+      <article class="wide-card">
+        <div class="section-kicker">Renderer Contract</div>
+        <h2>The first implementation only needs one export pattern.</h2>
+        <p>The renderer should inspect the section's convergence type, resolve enabled profiles, emit the matching <code>data-ai-source</code> and <code>data-ai-task</code> slots, embed the validated spec, and stop there. No authoring UI changes are required for the first pass beyond making these outputs legible in exported HTML.</p>
+<pre>{
+  "design-code-spec-flow": [
+    "surface-brief",
+    "alignment-risk-note",
+    "review-checklist"
+  ],
+  "verification-surface": [
+    "verification-brief",
+    "weakest-signal-note",
+    "next-verification-loop"
+  ],
+  "proof-ladder": [
+    "proof-state-brief",
+    "weakest-open-rung",
+    "next-stronger-proof"
+  ]
+}</pre>
+        <div class="note">
+          <strong>Good first milestone:</strong> ship these three types with one brief slot and one weakness/next-step slot each. The checklist variants can follow immediately after if the first render path feels clean.
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

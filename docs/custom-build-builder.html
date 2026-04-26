@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Atomic builder · Build your tool · Living Doc Compositor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+:root{
+  --bg:#f5f7fa;--card:#fff;--ink:#1a2332;--ink-2:#2b3a52;
+  --muted:#64748b;--muted-2:#94a3b8;--line:#e2e8f0;--line-2:#eef2f7;
+  --accent:#2563eb;--accent-dark:#1e50c7;--accent-light:#dbeafe;
+  --radius:12px;--radius-lg:16px;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.55 var(--font-sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+button{font:inherit;cursor:pointer}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.top-bar{display:flex;align-items:center;gap:12px;padding:12px 24px;background:rgba(255,255,255,.85);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;backdrop-filter:blur(10px)}
+.top-bar .brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:700;letter-spacing:-.02em;font-size:14.5px}
+.top-bar .logo{width:28px;height:28px;border-radius:7px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.top-bar .crumb{font-size:13px;color:var(--muted)}
+.top-bar .crumb strong{color:var(--ink-2)}
+.top-bar .spacer{flex:1}
+.top-bar .nav-link{font-size:13px;color:var(--muted);padding:6px 10px;border-radius:6px}
+.top-bar .nav-link:hover{color:var(--ink);background:var(--line-2);text-decoration:none}
+
+.app{display:grid;grid-template-columns:240px 1fr 340px;flex:1;min-height:0}
+@media (max-width:1100px){.app{grid-template-columns:200px 1fr 300px}}
+@media (max-width:820px){.app{grid-template-columns:1fr}.rail,.cart{display:none}}
+
+.rail{background:var(--card);border-right:1px solid var(--line);padding:20px 18px;overflow:auto}
+.rail h5{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:10px}
+.rail .search{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fafbfd;margin-bottom:18px;font-family:inherit}
+.rail .search:focus{outline:none;border-color:var(--accent);background:#fff}
+.rail ul{list-style:none;margin-bottom:22px}
+.rail li{font-size:13.5px;padding:7px 10px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;color:var(--ink-2);margin-bottom:2px;user-select:none}
+.rail li:hover{background:var(--line-2)}
+.rail li.active{background:var(--accent-light);color:var(--accent);font-weight:600}
+.rail li .count{font-size:11.5px;color:var(--muted-2);font-family:var(--font-mono)}
+.rail li.active .count{color:var(--accent)}
+
+.catalog{padding:24px 28px;overflow:auto;min-width:0}
+.catalog-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.catalog-header h2{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.catalog-header .hint{font-size:13px;color:var(--muted)}
+
+.type-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;transition:border-color .15s}
+.type-card:hover{border-color:#cbd5e1}
+.type-card.added{border-color:var(--accent);background:linear-gradient(to right, var(--accent-light), var(--card) 30%)}
+.type-card .row1{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+.type-card .name{font-size:15.5px;font-weight:700;font-family:var(--font-mono);letter-spacing:-.01em}
+.type-card .name .label{font-family:var(--font-sans);color:var(--muted);font-weight:500;font-size:13px;margin-left:8px}
+.type-card .add-btn{background:var(--card);border:1px solid var(--line);color:var(--accent);font-weight:600;font-size:12.5px;padding:5px 12px;border-radius:16px;white-space:nowrap}
+.type-card .add-btn:hover{border-color:var(--accent);background:var(--accent-light)}
+.type-card.added .add-btn{background:var(--accent);color:#fff;border-color:var(--accent)}
+.type-card .blurb{color:var(--muted);font-size:13.5px;margin-bottom:10px;line-height:1.55}
+.type-card .converges{display:flex;flex-wrap:wrap;gap:6px;font-size:11.5px;font-family:var(--font-mono);align-items:center}
+.type-card .converges .lbl{color:var(--muted-2);margin-right:2px}
+.type-card .converges .pill{background:var(--line-2);color:var(--ink-2);border-radius:5px;padding:3px 7px}
+
+.cart{background:var(--card);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.cart-header{padding:18px 20px;border-bottom:1px solid var(--line-2)}
+.cart-header h3{font-size:16px;font-weight:700;margin-bottom:14px;letter-spacing:-.01em}
+.cart-field{margin-bottom:10px}
+.cart-field label{display:block;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;font-weight:600}
+.cart-field input{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;background:#fafbfd;font-family:inherit}
+.cart-field input:focus{outline:none;border-color:var(--accent);background:#fff}
+.cart-field .color-row{display:flex;gap:6px;align-items:center}
+.cart-field .sw{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.cart-field .sw.active{border-color:var(--ink-2);transform:scale(1.1)}
+
+.cart-body{flex:1;overflow:auto;padding:16px 20px}
+.cart-section{margin-bottom:18px}
+.cart-section h6{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-weight:700;display:flex;justify-content:space-between}
+.cart-section h6 .ct{color:var(--accent);font-family:var(--font-mono)}
+.cart-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line-2)}
+.cart-item .nm{font-family:var(--font-mono);color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.cart-item.dim .nm{color:var(--muted-2)}
+.cart-item .x{color:var(--muted-2);cursor:pointer;font-size:16px;padding:0 6px;flex-shrink:0;background:none;border:0}
+.cart-item .x:hover{color:#ef4444}
+.cart-empty{font-size:12.5px;color:var(--muted-2);font-style:italic;padding:8px 0}
+
+.cart-footer{padding:16px 20px;border-top:1px solid var(--line);background:#fafbfd}
+.btn{display:block;width:100%;padding:10px 14px;border-radius:8px;border:0;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px;font-family:inherit}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-dark)}
+.btn.primary:disabled{opacity:.5;cursor:wait}
+.btn.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--line)}
+.btn.ghost:hover{border-color:var(--ink-2)}
+.share-hint{font-size:11.5px;color:var(--muted);text-align:center;margin-top:4px}
+
+.warn{background:#fffbea;border:1px solid #fde68a;color:#78350f;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:10px;line-height:1.5}
+
+.loading{padding:80px;text-align:center;color:var(--muted);font-size:14px}
+.empty-catalog{padding:40px 20px;text-align:center;color:var(--muted-2);font-size:14px;font-style:italic}
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <a class="brand" href="index.html"><span class="logo">L</span> Living Doc Compositor</a>
+  <div class="crumb"><a href="custom-build-gallery.html">Build your tool</a> / <strong>Atomic builder</strong></div>
+  <div class="spacer"></div>
+  <a class="nav-link" href="custom-build-gallery.html">← Switch to starter kits</a>
+</header>
+
+<div class="app" id="app">
+  <aside class="rail" id="rail"></aside>
+  <main class="catalog" id="catalog"><div class="loading">Loading registry…</div></main>
+  <aside class="cart" id="cart"></aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(async () => {
+  const REPO = {
+    registry: '../scripts/living-doc-registry.json',
+    compositor: 'living-doc-compositor.html',
+    renderer: '../scripts/render-living-doc.mjs',
+    i18n: '../scripts/living-doc-i18n.json',
+    syncEmbeds: '../scripts/sync-compositor-embeds.mjs',
+    fingerprint: '../scripts/meta-fingerprint.mjs',
+  };
+  const DOMAINS = ['engineering','research','intelligence','editorial','ops','governance'];
+  const SHAPES = ['has-code-refs','has-tickets','has-evidence','time-series'];
+  const COLORS = ['#2563eb','#059669','#db2777','#ea580c','#7c3aed','#0f172a'];
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${url} → ${r.status}`); return r.json(); }
+  async function fetchText(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${url} → ${r.status}`); return r.text(); }
+
+  // ── Pure logic (mirror of scripts/build-kit.mjs) ─────────────
+  function filterRegistry(registry, included) {
+    const inc = new Set(included);
+    const ct = {}, reqEnt = new Set(), reqSt = new Set();
+    for (const [id, e] of Object.entries(registry.convergenceTypes)) {
+      if (!inc.has(id)) continue;
+      ct[id] = e;
+      for (const s of e.sources || []) if (s.entityType) reqEnt.add(s.entityType);
+      for (const f of e.statusFields || []) if (f.statusSet) reqSt.add(f.statusSet);
+    }
+    const et = {}; for (const [id, e] of Object.entries(registry.entityTypes || {})) if (reqEnt.has(id)) et[id] = e;
+    const ss = {}; for (const [id, e] of Object.entries(registry.statusSets || {})) if (reqSt.has(id)) ss[id] = e;
+    return { schemaVersion: registry.schemaVersion, entityTypes: et, statusSets: ss, convergenceTypes: ct };
+  }
+
+  function brandCompositor(html, branding) {
+    if (!branding) return html;
+    const primary = (branding.primaryColor || '').trim();
+    const orgName = (branding.orgName || '').trim();
+    const parts = [];
+    if (primary) parts.push(`<style id="ldc-brand-overrides">:root { --accent: ${primary} !important; }</style>`);
+    if (orgName) parts.push(`<script>window.__LDC_BRAND__=${JSON.stringify({ orgName })};<\/script>`);
+    return parts.length ? html.replace('</head>', `${parts.join('')}</head>`) : html;
+  }
+
+  function renderReadme(profile) {
+    const types = (profile.convergenceTypes || []).map((t) => `- \`${t}\``).join('\n') || '_(none)_';
+    const tmpls = [...(profile.starterTemplates||[]).map((t)=>`- \`docs/templates/${t}\``), ...(profile.starterTemplatesInline||[]).map((t)=>`- \`docs/templates/${t.name}\``)].join('\n') || '_(none)_';
+    return `# ${profile.name || profile.id}\n\nCustom build of the [Living Doc Compositor](https://github.com/triadflow/living-doc-compositor) — ${profile.description || ''}\n\n## What's included\n\n**Convergence types**\n${types}\n\n**Starter templates**\n${tmpls}\n\n## Run it\n\n\`\`\`bash\nnode scripts/render-living-doc.mjs docs/templates/<your-starter>.json\ncd docs && python3 -m http.server 8111\n\`\`\`\n\n## Customize further\n\n- Add new convergence types by editing \`scripts/living-doc-registry.json\`.\n- Swap the primary color by editing \`--accent\` in \`docs/living-doc-compositor.html\`.\n\nBundle generated from custom profile \`${profile.id}\`.\n`;
+  }
+
+  // ── State ────────────────────────────────────────────────────
+  const state = {
+    registry: null,
+    filter: { domain: null, shape: null, search: '' },
+    cart: {
+      id: 'custom-' + Date.now().toString(36),
+      name: 'My Build',
+      convergenceTypes: new Set(),
+      starterTemplates: new Set(),
+      starterTemplatesInline: [], // { name, content }
+      branding: { orgName: '', primaryColor: '#2563eb' },
+    },
+  };
+
+  // ── Load registry ────────────────────────────────────────────
+  try {
+    state.registry = await fetchJson(REPO.registry);
+  } catch (e) {
+    document.getElementById('catalog').innerHTML = `<div class="empty-catalog" style="color:#7f1d1d">Failed to load registry: ${esc(e.message)}.<br/><br/>Serve the repo root: <code style="background:var(--line-2);padding:2px 6px;border-radius:4px">python3 -m http.server 8111</code> from the repository root, then open <code style="background:var(--line-2);padding:2px 6px;border-radius:4px">/docs/custom-build-builder.html</code>.</div>`;
+    return;
+  }
+
+  // ── URL-encoded profile (rehydrate) ───────────────────────────
+  const urlParams = new URLSearchParams(location.search);
+  const profileParam = urlParams.get('profile');
+  if (profileParam) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(escape(atob(profileParam))));
+      state.cart.id = decoded.id || state.cart.id;
+      state.cart.name = decoded.name || state.cart.name;
+      for (const t of decoded.convergenceTypes || []) state.cart.convergenceTypes.add(t);
+      for (const t of decoded.starterTemplates || []) state.cart.starterTemplates.add(t);
+      state.cart.starterTemplatesInline = decoded.starterTemplatesInline || [];
+      state.cart.branding = { ...state.cart.branding, ...(decoded.branding || decoded.defaultBranding || {}) };
+    } catch (e) {
+      console.warn('Failed to decode profile param:', e);
+    }
+  }
+
+  // ── Derived helpers ──────────────────────────────────────────
+  function derivedEntityTypes() {
+    const set = new Set();
+    for (const id of state.cart.convergenceTypes) {
+      const e = state.registry.convergenceTypes[id];
+      for (const s of (e?.sources || [])) if (s.entityType) set.add(s.entityType);
+    }
+    return [...set];
+  }
+  function derivedStatusSets() {
+    const set = new Set();
+    for (const id of state.cart.convergenceTypes) {
+      const e = state.registry.convergenceTypes[id];
+      for (const f of (e?.statusFields || [])) if (f.statusSet) set.add(f.statusSet);
+    }
+    return [...set];
+  }
+  function countByDomain() {
+    const counts = { _all: 0 };
+    for (const d of DOMAINS) counts[d] = 0;
+    for (const e of Object.values(state.registry.convergenceTypes)) {
+      counts._all++;
+      if (counts[e.domain] !== undefined) counts[e.domain]++;
+    }
+    return counts;
+  }
+  function countByShape() {
+    const counts = {};
+    for (const s of SHAPES) counts[s] = 0;
+    for (const e of Object.values(state.registry.convergenceTypes)) {
+      for (const s of (e.entityShape || [])) if (counts[s] !== undefined) counts[s]++;
+    }
+    return counts;
+  }
+
+  function cartAsProfile() {
+    return {
+      id: state.cart.id,
+      name: state.cart.name,
+      description: `Custom build composed in the atomic builder.`,
+      convergenceTypes: [...state.cart.convergenceTypes],
+      starterTemplates: [...state.cart.starterTemplates],
+      starterTemplatesInline: state.cart.starterTemplatesInline,
+      branding: state.cart.branding,
+    };
+  }
+
+  // ── Render rail ──────────────────────────────────────────────
+  const railEl = document.getElementById('rail');
+  function renderRail() {
+    const dc = countByDomain();
+    const sc = countByShape();
+    railEl.innerHTML = `
+      <h5>Filter</h5>
+      <input class="search" id="search" placeholder="Search types…" value="${esc(state.filter.search)}"/>
+      <h5>By domain</h5>
+      <ul id="domain-list">
+        <li data-domain="" class="${!state.filter.domain ? 'active' : ''}">All types <span class="count">${dc._all}</span></li>
+        ${DOMAINS.map((d) => `<li data-domain="${d}" class="${state.filter.domain === d ? 'active' : ''}">${d[0].toUpperCase()+d.slice(1)} <span class="count">${dc[d]}</span></li>`).join('')}
+      </ul>
+      <h5>By entity shape</h5>
+      <ul id="shape-list">
+        <li data-shape="" class="${!state.filter.shape ? 'active' : ''}">Any <span class="count">${dc._all}</span></li>
+        ${SHAPES.map((s) => `<li data-shape="${s}" class="${state.filter.shape === s ? 'active' : ''}">${s.replace(/-/g,' ')} <span class="count">${sc[s]}</span></li>`).join('')}
+      </ul>
+    `;
+    railEl.querySelector('#search').addEventListener('input', (e) => { state.filter.search = e.target.value; renderCatalog(); });
+    railEl.querySelectorAll('#domain-list li').forEach((li) => li.addEventListener('click', () => { state.filter.domain = li.dataset.domain || null; renderRail(); renderCatalog(); }));
+    railEl.querySelectorAll('#shape-list li').forEach((li) => li.addEventListener('click', () => { state.filter.shape = li.dataset.shape || null; renderRail(); renderCatalog(); }));
+  }
+
+  // ── Render catalog ───────────────────────────────────────────
+  const catalogEl = document.getElementById('catalog');
+  function renderCatalog() {
+    const q = state.filter.search.trim().toLowerCase();
+    const entries = Object.entries(state.registry.convergenceTypes).filter(([id, e]) => {
+      if (state.filter.domain && e.domain !== state.filter.domain) return false;
+      if (state.filter.shape && !(e.entityShape || []).includes(state.filter.shape)) return false;
+      if (q && !(id.toLowerCase().includes(q) || (e.description || '').toLowerCase().includes(q) || (e.name || '').toLowerCase().includes(q))) return false;
+      return true;
+    });
+
+    const cards = entries.map(([id, e]) => {
+      const added = state.cart.convergenceTypes.has(id);
+      const sources = (e.sources || []).slice(0, 6).map((s) => `<span class="pill">${esc(s.entityType || s.key)}</span>`).join('');
+      return `
+        <article class="type-card${added ? ' added' : ''}" data-id="${esc(id)}">
+          <div class="row1">
+            <div class="name">${esc(id)}<span class="label">${esc(e.name || '')}</span></div>
+            <button class="add-btn">${added ? '✓ Added' : '+ Add'}</button>
+          </div>
+          <p class="blurb">${esc((e.description || '').slice(0, 280))}</p>
+          ${sources ? `<div class="converges"><span class="lbl">converges:</span>${sources}</div>` : ''}
+        </article>`;
+    }).join('');
+
+    catalogEl.innerHTML = `
+      <div class="catalog-header">
+        <h2>Convergence types <span style="color:var(--muted);font-weight:500;font-size:15px">· ${entries.length} of ${Object.keys(state.registry.convergenceTypes).length}</span></h2>
+        <div class="hint">Click a type to add it to your build →</div>
+      </div>
+      ${cards || '<div class="empty-catalog">No types match the current filters.</div>'}
+    `;
+
+    catalogEl.querySelectorAll('.type-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.id;
+        if (state.cart.convergenceTypes.has(id)) state.cart.convergenceTypes.delete(id);
+        else state.cart.convergenceTypes.add(id);
+        renderCatalog();
+        renderCart();
+      });
+    });
+  }
+
+  // ── Render cart ──────────────────────────────────────────────
+  const cartEl = document.getElementById('cart');
+  function renderCart() {
+    const types = [...state.cart.convergenceTypes];
+    const inlineTmpls = state.cart.starterTemplatesInline || [];
+    const fileTmpls = [...state.cart.starterTemplates];
+    const totalTmpls = fileTmpls.length + inlineTmpls.length;
+    const entityTypes = derivedEntityTypes();
+    const statusSets = derivedStatusSets();
+
+    cartEl.innerHTML = `
+      <div class="cart-header">
+        <h3>Your build</h3>
+        <div class="cart-field">
+          <label>Organization / team name</label>
+          <input type="text" id="cart-org" value="${esc(state.cart.branding.orgName)}" placeholder="Acme Research"/>
+        </div>
+        <div class="cart-field">
+          <label>Primary color</label>
+          <div class="color-row" id="cart-colors">
+            ${COLORS.map((c) => `<span class="sw${c === state.cart.branding.primaryColor ? ' active' : ''}" data-color="${c}" style="background:${c}"></span>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="cart-body">
+        ${warnMissingTypes()}
+        <div class="cart-section">
+          <h6>Convergence types <span class="ct">${types.length}</span></h6>
+          ${types.length ? types.map((t) => `<div class="cart-item"><span class="nm">${esc(t)}</span><button class="x" data-remove-ct="${esc(t)}" title="Remove">×</button></div>`).join('') : '<div class="cart-empty">Click types in the catalog to add them →</div>'}
+        </div>
+        <div class="cart-section">
+          <h6>Starter templates <span class="ct">${totalTmpls}</span></h6>
+          ${fileTmpls.map((t) => `<div class="cart-item"><span class="nm">${esc(t)}</span><button class="x" data-remove-tmpl="${esc(t)}">×</button></div>`).join('')}
+          ${inlineTmpls.map((t, i) => `<div class="cart-item"><span class="nm">${esc(t.name)} <span style="color:var(--muted-2);font-size:11px">(inline)</span></span><button class="x" data-remove-inline="${i}">×</button></div>`).join('')}
+          ${totalTmpls ? '' : '<div class="cart-empty">No starter templates yet.</div>'}
+        </div>
+        <div class="cart-section">
+          <h6>Entity types <span class="ct">auto · ${entityTypes.length}</span></h6>
+          ${entityTypes.length ? entityTypes.map((t) => `<div class="cart-item dim"><span class="nm">${esc(t)}</span></div>`).join('') : '<div class="cart-empty">Will auto-derive from selected types.</div>'}
+        </div>
+        <div class="cart-section">
+          <h6>Status sets <span class="ct">auto · ${statusSets.length}</span></h6>
+          ${statusSets.length ? statusSets.map((t) => `<div class="cart-item dim"><span class="nm">${esc(t)}</span></div>`).join('') : '<div class="cart-empty">Will auto-derive.</div>'}
+        </div>
+      </div>
+      <div class="cart-footer">
+        <button class="btn primary" id="download-btn" ${types.length ? '' : 'disabled'}>Download bundle ↓</button>
+        <button class="btn ghost" id="share-btn">Copy share URL</button>
+        <div class="share-hint" id="share-hint">${types.length ? 'Or share as a URL-encoded profile' : 'Add at least one convergence type'}</div>
+      </div>
+    `;
+
+    document.getElementById('cart-org').addEventListener('input', (e) => { state.cart.branding.orgName = e.target.value; });
+    document.getElementById('cart-colors').addEventListener('click', (e) => {
+      const sw = e.target.closest('.sw');
+      if (!sw) return;
+      state.cart.branding.primaryColor = sw.dataset.color;
+      renderCart();
+    });
+    cartEl.querySelectorAll('[data-remove-ct]').forEach((b) => b.addEventListener('click', () => { state.cart.convergenceTypes.delete(b.dataset.removeCt); renderCatalog(); renderCart(); }));
+    cartEl.querySelectorAll('[data-remove-tmpl]').forEach((b) => b.addEventListener('click', () => { state.cart.starterTemplates.delete(b.dataset.removeTmpl); renderCart(); }));
+    cartEl.querySelectorAll('[data-remove-inline]').forEach((b) => b.addEventListener('click', () => { state.cart.starterTemplatesInline.splice(Number(b.dataset.removeInline), 1); renderCart(); }));
+    document.getElementById('download-btn').addEventListener('click', onDownload);
+    document.getElementById('share-btn').addEventListener('click', onShare);
+  }
+
+  function warnMissingTypes() {
+    // For each starter template (file or inline), we'd ideally check which convergence types it uses and warn if missing.
+    // For v1: scan inline templates for `convergenceType` fields and compare; file templates stay warning-free for now.
+    const missing = new Set();
+    for (const t of (state.cart.starterTemplatesInline || [])) {
+      try {
+        const doc = typeof t.content === 'string' ? JSON.parse(t.content) : t.content;
+        for (const s of (doc.sections || [])) {
+          if (s.convergenceType && !state.cart.convergenceTypes.has(s.convergenceType)) missing.add(s.convergenceType);
+        }
+      } catch {}
+    }
+    if (!missing.size) return '';
+    return `<div class="warn">Starter templates reference types not in your cart: ${[...missing].map(esc).join(', ')}. Add them or the templates won't render.</div>`;
+  }
+
+  async function onShare() {
+    const payload = cartAsProfile();
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url = location.origin + location.pathname + '?profile=' + b64;
+    try {
+      await navigator.clipboard.writeText(url);
+      document.getElementById('share-hint').textContent = 'Copied ✓';
+      setTimeout(() => renderCart(), 1500);
+    } catch {
+      prompt('Copy this URL:', url);
+    }
+  }
+
+  async function onDownload() {
+    const btn = document.getElementById('download-btn');
+    const hint = document.getElementById('share-hint');
+    btn.disabled = true;
+    hint.textContent = 'Fetching assets…';
+    try {
+      const [compositorHtml, rendererJs, i18nText, syncText, fpText] = await Promise.all([
+        fetchText(REPO.compositor),
+        fetchText(REPO.renderer),
+        fetchText(REPO.i18n),
+        fetchText(REPO.syncEmbeds),
+        fetchText(REPO.fingerprint),
+      ]);
+
+      hint.textContent = 'Packaging…';
+      const profile = cartAsProfile();
+      const filtered = filterRegistry(state.registry, profile.convergenceTypes);
+      const branded = brandCompositor(compositorHtml, state.cart.branding);
+
+      // File templates: fetch
+      const fileTmplTexts = await Promise.all(
+        profile.starterTemplates.map((name) => fetchText(name).then((t) => [name, t]))
+      );
+
+      const zip = new JSZip();
+      const slug = (state.cart.branding.orgName || profile.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || profile.id;
+      const root = zip.folder(`${slug}-living-docs`);
+      root.file('README.md', renderReadme({ ...profile, name: state.cart.branding.orgName || profile.name }));
+      const docs = root.folder('docs');
+      docs.file('living-doc-compositor.html', branded);
+      const tmplDir = docs.folder('templates');
+      for (const [name, text] of fileTmplTexts) tmplDir.file(name, text);
+      for (const t of profile.starterTemplatesInline || []) {
+        tmplDir.file(t.name, typeof t.content === 'string' ? t.content : JSON.stringify(t.content, null, 2));
+      }
+      const sc = root.folder('scripts');
+      sc.file('living-doc-registry.json', JSON.stringify(filtered, null, 2) + '\n');
+      sc.file('living-doc-i18n.json', i18nText);
+      sc.file('render-living-doc.mjs', rendererJs);
+      sc.file('sync-compositor-embeds.mjs', syncText);
+      sc.file('meta-fingerprint.mjs', fpText);
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug}-living-docs.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      hint.textContent = 'Downloaded ✓';
+      setTimeout(() => renderCart(), 1500);
+    } catch (e) {
+      hint.textContent = 'Failed: ' + e.message;
+      btn.disabled = false;
+    }
+  }
+
+  renderRail();
+  renderCatalog();
+  renderCart();
+})();
+</script>
+</body>
+</html>
