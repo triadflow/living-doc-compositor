@@ -46,6 +46,11 @@ Add a new locale key to `scripts/living-doc-i18n.json` with all the same keys as
 ### When asked to modify the compositor GUI
 Edit `docs/living-doc-compositor.html`. This is a single self-contained HTML file. The same file is embedded in every rendered living doc via srcdoc iframe. Changes here propagate to all newly rendered docs.
 
+### When asked to work on AI-enhanced living-doc exports
+Use the local `ai-render-graph` library from `/Users/rene/projects/ai-render-graph`. Do not invent or maintain a separate custom runtime when the existing library can provide the browser runtime, DOM mounting, schema validation, and model adapter surface.
+
+For file-open standalone exports, prefer the built browser runtime from that repo, especially `dist/browser/ai-render-graph.file.js`, and emit a real `application/ai-render-graph+json` spec shape rather than an ad hoc private format.
+
 ### After changing the registry, i18n, or embedded templates
 Run `node scripts/sync-compositor-embeds.mjs` before committing. The registry, i18n strings, and template JSONs are embedded inline into `docs/living-doc-compositor.html`; if that embed drifts from the source files, the `i18n` contract test fails on CI. A `pre-push` git hook runs `--check` to catch this locally (install once with `npm install` or `npm run install-hooks`).
 
