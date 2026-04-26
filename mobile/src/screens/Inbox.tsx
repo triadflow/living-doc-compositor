@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
-import { EmptyState } from '../components';
+import { EmptyState, Pill } from '../components';
 import { syncRepoDeliveryFeed } from '../github-api';
 import {
   clear,
@@ -45,7 +45,7 @@ export default function Inbox({ navigation }: any) {
     if (item.data?.url) {
       navigation.navigate('DocDetail', {
         url: item.data.url,
-        title: item.data.title ?? item.title,
+        title: item.data.docTitle ?? item.data.title ?? item.title,
       });
     }
   };
@@ -183,10 +183,25 @@ export default function Inbox({ navigation }: any) {
               }}
             >
               <View style={{ flex: 1, gap: 2 }}>
+                {itemContext(item) ? <Text style={styles.itemContext}>{itemContext(item)}</Text> : null}
                 <Text style={styles.itemTitle}>{item.title}</Text>
+                {itemPills(item).length ? (
+                  <View style={styles.pillRow}>
+                    {itemPills(item).map((pill) => (
+                      <Pill key={`${item.id}-${pill.label}`} tone={pill.tone}>
+                        {pill.label}
+                      </Pill>
+                    ))}
+                  </View>
+                ) : null}
                 <Text style={styles.itemBody} numberOfLines={2}>
                   {item.body}
                 </Text>
+                {itemDetail(item) ? (
+                  <Text style={styles.itemDetail} numberOfLines={2}>
+                    {itemDetail(item)}
+                  </Text>
+                ) : null}
                 <Text style={styles.itemMeta}>{itemMeta(item)}</Text>
               </View>
               <View style={styles.dotSlot}>{item.read ? null : <View style={styles.dot} />}</View>
@@ -200,6 +215,78 @@ export default function Inbox({ navigation }: any) {
 
 function itemMeta(item: InboxItem): string {
   return [formatRelative(item.receivedAt), sourceLabel(item)].filter(Boolean).join(' · ');
+}
+
+function itemContext(item: InboxItem): string | undefined {
+  const parts = [
+    readString(item.data?.blockTitle),
+    readString(item.data?.audience),
+    transitionLabel(item),
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+function itemDetail(item: InboxItem): string | undefined {
+  const parts: string[] = [];
+  const blockSummary = readString(item.data?.blockSummary);
+  const intentSummary = readString((item.data?.intent as any)?.summary);
+  const honestStatus = readString(item.data?.honestStatus);
+  const groundingWarning = readString(item.data?.groundingWarning)
+    || readString((item.data?.grounding as any)?.summary);
+  const evidenceCount = Array.isArray(item.data?.evidence) ? item.data.evidence.length : 0;
+  const openQuestionCount = Array.isArray(item.data?.openQuestions) ? item.data.openQuestions.length : 0;
+
+  if (blockSummary) parts.push(blockSummary);
+  if (intentSummary) parts.push(`Intent: ${intentSummary}`);
+  if (honestStatus) parts.push(`Status: ${honestStatus}`);
+  if (evidenceCount > 0) parts.push(`Evidence: ${evidenceCount}`);
+  if (openQuestionCount > 0) parts.push(`Open questions: ${openQuestionCount}`);
+  if (groundingWarning) parts.push(groundingWarning);
+
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+function itemPills(
+  item: InboxItem
+): Array<{ label: string; tone: 'neutral' | 'accent' | 'success' | 'warning' | 'danger' }> {
+  const pills: Array<{ label: string; tone: 'neutral' | 'accent' | 'success' | 'warning' | 'danger' }> = [];
+
+  const transition = item.data?.transition;
+  const transitionLabelValue = transitionLabel(item);
+  if (transitionLabelValue) {
+    pills.push({
+      label: transitionLabelValue,
+      tone: toneFromValue(readString(transition?.tone) || transitionLabelValue),
+    });
+  }
+
+  const honestStatus = readString(item.data?.honestStatus);
+  if (honestStatus) {
+    pills.push({
+      label: honestStatus,
+      tone: toneFromValue(honestStatus),
+    });
+  } else if (typeof item.data?.status === 'string' && item.data.status) {
+    pills.push({
+      label: item.data.status,
+      tone: toneFromValue(item.data.status),
+    });
+  }
+
+  const groundingStatus = readString((item.data?.grounding as any)?.status);
+  if (groundingStatus) {
+    pills.push({
+      label: groundingStatus,
+      tone: toneFromValue(groundingStatus),
+    });
+  } else if (readString(item.data?.groundingWarning)) {
+    pills.push({
+      label: 'Needs grounding',
+      tone: 'warning',
+    });
+  }
+
+  return pills.slice(0, 3);
 }
 
 function formatRelative(ts: number): string {
@@ -221,6 +308,37 @@ function sourceLabel(item: InboxItem): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function transitionLabel(item: InboxItem): string | undefined {
+  const transition = item.data?.transition;
+  if (!transition || typeof transition !== 'object' || Array.isArray(transition)) return undefined;
+  return readString((transition as any).label)
+    || [readString((transition as any).from), readString((transition as any).to)]
+      .filter(Boolean)
+      .join(' → ')
+    || undefined;
+}
+
+function toneFromValue(value: string): 'neutral' | 'accent' | 'success' | 'warning' | 'danger' {
+  const v = value.toLowerCase();
+  if (/\b(ship|done|ready|green|ok|resolved|grounded|success|improved|progress)\b/.test(v)) {
+    return 'success';
+  }
+  if (/\b(regress|blocked|red|danger|error|fail|broken)\b/.test(v)) {
+    return 'danger';
+  }
+  if (/\b(warn|partial|review|needs|question|contested|stale|preview)\b/.test(v)) {
+    return 'warning';
+  }
+  if (/\b(update|updated|doc-change|progressing|active)\b/.test(v)) {
+    return 'accent';
+  }
+  return 'neutral';
+}
+
+function readString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function DeleteAction() {
@@ -317,7 +435,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   itemTitle: { ...type.bodyStrong, fontSize: 14.5, color: colors.text },
+  itemContext: {
+    ...type.tiny,
+    fontSize: 10.5,
+    color: colors.textSubtle,
+    textTransform: 'uppercase',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: 4,
+  },
   itemBody: { ...type.small, fontSize: 12.5, color: colors.textMuted, lineHeight: 18, marginTop: 3 },
+  itemDetail: {
+    ...type.small,
+    fontSize: 11.5,
+    color: colors.textMuted,
+    lineHeight: 17,
+    marginTop: 4,
+  },
   itemMeta: {
     ...type.tiny,
     fontSize: 10.5,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
@@ -8,6 +8,7 @@ import {
   pushRuntime,
   pushRuntimeLabel,
   registerForPushNotifications,
+  sendPreviewNotification,
 } from '../notifications';
 import { colors, radii, spacing, type } from '../theme';
 
@@ -15,6 +16,9 @@ export default function Settings({ navigation }: any) {
   const { user, signOut } = useAuth();
   const runtime = pushRuntime();
   const [pushReady, setPushReady] = useState<boolean | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const isWeb = runtime === 'web';
 
   useEffect(() => {
     if (runtime !== 'eas') {
@@ -35,6 +39,26 @@ export default function Settings({ navigation }: any) {
   const isReady = runtime === 'eas' && pushReady === true;
   const isChecking = runtime === 'eas' && pushReady === null;
 
+  const triggerPreview = async () => {
+    setPreviewing(true);
+    try {
+      const result = await sendPreviewNotification();
+      setPreviewMessage(
+        result.mode === 'local-notification'
+          ? result.usesDoc
+            ? `Preview sent. Opening it should route back into ${result.title}.`
+            : 'Preview sent. It will land in Inbox because no doc is registered on this device yet.'
+          : result.usesDoc
+            ? `Preview written locally. Open Inbox to jump back into ${result.title}.`
+            : 'Preview written locally to Inbox. Register or receive a doc first to test deep-link opening.'
+      );
+    } catch (err: any) {
+      setPreviewMessage(`Preview failed: ${err?.message ?? 'Unknown error'}`);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.profile}>
@@ -48,18 +72,52 @@ export default function Settings({ navigation }: any) {
       </View>
 
       <Text style={styles.sectionLabel}>Notifications</Text>
-      <Pressable style={styles.row} onPress={() => navigation.navigate('Repos')}>
+      <Pressable
+        style={[styles.row, isWeb && styles.rowDisabled]}
+        onPress={() => {
+          if (isWeb) {
+            Alert.alert(
+              'Native only',
+              'Browser preview does not support GitHub login or repo connection yet. Use a native build.'
+            );
+            return;
+          }
+          navigation.navigate('Repos');
+        }}
+      >
         <View style={styles.rowIcon}>
           <Ionicons name="git-branch-outline" size={18} color={colors.accent} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>Connect a repository</Text>
           <Text style={styles.rowSub}>
-            Pick a repo; the app installs the push secret and workflow file automatically.
+            {isWeb
+              ? 'Browser preview cannot connect repos yet. Use a native build.'
+              : 'Pick a repo; the app installs the push secret and workflow file automatically.'}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
       </Pressable>
+
+      {!isReady ? (
+        <Pressable style={styles.row} onPress={triggerPreview} disabled={previewing}>
+          <View style={styles.rowIcon}>
+            <Ionicons name="notifications-outline" size={18} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Trigger preview notification</Text>
+            <Text style={styles.rowSub}>
+              {previewMessage
+                ?? 'Mimic notification delivery locally. If this device already knows a doc, the preview will point back to it; otherwise it lands in Inbox only.'}
+            </Text>
+          </View>
+          {previewing ? (
+            <ActivityIndicator size="small" color={colors.accent} />
+          ) : (
+            <Ionicons name="sparkles-outline" size={18} color={colors.textSubtle} />
+          )}
+        </Pressable>
+      ) : null}
 
       <View style={[styles.infoCard, isReady ? styles.infoCardSuccess : styles.infoCardWarning]}>
         <Text style={styles.infoLabel}>Push status · {pushRuntimeLabel(runtime)}</Text>
@@ -87,13 +145,13 @@ export default function Settings({ navigation }: any) {
 function pushStatusMessage(runtime: PushRuntime): string {
   switch (runtime) {
     case 'expo-go':
-      return 'Expo Go cannot hold a push token. Install an EAS dev build to receive real pushes.';
+      return 'Expo Go cannot hold a real push token. Use the preview-notification action below for local testing, or install an EAS dev build for real pushes.';
     case 'web':
-      return 'Browser previews cannot receive pushes. Install an EAS dev build to activate.';
+      return 'Browser previews cannot receive system pushes. Use the preview-notification action below for local Inbox testing, or install an EAS dev build to activate real delivery.';
     case 'eas':
-      return 'Notifications permission denied. Enable in system settings.';
+      return 'Push token unavailable. Use the preview-notification action below for local testing, or confirm notification permission, EAS project setup, and rebuild the native app if needed.';
     default:
-      return 'Push runtime could not be detected. Install an EAS dev build to activate.';
+      return 'Push runtime could not be detected. Use the preview-notification action below for local testing, or install an EAS dev build to activate real delivery.';
   }
 }
 
@@ -130,6 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.md,
   },
+  rowDisabled: { opacity: 0.65 },
   rowIcon: {
     width: 36, height: 36, borderRadius: radii.sm,
     backgroundColor: colors.accentBg,

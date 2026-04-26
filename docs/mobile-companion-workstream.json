@@ -7,8 +7,8 @@
   "owner": "Triadflow",
   "version": "2026-q2-active",
   "canonicalOrigin": "docs/mobile-companion-workstream.json",
-  "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-17, plus repo-local mobile source tree, `docs/mobile-mockups.html`, and the coupled subscription/refinement model tracked in `docs/mobile-subscription-refinement-model.json`.",
-  "updated": "2026-04-17T00:31:51.000Z",
+  "sourceCoverage": "GitHub issues #18-#24 and #36 inspected through GitHub tooling on 2026-04-17, throwaway-repo and actual iPhone Expo Go preview verification rerun through GitHub tooling on 2026-04-19, plus repo-local mobile source tree, the grounded-event transport pass and first auto-generated grounded push verification landed on 2026-04-19, `docs/mobile-mockups.html`, and the coupled subscription/refinement model tracked in `docs/mobile-subscription-refinement-model.json`.",
+  "updated": "2026-04-19T14:18:22.000Z",
   "pills": [
     "Mobile",
     "Workstream",
@@ -357,7 +357,7 @@
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
-      "updated": "2026-04-17T00:31:51.000Z",
+      "updated": "2026-04-19T14:18:22.000Z",
       "stats": [
         {
           "label": "Open child tickets",
@@ -369,7 +369,7 @@
         },
         {
           "label": "Blocking verification gates",
-          "value": "5"
+          "value": "4"
         },
         {
           "label": "Open decisions",
@@ -384,18 +384,18 @@
           "This document is now the implementation and runtime snapshot only. The detailed subscription/refinement product model lives in `docs/mobile-subscription-refinement-model.json`.",
           "The current Inbox and Home surfaces should be treated as transport and audit infrastructure until the separate subscription model is implemented.",
           "Delivery now depends on a small repo-local manifest at `.living-docs/manifest.json`, while the central library remains the richer cross-system catalog. The two need shared document identity rather than pretending one can replace the other.",
-          "The next implementation slice is to consume the separate model more cleanly: richer block/event payloads at the transport boundary, real repo verification, and sync hardening such as per-repo cursors or watermarks.",
-          "The remaining hard gates are pixel-match verification, real paid-team push verification, connect/disconnect verification against a real repo, and sync hardening."
+          "The transport boundary can now carry richer grounded/block fields without breaking old feed items, and a real repo-side generator now emits structured section/card events from manifest-backed doc diffs. The next implementation slice is sync hardening plus richer commit/session artifacts so grounding can move beyond warning-level diff inference.",
+          "The remaining hard gates are pixel-match verification, real paid-team push verification, native Inbox persistence verification, and sync hardening."
         ]
       },
-      "rationale": "Compresses seven open tickets, five blocking gates, and the current pressure pattern into one glance so the doc opens on state, not on narrative.",
+      "rationale": "Compresses seven open tickets, four blocking gates, and the current pressure pattern into one glance so the doc opens on state, not on narrative.",
       "data": []
     },
     {
       "id": "mobile-capabilities",
       "title": "Mobile Capability Map",
       "convergenceType": "capability-surface",
-      "updated": "2026-04-17T00:31:51.000Z",
+      "updated": "2026-04-19T14:18:22.000Z",
       "rationale": "Seven parallel subsystems — auth, home, settings, repo connect, disconnect, delivery feed, inbox — need side-by-side comparability; a single narrative lane would hide drift between them.",
       "data": [
         {
@@ -478,7 +478,7 @@
           "id": "repo-connection",
           "name": "Connect-a-repo flow",
           "status": "partial",
-          "updated": "2026-04-16T04:12:00.000Z",
+          "updated": "2026-04-19T13:24:28.000Z",
           "codePaths": [
             "mobile/src/screens/Repos.tsx",
             "mobile/src/github-api.ts",
@@ -501,7 +501,8 @@
             }
           ],
           "notes": [
-            "The code surface for repo connection exists, but #20 still needs a real throwaway-repo end-to-end verification pass.",
+            "A real throwaway-repo pass is now proven against `triadflow/mobile-connect-e2e-20260419-123346`: the app-shaped connect contract created `EXPO_PUSH_TOKEN`, wrote `.github/workflows/living-doc-notify.yml` via commit `2ba6418`, restored a drifted workflow via commit `aec8ce9`, and successfully executed manual run `24629243483` plus push-triggered run `24629263428`.",
+            "A real iPhone Expo Go pass on 2026-04-19 now proves the preview-mode UI: the row rendered `Wired for preview` / `preview-connected` for `triadflow/mobile-connect-e2e-20260419-123346`, and the connected repo immediately recorded push run `24629696669` from the workflow-install commit.",
             "Browser preview now presents repo connection as unavailable until a proper web OAuth callback flow exists. Native builds remain the only supported path for GitHub auth and repo wiring.",
             "Connection status now treats the workflow file in the Contents API as the source of truth instead of depending on GitHub Actions workflow-list indexing.",
             "After connect and disconnect mutations, Repos now retries status briefly before rendering the final row state and only shows success copy when the observed status matches the requested mutation.",
@@ -514,7 +515,7 @@
           "id": "disconnect-repo",
           "name": "Disconnect repo flow",
           "status": "partial",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "updated": "2026-04-19T13:05:18.000Z",
           "codePaths": [
             "mobile/src/github-api.ts",
             "mobile/src/screens/Repos.tsx"
@@ -528,14 +529,15 @@
           "notes": [
             "`mobile/src/github-api.ts` now exposes `deleteRepoSecret`, `deleteWorkflowFile`, and `disconnectRepo` with missing-secret and missing-workflow cases treated idempotently.",
             "Connected and preview-connected rows now expose an ellipsis action that can remove only the secret or remove both the secret and workflow file.",
-            "The row refreshes connection status after a successful disconnect, so secret-only removal should show `Partial` when the workflow remains."
+            "The row refreshes connection status after a successful disconnect, so secret-only removal should show `Partial` when the workflow remains.",
+            "A 2026-04-19 throwaway-repo pass proved both disconnect modes on `triadflow/mobile-connect-e2e-20260419-123346`: secret-only removal left workflow/manual feed writes working in run `24629278524`, while workflow removal commit `2f15e98` stopped later tracked-path push `818e06e` from creating any new run or feed file."
           ]
         },
         {
           "id": "repo-delivery-feed",
           "name": "Repo-backed in-app delivery feed",
           "status": "partial",
-          "updated": "2026-04-16T14:12:00.000Z",
+          "updated": "2026-04-19T14:18:22.000Z",
           "codePaths": [
             "mobile/src/delivery-feed.ts",
             "mobile/src/delivery-manifest.ts",
@@ -567,17 +569,22 @@
             "A repo-local delivery manifest now exists at `.living-docs/manifest.json`; it mirrors delivery-critical fields from the central registry so push-time automation can map changed doc paths to doc ids, titles, and public URLs.",
             "The mobile app now syncs feed events from connected repos on app launch, foreground resume, and pull-to-refresh in Home or Inbox.",
             "Feed events are ingested through the same Inbox/doc-registration path as notifications, so docs can appear in the app even when Apple or Expo push is unavailable.",
-            "Repo-side verification now exists against `triadflow/mobile-connect-test`: workflow run `24510668921` created branch `living-docs-feed` and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload.",
-            "The current workflow now also triggers on `push` and inspects changed manifest-backed doc paths on the default branch, so commit-driven delivery no longer depends on a separate dispatcher for the common case.",
-            "Phone-side verification is proven for manual feed sync, and automatic push-triggered delivery is now also proven in `triadflow/living-doc-compositor` via workflow run `24512708555` from commit `6861d5a`.",
-            "This transport feed is now good enough to serve as the spine for the next UX layer, but its payload is still doc-level and message-centric rather than block-level and claim-centric."
+            "The feed contract is now backward-compatible but richer: `mobile/src/delivery-feed.ts` parses optional `schemaVersion`, `kind`, `transition`, `intent`, `evidence`, `grounding`, `openQuestions`, and `blocks[]` fields while still accepting the original doc-level payload shape.",
+            "The workflow template now accepts structured `eventJson` on `workflow_dispatch` and direct `event` / `events` objects on `repository_dispatch`, so repo-side senders can hand the app grounded/block artifacts immediately instead of waiting for a future transport rewrite.",
+            "Repo-side verification now exists against `triadflow/mobile-connect-test`: workflow run `24510668921` created branch `living-docs-feed` and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload, and a second throwaway-repo proof now exists against `triadflow/mobile-connect-e2e-20260419-123346` via manual run `24629243483`, push run `24629263428`, and secret-removed run `24629278524`.",
+            "The current workflow now also triggers on `push` and inspects changed manifest-backed doc paths on the default branch. It embeds a small Node helper that prefers explicit commit artifacts from `.living-doc/commits/<sha>.json` or `.living-docs/commits/<sha>.json` and otherwise heuristically derives section/card block events from before/after living-doc JSON.",
+            "Actual phone-side preview delivery is now proven on `triadflow/mobile-connect-e2e-20260419-123346`: manual runs `24629714376` and `24629722084` produced `Phone preview verification event` and `Phone preview verification event 13:01`, and the connected iPhone Inbox showed both after refresh.",
+            "A 2026-04-19 manual structured grounded-event proof on `triadflow/mobile-connect-e2e-20260419-123346` used workflow run `24630301322` to write `Grounded smoke-doc verification 13:32`, and the connected iPhone Inbox rendered the richer block row correctly.",
+            "Automatic push-triggered delivery is now also proven end to end on that same throwaway repo: tracked-doc commit `b1013ee` triggered run `24630808033`, wrote feed file `2026-04-19T13-59-18Z--triadflow-mobile-connect-e2e-20260419-123346-24630808033-1-1.json`, and the iPhone Inbox showed `Repo preview loop updated` with `ready -> grounded` after refresh.",
+            "Phone-side verification is therefore proven for manual feed sync, manual structured grounded events, and automatic grounded push generation. `triadflow/living-doc-compositor` also still proves plain automatic push-triggered feed creation via workflow run `24512708555` from commit `6861d5a`.",
+            "This transport feed is now good enough to serve as the spine for the next UX layer; the remaining gap is richer repo-native intent/session artifacts and sync hardening, not basic grounded-row delivery."
           ]
         },
         {
           "id": "inbox-audit-log",
           "name": "Persistent inbox and notification audit trail",
           "status": "partial",
-          "updated": "2026-04-16T14:12:00.000Z",
+          "updated": "2026-04-19T14:18:22.000Z",
           "codePaths": [
             "mobile/App.tsx",
             "mobile/src/inbox-store.ts",
@@ -600,6 +607,9 @@
             "Rows support read state, swipe-to-delete, and a clear-all action with confirmation.",
             "The #19 code-alignment pass added the empty notification icon tile, 14x20 row spacing, and relative-time/source metadata.",
             "#36 has now extended this store into the destination for synced GitHub feed events, so app-visible updates no longer depend on OS notification delivery.",
+            "A 2026-04-19 real iPhone Expo Go pass confirmed that repo-synced events from `triadflow/mobile-connect-e2e-20260419-123346` appeared in Inbox after pull-to-refresh, including `Phone preview verification event` and `Phone preview verification event 13:01`.",
+            "The same device pass later proved richer rows too: `Grounded smoke-doc verification 13:32` rendered from manual structured run `24630301322`, and `Repo preview loop updated` rendered from auto-generated push run `24630808033`.",
+            "Inbox rows now render richer feed context when present: block/audience strip, transition and grounding pills, and summary lines for block summary, intent, evidence count, and open-question count while staying compatible with older feed items.",
             "The persisted Inbox should now be understood as transport and audit infrastructure. Under the newer subscription UX, the eventual primary feed will sit on top of richer block-level events and refinement state rather than exposing raw doc-update messages directly."
           ]
         }
@@ -609,7 +619,7 @@
       "id": "runtime-state-model",
       "title": "Runtime and Connection State Model",
       "convergenceType": "operating-surface",
-      "updated": "2026-04-16T12:44:10.000Z",
+      "updated": "2026-04-19T14:18:22.000Z",
       "rationale": "Web / Expo Go / EAS / repo-artifact / local-stores read as one operating lane of the mobile runtime; each state depends on the previous and a parallel grid would shatter the sequence.",
       "data": [
         {
@@ -637,7 +647,7 @@
           "id": "expo-go-runtime",
           "name": "Expo Go runtime",
           "status": "built",
-          "updated": "2026-04-16T11:45:00.000Z",
+          "updated": "2026-04-19T13:05:18.000Z",
           "codePaths": [
             "mobile/src/notifications.ts",
             "mobile/src/screens/Settings.tsx"
@@ -652,6 +662,7 @@
             "`pushRuntime()` now classifies Expo Go conservatively from `Constants.executionEnvironment === storeClient` plus Expo Go-specific constants instead of relying on the deprecated `appOwnership` flag alone.",
             "Settings and Repos label Expo Go as preview-only and point the user toward an EAS dev build for real pushes.",
             "Settings now includes a local preview-notification action so Expo Go can still exercise inbox capture and doc deep-link handling without a real Expo push token.",
+            "A 2026-04-19 real iPhone Expo Go session confirmed the preview-only repo path end to end: `triadflow/mobile-connect-e2e-20260419-123346` connected as `preview-connected`, the app showed `Wired for preview`, and manual repo events landed in Inbox after refresh.",
             "The workspace dependency baseline is now Expo SDK 54 / React Native 0.81 / React 19.1, and `npx expo start --go --tunnel` launches successfully."
           ]
         },
@@ -659,7 +670,7 @@
           "id": "eas-runtime",
           "name": "EAS/dev-build runtime",
           "status": "partial",
-          "updated": "2026-04-16T05:39:46.000Z",
+          "updated": "2026-04-19T12:24:39.000Z",
           "codePaths": [
             "mobile/app.json",
             "mobile/eas.json",
@@ -678,9 +689,10 @@
           ],
           "notes": [
             "`mobile/eas.json` now defines development, preview, and production profiles.",
-            "`mobile/README.md` now documents Expo login, `npx eas-cli init`, iOS and Android development builds, install flow, first-launch permission, and Settings verification.",
-            "`mobile/package.json` now includes `expo-dev-client` plus explicit `npm run go` and `npm run dev-client` scripts so Expo Go and development-build testing are distinct entry points.",
-            "`app.json` intentionally does not commit `extra.eas.projectId`; `eas init` writes account-specific project identity."
+            "`mobile/README.md` now documents the committed shared Triadflow Expo project, fork-local `eas init`, iOS and Android development builds, install flow, first-launch permission, and Settings verification.",
+            "`mobile/package.json` now includes `expo-dev-client` plus explicit `npm run web`, `npm run go`, `npm run dev-client`, and `npm run ios:preview` scripts so web preview, Expo Go, development-build testing, and iOS preview-only local builds are distinct entry points.",
+            "`mobile/plugins/withPreviewNotificationsOnly.js` strips remote-notification entitlements from `npm run ios:preview` builds so local iOS UI work stays separate from push-capable development builds.",
+            "`mobile/app.json` now commits the shared Triadflow Expo owner/projectId for the canonical repo; forks should replace that locally instead of writing a personal project binding back into source control."
           ]
         },
         {
@@ -750,7 +762,7 @@
       "id": "operational-tools",
       "title": "Operational Tools and Artifacts",
       "convergenceType": "tooling-surface",
-      "updated": "2026-04-17T00:31:51.000Z",
+      "updated": "2026-04-19T13:24:28.000Z",
       "rationale": "GitHub API client, sealed-box crypto, workflow template, mockup canvas, EAS build, inbox store — the instrument layer used to operate on the mobile domain, each with its own purpose, when-to-use, and invocation.",
       "data": [
         {
@@ -822,7 +834,7 @@
           "id": "workflow-template",
           "name": "Living-doc notification workflow template",
           "status": "prototype",
-          "updated": "2026-04-17T00:18:02.000Z",
+          "updated": "2026-04-19T14:18:22.000Z",
           "scriptPaths": [
             "mobile/src/workflow-template.ts"
           ],
@@ -852,7 +864,8 @@
           "invocation": "Written through GitHub Contents API by the mobile app.",
           "caveats": [
             "Disconnect semantics need to define whether the workflow is removed, disabled, or left in place without a secret.",
-            "The workflow now writes GitHub-backed feed events, but its payload is still doc-level and commit-shaped rather than the grounded block/event schema needed for the subscription UX."
+            "The workflow can now accept richer structured `eventJson` / `event` / `events` payloads and preserve them into the feed. Its built-in `push` path now packages an embedded Node helper into GitHub Actions, prefers explicit commit artifacts when present, and otherwise heuristically derives section/card block events from manifest-backed living-doc JSON diffs.",
+            "The default generator still does not read session-memory intent artifacts or refinement state, so automatically derived grounding remains warning-level even when the resulting Inbox row is structurally rich."
           ]
         },
         {
@@ -926,7 +939,7 @@
       "id": "verification-plan",
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
-      "updated": "2026-04-16T12:44:10.000Z",
+      "updated": "2026-04-19T14:18:22.000Z",
       "rationale": "Seven in-progress gates each need rich evidence — current coverage, next step, and gaps — because the work is still landing and the next tester must see exactly what is left.",
       "data": [
         {
@@ -955,9 +968,9 @@
         {
           "id": "connect-e2e",
           "name": "Connect-a-repo end-to-end",
-          "status": "planned",
-          "priority": "blocking",
-          "updated": "2026-04-16T01:52:30.000Z",
+          "status": "partial",
+          "priority": "informational",
+          "updated": "2026-04-19T13:05:18.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -975,11 +988,11 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/20"
             }
           ],
-          "currentCoverage": "Code exists for API client, encryption, workflow content, Contents API workflow-status detection, short post-mutation status retries, observed-status success/warning toasts, local preview-vs-real connection mode storage, upgrade/reconnect actions for opaque secrets, and sealed-box key/ciphertext length checks, but the issue explicitly asks for real throwaway-repo verification.",
-          "nextStep": "Use a real test repository to verify secret creation, workflow write/update behavior, status refresh, and workflow execution.",
+          "currentCoverage": "A 2026-04-19 throwaway-repo pass against `triadflow/mobile-connect-e2e-20260419-123346` verified preview-token secret creation, workflow create commit `2ba6418`, drift commit `c2ca2a3`, restore commit `aec8ce9`, manual workflow run `24629243483`, and push-triggered run `24629263428` with feed artifacts written to `living-docs-feed`. A same-day real iPhone Expo Go pass then connected the same repo in preview mode, rendered `Wired for preview` / `preview-connected` in-app, and the repo recorded workflow-install push run `24629696669`. The repo-side connect contract and preview-mode phone UI are now proven.",
+          "nextStep": "Capture the same connect flow from a real EAS/dev build if the team wants the native push-ready row state and toasts on record; repo-side correctness is no longer the blocker.",
           "gaps": [
-            "No verified note has been added to `mobile/README.md` yet.",
-            "If testing from web or Expo Go, #21 may force placeholder behavior instead of a real push token."
+            "These passes used Expo Go preview mode or placeholder tokens, so they do not prove real native Expo push delivery.",
+            "No native push-ready Repos-screen capture from an EAS/dev build has been recorded yet."
           ]
         },
         {
@@ -987,7 +1000,7 @@
           "name": "Repo-backed in-app delivery sync",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T14:12:00.000Z",
+          "updated": "2026-04-19T14:18:22.000Z",
           "automationPaths": [
             ".github/workflows/living-doc-notify.yml"
           ],
@@ -1002,11 +1015,11 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. Phone-side verification is also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is now additionally proven in `triadflow/living-doc-compositor`, where push commit `6861d5a` triggered workflow run `24512708555` and wrote a new feed event file without any manual dispatch.",
-          "nextStep": "Keep the transport spine stable while the richer block/event model lands in the separate subscription doc. Then update this implementation surface to consume that model without regressing connect, sync, or persistence behavior.",
+          "currentCoverage": "The workflow template now writes one JSON event per run into `.living-docs/feed/` on the `living-docs-feed` branch, and the app syncs those files from connected repos on launch, foreground resume, and pull-to-refresh into the shared Inbox/doc-ingestion path. `npm run typecheck` passes. A repo-local delivery manifest contract now exists at `.living-docs/manifest.json`, and the workflow reacts to `push` on the default branch by resolving changed manifest-backed doc paths into feed events. The feed contract can now also carry optional `schemaVersion`, `kind`, `transition`, `intent`, `evidence`, `grounding`, `openQuestions`, and `blocks[]` fields. The workflow accepts structured `eventJson` or `repository_dispatch` `event` / `events` payloads, and its built-in `push` path now embeds a repo-side generator that prefers explicit commit artifacts and otherwise derives section/card block events from before/after living-doc JSON. Repo-side verification has been proven against `triadflow/mobile-connect-test`, where workflow run `24510668921` created the feed branch and file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json` with the expected payload. A second throwaway-repo proof now exists on `triadflow/mobile-connect-e2e-20260419-123346`, where manual run `24629243483`, push run `24629263428`, and secret-removed run `24629278524` each wrote the expected feed artifact. Real iPhone Expo Go verification on that same repo now covers three lanes: manual feed sync (`24629714376`, `24629722084`), manual structured grounded events (`24630301322`), and automatic grounded push generation from tracked-doc commit `b1013ee` via run `24630808033`, which wrote `Repo preview loop updated` with `ready -> grounded` and rendered correctly in the iPhone Inbox after refresh. Phone-side verification is also proven against `triadflow/trackandback-lead`, where the connected repo produced a feed event and the app showed it in Inbox after refresh. Automatic push-triggered delivery is also proven in `triadflow/living-doc-compositor`, where push commit `6861d5a` triggered workflow run `24512708555` and wrote a new feed event file without any manual dispatch.",
+          "nextStep": "Keep the heuristic generator stable, add a small explicit commit/session artifact format for repos that can emit richer intent, and harden sync with per-repo cursors or watermarks.",
           "gaps": [
             "Repeated syncs currently rely on Inbox primary-key dedupe rather than a per-repo cursor or watermark.",
-            "The current feed payload is still doc-level and commit-centric, which does not match the subscription mockup's block-level claim/evidence/refinement cards.",
+            "The default generator currently grounds from manifest-backed JSON diff and optional commit artifacts only; it does not yet read session-memory intent or user refinement state, so grounding stays warning-level.",
             "There is not yet a helper to derive or refresh the repo-local manifest automatically from the richer central registry.",
             "The refinement overlay and user-scoped write path from #27 do not exist yet."
           ]
@@ -1016,17 +1029,18 @@
           "name": "Push-token runtime matrix",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-15T15:14:23.000Z",
+          "updated": "2026-04-19T13:05:18.000Z",
           "ticketIds": [
             {
               "issueNumber": "21",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/21"
             }
           ],
-          "currentCoverage": "`pushRuntime()` exists, Settings consumes it, and Repos now differentiates real and preview connection paths with distinct copy, toast tone, and row pills. `npm run typecheck` passes.",
-          "nextStep": "Manually verify the matrix in web, Expo Go, and an EAS/dev build; then update #21 with runtime screenshots or notes.",
+          "currentCoverage": "`pushRuntime()` exists, Settings consumes it, and Repos now differentiates real and preview connection paths with distinct copy, toast tone, and row pills. `npm run typecheck` passes. A 2026-04-19 real iPhone Expo Go pass now verifies the preview lane in practice: the app connected `triadflow/mobile-connect-e2e-20260419-123346` as `preview-connected`, showed `Wired for preview`, and still synced repo-feed events into Inbox.",
+          "nextStep": "Verify the remaining web and EAS/dev-build lanes, then update #21 with runtime screenshots or notes.",
           "gaps": [
             "GitHub secrets cannot prove after the fact whether a stored value was a real Expo token or a placeholder.",
+            "The real push-ready EAS/dev-build lane is still unverified on device.",
             "This implementation keeps preview state explicit in the current runtime and current session; a durable readable preview marker is still deferred unless #20 or #23 requires it."
           ]
         },
@@ -1054,18 +1068,17 @@
           "name": "Disconnect repo verification",
           "status": "partial",
           "priority": "informational",
-          "updated": "2026-04-16T00:46:30.000Z",
+          "updated": "2026-04-19T13:05:18.000Z",
           "ticketIds": [
             {
               "issueNumber": "23",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/23"
             }
           ],
-          "currentCoverage": "`disconnectRepo()` exists, connected rows open a destructive action sheet, secret-only removal and secret-plus-workflow removal are implemented, and `npm run typecheck` passes.",
-          "nextStep": "Verify both disconnect modes against a throwaway GitHub repo after the connect end-to-end path in #20 is proven.",
+          "currentCoverage": "A 2026-04-19 throwaway-repo pass against `triadflow/mobile-connect-e2e-20260419-123346` verified both disconnect modes: deleting only `EXPO_PUSH_TOKEN` left `.github/workflows/living-doc-notify.yml` in place and run `24629278524` still wrote a feed event without push delivery, while deleting the workflow via commit `2f15e98` left the repo with no workflow and later tracked-doc push `818e06e` produced no new run or feed file.",
+          "nextStep": "If needed, capture the same flow from the native Repos action sheet; repo-side disconnect semantics are now proven.",
           "gaps": [
-            "No real GitHub repository verification has been recorded yet.",
-            "Manual workflow-run behavior after secret-only disconnect still needs to be checked for the expected missing-secret failure."
+            "No native Repos-screen capture of the destructive action sheet has been recorded yet."
           ]
         },
         {
@@ -1073,7 +1086,7 @@
           "name": "Persistent inbox verification",
           "status": "partial",
           "priority": "blocking",
-          "updated": "2026-04-16T12:44:10.000Z",
+          "updated": "2026-04-19T14:18:22.000Z",
           "ticketIds": [
             {
               "issueNumber": "24",
@@ -1084,10 +1097,10 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/36"
             }
           ],
-          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. `npm run typecheck` passes. A real repo-feed event now exists in `triadflow/mobile-connect-test` for device-side sync verification.",
-          "nextStep": "Manually verify restart persistence, tap-to-read navigation, swipe delete, and clear-all first with preview notifications and then with the synced repo-feed event now available from the connected repository.",
+          "currentCoverage": "`expo-sqlite` is installed, `mobile/src/inbox-store.ts` exists, App-level notification ingestion writes the store, Inbox supports list, mark-read, swipe delete, and clear-all, and both preview notifications and repo-feed sync now land through the same ingest path. `npm run typecheck` passes. A 2026-04-19 real iPhone Expo Go pass now proves repo-feed ingestion and richer row rendering into Inbox on device: `Phone preview verification event` and `Phone preview verification event 13:01` from `triadflow/mobile-connect-e2e-20260419-123346` both appeared after refresh, `Grounded smoke-doc verification 13:32` rendered the manual structured row, and `Repo preview loop updated` from auto-generated push run `24630808033` rendered the same richer UI from a normal tracked-doc change.",
+          "nextStep": "Verify restart persistence, tap-to-read navigation, swipe delete, and clear-all on device now that repo-feed ingestion is proven.",
           "gaps": [
-            "No runtime/device verification has been recorded yet.",
+            "Restart persistence and the destructive Inbox actions still lack recorded device verification.",
             "The ticket still does not define retention or pruning for old events."
           ]
         }
@@ -1228,7 +1241,7 @@
           "id": "eas-project-ownership",
           "name": "Decide EAS project ownership before committing canonical config",
           "status": "ground-truth",
-          "updated": "2026-04-16T01:09:31.000Z",
+          "updated": "2026-04-19T12:24:39.000Z",
           "ticketIds": [
             {
               "issueNumber": "22",
@@ -1236,8 +1249,8 @@
             }
           ],
           "notes": [
-            "`app.json` should not commit a random contributor's `extra.eas.projectId`.",
-            "Triadflow-owned builds should use the shared Expo project; fork or contributor testing can use a local Expo project and keep that project ID out of shared commits."
+            "The canonical repo now commits the shared Triadflow Expo binding in `mobile/app.json` (`owner: triadflow` plus `extra.eas.projectId`).",
+            "That shared binding is the right default for the main repo; fork or contributor testing can replace it locally, but should not commit a personal Expo project ID back into shared source control."
           ]
         },
         {

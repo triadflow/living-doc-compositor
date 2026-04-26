@@ -25,9 +25,11 @@ export async function recordDeliveryEvent(
     await addDoc({
       url: data.url,
       title:
-        typeof data.title === 'string' && data.title
-          ? data.title
-          : event.title || 'Doc',
+        typeof data.docTitle === 'string' && data.docTitle
+          ? data.docTitle
+          : typeof data.title === 'string' && data.title
+            ? data.title
+            : event.title || 'Doc',
       source: typeof data.source === 'string' ? data.source : hostOf(data.url),
       status: typeof data.status === 'string' ? data.status : undefined,
     });

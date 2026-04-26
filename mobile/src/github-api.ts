@@ -1,9 +1,10 @@
 import { encryptForSecret, utf8ToBase64, base64ToUtf8 } from './sealed-box';
 import {
+  deliveryFeedEventData,
   DELIVERY_FEED_BRANCH,
   DELIVERY_FEED_DIR,
   DELIVERY_FEED_PER_REPO_LIMIT,
-  type DeliveryFeedEvent,
+  parseDeliveryFeedEvent,
 } from './delivery-feed';
 import { recordDeliveryEvent } from './delivery-ingest';
 import { getRepoConnectionModes } from './repo-connection-store';
@@ -397,14 +398,7 @@ export async function syncRepoDeliveryFeed(
         title: event.title,
         body: event.body,
         receivedAt: parseReceivedAt(event.createdAt),
-        data: {
-          url: event.url,
-          title: event.title,
-          status: event.status,
-          source: event.source ?? event.repo,
-          repo: event.repo,
-          delivery: 'repo-feed',
-        },
+        data: deliveryFeedEventData(event),
       });
       events += 1;
     }
@@ -444,32 +438,6 @@ function parseRepoFullName(fullName: string): { owner: string; repo: string } | 
   const [owner, repo, ...rest] = fullName.split('/');
   if (!owner || !repo || rest.length > 0) return null;
   return { owner, repo };
-}
-
-function parseDeliveryFeedEvent(content: string, fallbackRepo: string): DeliveryFeedEvent | null {
-  try {
-    const parsed = JSON.parse(content);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-
-    const id = typeof parsed.id === 'string' ? parsed.id : '';
-    const title = typeof parsed.title === 'string' ? parsed.title : '';
-    const body = typeof parsed.body === 'string' ? parsed.body : '';
-    const createdAt = typeof parsed.createdAt === 'string' ? parsed.createdAt : '';
-    if (!id || !title || !body || !createdAt) return null;
-
-    return {
-      id,
-      title,
-      body,
-      createdAt,
-      repo: typeof parsed.repo === 'string' && parsed.repo ? parsed.repo : fallbackRepo,
-      url: typeof parsed.url === 'string' && parsed.url ? parsed.url : undefined,
-      status: typeof parsed.status === 'string' && parsed.status ? parsed.status : undefined,
-      source: typeof parsed.source === 'string' && parsed.source ? parsed.source : undefined,
-    };
-  } catch {
-    return null;
-  }
 }
 
 function parseReceivedAt(createdAt: string): number {

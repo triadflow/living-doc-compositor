@@ -38,6 +38,7 @@ Then:
 - `npm run web` is still useful for layout preview, but GitHub sign-in is not supported there until a proper web OAuth callback flow exists
 - `npm run go` starts an Expo Go tunnel for quick phone testing
 - `npm run dev-client` starts Metro for an installed development build
+- `npm run ios:preview` builds a local iOS preview with remote-notification entitlements stripped when you only need UI work
 
 ## Architecture
 
@@ -119,21 +120,28 @@ This repo now includes `expo-dev-client`, which is required for the real develop
 
    `npx expo login` is also acceptable if you already use the Expo CLI workflow.
 
-2. Initialize the EAS project:
+2. This repo is already bound to the shared Triadflow Expo project in `app.json`:
+
+   - `owner: triadflow`
+   - `extra.eas.projectId: 94670052-2f49-4ec0-b569-bd0cac302ad9`
+
+   Keep that config when building from the canonical repo.
+
+3. If you are testing from a fork or personal clone, rebind to your own Expo project:
 
    ```bash
    npx eas-cli init
    ```
 
-   This writes `extra.eas.projectId` into `app.json`. For Triadflow-owned builds, use the shared project. For personal fork testing, use your own Expo project and avoid committing an unrelated project ID back to this repo.
+   That writes your own `extra.eas.projectId` into `app.json`. Do not commit an unrelated personal project ID back into the shared repo.
 
-3. Confirm the build profiles in `eas.json`. This repo defines:
+4. Confirm the build profiles in `eas.json`. This repo defines:
 
    - `development`: internal development client, iOS device build, Android APK
    - `preview`: internal distribution
    - `production`: empty production profile for future store builds
 
-4. Create an iOS development build:
+5. Create an iOS development build:
 
    ```bash
    npx eas-cli build --profile development --platform ios
@@ -141,7 +149,7 @@ This repo now includes `expo-dev-client`, which is required for the real develop
 
    Expect this to take roughly 15 minutes. Open the EAS build link on the device and follow the install flow for the chosen credential/distribution mode.
 
-5. Create an Android development build:
+6. Create an Android development build:
 
    ```bash
    npx eas-cli build --profile development --platform android
@@ -149,15 +157,15 @@ This repo now includes `expo-dev-client`, which is required for the real develop
 
    Expect this to take roughly 10 minutes. Download the APK on the device, allow install from unknown sources if prompted, and install it.
 
-6. Launch the installed development build. Grant notification permission when prompted.
+7. Launch the installed development build. Grant notification permission when prompted.
 
-7. Verify runtime status in the app:
+8. Verify runtime status in the app:
 
    - Open **Settings**
    - Check **Push status**
    - It should read `Ready. This device can receive pushes from connected repos.`
 
-8. Run the Metro dev server and connect the development build to it:
+9. Run the Metro dev server and connect the development build to it:
 
 ```bash
 npm run dev-client
@@ -173,6 +181,7 @@ Verification status: not yet verified in this repo. After a reviewer completes a
 
 - Verified workflow install/update behavior on 2026-04-16 against `triadflow/mobile-connect-test`.
 - Verified repo-backed delivery feed behavior on 2026-04-16 against `triadflow/mobile-connect-test`.
+- Verified throwaway-repo connect/disconnect behavior on 2026-04-19 against `triadflow/mobile-connect-e2e-20260419-123346`.
 - Passed:
   - `EXPO_PUSH_TOKEN` secret creation
   - `.github/workflows/living-doc-notify.yml` creation with commit `Add Living Docs notify workflow`
@@ -181,10 +190,21 @@ Verification status: not yet verified in this repo. After a reviewer completes a
   - Manual workflow run `24510668921` created branch `living-docs-feed`
   - Feed event file `2026-04-16T12-39-10Z--triadflow-mobile-connect-test-24510668921-1.json`
   - Feed event payload carried title, body, repo, source, createdAt, and doc URL as expected
+  - Throwaway repo fixture commit `9945643` established `.living-docs/manifest.json` plus tracked doc files
+  - Connect pass created workflow commit `2ba6418`, drift commit `c2ca2a3`, and restore commit `aec8ce9`
+  - Manual dispatch run `24629243483` wrote feed file `2026-04-19T12-36-29Z--triadflow-mobile-connect-e2e-20260419-123346-24629243483-1-1.json`
+  - Manifest-backed push commit `548a3d8` triggered run `24629263428` and wrote feed file `2026-04-19T12-37-36Z--triadflow-mobile-connect-e2e-20260419-123346-24629263428-1-1.json`
+  - Secret-only disconnect left workflow delivery active; manual dispatch run `24629278524` wrote feed file `2026-04-19T12-38-28Z--triadflow-mobile-connect-e2e-20260419-123346-24629278524-1-1.json` and logged `No Expo push token configured`
+  - Full disconnect removed workflow commit `2f15e98`; later tracked-doc push commit `818e06e` produced no new workflow run and no new feed file
+  - Real iPhone Expo Go preview connect showed `Wired for preview` / `preview-connected` for `triadflow/mobile-connect-e2e-20260419-123346`, and the connected repo immediately recorded workflow-install push run `24629696669`
+  - Manual verification runs `24629714376` and `24629722084` wrote feed files `2026-04-19T13-01-23Z--triadflow-mobile-connect-e2e-20260419-123346-24629714376-1-1.json` and `2026-04-19T13-01-48Z--triadflow-mobile-connect-e2e-20260419-123346-24629722084-1-1.json`
+  - The same phone Inbox showed both `Phone preview verification event` and `Phone preview verification event 13:01` after refresh
+  - Structured manual run `24630301322` wrote feed file `2026-04-19T13-32-37Z--triadflow-mobile-connect-e2e-20260419-123346-24630301322-1-1.json`, and the iPhone Inbox rendered `Grounded smoke-doc verification 13:32` with the richer block-aware row UI
+  - Auto-generated grounded push commit `b1013ee` triggered run `24630808033`, wrote feed file `2026-04-19T13-59-18Z--triadflow-mobile-connect-e2e-20260419-123346-24630808033-1-1.json`, and the same iPhone Inbox showed `Repo preview loop updated` with the `ready -> grounded` transition after refresh
 - Notes:
   - The same-session row can remain stale immediately after connect because GitHub secret visibility is eventually consistent; a fresh repo-list load converged to the correct state.
   - The test repo still held the preview placeholder token, so Expo push was skipped intentionally while repo-feed delivery succeeded.
-  - App-side phone verification of that synced feed item remains unverified here.
+  - Expo Go on a real phone now proves the preview-mode row state, synced Inbox delivery path, manual structured grounded rows, and automatic grounded push rows, but not native push-token registration.
   - Real EAS push delivery remains unverified here.
 
 ## Roadmap

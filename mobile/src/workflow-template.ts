@@ -6,6 +6,29 @@
 // root (the reference copy). Changing one should change both.
 import { DELIVERY_FEED_BRANCH, DELIVERY_FEED_DIR } from './delivery-feed';
 import { DELIVERY_MANIFEST_PATH } from './delivery-manifest';
+import { WORKFLOW_GROUNDED_EVENTS_SCRIPT } from './workflow-grounded-generator';
+
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+const WORKFLOW_GROUNDED_EVENTS_SCRIPT_BASE64 = encodeAsciiBase64(WORKFLOW_GROUNDED_EVENTS_SCRIPT);
+
+function encodeAsciiBase64(value: string): string {
+  let output = '';
+
+  for (let index = 0; index < value.length; index += 3) {
+    const first = value.charCodeAt(index) & 0xff;
+    const second = index + 1 < value.length ? value.charCodeAt(index + 1) & 0xff : NaN;
+    const third = index + 2 < value.length ? value.charCodeAt(index + 2) & 0xff : NaN;
+    const chunk = (first << 16) | ((Number.isNaN(second) ? 0 : second) << 8) | (Number.isNaN(third) ? 0 : third);
+
+    output += BASE64_ALPHABET[(chunk >> 18) & 63];
+    output += BASE64_ALPHABET[(chunk >> 12) & 63];
+    output += Number.isNaN(second) ? '=' : BASE64_ALPHABET[(chunk >> 6) & 63];
+    output += Number.isNaN(third) ? '=' : BASE64_ALPHABET[chunk & 63];
+  }
+
+  return output;
+}
 
 export const WORKFLOW_TEMPLATE = `# Living Doc Notify
 # Installed by the Living Docs mobile app when you connect this repo.
@@ -20,11 +43,13 @@ export const WORKFLOW_TEMPLATE = `# Living Doc Notify
 #   metadata. The workflow reads this file on push so changed JSON or HTML paths
 #   can be resolved into doc ids, titles, and public URLs without depending on a
 #   central local registry.
+#   When no explicit grounded artifact is present, the workflow heuristically
+#   derives structured block events from before/after living-doc JSON.
 #
 # Triggered by:
 #   - push on the default branch when manifest-backed doc paths change
-#   - workflow_dispatch with title/body/doc inputs (for manual testing)
-#   - repository_dispatch with event_type=living-doc-updated (for skills)
+#   - workflow_dispatch with legacy title/body inputs or eventJson (for manual testing)
+#   - repository_dispatch with event_type=living-doc-updated (for skills or richer event senders)
 
 name: Living Doc Notify
 
@@ -38,11 +63,11 @@ on:
         type: string
       title:
         description: "Notification title"
-        required: true
+        required: false
         type: string
       body:
         description: "Notification body"
-        required: true
+        required: false
         type: string
       url:
         description: "URL to open when tapped (rendered doc)"
@@ -50,6 +75,10 @@ on:
         type: string
       status:
         description: "Optional status label (green, warning, etc.)"
+        required: false
+        type: string
+      eventJson:
+        description: "Optional JSON object or array for richer grounded/block events"
         required: false
         type: string
   repository_dispatch:
@@ -80,30 +109,69 @@ jobs:
           BODY: \${{ inputs.body || github.event.client_payload.body }}
           URL: \${{ inputs.url || github.event.client_payload.url }}
           STATUS: \${{ inputs.status || github.event.client_payload.status }}
+          EVENT_JSON: \${{ inputs.eventJson || github.event.client_payload.eventJson }}
+          CLIENT_PAYLOAD_JSON: \${{ toJson(github.event.client_payload) }}
         run: |
           set -euo pipefail
 
           EVENTS_FILE="\$RUNNER_TEMP/living-doc-events.json"
           CHANGED_FILE="\$RUNNER_TEMP/living-doc-changed.txt"
 
+          normalize_events() {
+            jq --arg repo "\$REPO" '
+              def event_list:
+                if . == null then []
+                elif type == "array" then .
+                elif type == "object" then [.] else [] end;
+              event_list
+              | map(select(type == "object"))
+              | map(. + {
+                  repo: (.repo // $repo),
+                  source: (.source // .repo // $repo)
+                })
+            '
+          }
+
           case "\$EVENT_NAME" in
             workflow_dispatch|repository_dispatch)
-              jq -n \\
-                --arg docId "\$DOC_ID" \\
-                --arg title "\$TITLE" \\
-                --arg body "\$BODY" \\
-                --arg url "\$URL" \\
-                --arg status "\$STATUS" \\
-                --arg repo "\$REPO" \\
-                '[{
-                  title: $title,
-                  body: $body,
-                  repo: $repo,
-                  source: $repo
-                }
-                + (if $docId == "" then {} else { docId: $docId } end)
-                + (if $url == "" then {} else { url: $url } end)
-                + (if $status == "" then {} else { status: $status } end)]' > "\$EVENTS_FILE"
+              if [ -n "\$EVENT_JSON" ]; then
+                printf '%s' "\$EVENT_JSON" | normalize_events > "\$EVENTS_FILE"
+              elif [ "\$EVENT_NAME" = "repository_dispatch" ] && printf '%s' "\$CLIENT_PAYLOAD_JSON" | jq -e '(.events? // .event? // null) != null' >/dev/null; then
+                printf '%s' "\$CLIENT_PAYLOAD_JSON" | jq '(.events? // .event?)' | normalize_events > "\$EVENTS_FILE"
+              elif [ -n "\$TITLE" ] || [ -n "\$BODY" ]; then
+                jq -n \\
+                  --arg docId "\$DOC_ID" \\
+                  --arg title "\$TITLE" \\
+                  --arg body "\$BODY" \\
+                  --arg url "\$URL" \\
+                  --arg status "\$STATUS" \\
+                  --arg repo "\$REPO" \\
+                  '[{
+                    schemaVersion: "2026-04-19",
+                    kind: "manual-note",
+                    title: ($title | if . == "" then "Living Doc update" else . end),
+                    body: ($body | if . == "" then "Manual feed event triggered without body." else . end),
+                    repo: $repo,
+                    source: $repo
+                  }
+                  + (if $docId == "" then {} else { docId: $docId } end)
+                  + (if $url == "" then {} else { url: $url } end)
+                  + (if $status == "" then {} else {
+                      status: $status,
+                      transition: {
+                        label: $status,
+                        to: $status,
+                        tone: (
+                          if ($status | ascii_downcase | test("done|ready|green|resolved|success")) then "success"
+                          elif ($status | ascii_downcase | test("blocked|red|broken|error|fail")) then "danger"
+                          elif ($status | ascii_downcase | test("warn|review|partial|preview")) then "warning"
+                          else "accent" end
+                        )
+                      }
+                    } end)]' > "\$EVENTS_FILE"
+              else
+                echo '[]' > "\$EVENTS_FILE"
+              fi
               ;;
             push)
               if [ "\$REF_NAME" != "\$DEFAULT_BRANCH" ]; then
@@ -117,27 +185,14 @@ jobs:
                   git diff-tree --no-commit-id --name-only -r "\$GITHUB_SHA" > "\$CHANGED_FILE"
                 fi
 
-                jq \\
-                  --rawfile changed "\$CHANGED_FILE" \\
-                  --arg repo "\$REPO" \\
-                  --arg sha "\$GITHUB_SHA" \\
-                  '($changed | split("\\n") | map(select(length > 0))) as $changedPaths
-                   | (.docs // .entries // [])
-                   | map(select((.docId // "") != "" and (.title // "") != "" and (.publicUrl // "") != ""))
-                   | map(. + {
-                       trackedPaths: ((.trackedPaths // []) | map(select(type == "string" and length > 0)))
-                     })
-                   | map(select((.trackedPaths | length) > 0))
-                   | map(select(any(.trackedPaths[]; $changedPaths | index(.) != null)))
-                   | map({
-                       docId: .docId,
-                       title: (.title + " updated"),
-                       body: ("Commit " + ($sha[0:7]) + " updated " + .title + " in " + $repo + "."),
-                       url: .publicUrl,
-                       status: "updated",
-                       repo: $repo,
-                       source: $repo
-                     })' "\$MANIFEST_PATH" > "\$EVENTS_FILE"
+                printf '%s' '${WORKFLOW_GROUNDED_EVENTS_SCRIPT_BASE64}' | base64 --decode > "\$RUNNER_TEMP/living-doc-grounded-events.mjs"
+
+                node "\$RUNNER_TEMP/living-doc-grounded-events.mjs" \\
+                  "\$MANIFEST_PATH" \\
+                  "\$CHANGED_FILE" \\
+                  "\$BEFORE_SHA" \\
+                  "\$GITHUB_SHA" \\
+                  "\$REPO" > "\$EVENTS_FILE"
               fi
               ;;
             *)
@@ -233,9 +288,19 @@ jobs:
                 sound: "default",
                 data: (
                   { source: (.source // .repo), repo: (.repo // .source) }
-                  + (if (.url // "") == "" then {} else { url: .url, title: .title } end)
+                  + (if (.url // "") == "" then {} else { url: .url, title: (.docTitle // .title) } end)
                   + (if (.status // "") == "" then {} else { status: .status } end)
                   + (if (.docId // "") == "" then {} else { docId: .docId } end)
+                  + (if (.docTitle // "") == "" then {} else { docTitle: .docTitle } end)
+                  + (if (.schemaVersion // "") == "" then {} else { schemaVersion: .schemaVersion } end)
+                  + (if (.kind // "") == "" then {} else { eventKind: .kind } end)
+                  + (if (.audience // "") == "" then {} else { audience: .audience } end)
+                  + (if (.transition | type) != "object" then {} else { transition: .transition } end)
+                  + (if (.intent | type) != "object" then {} else { intent: .intent } end)
+                  + (if (.grounding | type) != "object" then {} else { grounding: .grounding } end)
+                  + (if ((.evidence // []) | length) == 0 then {} else { evidence: .evidence } end)
+                  + (if ((.openQuestions // []) | length) == 0 then {} else { openQuestions: .openQuestions } end)
+                  + (if ((.blocks // []) | length) == 0 then {} else { blocks: .blocks } end)
                 )
               }')
 

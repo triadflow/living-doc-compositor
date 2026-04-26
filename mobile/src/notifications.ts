@@ -71,7 +71,12 @@ export function notificationDocRoute(
   if (typeof data?.url !== 'string' || !data.url) return null;
   return {
     url: data.url,
-    title: typeof data.title === 'string' && data.title ? data.title : content.title ?? 'Doc',
+    title:
+      typeof data.docTitle === 'string' && data.docTitle
+        ? data.docTitle
+        : typeof data.title === 'string' && data.title
+          ? data.title
+          : content.title ?? 'Doc',
   };
 }
 

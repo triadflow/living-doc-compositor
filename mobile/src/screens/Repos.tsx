@@ -43,6 +43,7 @@ type RepoState = AdminRepo & {
 export default function Repos() {
   const { token } = useAuth();
   const runtime = pushRuntime();
+  const isWeb = runtime === 'web';
   const [repos, setRepos] = useState<RepoState[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,11 @@ export default function Repos() {
 
   const loadRepos = useCallback(async () => {
     if (!token) return;
+    if (isWeb) {
+      setRepos([]);
+      setError(null);
+      return;
+    }
     try {
       setError(null);
       const list = await listAdminRepos(token);
@@ -101,7 +107,7 @@ export default function Repos() {
     } catch (err: any) {
       setError(err.message ?? 'Failed to load repos');
     }
-  }, [token]);
+  }, [isWeb, token]);
 
   useEffect(() => {
     loadRepos();
@@ -239,13 +245,21 @@ export default function Repos() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerSub}>
-          {pushToken
+          {isWeb
+            ? 'Browser preview does not support GitHub login or repo connection yet. Use a native build to install the push secret and workflow file.'
+            : pushToken
             ? 'Any repo where you are an admin. Tap Connect to install the push secret and workflow file.'
-            : `Running in ${pushRuntimeLabel(runtime)}. Repo setup can be wired for preview, but real pushes need an EAS build token.`}
+            : `Running in ${pushRuntimeLabel(runtime)}. Repo setup can be wired for preview, but real pushes need a native Expo push token from a dev build.`}
         </Text>
       </View>
 
-      {error ? (
+      {isWeb ? (
+        <EmptyState
+          title="Repo connection unavailable on web"
+          body="Browser preview is UI-only until the proper GitHub web OAuth flow exists. Use Expo Go, an emulator, or an EAS development build."
+          style={{ flex: 1 }}
+        />
+      ) : error ? (
         <EmptyState title="Could not load repos" body={error} style={{ flex: 1 }} />
       ) : repos === null ? (
         <View style={styles.loading}><ActivityIndicator /></View>

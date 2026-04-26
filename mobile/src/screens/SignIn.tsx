@@ -1,37 +1,153 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, Linking,
-  TextInput, Platform, ScrollView, KeyboardAvoidingView,
+  Platform, ScrollView, KeyboardAvoidingView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth';
+import { storage } from '../storage';
 import { colors, radii, spacing, type } from '../theme';
+
+const PENDING_DEVICE_SIGN_IN_KEY = 'github_pending_device_sign_in';
+
+type DevicePhasePayload = {
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete: string | null;
+  deviceCode: string;
+  interval: number;
+  expiresAt: number;
+};
+
+type PendingDeviceSignIn = DevicePhasePayload & {
+  status: 'waiting' | 'polling';
+};
 
 type Phase =
   | { name: 'idle' }
   | { name: 'requesting' }
-  | { name: 'waiting'; userCode: string; verificationUri: string; deviceCode: string; interval: number }
-  | { name: 'polling' };
+  | ({ name: 'waiting' } & DevicePhasePayload)
+  | ({ name: 'polling' } & DevicePhasePayload);
+
+function isExpired(expiresAt: number): boolean {
+  return expiresAt <= Date.now();
+}
+
+function pendingFromPhase(
+  phase: Extract<Phase, { name: 'waiting' | 'polling' }>
+): PendingDeviceSignIn {
+  return {
+    status: phase.name,
+    userCode: phase.userCode,
+    verificationUri: phase.verificationUri,
+    verificationUriComplete: phase.verificationUriComplete,
+    deviceCode: phase.deviceCode,
+    interval: phase.interval,
+    expiresAt: phase.expiresAt,
+  };
+}
+
+function phaseFromPending(pending: PendingDeviceSignIn): Extract<Phase, { name: 'waiting' | 'polling' }> {
+  return {
+    name: pending.status,
+    userCode: pending.userCode,
+    verificationUri: pending.verificationUri,
+    verificationUriComplete: pending.verificationUriComplete,
+    deviceCode: pending.deviceCode,
+    interval: pending.interval,
+    expiresAt: pending.expiresAt,
+  };
+}
 
 export default function SignIn() {
-  const { signInDevice, completeDeviceSignIn, signInWithToken } = useAuth();
+  const { signInDevice, completeDeviceSignIn } = useAuth();
   const [phase, setPhase] = useState<Phase>({ name: 'idle' });
-  const [pat, setPat] = useState('');
-  const [patSubmitting, setPatSubmitting] = useState(false);
+  const pollingRef = useRef(false);
+
+  const clearPending = async () => {
+    await storage.remove(PENDING_DEVICE_SIGN_IN_KEY);
+  };
+
+  const persistPending = async (pending: PendingDeviceSignIn) => {
+    await storage.set(PENDING_DEVICE_SIGN_IN_KEY, JSON.stringify(pending));
+  };
+
+  const restorePending = async (): Promise<PendingDeviceSignIn | null> => {
+    const raw = await storage.get(PENDING_DEVICE_SIGN_IN_KEY);
+    if (!raw) return null;
+    try {
+      const pending = JSON.parse(raw) as PendingDeviceSignIn;
+      if (isExpired(pending.expiresAt)) {
+        await clearPending();
+        return null;
+      }
+      return pending;
+    } catch {
+      await clearPending();
+      return null;
+    }
+  };
+
+  const finishPendingSignIn = async (
+    pending: PendingDeviceSignIn,
+    options?: { dismissBrowserOnSuccess?: boolean }
+  ) => {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+    const nextPhase = phaseFromPending({ ...pending, status: 'polling' });
+    setPhase(nextPhase);
+    await persistPending({ ...pending, status: 'polling' });
+    try {
+      await completeDeviceSignIn(pending.deviceCode, pending.interval);
+      await clearPending();
+      if (options?.dismissBrowserOnSuccess) {
+        try {
+          WebBrowser.dismissBrowser();
+        } catch {}
+      }
+    } catch (err: any) {
+      await clearPending();
+      Alert.alert('Sign-in failed', err.message ?? 'Unknown error');
+      setPhase({ name: 'idle' });
+    } finally {
+      pollingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const pending = await restorePending();
+      if (!pending || cancelled) return;
+      const restored = phaseFromPending(pending);
+      setPhase(restored);
+      if (pending.status === 'polling') {
+        void finishPendingSignIn(pending);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startDevice = async () => {
     setPhase({ name: 'requesting' });
     try {
       const code = await signInDevice();
-      setPhase({
+      const nextPhase: Extract<Phase, { name: 'waiting' }> = {
         name: 'waiting',
         userCode: code.userCode,
         verificationUri: code.verificationUri,
+        verificationUriComplete: code.verificationUriComplete,
         deviceCode: code.deviceCode,
         interval: code.interval,
-      });
+        expiresAt: Date.now() + code.expiresIn * 1000,
+      };
+      setPhase(nextPhase);
+      await persistPending(pendingFromPhase(nextPhase));
     } catch (err: any) {
       Alert.alert('Sign-in failed', err.message ?? 'Unknown error');
       setPhase({ name: 'idle' });
@@ -41,24 +157,29 @@ export default function SignIn() {
   const authorizeDevice = async () => {
     if (phase.name !== 'waiting') return;
     await Clipboard.setStringAsync(phase.userCode);
-    await Linking.openURL(phase.verificationUri);
-    setPhase({ name: 'polling' });
+    const pending = pendingFromPhase(phase);
+    const verificationUrl = phase.verificationUriComplete ?? phase.verificationUri;
     try {
-      await completeDeviceSignIn(phase.deviceCode, phase.interval);
+      let browserPromise: Promise<WebBrowser.WebBrowserResult> | null = null;
+      let dismissBrowserOnSuccess = false;
+
+      try {
+        browserPromise = WebBrowser.openBrowserAsync(verificationUrl);
+        dismissBrowserOnSuccess = true;
+      } catch {
+        await Linking.openURL(verificationUrl);
+      }
+
+      const signInPromise = finishPendingSignIn(pending, { dismissBrowserOnSuccess });
+      if (browserPromise) {
+        await Promise.all([browserPromise, signInPromise]);
+      } else {
+        await signInPromise;
+      }
     } catch (err: any) {
+      await clearPending();
       Alert.alert('Sign-in failed', err.message ?? 'Unknown error');
       setPhase({ name: 'idle' });
-    }
-  };
-
-  const submitPat = async () => {
-    setPatSubmitting(true);
-    try {
-      await signInWithToken(pat);
-    } catch (err: any) {
-      Alert.alert('Token rejected', err.message ?? 'Could not validate token.');
-    } finally {
-      setPatSubmitting(false);
     }
   };
 
@@ -84,7 +205,8 @@ export default function SignIn() {
               <Text style={styles.codeLabel}>Your code</Text>
               <Text style={styles.code}>{phase.userCode}</Text>
               <Text style={styles.codeHint}>
-                We copied it to your clipboard. Tap "Authorize on GitHub" to finish.
+                We copied it to your clipboard. Tap "Authorize on GitHub" to finish. If Expo Go
+                reloads while GitHub is open, this sign-in will resume when you come back.
               </Text>
             </View>
           ) : null}
@@ -92,7 +214,10 @@ export default function SignIn() {
           {!isWeb && phase.name === 'polling' ? (
             <View style={styles.polling}>
               <ActivityIndicator />
-              <Text style={styles.pollingText}>Waiting for GitHub authorization</Text>
+              <Text style={styles.pollingText}>
+                Waiting for GitHub authorization. When approval succeeds, the app will continue
+                automatically.
+              </Text>
             </View>
           ) : null}
 
@@ -117,35 +242,17 @@ export default function SignIn() {
           ) : null}
 
           {isWeb ? (
-            <View style={styles.patBlock}>
-              <Text style={styles.sectionLabel}>Browser sign-in</Text>
+            <View style={styles.webBlock}>
+              <Text style={styles.sectionLabel}>Browser preview</Text>
               <Text style={styles.helpText}>
-                GitHub's device flow is blocked by CORS in browsers. Paste a personal access token
-                with <Text style={styles.mono}>read:user</Text> and <Text style={styles.mono}>repo</Text> scopes.
+                Normal GitHub sign-in is not available in browser preview yet. This app uses
+                device flow on native, and the proper web OAuth callback flow has not been added
+                yet.
               </Text>
-              <Pressable
-                onPress={() => Linking.openURL('https://github.com/settings/tokens/new?description=Living%20Docs%20Web&scopes=repo,read:user')}
-              >
-                <Text style={styles.link}>Create a token →</Text>
-              </Pressable>
-              <TextInput
-                value={pat}
-                onChangeText={setPat}
-                placeholder="ghp_... or github_pat_..."
-                placeholderTextColor={colors.textSubtle}
-                autoCapitalize="none"
-                autoCorrect={false}
-                secureTextEntry
-                style={styles.patInput}
-              />
-              <Pressable
-                style={[styles.primaryBtn, patSubmitting && { opacity: 0.6 }]}
-                onPress={submitPat}
-                disabled={patSubmitting || !pat.trim()}
-              >
-                {patSubmitting ? <ActivityIndicator color="#fff" /> : <Ionicons name="log-in-outline" size={18} color="#fff" />}
-                <Text style={styles.primaryBtnText}>Sign in with token</Text>
-              </Pressable>
+              <Text style={styles.helpText}>
+                Use Expo Go, an emulator, or an EAS development build to sign in with GitHub and
+                connect repos.
+              </Text>
             </View>
           ) : null}
         </ScrollView>
@@ -205,7 +312,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  patBlock: {
+  webBlock: {
     marginTop: spacing.md,
     gap: spacing.sm,
     padding: spacing.lg,
@@ -214,18 +321,4 @@ const styles = StyleSheet.create({
   },
   sectionLabel: { ...type.tiny, color: colors.textMuted, textTransform: 'uppercase' },
   helpText: { ...type.small, color: colors.textMuted, lineHeight: 18 },
-  mono: { fontFamily: 'Menlo', color: colors.text },
-  link: { color: colors.accent, fontSize: 14, fontWeight: '600' },
-  patInput: {
-    backgroundColor: colors.bg,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    fontFamily: 'Menlo',
-    fontSize: 13,
-    color: colors.text,
-    marginTop: spacing.xs,
-  },
 });
