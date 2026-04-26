@@ -156,7 +156,11 @@ try {
 
   const source = await client.callTool('living_doc_sources_create', {
     kind: 'local-json',
-    payload: { title: 'Settings Toggle Evidence', data: { passed: true } },
+    payload: {
+      title: 'Settings Toggle Evidence',
+      path: path.join(tmpDir, 'settings-toggle-evidence.json'),
+      data: { passed: true },
+    },
     policy: { allowWrite: true },
   });
   assert.equal(source.kind, 'local-json');
