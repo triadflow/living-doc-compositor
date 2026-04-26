@@ -11,7 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
 const i18nPath = path.join(__dirname, 'living-doc-i18n.json');
 const compositorPath = path.join(__dirname, '..', 'docs', 'living-doc-compositor.html');
-const aiRenderGraphRuntimePath = path.join(__dirname, '..', '..', 'ai-render-graph', 'dist', 'browser', 'ai-render-graph.file.js');
+const aiRenderGraphRuntimePath = process.env.AI_RENDER_GRAPH_RUNTIME_PATH
+  ? path.resolve(process.env.AI_RENDER_GRAPH_RUNTIME_PATH)
+  : path.join(__dirname, 'vendor', 'ai-render-graph.file.js');
 
 /* ── Load registry + doc ── */
 
@@ -1847,7 +1849,22 @@ const registryJson = JSON.stringify(registry, null, 2).replace(/<\/script/gi, '<
 const i18nJson = JSON.stringify(i18n, null, 2).replace(/<\/script/gi, '<\\/script');
 const aiSpecJson = documentAiArtifacts.serializableSpec ? safeJsonForScript(documentAiArtifacts.serializableSpec) : '';
 const aiMetaJson = documentAiArtifacts.serializableMeta ? safeJsonForScript(documentAiArtifacts.serializableMeta) : '';
-const aiRenderGraphRuntimeSource = documentAiArtifacts.serializableSpec ? safeInlineScriptSource(await readFile(aiRenderGraphRuntimePath, 'utf8')) : '';
+const aiRenderGraphRuntimeSource = documentAiArtifacts.serializableSpec
+  ? safeInlineScriptSource(await readAiRenderGraphRuntime())
+  : '';
+
+async function readAiRenderGraphRuntime() {
+  try {
+    return await readFile(aiRenderGraphRuntimePath, 'utf8');
+  } catch (error) {
+    const hint = process.env.AI_RENDER_GRAPH_RUNTIME_PATH
+      ? `AI_RENDER_GRAPH_RUNTIME_PATH is set to ${aiRenderGraphRuntimePath}, but that file could not be read.`
+      : `Expected the vendored browser runtime at ${aiRenderGraphRuntimePath}.`;
+    throw new Error(`${hint} Rebuild or restore scripts/vendor/ai-render-graph.file.js before rendering AI-enhanced exports.`, {
+      cause: error,
+    });
+  }
+}
 
 const html = `<!doctype html>
 <html lang="en">
