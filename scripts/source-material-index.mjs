@@ -410,7 +410,8 @@ async function readLocalContent(record) {
   };
 }
 
-export function normalizeGitHubPayload(payload, parsedUrl) {
+export function normalizeGitHubPayload(payload, parsedUrl, options = {}) {
+  const model = options.model || DEFAULT_EMBEDDING_MODEL;
   const parsed = typeof parsedUrl === 'string' ? parseGitHubUrl(parsedUrl) : parsedUrl;
   const labels = (payload.labels || []).map((label) => typeof label === 'string' ? label : label.name).filter(Boolean);
   const comments = (payload.comments || []).map((comment, index) => {
@@ -458,7 +459,7 @@ export function normalizeGitHubPayload(payload, parsedUrl) {
     visibility: 'unknown',
     reason: '',
   };
-  return hydrateChunks(record, text);
+  return hydrateChunks(record, text, model);
 }
 
 function hydrateChunks(record, text, model = DEFAULT_EMBEDDING_MODEL) {
@@ -553,6 +554,7 @@ function actionForRecord(previous, next, model) {
   if (next.status === 'unsupported') return 'unsupported';
   if (next.status === 'inaccessible') return 'inaccessible';
   if (!previous) return next.status === 'indexed' ? 'indexed' : 'queued';
+  if (previous.status === 'inaccessible' && next.status === 'indexed') return 'indexed';
   if (previous.status === 'failed') return 'queued';
   if (previous.freshness?.contentHash && next.freshness?.contentHash && previous.freshness.contentHash !== next.freshness.contentHash) return 'changed';
   if (previous.embedding?.model && previous.embedding.model !== model) return 'embedding-model-stale';
@@ -690,6 +692,7 @@ export async function queryIndex(query, options = {}) {
 async function fetchGitHubSource(url, options = {}) {
   const parsed = parseGitHubUrl(url);
   if (!parsed) throw new Error(`Unsupported GitHub URL: ${url}`);
+  const model = options.model || DEFAULT_EMBEDDING_MODEL;
   const apiPath = parsed.kind === 'github-pr'
     ? `repos/${parsed.fullRepo}/pulls/${parsed.number}`
     : `repos/${parsed.fullRepo}/issues/${parsed.number}`;
@@ -709,9 +712,11 @@ async function fetchGitHubSource(url, options = {}) {
   const normalized = normalizeGitHubPayload({
     ...payload,
     comments: commentPayload,
-  }, parsed);
+  }, parsed, { model });
   if (options.write) {
-    const index = await readIndex(options.indexDir || DEFAULT_INDEX_DIR, options.model || DEFAULT_EMBEDDING_MODEL);
+    const index = await readIndex(options.indexDir || DEFAULT_INDEX_DIR, model);
+    const previous = index.sources?.[normalized.sourceId];
+    for (const backlink of previous?.backlinks || []) mergeBacklink(normalized, backlink);
     index.sources[normalized.sourceId] = normalized;
     index.updatedAt = nowIso();
     index.queue = (index.queue || []).filter((item) => item.sourceId !== normalized.sourceId);
