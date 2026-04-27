@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physical AI and Living Docs &middot; Complexity Substrates</title>
+<meta name="description" content="A detailed comparison between the Physical AI approach in the a16z Deep Dives episode and the inference-time living-doc harness used by Living Doc Compositor." />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  .comparison-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:14px;
+    margin:2.1em -34px;
+  }
+  .comparison-card{
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:color-mix(in srgb,var(--paper) 90%,white);
+    padding:18px;
+    min-height:190px;
+  }
+  .comparison-card .tagline{
+    display:inline-flex;
+    align-items:center;
+    min-height:22px;
+    padding:0 8px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:12px;
+  }
+  .comparison-card h3{
+    margin:0 0 8px;
+    font-size:18px;
+    line-height:1.2;
+  }
+  .comparison-card p{
+    margin:0;
+    color:var(--muted);
+    font-size:14px;
+    line-height:1.58;
+  }
+  .bridge{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    gap:18px;
+    align-items:stretch;
+    margin:2.4em -34px;
+  }
+  .bridge-box{
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px;
+    background:#fff;
+  }
+  .bridge-box h3{
+    margin:0 0 10px;
+    font-size:18px;
+  }
+  .bridge-box ul{
+    margin:0;
+    padding-left:18px;
+  }
+  .bridge-arrow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--accent);
+    font-family:var(--font-mono);
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+  }
+  .principle-list{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    margin:1.7em 0;
+  }
+  .principle{
+    border-left:3px solid var(--accent);
+    background:color-mix(in srgb,var(--accent) 7%,white);
+    padding:14px 16px;
+    border-radius:0 8px 8px 0;
+  }
+  .principle strong{
+    display:block;
+    margin-bottom:4px;
+  }
+  .small-note{
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.55;
+  }
+  @media (max-width:900px){
+    .comparison-grid,.bridge,.principle-list{grid-template-columns:1fr;margin-left:0;margin-right:0}
+    .bridge-arrow{writing-mode:horizontal-tb;padding:4px 0}
+  }
+</style>
+</head>
+<body>
+
+<div class="read-progress"><div class="bar" id="readBar"></div></div>
+
+<header class="top-bar">
+  <a href="index.html" class="brand">
+    <span class="logo">L</span>
+    <span class="brand-name">Living Doc Compositor</span>
+  </a>
+  <span class="spacer"></span>
+  <nav>
+    <a href="living-doc-compositor.html">Compositor</a>
+    <a href="index.html">Docs</a>
+    <a href="blog.html" class="active">Writing</a>
+  </nav>
+  <a href="https://github.com/triadflow/living-doc-compositor" class="github">
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+    Repo
+  </a>
+</header>
+
+<section class="post-header">
+  <div class="stage">
+    <div class="breadcrumbs">
+      <a href="index.html">Home</a>
+      <span class="sep">/</span>
+      <a href="blog.html">Writing</a>
+      <span class="sep">/</span>
+      <span class="current">Complexity substrates</span>
+    </div>
+
+    <div class="kicker">
+      <span class="eyebrow">Comparative analysis</span>
+      <span class="eyebrow muted">Issue 01 &middot; &#8470; 06</span>
+    </div>
+
+    <h1>Two ways of making complexity legible to AI.</h1>
+
+    <p class="dek">
+      Diode and Unlimited turn physical design into constrained code-like systems. The inference-time living-doc harness turns agent work into a governed document substrate. The common move is not automation first. It is representation first.
+    </p>
+
+    <div class="byline-row">
+      <div class="author">
+        <span class="avatar">RL</span>
+        <div class="who">
+          <span class="name">Rene Luijk</span>
+          <span class="affil">Triadflow</span>
+        </div>
+      </div>
+      <div class="meta">
+        <span><span class="label">Prepared</span><span class="v">Apr 27, 2026</span></span>
+        <span class="pipe"></span>
+        <span><span class="label">Read</span><span class="v">10 min</span></span>
+        <span class="pipe"></span>
+        <span><span class="label">Sources</span><span class="v">a16z transcript + Codex skill</span></span>
+        <span class="pipe"></span>
+        <span><span class="label">File</span><span class="v" style="font-family:var(--font-mono)">docs/blog-physical-ai-living-doc-comparison.html</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<article>
+  <div class="article">
+    <div class="prose">
+
+      <p class="lede">The a16z Physical AI episode is easy to file under robotics, construction automation, or industrial AI. That is not the most useful reading. The sharper pattern is that both companies described in the transcript attack complexity by changing the substrate on which the model works.</p>
+
+      <p>Diode does not ask a frontier model to become an expert PCB designer in the raw. Unlimited does not ask a model to improvise a construction project from loose natural language. Both build rails: compilers, ontologies, validated blocks, deterministic checks, simulation, and end-to-end delivery surfaces. Living Doc Compositor makes a parallel move for inference-time work. It does not ask Codex to keep an entire complex objective in free-form context. It turns the work into a governed living document with typed sections, facets, coverage edges, invariants, readiness gates, and source-linked evidence.</p>
+
+      <div class="callout callout-positive">
+        <span class="lbl">Core comparison</span>
+        <p>Physical AI companies make physical work AI-addressable by converting it into constrained representations. Living Doc Compositor makes complex agent work AI-addressable by converting it into governed representations.</p>
+      </div>
+
+      <h2>Source Frame</h2>
+
+      <p>The transcript centers on two founders: Davide Asnaghi of Diode Computers, focused on AI-designed and manufactured PCBs, and Alex Modon of Unlimited Industries, focused on AI-native design and EPC for large infrastructure. The repeated claim is that the breakthrough is not simply better prompting. It is putting the physical domain onto rails so frontier models can operate in a shape they are already good at.</p>
+
+      <p>The comparison point on our side is <code>inference-living-doc-run-codex</code>. That skill creates a fresh governed run document for a complex objective, uses the living-doc registry as a type system, tracks <code>documentReady</code> and <code>objectiveReady</code> separately, requires source-system evidence before status upgrades, and forces Codex back to objective work after each harness cycle.</p>
+
+      <div class="comparison-grid">
+        <section class="comparison-card">
+          <span class="tagline">Diode</span>
+          <h3>PCB complexity as compilable design intent.</h3>
+          <p>Diode reframes board design as a code-like target. The model expresses intent through a compiler-like layer, then deterministic design-for-manufacturing checks and validation loops carry the burden of physical correctness.</p>
+        </section>
+        <section class="comparison-card">
+          <span class="tagline">Unlimited</span>
+          <h3>Infrastructure complexity as an ontology.</h3>
+          <p>Unlimited appears to model projects as structured systems with dependencies, deliverables, schedules, and physical constraints. The target is not a CAD plugin. It is the finished IFC/EPC output.</p>
+        </section>
+        <section class="comparison-card">
+          <span class="tagline">Living Docs</span>
+          <h3>Agent complexity as governed run state.</h3>
+          <p>The harness turns a complex Codex objective into typed sections, facets, evidence, governance, and readiness gates. The model still executes, but the doc makes execution auditable.</p>
+        </section>
+      </div>
+
+      <h2>The Shared Move</h2>
+
+      <p>The shared move is <strong>representation before automation</strong>. Each system chooses a substrate where model output can be constrained, checked, and accumulated over time.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Problem</th>
+            <th>Physical AI answer</th>
+            <th>Living-doc answer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Raw domain is too complex for free-form generation.</td>
+            <td>Do not generate the physical artifact directly. Generate structured design intent that compilers, ontologies, and validators can process.</td>
+            <td>Do not solve the whole objective from chat memory. Generate and update typed run state that governance and coverage can inspect.</td>
+          </tr>
+          <tr>
+            <td>Correctness cannot be trusted from prose.</td>
+            <td>Use design rules, manufacturability checks, simulation, and physical validation.</td>
+            <td>Use source anchors, evidence links, governance evaluation, rendered docs, commits, tests, PRs, and issue updates.</td>
+          </tr>
+          <tr>
+            <td>Human workflow has high coordination cost.</td>
+            <td>Sell the board or infrastructure package, not a new tool that a conservative industry must adopt.</td>
+            <td>Deliver source-system outcomes, not a pretty plan. The doc supports execution but is not the objective.</td>
+          </tr>
+          <tr>
+            <td>Learning data is scarce or scattered.</td>
+            <td>Bootstrap from validated blocks, deterministic rails, simulation, and repeated delivery loops that generate new training data.</td>
+            <td>Bootstrap from source systems, typed cards, coverage edges, invariants, and run history that generate reusable operational memory.</td>
+          </tr>
+          <tr>
+            <td>Drift is hard to see.</td>
+            <td>Physical constraints, DFM checks, and simulation expose design drift before manufacture.</td>
+            <td>Governance exposes status drift, source-boundary drift, coverage gaps, and false completion.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Diode: Complexity As Manufacturing-Checked Code</h2>
+
+      <p>Diode's distinctive move is to make PCB design feel more like writing code than dragging traces in a schematic tool. The transcript summary says Diode built a compiler so the model feels like it is writing Python rather than a schematic. That matters because frontier models are much stronger at code-shaped symbolic work than at raw spatial, electrical, and manufacturing reasoning.</p>
+
+      <p>The company is therefore not betting on a model spontaneously possessing tacit DFM judgment. It is betting that enough of the work can be re-expressed as structured intent, and that the missing physical judgment can be supplied by automated checks, manufacturing feedback, and a growing library of validated design blocks.</p>
+
+      <div class="principle-list">
+        <div class="principle">
+          <strong>Compiler layer</strong>
+          The model writes into an intermediate representation where the system can catch invalid outputs before they become expensive.
+        </div>
+        <div class="principle">
+          <strong>Validated block library</strong>
+          Reusable design blocks turn one successful physical design into future substrate, not just a one-off artifact.
+        </div>
+        <div class="principle">
+          <strong>DFM as verification</strong>
+          Design-for-manufacturing checks serve the same role tests serve in software: they make hidden constraints executable.
+        </div>
+        <div class="principle">
+          <strong>Data flywheel</strong>
+          Every manufactured or validated design can become training material, examples, or rails for the next design.
+        </div>
+      </div>
+
+      <p>This is close to how a living-doc run treats complex Codex work. We do not let the agent's plan remain a blob of text. We move it into typed carriers: objectives, facets, source anchors, status fields, verification evidence, governance invariants. The model can still reason, but its reasoning has a place to land.</p>
+
+      <h2>Unlimited: Complexity As Deliverable-Centered EPC</h2>
+
+      <p>Unlimited's approach, as distilled from the transcript, is less about a single technical compiler and more about changing the business and workflow boundary. The company sells the output, not the software. That matters because construction and EPC markets have severe adoption friction. Project finance wants predictable internal rates of return and stable delivery risk. A new tool that promises upside but injects process risk is hard to adopt from below.</p>
+
+      <p>So Unlimited's move appears to be vertical integration around the deliverable: produce the package, compress schedule, and absorb the complexity inside an AI-native delivery process. The customer does not need to adopt a new AI toolchain. The customer gets a finished project artifact.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Unlimited pattern</th>
+            <th>What it solves</th>
+            <th>Living-doc analogue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sell the deliverable, not the tool.</td>
+            <td>Bypasses conservative adoption loops in high-risk physical industries.</td>
+            <td>The harness must deliver source-system outcomes. A complete doc with incomplete objective is failure.</td>
+          </tr>
+          <tr>
+            <td>Time is the value metric.</td>
+            <td>Engineering cost is often small relative to schedule compression and financeability.</td>
+            <td>The harness exists to reduce objective drift and rework across long-running agent tasks.</td>
+          </tr>
+          <tr>
+            <td>Autonomy from day one.</td>
+            <td>Human-in-the-loop assumptions produce a different architecture than full automation assumptions.</td>
+            <td>The skill creates a full governed run from the start rather than adding audit state after the work is already messy.</td>
+          </tr>
+          <tr>
+            <td>Ontology over loose workflow.</td>
+            <td>Infrastructure work needs explicit dependencies, deliverables, constraints, and interfaces.</td>
+            <td>Living docs use registry-defined convergence types, facets, source cards, and invariants.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>The strongest parallel is the refusal to treat AI as a sidecar. Unlimited does not appear to be adding AI autocomplete to old EPC. The living-doc harness similarly does not add a nicer checklist to ordinary chat. It changes the operating substrate of the work.</p>
+
+      <h2>The Living-Doc Harness: Complexity As Governed Inference</h2>
+
+      <p>The inference-time living-doc harness is built around a different failure mode. Physical AI systems are fighting physics, fabrication, scheduling, tacit knowledge, and institutional adoption. Codex is fighting context loss, premature completion, source ownership mistakes, hidden assumptions, status drift, and verification gaps.</p>
+
+      <p>The harness turns those failure modes into explicit gates:</p>
+
+      <ul>
+        <li><strong>Fresh objective-specific run doc:</strong> no inherited stale plan. Every complex task gets a fresh governed state.</li>
+        <li><strong>Registry-defined structure:</strong> convergence types prevent sections from becoming arbitrary buckets.</li>
+        <li><strong>Objective facets:</strong> the work is decomposed into things that can be represented, worked, and verified.</li>
+        <li><strong>Coverage edges:</strong> each facet must have carriers in the doc rather than living only in the agent's head.</li>
+        <li><strong>Governance invariants:</strong> local rules prevent false completion, source-boundary drift, and unverified status upgrades.</li>
+        <li><strong>Readiness split:</strong> <code>documentReady</code> and <code>objectiveReady</code> are separate so a clean document cannot masquerade as finished work.</li>
+        <li><strong>Momentum rule:</strong> after one pure harness cycle, Codex must return to objective work.</li>
+        <li><strong>Source-system delivery:</strong> code, PRs, issues, docs, tests, and verification evidence remain canonical.</li>
+      </ul>
+
+      <p>That last point is important. The living doc is not the deliverable unless the objective is to create or update a living doc. It is working memory, governance, and audit state. This is similar to Diode's compiler or Unlimited's ontology: the representation is not valuable because it looks complete. It is valuable because it improves delivery of the real artifact.</p>
+
+      <div class="bridge">
+        <div class="bridge-box">
+          <h3>Physical AI substrate</h3>
+          <ul>
+            <li>Code-like design intent</li>
+            <li>Compiler or ontology</li>
+            <li>DFM checks</li>
+            <li>Simulation and validation</li>
+            <li>Manufactured board or EPC package</li>
+          </ul>
+        </div>
+        <div class="bridge-arrow">same shape</div>
+        <div class="bridge-box">
+          <h3>Living-doc substrate</h3>
+          <ul>
+            <li>Typed objective state</li>
+            <li>Registry and convergence types</li>
+            <li>Governance invariants</li>
+            <li>Coverage and verification evidence</li>
+            <li>Committed source outcome or durable artifact</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2>Where The Approaches Differ</h2>
+
+      <p>The analogy is strong, but it is not identity. The differences matter because they show where each system has to be strict.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>Diode / Unlimited</th>
+            <th>Living-doc harness</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Primary reality constraint</td>
+            <td>Physics, manufacturability, construction sequence, materials, trades, safety, and finance.</td>
+            <td>Source truth, repo truth, issue truth, test truth, PR state, and verified objective completion.</td>
+          </tr>
+          <tr>
+            <td>Failure cost</td>
+            <td>Bad board, bad construction package, rework, schedule slip, physical waste, safety risk.</td>
+            <td>Wrong code, false status, unreviewed PR, missing verification, misleading doc, unresolved issue.</td>
+          </tr>
+          <tr>
+            <td>Validator</td>
+            <td>Design rules, simulation, physical manufacturing, field constraints.</td>
+            <td>Governance tools, coverage checks, tests, diffs, commits, PRs, issue updates, rendered docs.</td>
+          </tr>
+          <tr>
+            <td>Customer-facing artifact</td>
+            <td>Board, manufactured part, IFC package, completed infrastructure work.</td>
+            <td>Implemented code, updated source system, durable design note, issue/PR state, verified artifact.</td>
+          </tr>
+          <tr>
+            <td>Accumulation mechanism</td>
+            <td>Validated blocks, generated data, manufacturing feedback, simulation traces.</td>
+            <td>Run docs, source cards, invariants, commits, issues, PR links, verification evidence.</td>
+          </tr>
+          <tr>
+            <td>Human role</td>
+            <td>Move from operator of tools toward specifier, reviewer, manufacturer, and business owner.</td>
+            <td>Move from context re-explainer toward objective setter, reviewer, and source-system owner.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>The Key Design Lesson</h2>
+
+      <p>The main design lesson is that AI systems become useful in complex domains when they stop relying on raw conversational intelligence as the only control surface. The transcript's companies do not trust the model alone. They give it a domain-specific substrate where intermediate outputs can be inspected and corrected. The living-doc harness does the same for Codex.</p>
+
+      <blockquote>
+        <p>The model is not the system. The system is the model plus the representation, validators, feedback loops, and delivery boundary around it.</p>
+      </blockquote>
+
+      <p>This is why the comparison matters for Living Doc Compositor. The harness should not be framed as documentation overhead. It is closer to a compiler and validation layer for agent work. Its job is to make an otherwise fragile inference process executable, inspectable, and repeatable.</p>
+
+      <h2>What This Suggests For Our Work</h2>
+
+      <p>The transcript suggests four useful refinements to how we talk about and build the living-doc method.</p>
+
+      <ol>
+        <li><strong>Use the phrase complexity substrate deliberately.</strong> It captures the thing Diode, Unlimited, and Living Doc Compositor share: a constrained layer where AI work becomes checkable.</li>
+        <li><strong>Emphasize deliverable-first design.</strong> The harness exists to complete objectives, not to produce beautiful run docs. That matches Unlimited's sell-the-output pattern.</li>
+        <li><strong>Make validators more first-class.</strong> In physical AI, validation is obvious because physics punishes mistakes. In agent work, validators are governance, tests, diffs, PR state, and issue state. They need the same prominence.</li>
+        <li><strong>Treat typed source material as the data flywheel.</strong> Just as validated blocks become future design substrate, well-structured run docs and source-linked cards become future agent substrate.</li>
+      </ol>
+
+      <div class="callout callout-amber">
+        <span class="lbl">Potential essay thesis</span>
+        <p>The next wave is not only bigger models for harder domains. It is better substrates around models: compilers for PCB design, ontologies for infrastructure, governed living docs for agent work. The winning systems convert complexity into a representation where AI can act and where reality can push back.</p>
+      </div>
+
+      <h2>Comparison In One Sentence</h2>
+
+      <p>Diode and Unlimited make physical complexity tractable by turning it into constrained design systems; Living Doc Compositor makes inference-time work tractable by turning it into a governed, source-linked, verifiable run system.</p>
+
+      <h2>Source Notes</h2>
+
+      <ul>
+        <li>a16z Deep Dives, <a href="https://www.youtube.com/watch?v=faqaOVQ5Axk">Why Physical AI Is the Next Big Opportunity</a>, transcript summary from local queue job <code>job_mogqw3o6_1e26712f</code> and prior transcript job <code>job_mogqgrnu_c1a57e73</code>.</li>
+        <li>Codex skill contract: <code>/Users/rene/.codex/skills/inference-living-doc-run-codex/SKILL.md</code>.</li>
+        <li>This page is an analysis artifact. It does not update the public dossiers or claim that the a16z episode is primary evidence for a monitored dossier.</li>
+      </ul>
+
+      <div class="article-tags">
+        <div class="tags">
+          <a href="#" class="tag">Physical AI</a>
+          <a href="#" class="tag">Living Docs</a>
+          <a href="#" class="tag">Governance</a>
+          <a href="#" class="tag">Complexity substrate</a>
+        </div>
+        <span class="sp"></span>
+        <span class="small-note">Static artifact: <code>docs/blog-physical-ai-living-doc-comparison.html</code></span>
+      </div>
+
+    </div>
+
+    <div class="author-card">
+      <div class="inner">
+        <span class="avatar">RL</span>
+        <div>
+          <div class="name">Rene Luijk</div>
+          <div class="bio">
+            Builds Triadflow and Living Doc Compositor. This note compares a Physical AI substrate pattern with the governed inference-time run harness used for complex Codex work.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+<nav class="pn-nav">
+  <div class="pn-label">
+    <span class="tag">More in Writing</span>
+    <span class="line"></span>
+  </div>
+  <div class="pn-grid">
+    <a href="blog-governance-layer.html" class="pn-card">
+      <span class="dir">&larr; Previous</span>
+      <div>
+        <div class="cat">Feature narrative</div>
+        <h3>The governance layer</h3>
+      </div>
+    </a>
+    <a href="blog-a-to-z-run-skill-field-note.html" class="pn-card next">
+      <span class="dir">Next &rarr;</span>
+      <div>
+        <div class="cat">Field note</div>
+        <h3>The run skill is starting to behave like a small delivery system</h3>
+      </div>
+    </a>
+  </div>
+</nav>
+
+<footer class="site-footer">
+  <div class="stage">
+    <div class="foot-inner">
+      <div>Living Doc Compositor &middot; MIT &middot; Rene Luijk / Triadflow</div>
+      <div class="links">
+        <a href="index.html">Home</a>
+        <a href="blog.html">Writing</a>
+        <a href="https://github.com/triadflow/living-doc-compositor">Repo</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const bar = document.getElementById('readBar');
+  const update = () => {
+    const h = document.documentElement;
+    const scrolled = h.scrollTop;
+    const total = h.scrollHeight - h.clientHeight;
+    const pct = total > 0 ? (scrolled / total) * 100 : 0;
+    bar.style.width = pct + '%';
+  };
+  window.addEventListener('scroll', update, {passive:true});
+  update();
+</script>
+
+</body>
+</html>
