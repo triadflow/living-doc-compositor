@@ -1,0 +1,704 @@
+{
+  "docId": "doc:issue-140-source-material-embedding-index-run",
+  "title": "Issue 140 Source-Material Embedding Index Run",
+  "subtitle": "Inference-time Codex run for delivering a managed source-material retrieval index.",
+  "brand": "LD",
+  "scope": "GitHub issue #140 in triadflow/living-doc-compositor and child tickets #141 through #146.",
+  "owner": "Codex",
+  "version": "run-v1",
+  "canonicalOrigin": "docs/issue-140-source-material-embedding-index-run.json",
+  "sourceCoverage": "Hydrated from GitHub issue #140, child issues #141 through #146, current source-material helpers, render/test scripts, registry contracts, and existing source-material fixtures.",
+  "updated": "2026-04-26T14:42:00.000Z",
+  "pills": [
+    "Issue #140",
+    "Source material",
+    "Retrieval index"
+  ],
+  "objective": "Deliver GitHub issue #140: build a managed embedding index for living-doc linked source materials so agents can retrieve relevant tickets, PRs, docs, run docs, and source artifacts before canonical verification.",
+  "successCondition": "A living doc can link a source material item and have it queued/indexed incrementally; indexed entries include stable source identity, freshness/provenance/permission metadata, chunk and embedding metadata, and living-doc backlinks; retrieval returns ranked relevant source materials with canonical links; the inference living-doc run flow can consume the shortlist while still verifying canonical sources before status changes.",
+  "objectiveFacets": [
+    {
+      "id": "frame-objective",
+      "name": "Frame objective",
+      "description": "Issue #140 is treated as an implementation epic with six child delivery tracks, not only a research note."
+    },
+    {
+      "id": "source-identity-schema",
+      "name": "Source identity schema",
+      "description": "Stable canonical identity, source type, repo/scope, freshness, permission/provenance, chunk, embedding, status, and backlink fields exist outside portable living-doc JSON."
+    },
+    {
+      "id": "incremental-indexing",
+      "name": "Incremental indexing",
+      "description": "A CLI can scan one living-doc JSON, normalize linked source references, compare freshness/hash/model state, and enqueue only new, changed, stale, failed, or unsupported sources."
+    },
+    {
+      "id": "github-fetching",
+      "name": "GitHub fetching",
+      "description": "GitHub issue and PR references can be normalized and represented as canonical source records with current state, metadata, comments, and explicit inaccessible states."
+    },
+    {
+      "id": "chunk-embedding-storage",
+      "name": "Chunk and embedding storage",
+      "description": "Normalized source text is chunked deterministically and stored with model/version metadata in a local derived index."
+    },
+    {
+      "id": "retrieval-hydration",
+      "name": "Retrieval hydration",
+      "description": "A query helper returns ranked source and chunk candidates with canonical links, match notes, freshness/access status, and living-doc backlinks for inference-run hydration."
+    },
+    {
+      "id": "freshness-permission-governance",
+      "name": "Freshness and permission governance",
+      "description": "Retrieval surfaces stale, changed, inaccessible, deleted, private, unsupported, and embedding-model-stale states and does not treat derived retrieval as verification evidence."
+    },
+    {
+      "id": "verify-outcome",
+      "name": "Verify outcome",
+      "description": "Focused tests and CLI smoke checks prove schema, scanning, GitHub normalization, chunking, retrieval, and stale/inaccessible handling."
+    },
+    {
+      "id": "finalize-handoff",
+      "name": "Finalize handoff",
+      "description": "Committed source changes, PR linkage, issue update, verification evidence, and residual risks are recorded."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "frame-objective",
+      "sectionId": "issue-orbit",
+      "cardId": "issue-140"
+    },
+    {
+      "facetId": "source-identity-schema",
+      "sectionId": "capabilities",
+      "cardId": "schema-contract"
+    },
+    {
+      "facetId": "incremental-indexing",
+      "sectionId": "capabilities",
+      "cardId": "incremental-scan"
+    },
+    {
+      "facetId": "github-fetching",
+      "sectionId": "capabilities",
+      "cardId": "github-source-fetcher"
+    },
+    {
+      "facetId": "chunk-embedding-storage",
+      "sectionId": "capabilities",
+      "cardId": "chunk-embedding-store"
+    },
+    {
+      "facetId": "retrieval-hydration",
+      "sectionId": "capabilities",
+      "cardId": "retrieval-helper"
+    },
+    {
+      "facetId": "freshness-permission-governance",
+      "sectionId": "capabilities",
+      "cardId": "freshness-permission"
+    },
+    {
+      "facetId": "verify-outcome",
+      "sectionId": "verification-plan",
+      "cardId": "contract-and-cli-verification"
+    },
+    {
+      "facetId": "finalize-handoff",
+      "sectionId": "attempts",
+      "cardId": "initial-harness"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "derived-index-not-canonical",
+      "name": "Derived index is not canonical",
+      "statement": "Do not store embeddings directly in portable living-doc JSON and do not treat index text, chunks, summaries, or retrieval rank as canonical truth.",
+      "appliesTo": [
+        "*"
+      ]
+    },
+    {
+      "id": "verification-before-status",
+      "name": "Verification before status",
+      "statement": "Do not mark objectiveReady true unless source changes are committed, focused verification is linked, a PR is opened or updated, and issue #140 is updated.",
+      "appliesTo": [
+        "*"
+      ]
+    },
+    {
+      "id": "freshness-before-action",
+      "name": "Freshness before action",
+      "statement": "Retrieved candidates may hydrate context, but source-of-truth GitHub or file state must be rechecked before acting or upgrading status.",
+      "appliesTo": [
+        "capabilities",
+        "verification-plan",
+        "proof-ladder"
+      ]
+    },
+    {
+      "id": "local-first-storage",
+      "name": "Local first storage",
+      "statement": "Keep the first implementation local-file based and repo-scoped; do not design a broad hosted search product before the repo/source-material workflow works.",
+      "appliesTo": [
+        "capabilities",
+        "code-anchors"
+      ]
+    }
+  ],
+  "metaFingerprint": "issue-140|source-material-index|derived-cache|canonical-verification|local-first",
+  "callouts": [
+    {
+      "tone": "info",
+      "title": "Run state",
+      "items": [
+        "documentReady=true",
+        "objectiveReady=true",
+        "Current phase: delivered through draft PR and issue update.",
+        "Source commit: fb47786680db03339a5600671d866f253d006cf2.",
+        "Draft PR: https://github.com/triadflow/living-doc-compositor/pull/147.",
+        "Issue update: https://github.com/triadflow/living-doc-compositor/issues/140#issuecomment-4322243885."
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "issue-orbit",
+      "title": "Issue Orbit",
+      "convergenceType": "issue-orbit",
+      "rationale": "Issue #140 is an epic whose acceptance criteria are distributed across child tickets #141 through #146.",
+      "updated": "2026-04-26T14:27:42.239Z",
+      "data": [
+        {
+          "id": "issue-140",
+          "name": "#140 - Epic: Source-material embedding index for living-doc retrieval",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/140",
+          "github_state": "OPEN",
+          "relationship": "focal-issue",
+          "relevance": "Defines the end-to-end source-material index, retrieval, freshness, and inference-run hydration acceptance criteria."
+        },
+        {
+          "id": "issue-141",
+          "name": "#141 - Define source-material index schema and identity contract",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "141",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/141"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/141",
+          "github_state": "OPEN",
+          "relationship": "child-track",
+          "relevance": "Owns the derived index record shape and stable source identity contract."
+        },
+        {
+          "id": "issue-142",
+          "name": "#142 - Index newly linked living-doc source materials incrementally",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "142",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/142"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/142",
+          "github_state": "OPEN",
+          "relationship": "child-track",
+          "relevance": "Owns the living-doc scanner and queue/report behavior for new, changed, unchanged, failed, and unsupported sources."
+        },
+        {
+          "id": "issue-143",
+          "name": "#143 - Add GitHub issue and PR source fetcher for the embedding index",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "143",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/143"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/143",
+          "github_state": "OPEN",
+          "relationship": "child-track",
+          "relevance": "Owns GitHub issue/PR normalization and canonical metadata capture."
+        },
+        {
+          "id": "issue-144",
+          "name": "#144 - Implement chunking and embedding storage for indexed source materials",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "144",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/144"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/144",
+          "github_state": "OPEN",
+          "relationship": "child-track",
+          "relevance": "Owns deterministic chunking, local derived storage, and model/version-aware regeneration."
+        },
+        {
+          "id": "issue-145",
+          "name": "#145 - Add semantic source retrieval for inference living-doc run hydration",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "145",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/145"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/145",
+          "github_state": "OPEN",
+          "relationship": "child-track",
+          "relevance": "Owns query-time shortlist results for inference-run hydration."
+        },
+        {
+          "id": "issue-146",
+          "name": "#146 - Add freshness, permissions, and provenance checks to source-material retrieval",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "146",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/146"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/146",
+          "github_state": "OPEN",
+          "relationship": "child-track",
+          "relevance": "Owns stale, inaccessible, deleted, private, changed-source, and embedding-model-stale reporting."
+        },
+        {
+          "id": "pr-147",
+          "name": "#147 - Add source-material embedding index CLI",
+          "status": "open-active",
+          "ticketIds": [
+            {
+              "issueNumber": "147",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/pull/147"
+            }
+          ],
+          "url": "https://github.com/triadflow/living-doc-compositor/pull/147",
+          "github_state": "OPEN_DRAFT",
+          "relationship": "delivery-pr",
+          "relevance": "Draft PR carrying the implementation, verification evidence, and run-doc checkpoints for issue #140."
+        }
+      ]
+    },
+    {
+      "id": "decisions",
+      "title": "Decisions",
+      "convergenceType": "decision-record",
+      "rationale": "The issue declares several architectural constraints that must stay authoritative during implementation.",
+      "updated": "2026-04-26T14:22:00.000Z",
+      "data": [
+        {
+          "id": "derived-cache-boundary",
+          "name": "Embedding index is derived cache data",
+          "status": "ground-truth",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "notes": [
+            "Embeddings and chunk metadata belong outside portable living-doc JSON.",
+            "GitHub, local files, connector sources, and living-doc JSON remain canonical."
+          ]
+        },
+        {
+          "id": "local-first-vertical-slice",
+          "name": "Local repo workflow before hosted product",
+          "status": "ground-truth",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "notes": [
+            "The issue explicitly excludes a broad multi-tenant search product before the local repo/source-material workflow works."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "capabilities",
+      "title": "Implementation Capabilities",
+      "convergenceType": "capability-surface",
+      "rationale": "The epic decomposes into parallel implementation capabilities with comparable built/partial/gap status.",
+      "updated": "2026-04-26T14:22:00.000Z",
+      "data": [
+        {
+          "id": "schema-contract",
+          "name": "Source-material index schema and identity contract",
+          "status": "built",
+          "ticketIds": [
+            {
+              "issueNumber": "141",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/141"
+            }
+          ],
+          "codePaths": [
+            "docs/source-material-index.md",
+            "scripts/source-material-index.mjs"
+          ],
+          "notes": [
+            "Implemented in docs/source-material-index.md and scripts/source-material-index.mjs.",
+            "The record contract includes stable sourceId, sourceType, canonical identity, status, freshness, permissions, provenance, backlinks, chunks, and embedding metadata."
+          ]
+        },
+        {
+          "id": "incremental-scan",
+          "name": "Incremental living-doc source scan and queue",
+          "status": "built",
+          "ticketIds": [
+            {
+              "issueNumber": "142",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/142"
+            }
+          ],
+          "codePaths": [
+            "scripts/source-material-index.mjs"
+          ],
+          "notes": [
+            "Implemented CLI action: node scripts/source-material-index.mjs scan <doc.json>.",
+            "The scan action normalizes refs, writes local index state, compares content hash/model state, and reports indexed, queued, skipped, changed, inaccessible, unsupported, and embedding-model-stale actions."
+          ]
+        },
+        {
+          "id": "github-source-fetcher",
+          "name": "GitHub issue and PR source fetcher",
+          "status": "built",
+          "ticketIds": [
+            {
+              "issueNumber": "143",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/143"
+            }
+          ],
+          "codePaths": [
+            "scripts/source-material-index.mjs"
+          ],
+          "notes": [
+            "Implemented GitHub issue/PR URL parsing, payload normalization, and a fetch-github CLI path that uses gh api when live access is available.",
+            "Core parser and normalizer are covered without requiring live network access."
+          ]
+        },
+        {
+          "id": "chunk-embedding-store",
+          "name": "Chunking and local embedding store",
+          "status": "built",
+          "ticketIds": [
+            {
+              "issueNumber": "144",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/144"
+            }
+          ],
+          "codePaths": [
+            "scripts/source-material-index.mjs",
+            ".living-doc-source-index/"
+          ],
+          "notes": [
+            "Implemented deterministic text chunking and local-hash vectors with model/version and vector dimension metadata.",
+            ".living-doc-source-index/ is gitignored as derived local cache state."
+          ]
+        },
+        {
+          "id": "retrieval-helper",
+          "name": "Semantic shortlist retrieval for inference runs",
+          "status": "built",
+          "ticketIds": [
+            {
+              "issueNumber": "145",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/145"
+            }
+          ],
+          "codePaths": [
+            "scripts/source-material-index.mjs"
+          ],
+          "notes": [
+            "Implemented CLI action: node scripts/source-material-index.mjs query <text>.",
+            "Results include ranked sources, chunk ids, text previews, canonical paths or URLs, backlinks, freshness/access metadata, retrieval notes, and verificationRequired=true."
+          ]
+        },
+        {
+          "id": "freshness-permission",
+          "name": "Freshness, permission, provenance, and status reporting",
+          "status": "built",
+          "ticketIds": [
+            {
+              "issueNumber": "146",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/146"
+            }
+          ],
+          "codePaths": [
+            "scripts/source-material-index.mjs"
+          ],
+          "notes": [
+            "Implemented freshness content hashes, inaccessible local-source status, unsupported symbolic/remote non-GitHub stubs, changed-source scan actions, and embedding-model-stale scan actions.",
+            "GitHub permission/access failures are represented as inaccessible records in the live fetch path."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-anchors",
+      "title": "Code Anchors",
+      "convergenceType": "code-anchor",
+      "rationale": "Initial source hydration identified exact existing files that shape implementation and verification.",
+      "updated": "2026-04-26T14:35:00.000Z",
+      "data": [
+        {
+          "id": "mcp-source-material-tools",
+          "name": "Existing MCP source-material helper shape",
+          "status": "current",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "path": "scripts/living-doc-mcp-server.mjs",
+          "range": "73-83, 588-678",
+          "revision": "92e8a8de3bc746474caec49c76cee81094664fe4",
+          "what_it_does": "Exposes source add/create/link helpers and writes source material under docs/source-material for local JSON/Markdown artifacts.",
+          "why_it_matters": [
+            "The embedding index should discover and index linked source material without changing canonical living-doc JSON ownership."
+          ]
+        },
+        {
+          "id": "render-contract-tests",
+          "name": "Current contract test entry point",
+          "status": "current",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "path": "tests/contract/render.spec.mjs",
+          "range": "1-60",
+          "revision": "92e8a8de3bc746474caec49c76cee81094664fe4",
+          "what_it_does": "Runs rendered-doc contract checks through Node scripts.",
+          "why_it_matters": [
+            "The new index tests should fit the existing Node-based contract style and avoid network-dependent assertions."
+          ]
+        },
+        {
+          "id": "source-material-fixtures",
+          "name": "Existing source-material artifact directory",
+          "status": "current",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "path": "docs/source-material/",
+          "range": "directory",
+          "revision": "92e8a8de3bc746474caec49c76cee81094664fe4",
+          "what_it_does": "Holds derived/local source artifacts such as evidence bundles and settings-toggle evidence.",
+          "why_it_matters": [
+            "The index should live outside portable docs but can reference this source-material area and keep generated local index data gitignored."
+          ]
+        },
+        {
+          "id": "source-material-index-cli",
+          "name": "Source-material index CLI and module",
+          "status": "current",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "path": "scripts/source-material-index.mjs",
+          "range": "1-787",
+          "revision": "fb47786680db03339a5600671d866f253d006cf2",
+          "what_it_does": "Collects living-doc source refs, normalizes identities, hydrates local source chunks and vectors, queues GitHub sources, reports freshness/access actions, queries ranked candidates, and optionally fetches GitHub issue/PR payloads through gh.",
+          "why_it_matters": [
+            "This is the source implementation that satisfies the local-first derived index and inference-run hydration path for issue #140."
+          ]
+        },
+        {
+          "id": "source-material-index-contract",
+          "name": "Source-material index contract test",
+          "status": "current",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "path": "tests/contract/source-material-index.spec.mjs",
+          "range": "1-131",
+          "revision": "fb47786680db03339a5600671d866f253d006cf2",
+          "what_it_does": "Covers GitHub issue/PR parsing and normalization, scan action reporting, local chunk/vector persistence, unchanged skips, content changes, embedding model staleness, inaccessible and unsupported states, and retrieval ranking.",
+          "why_it_matters": [
+            "This is the executable evidence for the schema, indexing, retrieval, and freshness facets."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "title": "Verification Plan",
+      "convergenceType": "verification-surface",
+      "rationale": "Issue #140 needs evidence across schema, scanner, GitHub normalization, chunking, retrieval, and stale/inaccessible handling.",
+      "updated": "2026-04-26T14:35:00.000Z",
+      "data": [
+        {
+          "id": "contract-and-cli-verification",
+          "name": "Contract and CLI verification",
+          "status": "ready",
+          "priority": "blocking",
+          "automationPaths": [
+            "tests/contract/source-material-index.spec.mjs",
+            "node scripts/source-material-index.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "currentCoverage": "tests/contract/source-material-index.spec.mjs covers identity normalization, GitHub issue and PR payload normalization, scan action reporting, local chunk/vector persistence, unchanged skip behavior, changed-source detection, embedding-model-stale reporting, inaccessible and unsupported states, and ranked retrieval output.",
+          "nextStep": "Review draft PR #147; canonical follow-up remains issue #140 and child tickets #141 through #146.",
+          "gaps": [
+            "Live GitHub fetch is intentionally not required for core tests.",
+            "The first embedding provider is deterministic local hashing; a later provider can replace it through the recorded provider/model boundary."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "rationale": "The run needs staged proof from schema to CLI behavior to inference-run readiness.",
+      "updated": "2026-04-26T14:35:00.000Z",
+      "data": [
+        {
+          "id": "schema-proof",
+          "name": "Schema and identity contract exists",
+          "status": "ready",
+          "ticketIds": [
+            {
+              "issueNumber": "141",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/141"
+            }
+          ],
+          "notes": [
+            "Ready: docs/source-material-index.md documents the schema and tests cover GitHub issue, GitHub PR, local file, and living-doc JSON identities."
+          ]
+        },
+        {
+          "id": "indexing-proof",
+          "name": "Incremental indexing behavior works locally",
+          "status": "ready",
+          "ticketIds": [
+            {
+              "issueNumber": "142",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/142"
+            },
+            {
+              "issueNumber": "144",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/144"
+            }
+          ],
+          "notes": [
+            "Ready: CLI scan reports indexed, queued, skipped, unsupported, inaccessible, changed-source, and embedding-model-stale actions from deterministic fixtures."
+          ]
+        },
+        {
+          "id": "retrieval-proof",
+          "name": "Retrieval hydrates inference-run candidates",
+          "status": "ready",
+          "ticketIds": [
+            {
+              "issueNumber": "145",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/145"
+            },
+            {
+              "issueNumber": "146",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/146"
+            }
+          ],
+          "notes": [
+            "Ready: query results rank semantically related candidates with canonical paths, chunk IDs, backlinks, freshness/access status, retrieval notes, and verificationRequired=true."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attempts",
+      "title": "Attempt Log",
+      "convergenceType": "attempt-log",
+      "rationale": "Actions taken during the run should record what they proved and where shipped evidence lives.",
+      "updated": "2026-04-26T14:27:59.800Z",
+      "data": [
+        {
+          "id": "initial-harness",
+          "name": "Initial governed source hydration",
+          "status": "probe",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "cost_to_apply": "One run-doc checkpoint before code work.",
+          "what_tried": [
+            "Read issue #140, child issues #141 through #146, registry contracts, current source-material helpers, render scripts, and test structure."
+          ],
+          "what_proved": [
+            "The issue has a local-first implementation path spanning schema, scan queue, GitHub normalization, chunk/storage, retrieval, and freshness/access governance."
+          ]
+        },
+        {
+          "id": "source-index-implementation",
+          "name": "Source-material index implementation",
+          "status": "workaround-shipped",
+          "ticketIds": [
+            {
+              "issueNumber": "140",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/140"
+            }
+          ],
+          "shipped_in": "fb47786680db03339a5600671d866f253d006cf2",
+          "cost_to_apply": "One local CLI/module, schema doc, fixtures, and contract test suite integration.",
+          "what_tried": [
+            "Added scripts/source-material-index.mjs, docs/source-material-index.md, source-index fixtures, contract tests, test:contract wiring, and .living-doc-source-index/ gitignore coverage."
+          ],
+          "what_proved": [
+            "A living doc can now be scanned into a local derived index, local files can be chunked and embedded, GitHub issues/PRs are normalized or queued for canonical fetch, retrieval returns ranked candidates, and freshness/access/provenance warnings are preserved."
+          ],
+          "refs": [
+            {
+              "edgeType": "issue-update",
+              "kind": "github-issue-comment",
+              "url": "https://github.com/triadflow/living-doc-compositor/issues/140#issuecomment-4322243885",
+              "issueNumber": "140",
+              "title": "Issue #140 implementation update"
+            },
+            {
+              "edgeType": "delivery-pr",
+              "kind": "github-pr",
+              "url": "https://github.com/triadflow/living-doc-compositor/pull/147",
+              "issueNumber": "147",
+              "title": "Draft PR #147"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
