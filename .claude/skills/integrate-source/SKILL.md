@@ -50,6 +50,10 @@ Regardless of input type, end this step with:
 - **Content blob** (transcript / article body / excerpt).
 - **Citation metadata**: title, author(s), venue, publication date, canonical URL.
 - **Short key-facts list** (5–12 bullets) extracted from the content — named entities, hard numbers, dated events.
+- **Source contribution map** (3–6 bullets) separating:
+  - Measurement claims: prices, benchmark numbers, latency, usage counts, dates.
+  - Strategic / economic mechanism claims: funnels, monetization paths, adoption loops, platform lock-in, supply constraints, distribution strategy.
+  - Thesis pressure: whether the source strengthens, weakens, or reframes an existing dossier thesis even if it adds no new measurement axis.
 
 If the source was a transcription, it is already saved to the graph by `/transcribe`. If the source was a web article, consider saving it as a note via `/projectgraph:zettel` only if the user asks — not by default.
 
@@ -75,12 +79,29 @@ For each monitoring doc, assign:
 
 Present the impact table to the user before applying edits. This is a good moment to pause if the user wants to adjust scope or add a doc to the skipped list.
 
+Score on two axes before choosing the final score:
+
+| Axis | Question |
+|---|---|
+| Methodology / card fit | Does the source introduce a fact that fits this doc's declared indicators, benchmarks, actors, or card schema? |
+| Thesis / market-structure fit | Does the source explain why an existing fact matters, shift the strategic mechanism behind a dossier claim, or connect tracked actors to monetization, distribution, capacity, regulation, or adoption loops? |
+
+Do not let a methodology rejection on one claim suppress a thesis/market-structure contribution from the same source. Example: if a video cites an out-of-methodology benchmark but also argues that open-weight models are a developer funnel into hosted cloud inference, the benchmark may be LOW while the cloud-inference funnel may still be MED for an inference-economics doc.
+
 **Scoring heuristics:**
 - Named entity match + a dated event = MED or higher.
 - Numeric claim (price, benchmark score, download count, headcount) that slots into an existing indicator = MED-HIGH or HIGH.
 - Posture shift for a tracked actor = HIGH.
+- Strategic / economic mechanism that explains a tracked actor's monetization, distribution, adoption, capacity, or lock-in path = MED or MED-HIGH even without a new number.
 - New entity that doesn't exist in the doc yet = HIGH if the doc's scope covers that entity class; otherwise LOW.
 - Quoted voice = MED if the doc has an `expert-stance-track`; lower otherwise.
+
+**Reasoning capture for skipped or downgraded docs:**
+- If a doc is scored LOW/NONE despite sharing a named actor, model family, market, or dossier theme with the source, include a skip note with:
+  1. `considered`: the strongest possible fit for that doc.
+  2. `rejected because`: the specific missing fact, method fit, or source-quality issue.
+  3. `would become actionable if`: the trigger that would raise it to MED+ next time.
+- If the source has both an invalid/out-of-scope measurement claim and a valid strategic mechanism claim, report them separately. The invalid measurement claim cannot be the only rationale for skipping the doc.
 
 ### 4. Implement changes to JSON living docs (MED and above)
 
@@ -127,6 +148,7 @@ A dossier period piece at `docs/dossier/<doc-id-slug>/<period>.html` needs a tou
 - The source produces a number the piece's prose relies on but didn't have (strengthens a claim).
 - The source introduces a named actor the piece's thesis didn't include.
 - The source materially challenges a thesis the piece committed to in print.
+- The source gives a compact strategic/economic mechanism that materially clarifies an existing thesis, especially around monetization, distribution, adoption loops, unit economics, capacity constraints, or platform lock-in.
 
 When touching a dossier piece:
 - **Preserve the thesis.** If the source challenges it, flag as a watchlist item or a footnote caveat, not a rewrite.
@@ -136,7 +158,7 @@ When touching a dossier piece:
 - **Update the dossier index card** for that piece: `date`, `read`, and `dek` if the refresh changed the lede.
 - **Update related-grid cards on sibling pieces** that point to this piece with the old date / read-time.
 
-Do NOT touch dossier pieces for MED-only JSON updates. A single citation-feed addition doesn't warrant a prose change.
+Do NOT touch dossier pieces for ordinary MED-only JSON updates. A single citation-feed addition doesn't warrant a prose change. Exception: a MED strategic/economic mechanism can justify a small dossier watchlist note or footnote if it clarifies the dossier's central claim better than the existing sources.
 
 ### 6. Report
 
