@@ -27,7 +27,10 @@ assert.match(html, /Portable Snapshot/, 'rendered HTML should include snapshot i
 assert.match(html, /Identity and lineage/, 'rendered HTML should include lineage heading');
 assert.match(html, /data-target="status-snapshot"/, 'rendered HTML should include section navigation');
 assert.match(html, /data-view-target="board"/, 'rendered HTML should include board view switch');
+assert.match(html, /data-view-target="graph"/, 'rendered HTML should include graph view switch');
 assert.match(html, /id="board-view"/, 'rendered HTML should include registry-derived board view');
+assert.match(html, /id="graph-view"/, 'rendered HTML should include JSON structure graph view');
+assert.match(html, /JSON Structure Graph/, 'graph should expose the living-doc JSON structure overview');
 assert.match(html, /Tooling Surface · Status/, 'board should expose the status dimension for boardable sections');
 assert.match(html, /<span>Trusted<\/span>/, 'board should render status-set lanes from the registry');
 assert.match(html, /id="comp-iframe" srcdoc="/, 'rendered HTML should embed compositor iframe');

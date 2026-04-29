@@ -32,6 +32,41 @@ test('opens rendered HTML and launches the embedded compositor with current docu
   await expect(boardTrack).toBeVisible();
   expect(await boardTrack.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
 
+  await page.getByRole('button', { name: 'Graph' }).click();
+  await expect(page.locator('#graph-view')).toBeVisible();
+  await expect(page.locator('#graph-view')).toContainText('JSON Structure Graph');
+  await expect.poll(() => page.locator('#graph-view').evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    return Math.round(window.innerWidth - rect.width);
+  })).toBeLessThan(96);
+  await expect.poll(() => page.locator('.json-graph-canvas').evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBeGreaterThan(820);
+  await expect(page.locator('.json-graph-canvas')).toHaveAttribute('data-graph-gravity', 'settled');
+  await expect(page.locator('.json-graph-node-section').filter({ hasText: 'Tooling Surface' })).toBeVisible();
+  await expect(page.locator('.json-graph-node-card').filter({ hasText: 'Universal renderer' })).toBeVisible();
+  const graphCardNode = page.locator('.json-graph-node-card').first();
+  await graphCardNode.click();
+  await expect(page.locator('.json-graph-inspector')).toContainText('$.sections');
+  await expect(page.locator('.json-graph-node.dimmed')).toHaveCount(0);
+  await expect(page.locator('.json-graph-edge-group.dimmed')).toHaveCount(0);
+  const graphSvg = page.locator('[data-graph-svg]');
+  const graphViewBoxBeforeZoom = await graphSvg.getAttribute('viewBox');
+  await page.locator('[data-graph-zoom="in"]').click();
+  await expect.poll(() => graphSvg.getAttribute('viewBox')).not.toBe(graphViewBoxBeforeZoom);
+  await expect(page.locator('[data-graph-info]')).toContainText('%');
+  await page.locator('[data-graph-fullscreen]').click();
+  await expect(page.locator('.json-graph-canvas')).toHaveClass(/graph-fullscreen/);
+  await page.locator('[data-graph-fullscreen]').click();
+  await expect(page.locator('.json-graph-canvas')).not.toHaveClass(/graph-fullscreen/);
+  const draggableGraphNode = page.locator('.json-graph-node-document');
+  const graphNodeTransformBeforeDrag = await draggableGraphNode.getAttribute('transform');
+  const graphNodeBox = await draggableGraphNode.locator('.json-graph-node-hit').boundingBox();
+  expect(graphNodeBox).toBeTruthy();
+  await page.mouse.move(graphNodeBox.x + graphNodeBox.width / 2, graphNodeBox.y + graphNodeBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(graphNodeBox.x + graphNodeBox.width / 2 + 44, graphNodeBox.y + graphNodeBox.height / 2 + 18);
+  await page.mouse.up();
+  await expect.poll(() => draggableGraphNode.getAttribute('transform')).not.toBe(graphNodeTransformBeforeDrag);
+
   await page.locator('#comp-toggle').click();
   await expect(page.locator('#comp-overlay')).toHaveClass(/open/);
 
