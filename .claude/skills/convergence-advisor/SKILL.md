@@ -50,7 +50,16 @@ Ask: **"Does any of these match what you're seeing? Or is yours a different comb
 
 ### 3. IDENTIFY THE CONVERGENCE (if new)
 
-If no existing type fits, help identify the new one through dialog:
+If no existing type fits, help identify the new one through dialog. **Always start with the kind question — it's the first disambiguator.**
+
+**Kind (ask this first)**: "Is each card here a unit of *thinking-action* the user (or agent) is performing, or a *projection of state* that exists elsewhere?"
+
+- **Act type** — cards record decisions made, attempts tried, findings recovered, observations logged, claims authored, rungs verified. The work is in producing the card. Examples: `decision-record`, `attempt-log`, `proof-ladder`, `investigation-findings`, `transcript-argument-frame`.
+- **Surface type** — cards reflect things that exist independently: capabilities with status, items in a lifecycle, positions held by external actors, components in a build. The work is in surfacing them, not authoring them. Examples: `capability-surface`, `status-snapshot`, `expert-stance-track`, `competitor-stance-track`, `code-anchor`.
+
+If the user is unsure, ask: "If you stopped maintaining this section, would the underlying state still change in the world (surface) — or would the recorded thinking just stop accumulating (act)?"
+
+Borderline check: log-shaped types split this way too. `attempt-log` is **act** (internal acts being recorded). `strategic-move-log` is **surface** (external moves being tracked). The test is *whose* action the card represents.
 
 **Sources**: "You mentioned [X], [Y], and [Z] always appearing together. Those are your source entity types. Are there others?"
 
@@ -72,11 +81,13 @@ If it overlaps, say so: "What you're describing is actually a [existing type] sc
 
 ### 5. DEFINE AND REGISTER
 
-If a new type is genuinely needed, propose the definition:
+If a new type is genuinely needed, propose the definition. **`kind` is required.**
 
 ```json
 {
   "name": "<name>",
+  "category": "<category>",
+  "kind": "act | surface",
   "icon": "<svg path>",
   "projection": "card-grid|edge-table",
   "columns": 2,

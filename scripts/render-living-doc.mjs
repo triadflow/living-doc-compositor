@@ -2193,9 +2193,13 @@ function renderSection(section) {
     ? `<span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto">${timestampHtml(section.updated)}</span>`
     : '';
 
+  const kindBadge = ct.kind
+    ? `<span class="kind-badge kind-${escapeHtml(ct.kind)}" title="${ct.kind === 'act' ? 'Act type — a kind of thinking-action recorded here' : 'Surface type — a projection of state from elsewhere'}">${escapeHtml(ct.kind)}</span>`
+    : '';
+
   return `
     <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}" data-section-id="${escapeHtml(section.id)}">
-      <h2>${icon} ${escapeHtml(section.title)}${sectionUpdated}</h2>
+      <h2>${icon} ${escapeHtml(section.title)} ${kindBadge}${sectionUpdated}</h2>
       ${freshnessBannerHtml}
       ${calloutHtml}
       ${sectionAiHtml}
@@ -2400,6 +2404,20 @@ const html = `<!doctype html>
         padding: 5px 12px; border-radius: 999px;
         background: var(--card); border: 1px solid var(--line);
         box-shadow: var(--shadow-sm); color: var(--muted); font-size: 12.5px; font-weight: 500;
+      }
+      .kind-badge {
+        display: inline-flex; align-items: center;
+        margin-left: 10px; padding: 2px 9px; border-radius: 999px;
+        font-size: 10.5px; font-weight: 700;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        font-family: var(--font-mono, ui-monospace, monospace);
+        vertical-align: middle;
+      }
+      .kind-badge.kind-act {
+        color: #92400e; background: #fef3c7; border: 1px solid #fde68a;
+      }
+      .kind-badge.kind-surface {
+        color: #1e40af; background: #dbeafe; border: 1px solid #bfdbfe;
       }
       .view-switch {
         display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px;

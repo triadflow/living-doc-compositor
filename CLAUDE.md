@@ -11,6 +11,23 @@ Three fundamentals:
 
 Convergence types define which entity types converge. The combination is the type. The visual projection follows automatically.
 
+## Two kinds of convergence type
+
+Every entry in the registry declares `kind: "act" | "surface"`. This is the first disambiguator when proposing a new type — it answers a different question than `category` does.
+
+- **Act type** — cards record a kind of *thinking-action* the user (or agent) performs. The work is in producing each card. Examples: `decision-record`, `attempt-log`, `proof-ladder`, `investigation-findings`, `transcript-argument-frame`.
+- **Surface type** — cards reflect things that exist independently of this section: capabilities with status, items in a lifecycle, positions held by external actors. The work is in surfacing them, not authoring them. Examples: `capability-surface`, `status-snapshot`, `expert-stance-track`, `competitor-stance-track`, `code-anchor`.
+
+The disambiguating test: if you stopped maintaining this section, would the underlying state still change in the world? If yes, it is a surface. If the recorded thinking would simply stop accumulating, it is an act.
+
+Borderline cases worth knowing:
+- **`attempt-log`** is act, but **`strategic-move-log`** is surface — both are "logs", but attempt-log records *our* actions while strategic-move-log tracks *external* actors' moves.
+- **`design-implementation-alignment`** is surface — the alignment exists in the world; the section reveals it but does not author it.
+- **`experiment-evidence-surface`** is named "surface" but is **act** — each card represents an experiment performed and the evidence it produced.
+- **`maintainer-stance`** is surface — stances live in stakeholders; the section tracks them.
+
+Do not collapse this distinction back into `category`. Categories group by *domain* (governance, verification, content, monitoring, …); kinds group by *what kind of thing the section holds*. A `verification` category has both kinds inside it.
+
 ## Key Files
 
 | File | Purpose |
@@ -49,10 +66,11 @@ Two skills in `.claude/skills/`:
 
 ## Adding a New Convergence Type
 
-1. Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes`
+1. Add an entry to `scripts/living-doc-registry.json` under `convergenceTypes` — must declare `kind: "act" | "surface"` (see "Two kinds" above)
 2. If needed, add a new status set under `statusSets`
 3. If needed, add a new entity type under `entityTypes`
-4. No renderer changes, no compositor changes — they read from the registry
+4. Run `node scripts/sync-compositor-embeds.mjs` to update the embedded registry inside `docs/living-doc-compositor.html`
+5. No renderer changes — it reads from the registry
 
 ## Writing style
 
