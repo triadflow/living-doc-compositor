@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>The harness is the playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+<style>
+  :root {
+    /* type */
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* surface */
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --surface-2: #f5f5f4;
+    --line: #e7e5e4;
+    --line-soft: #f5f5f4;
+
+    /* ink */
+    --ink: #0c0a09;
+    --ink-2: #292524;
+    --muted: #78716c;
+    --muted-soft: #a8a29e;
+
+    /* accents */
+    --indigo: #4338ca;
+    --indigo-soft: #eef2ff;
+    --indigo-line: #c7d2fe;
+    --indigo-ink: #312e81;
+
+    --amber: #b45309;
+    --amber-soft: #fffbeb;
+    --amber-line: #fde68a;
+    --amber-ink: #78350f;
+
+    --teal: #0f766e;
+    --teal-soft: #f0fdfa;
+    --teal-line: #99f6e4;
+    --teal-ink: #134e4a;
+
+    --rose: #be123c;
+    --rose-soft: #fff1f2;
+    --rose-line: #fecdd3;
+
+    /* shadow */
+    --sh-1: 0 1px 2px rgba(12,10,9,0.04), 0 1px 3px rgba(12,10,9,0.06);
+    --sh-2: 0 4px 6px -1px rgba(12,10,9,0.05), 0 10px 15px -3px rgba(12,10,9,0.05);
+    --sh-3: 0 10px 25px -5px rgba(12,10,9,0.08), 0 20px 40px -10px rgba(12,10,9,0.06);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+  code {
+    background: var(--surface-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--line-soft);
+  }
+
+  /* ── HERO ───────────────────────────────────────────────────────── */
+  .hero {
+    min-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 48px 48px;
+    background:
+      radial-gradient(ellipse at 80% 0%, rgba(67, 56, 202, 0.06), transparent 50%),
+      radial-gradient(ellipse at 0% 100%, rgba(15, 118, 110, 0.05), transparent 50%),
+      var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .hero-inner { max-width: 1200px; width: 100%; margin: 0 auto; }
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    margin: 0 0 20px;
+  }
+  h1.hero-title {
+    font-size: clamp(40px, 6vw, 80px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+    margin: 0 0 28px;
+    color: var(--ink);
+    max-width: 12ch;
+  }
+  .hero-spine {
+    font-size: clamp(18px, 2vw, 22px);
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 68ch;
+    margin: 0 0 32px;
+    font-weight: 400;
+  }
+  .hero-spine em { color: var(--indigo); font-style: normal; font-weight: 600; }
+  .hero-meta {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 8px; }
+  .hero-meta .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--indigo);
+  }
+  .scroll-hint {
+    margin-top: 56px;
+    color: var(--muted-soft);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .scroll-hint::after {
+    content: "  ↓";
+    margin-left: 6px;
+    animation: bob 2s ease-in-out infinite;
+    display: inline-block;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(4px); }
+  }
+
+  /* ── SIDE NAV RAIL ──────────────────────────────────────────────── */
+  .rail {
+    position: fixed;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 14px 8px;
+    box-shadow: var(--sh-1);
+  }
+  .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .rail a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+  .rail a:hover { background: var(--indigo-soft); color: var(--indigo); }
+  .rail a.active { background: var(--indigo); color: white; font-weight: 600; }
+  @media (max-width: 1100px) { .rail { display: none; } }
+
+  /* ── SECTIONS ───────────────────────────────────────────────────── */
+  main { max-width: 100%; }
+  section.slide {
+    padding: 120px 48px 64px;
+    border-bottom: 1px solid var(--line-soft);
+    scroll-margin-top: 0;
+    min-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  section.slide:nth-of-type(even) { background: var(--surface); }
+  section.slide-inner { max-width: 1200px; width: 100%; margin: 0 auto; }
+
+  .slide-header { max-width: 800px; margin: 0 auto 36px; text-align: center; }
+  .slide-num {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--muted-soft);
+    margin-bottom: 14px;
+  }
+  .slide-title {
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 18px;
+    color: var(--ink);
+  }
+  .slide-intro {
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    margin: 0 auto;
+    max-width: 64ch;
+    font-weight: 400;
+  }
+
+  /* ── DIAGRAM STAGE ──────────────────────────────────────────────── */
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 36px 28px;
+    margin: 0 auto 36px;
+    max-width: 1200px;
+    width: 100%;
+    box-shadow: var(--sh-2);
+    overflow-x: auto;
+    position: relative;
+  }
+  .stage.wide { max-width: 1400px; }
+  .stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(67, 56, 202, 0.015), transparent 30%);
+  }
+  pre.mermaid {
+    margin: 0;
+    background: transparent;
+    border: none;
+    text-align: center;
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+  }
+  pre.mermaid svg { max-width: 100% !important; height: auto !important; }
+
+  /* ── WHY-THIS-MATTERS CALLOUTS ──────────────────────────────────── */
+  .why {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 28px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--indigo);
+    border-radius: 8px;
+    box-shadow: var(--sh-1);
+  }
+  .why-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    margin: 0 0 10px;
+  }
+  .why p { margin: 0 0 10px; color: var(--ink-2); font-size: 15px; line-height: 1.65; }
+  .why p:last-child { margin-bottom: 0; }
+  .why strong { color: var(--ink); font-weight: 600; }
+
+  .why.amber { border-left-color: var(--amber); }
+  .why.amber .why-label { color: var(--amber); }
+  .why.teal { border-left-color: var(--teal); }
+  .why.teal .why-label { color: var(--teal); }
+
+  /* ── DEFENSES BLOCK ─────────────────────────────────────────────── */
+  .defenses {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--amber-soft);
+    border: 1px solid var(--amber-line);
+    border-radius: 12px;
+    padding: 24px 28px;
+  }
+  .defenses h4 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 16px;
+  }
+  .defenses ul { margin: 0; padding-left: 20px; color: var(--amber-ink); }
+  .defenses li { margin: 8px 0; line-height: 1.6; font-size: 15px; }
+  .defenses strong { color: var(--ink); font-weight: 600; }
+
+  /* ── OPEN QUESTIONS ─────────────────────────────────────────────── */
+  .questions {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 32px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--sh-2);
+  }
+  .questions ol { margin: 0; padding-left: 24px; counter-reset: q; }
+  .questions ol li {
+    margin: 14px 0;
+    padding-left: 8px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .questions ol li strong { color: var(--ink); font-weight: 600; display: inline; }
+
+  /* ── FOOTER ─────────────────────────────────────────────────────── */
+  footer {
+    padding: 64px 48px 80px;
+    background: var(--ink);
+    color: var(--muted-soft);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  footer .footer-inner { max-width: 1100px; margin: 0 auto; }
+  footer h3 {
+    color: white;
+    font-size: 18px;
+    margin: 0 0 18px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  footer a { color: #d4d4d8; text-decoration: underline; text-decoration-color: #525252; text-underline-offset: 3px; }
+  footer a:hover { text-decoration-color: #d4d4d8; }
+  footer code { background: #1c1917; border-color: #292524; color: #d4d4d8; }
+
+  /* ── PRINT ──────────────────────────────────────────────────────── */
+  @media print {
+    .rail, .scroll-hint { display: none; }
+    body { background: white; }
+    section.slide { page-break-after: always; min-height: auto; padding: 32px; }
+    .stage { box-shadow: none; }
+    footer { background: white; color: black; }
+  }
+
+  /* ── SMALL SCREENS ──────────────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .hero { padding: 48px 24px 32px; }
+    section.slide { padding: 64px 20px 40px; }
+    .stage { padding: 20px 12px; }
+    .why, .defenses, .questions { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HERO ───────────────────────────────────────────────────────── -->
+<header class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">A working theory · 12 diagrams</p>
+    <h1 class="hero-title">The harness is the playground</h1>
+    <p class="hero-spine">
+      The compositor and the harness are the <em>same primitives lifted to a
+      longer time horizon.</em> Single-session compaction becomes a
+      multi-session living doc. The harness session log becomes the AI-patch
+      event stream. A bash command classifier becomes a patch-op classifier.
+      Once you state the equivalence, the roadmap and the failure modes both
+      become obvious.
+    </p>
+    <div class="hero-meta">
+      <span><span class="dot"></span>Issue triadflow/living-doc-compositor#155</span>
+      <span><span class="dot"></span>Sourced from a 20:41 video transcript</span>
+      <span><span class="dot"></span>12 diagrams · ~12 minute read</span>
+    </div>
+    <p class="scroll-hint">Begin</p>
+  </div>
+</header>
+
+<!-- ── SIDE-RAIL NAV ──────────────────────────────────────────────── -->
+<nav class="rail" aria-label="Section navigation">
+  <ol>
+    <li><a href="#s1" data-n="1">01</a></li>
+    <li><a href="#s2" data-n="2">02</a></li>
+    <li><a href="#s3" data-n="3">03</a></li>
+    <li><a href="#s4" data-n="4">04</a></li>
+    <li><a href="#s5" data-n="5">05</a></li>
+    <li><a href="#s6" data-n="6">06</a></li>
+    <li><a href="#s7" data-n="7">07</a></li>
+    <li><a href="#s8" data-n="8">08</a></li>
+    <li><a href="#s9" data-n="9">09</a></li>
+    <li><a href="#s10" data-n="10">10</a></li>
+    <li><a href="#s11" data-n="11">11</a></li>
+    <li><a href="#s12" data-n="12">12</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ── 1 ──────────────────────────────────────────────────────────── -->
+<section id="s1" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 01</div>
+      <h2 class="slide-title">The central equivalence</h2>
+      <p class="slide-intro">
+        The headline picture. Same primitives, lifted by time scope. Each pair
+        on the right is an answer to <em>what does the left-column primitive
+        have to become to survive being read by a stranger session weeks from
+        now?</em>
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+flowchart TB
+  subgraph harness [Harness primitives at session scope]
+    direction TB
+    HL[outer while loop]
+    HC[lossy compaction summary]
+    HT[tool registry]
+    HS[append-only session log]
+    HP[bash command classifier]
+    HD[CLAUDE-md ancestor walk]
+    HA[sub-agent archetypes]
+  end
+
+  subgraph compositor [Compositor primitives at workstream scope]
+    direction TB
+    CL[skill execution rides host loop]
+    CC[typed schema-bound compaction via convergence types]
+    CT[MCP tool surface 26 tools]
+    CS[append-only ai-patch event stream]
+    CP[MCP sole-writer plus schema validator]
+    CD[skill registry plus living-doc-registry json]
+    CA[ai-pass engines claude-code and codex]
+  end
+
+  HL -.lifted.-> CL
+  HC -.lifted.-> CC
+  HT -.lifted.-> CT
+  HS -.lifted.-> CS
+  HP -.lifted.-> CP
+  HD -.lifted.-> CD
+  HA -.lifted.-> CA
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">Why this is non-trivial</p>
+      <p>
+        Every consequence in this presentation is a corollary of this one
+        diagram. The harness's lossy compaction would lose structural
+        commitments across a stranger session, so the compositor uses
+        <strong>typed</strong> compaction. The session log has to survive
+        process death and replay months later, so the compositor uses
+        <strong>append-only structured patches</strong>. The bash classifier
+        gates destructive shell, so the MCP-as-sole-writer gates destructive
+        doc mutation.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 2 ──────────────────────────────────────────────────────────── -->
+<section id="s2" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 02</div>
+      <h2 class="slide-title">The MCP tool surface as the registry</h2>
+      <p class="slide-intro">
+        The MCP server (<code>scripts/living-doc-mcp-server.mjs</code>,
+        registered as <code>living-doc-compositor</code>) exposes 26 tools.
+        They cluster into eight sub-surfaces. This is already the harness's
+        tool registry, just typed for living-doc work.
+      </p>
+    </div>
+
+    <div class="stage wide">
+<pre class="mermaid">
+flowchart LR
+  subgraph mcp [living-doc-compositor MCP server]
+    subgraph reg [Registry · read tier]
+      R1[living_doc_registry_summary]
+      R2[living_doc_registry_explain_type]
+      R3[living_doc_registry_match_objective]
+      R4[living_doc_registry_propose_type_gap]
+    end
+    subgraph struct [Structure · read tier]
+      S1[living_doc_match_structure]
+      S2[living_doc_structure_select]
+      S3[living_doc_structure_reflect]
+      S4[living_doc_structure_refine]
+    end
+    subgraph scaf [Scaffold · workspace tier]
+      F1[living_doc_objective_decompose]
+      F2[living_doc_scaffold]
+    end
+    subgraph src [Sources · workspace tier]
+      U1[living_doc_sources_add]
+      U2[living_doc_sources_create]
+      U3[living_doc_sources_link]
+    end
+    subgraph cov [Coverage · workspace tier]
+      V1[living_doc_coverage_map]
+      V2[living_doc_coverage_find_gaps]
+      V3[living_doc_coverage_check]
+      V4[living_doc_coverage_evaluate_success_condition]
+    end
+    subgraph gov [Governance · workspace tier]
+      G1[living_doc_governance_list_invariants]
+      G2[living_doc_governance_evaluate]
+      G3[living_doc_governance_check]
+      G4[living_doc_governance_classify_trap]
+      G5[living_doc_governance_suggest_invariant]
+      G6[living_doc_governance_refine_invariant]
+      G7[living_doc_governance_check_patch]
+    end
+    subgraph patch [Patch · full tier sole writer]
+      P1[living_doc_patch_validate]
+      P2[living_doc_patch_apply]
+    end
+    subgraph rndr [Render · read after write]
+      D1[living_doc_render]
+    end
+  end
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">Read across the surfaces</p>
+      <p>
+        Registry and Structure are <strong>read tier</strong> — they answer
+        questions about the doc model. Scaffold, Sources, Coverage, Governance
+        are <strong>workspace tier</strong> — they propose changes but do not
+        commit them. Patch is the <strong>full tier</strong> — only
+        <code>patch_apply</code> writes the canonical. Render is read after
+        write. This is already a permission-tier model. It just is not named
+        one yet.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 3 ──────────────────────────────────────────────────────────── -->
+<section id="s3" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 03</div>
+      <h2 class="slide-title">The sole-writer sequence</h2>
+      <p class="slide-intro">
+        Every mutation funnels through the same path. This is what makes the
+        patch log replayable and the canonical authoritative.
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+sequenceDiagram
+  participant Skill
+  participant MCP as MCP server
+  participant Schema as ai-patch-schema
+  participant Apply as apply-ai-patch
+  participant JSON as living-doc json
+  participant Render
+
+  Skill->>MCP: patch_validate with proposed patch
+  MCP->>Schema: shape and op-kind check
+  Schema-->>MCP: ok
+  MCP-->>Skill: validated id
+
+  Skill->>MCP: patch_apply with id
+  MCP->>Apply: dispatch ops in declared order
+  Apply->>JSON: write canonical
+  Apply-->>MCP: per-op change log
+  MCP->>Render: trigger
+  Render->>JSON: read
+  Render-->>MCP: html artifact
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">The discipline this enforces</p>
+      <p>
+        A skill that writes JSON directly skips validate and skips the change
+        log. A render that gets hand-edited diverges from JSON until the next
+        render silently overwrites it. <strong>Both bypasses are detectable
+        by checking that the patch log replays to the current JSON.</strong>
+        That check should be a CI gate.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 4 ──────────────────────────────────────────────────────────── -->
+<section id="s4" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 04</div>
+      <h2 class="slide-title">AI-pass two-phase commit</h2>
+      <p class="slide-intro">
+        <code>ai-pass-server.mjs</code> already runs two-phase: <em>propose</em>
+        generates and validates, <em>apply</em> mutates. Human review fits in
+        the gap. This is the harness's "interactive approval before
+        destructive ops" pattern with a UI.
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+sequenceDiagram
+  participant UI as flow-body card
+  participant Server as ai-pass-server
+  participant Engine as engine sub-agent
+  participant Store as in-memory patchStore
+  participant MCP as MCP server
+
+  UI->>Server: POST propose with engine
+  Server->>Engine: spawn with skillPrefix and prompt
+  Engine-->>Server: candidate patch json
+  Server->>Server: validatePatch
+  Server->>Store: keep with patch id
+  Server-->>UI: validated patch preview
+
+  Note over UI: human reviews and edits
+
+  UI->>Server: POST apply with patch id
+  Server->>MCP: patch_apply
+  MCP-->>Server: applied
+  Server-->>UI: success
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">Why this matters for the framing</p>
+      <p>
+        The harness gates destructive bash <strong>at run time</strong>. The
+        compositor gates destructive doc mutation <strong>via two-phase
+        commit with a human in the loop</strong>. Same insight: untrusted
+        authority is allowed to <em>propose</em>; only a privileged step
+        <em>applies</em>. Approval in the harness; <code>patch_apply</code>
+        after review in the compositor.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 5 ──────────────────────────────────────────────────────────── -->
+<section id="s5" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 05</div>
+      <h2 class="slide-title">Sub-agent archetype dispatch</h2>
+      <p class="slide-intro">
+        <code>claude-code</code> and <code>codex</code> are first-class enums
+        in <code>ai-patch-schema.json</code>, configured per user in
+        <code>~/.living-doc-compositor/ai-pass-config.json</code> with command
+        and skillPrefix. This is harness sub-agent archetyping.
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+flowchart LR
+  Pref[user preferred engine]
+  Cfg[ai-pass-config json]
+  Pref --> Cfg
+  Cfg --> Pick{select archetype}
+  Pick -->|claude-code| CC[claude-code engine]
+  Pick -->|codex| CX[codex engine]
+  CC --> CCcmd[command claude -p]
+  CC --> CCskill[skill living-doc-ai-pass-claude]
+  CX --> CXcmd[command codex exec]
+  CX --> CXskill[skill living-doc-ai-pass-codex]
+  CCcmd --> Spawn[spawn sub-process]
+  CXcmd --> Spawn
+  Spawn --> Patch[returns validated patch]
+</pre>
+    </div>
+
+    <aside class="why teal">
+      <p class="why-label">The opportunity this names</p>
+      <p>
+        Today there are two archetypes, both shaped for "propose a patch." A
+        third archetype slot is open for <strong>verifier</strong> — a
+        sub-agent that does not mutate but reads a proposed patch plus the
+        current doc and returns a verdict. That archetype is what would make
+        the patch-classifier model in Diagram 7 enforceable.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 6 ──────────────────────────────────────────────────────────── -->
+<section id="s6" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 06</div>
+      <h2 class="slide-title">The closed mutation vocabulary</h2>
+      <p class="slide-intro">
+        Seven ops, seven targets. Adding an eighth without bumping schema is a
+        silent data loss. The closed vocabulary is what makes the patch log
+        replayable.
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+flowchart LR
+  subgraph ops [Closed mutation vocabulary 7 ops]
+    O1[card-create]
+    O2[card-update]
+    O3[ticket-create]
+    O4[coverage-add]
+    O5[coverage-remove]
+    O6[invariant-suggest]
+    O7[rationale-update]
+  end
+  subgraph state [Living doc state surfaces]
+    Cards[cards array]
+    Edges[coverage edges]
+    Invs[invariants array]
+    Tickets[ticketIds links]
+    Rats[rationale fields]
+  end
+  O1 --> Cards
+  O2 --> Cards
+  O3 --> Tickets
+  O4 --> Edges
+  O5 --> Edges
+  O6 --> Invs
+  O7 --> Rats
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">Why closed and typed beats freeform</p>
+      <p>
+        A harness compaction prompt produces a paragraph of text — lossy on
+        purpose, sufficient for the rest of one session. A living doc must
+        replay across stranger sessions, so it cannot afford freeform.
+        <strong>The seven ops are the discipline that prevents schema
+        dissolution.</strong>
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 7 ──────────────────────────────────────────────────────────── -->
+<section id="s7" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 07</div>
+      <h2 class="slide-title">Permission tiers — today and proposed</h2>
+      <p class="slide-intro">
+        The harness already has a tier model on bash. The compositor has a
+        sole-writer discipline but no tier model on patch ops. The asymmetry
+        is the gap.
+      </p>
+    </div>
+
+    <div class="stage wide">
+<pre class="mermaid">
+flowchart LR
+  subgraph H [Harness side]
+    HC[bash command]
+    HC --> Hclass{classify by command}
+    Hclass --> Hr[read-only ls cat grep]
+    Hclass --> Hw[workspace git npm test]
+    Hclass --> Hf[full rm sudo plus interactive approval]
+  end
+  subgraph C_today [Compositor side today]
+    CC[any patch op]
+    CC --> Cflat[no classification all ops equal]
+  end
+  subgraph C_proposed [Compositor side proposed]
+    PC[patch op classified by kind and target]
+    PC --> Pclass{classify}
+    Pclass --> Pr[read render only]
+    Pclass --> Pw[workspace card-create card-update rationale-update]
+    Pclass --> Pf[full invariant-suggest coverage edits ticket-create plus interactive approval]
+  end
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">Concrete consequence</p>
+      <p>
+        Right now an AI pass that wants to suggest a new invariant is treated
+        identically to one that wants to fix a typo in a card's rationale.
+        Tiering the ops means the high-impact ones (invariants, coverage
+        edges, ticket links) require human approval the way <code>rm -rf</code>
+        does, while typo fixes flow through.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 8 ──────────────────────────────────────────────────────────── -->
+<section id="s8" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 08</div>
+      <h2 class="slide-title">Compositor placement — current and three proposals</h2>
+      <p class="slide-intro">
+        The hardest open architecture question: where exactly does the
+        compositor live relative to the harness?
+      </p>
+    </div>
+
+    <div class="stage wide">
+<pre class="mermaid">
+flowchart TB
+  subgraph current [Today beside the harness]
+    direction LR
+    H1[harness session]
+    H2[compositor MCP server]
+    Glue1[skills bridge by hand]
+    H1 --- Glue1 --- H2
+  end
+  subgraph option_a [Option A inside as compaction layer]
+    direction LR
+    HA[harness session]
+    HA --> Hcompact[compaction step at context budget]
+    Hcompact --> CompA[compositor patch_apply emits typed cards]
+  end
+  subgraph option_b [Option B post-tool hook]
+    direction LR
+    HB[harness tool runs]
+    HB --> Hpost[post-tool hook]
+    Hpost --> CompB[compositor classifies whether event becomes a card-update]
+  end
+  subgraph option_c [Option C session-end summarizer]
+    direction LR
+    HC[session end]
+    HC --> Sum[ai-pass engine reads session log]
+    Sum --> CompC[emits card-create or card-update patches]
+  end
+  current -.evolve.-> option_a
+  current -.evolve.-> option_b
+  current -.evolve.-> option_c
+</pre>
+    </div>
+
+    <aside class="why amber">
+      <p class="why-label">My read · open for debate</p>
+      <p>
+        <strong>Option C is the cheapest and most additive</strong>: nothing
+        changes inside a session, but every session-end can optionally run an
+        ai-pass that folds the session into a card. <strong>Option A is the
+        most ambitious</strong>: the harness's own compaction <em>is</em> a
+        compositor <code>patch_apply</code>, which means a running session is
+        continuously projecting into a living doc. Option B is in between and
+        probably the wrong shape — too fine-grained, too noisy.
+      </p>
+      <p>
+        This is the one diagram I most want feedback on, since it is the only
+        one that is genuinely open.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 9 ──────────────────────────────────────────────────────────── -->
+<section id="s9" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 09</div>
+      <h2 class="slide-title">Four real failure modes</h2>
+      <p class="slide-intro">
+        Replacing the generic "prefix-cache trap" with the cascades that
+        actually threaten this codebase.
+      </p>
+    </div>
+
+    <div class="stage wide">
+<pre class="mermaid">
+flowchart TB
+  subgraph fm1 [1 Patch-op drift]
+    A1[someone adds 8th op]
+    A1 --> A2[schema not bumped]
+    A2 --> A3[older sessions cannot replay log]
+    A3 --> A4[history silently lossy]
+  end
+  subgraph fm2 [2 Render-drift]
+    B1[HTML hand-edited or AI-edited]
+    B1 --> B2[disagrees with JSON canonical]
+    B2 --> B3[next render overwrites the divergence]
+    B3 --> B4[edit lost without warning]
+  end
+  subgraph fm3 [3 Skill-as-shell-script]
+    C1[SKILL md shells out to gh or jq]
+    C1 --> C2[writes living-doc directly]
+    C2 --> C3[bypasses MCP and patch schema]
+    C3 --> C4[no entry in patch log]
+    C4 --> C5[mutation invisible to replay]
+  end
+  subgraph fm4 [4 Compaction-fidelity collapse]
+    D1[card-update accepts wholesale body replace]
+    D1 --> D2[patch log carries blob swaps not structural changes]
+    D2 --> D3[over time card schema dissolves]
+    D3 --> D4[stranger session cannot read structure]
+  end
+</pre>
+    </div>
+
+    <div class="defenses">
+      <h4>The defense each one needs</h4>
+      <ul>
+        <li><strong>Patch-op drift</strong> — schema version pinned in every patch; CI rejects patches whose schema version exceeds the deployed validator.</li>
+        <li><strong>Render-drift</strong> — HTML files carry a header pragma <code>JSON canonical render do not edit</code>; pre-commit hook refuses HTML changes without a JSON change.</li>
+        <li><strong>Skill-as-shell-script</strong> — every <code>SKILL.md</code> declares which MCP tools it uses; CI scans skills for raw <code>gh issue create</code>, <code>cat &gt; docs/</code>, and the like, and flags.</li>
+        <li><strong>Compaction-fidelity collapse</strong> — <code>card-update</code> is restricted to field-level updates by default; full-body replace requires a <code>--replace-body</code> flag and is logged distinctly.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ── 10 ─────────────────────────────────────────────────────────── -->
+<section id="s10" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 10</div>
+      <h2 class="slide-title">Skill taxonomy under the new framing</h2>
+      <p class="slide-intro">
+        If a skill cannot be slotted into one of these three classes, it is
+        probably misshapen.
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+flowchart TB
+  Skill[a skill in dot claude slash skills]
+  Skill --> Q1{does it mutate living-doc state}
+  Q1 -->|no only reads or renders| Class1[harness-tier client]
+  Q1 -->|yes emits patch ops via MCP| Q2{does it run a sub-agent}
+  Q1 -->|yes but bypasses MCP| Bad[misshapen rewrite as Class2]
+  Q2 -->|no direct emit| Class2[compaction-tier writer]
+  Q2 -->|yes dispatches to claude-code or codex| Class3[ai-pass orchestrator]
+
+  Class1 --> EX1[living-doc bootstrap]
+  Class1 --> EX2[dossier]
+  Class1 --> EX3[oss-issue-deep-dive]
+  Class2 --> EX4[crystallize]
+  Class2 --> EX5[convergence-advisor]
+  Class3 --> EX6[ai-pass-claude]
+  Class3 --> EX7[ai-pass-codex]
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">The asymmetry the diagram exposes</p>
+      <p>
+        Today most skills are Class 1 (read and present) or Class 3 (run an
+        ai-pass). Class 2 — direct typed-patch emission — is small.
+        <strong>That asymmetry is suspicious.</strong> If
+        <code>crystallize</code> and <code>convergence-advisor</code> are doing
+        patch-op work, are they doing it through MCP, or do they have direct
+        write paths that should be revoked?
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 11 ─────────────────────────────────────────────────────────── -->
+<section id="s11" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 11</div>
+      <h2 class="slide-title">The compaction question</h2>
+      <p class="slide-intro">
+        The one decision the framing forces us to answer. What runs at the
+        boundary between a session and a living doc?
+      </p>
+    </div>
+
+    <div class="stage">
+<pre class="mermaid">
+flowchart LR
+  Sess[session ends with raw events and tool log]
+  Sess --> Q1{is the work card-shaped}
+  Q1 -->|no| NoCompact[no compaction host harness drops the session log]
+  Q1 -->|yes attempt log decision record etc| Q2{which convergence type}
+  Q2 --> CompChoice[match to type and emit card-create]
+  CompChoice --> Patch[ai-patch applied via MCP]
+  Patch --> Doc[living doc updated]
+
+  Q3{who runs this step}
+  Q3 --> A1[option human invokes ai-pass at end]
+  Q3 --> A2[option harness post-session hook]
+  Q3 --> A3[option daemon watches session log]
+</pre>
+    </div>
+
+    <aside class="why">
+      <p class="why-label">This is the question Diagram 8 is actually about</p>
+      <p>
+        Picking an option in Diagram 8 is picking a <strong>who runs this
+        step</strong> answer here.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── 12 ─────────────────────────────────────────────────────────── -->
+<section id="s12" class="slide">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DIAGRAM 12</div>
+      <h2 class="slide-title">What the framing buys us</h2>
+      <p class="slide-intro">
+        Same code. Different vocabulary. Different consequences.
+      </p>
+    </div>
+
+    <div class="stage wide">
+<pre class="mermaid">
+flowchart LR
+  subgraph before [Before the framing]
+    B1[skills are tools we wrote]
+    B2[MCP server is a quirky design choice]
+    B3[ai-patch ops are an internal detail]
+    B4[living doc is a doc rendering tool]
+  end
+  subgraph after [After the framing]
+    A1[skills are clients of a harness runtime]
+    A2[MCP sole-writer is a recognizable permission tier]
+    A3[ai-patch event stream is harness session log lifted]
+    A4[living doc is the compaction artifact for multi-session work]
+  end
+  before -.same code different vocabulary.-> after
+  after --> Bench1[a test for new skills]
+  after --> Bench2[a roadmap each component has a defense]
+  after --> Bench3[an architecture question where does compositor end and harness begin]
+</pre>
+    </div>
+
+    <aside class="why teal">
+      <p class="why-label">What the reframe gives us</p>
+      <p>
+        A vocabulary that stops the recurring temptation to reach for
+        framework abstractions. A test for whether a proposed skill is
+        well-shaped. A ground for the MCP server's discipline. A roadmap whose
+        rows are concrete defenses, not aspirations.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ── OPEN QUESTIONS ─────────────────────────────────────────────── -->
+<section id="open-questions" class="slide" style="background: var(--surface-2);">
+  <div class="slide-inner">
+    <div class="slide-header">
+      <div class="slide-num">DECISIONS PENDING</div>
+      <h2 class="slide-title">Open questions for review</h2>
+      <p class="slide-intro">
+        The diagrams above expose four decisions still in motion. None are
+        blockers for ratifying the framing — but each one is the next thing
+        worth pushing on.
+      </p>
+    </div>
+
+    <div class="questions">
+      <ol>
+        <li>
+          <strong>Diagram 8 specifically.</strong> Is Option C (session-end
+          summarizer) the right first move, or is it procrastination from
+          Option A (compaction-as-<code>patch_apply</code>)?
+        </li>
+        <li>
+          <strong>Diagram 7's proposed tiering.</strong> Is
+          <code>invariant-suggest</code> really <em>full</em> tier, or is it
+          workspace-tier with a separate must-be-reviewed flag? The two are
+          not the same.
+        </li>
+        <li>
+          <strong>Diagram 10's misshapen-skill check.</strong> Should it be a
+          CI gate, or just authoring guidance?
+        </li>
+        <li>
+          <strong>Diagrams to cut.</strong> Twelve is a lot. Candidates if you
+          want fewer: 5 (covered by 4), maybe 12 (the lede already says it).
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <h3>References</h3>
+    <p>
+      Source video:
+      <a href="https://www.youtube.com/watch?v=nWzXyjXCoCE">Agent Harness vs Everything Else: The Real Difference</a>
+      · Prompt Engineering · 20:41<br/>
+      Transcript node: <code>doc:transcription:agent-harness-vs-everything-else-the-real-difference</code><br/>
+      Run log: <code>.video-intake-data/logs/job_moma1uij_fb63c627.stdout.log</code> (in the video-intake-console workspace)<br/>
+      Issue: <a href="https://github.com/triadflow/living-doc-compositor/issues/155">triadflow/living-doc-compositor#155</a><br/>
+      Draft sketch: <code>docs/harness-playground.draft.md</code>
+    </p>
+  </div>
+</footer>
+
+<!-- ── MERMAID + RAIL SCROLL-SPY ──────────────────────────────────── -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: '"Inter", system-ui, sans-serif',
+      fontSize: '15px',
+      primaryColor: '#eef2ff',
+      primaryBorderColor: '#4338ca',
+      primaryTextColor: '#1e1b4b',
+      lineColor: '#6366f1',
+      secondaryColor: '#f0fdfa',
+      secondaryBorderColor: '#0f766e',
+      tertiaryColor: '#fffbeb',
+      tertiaryBorderColor: '#b45309',
+      mainBkg: '#ffffff',
+      nodeBorder: '#4338ca',
+      clusterBkg: '#fafaf9',
+      clusterBorder: '#d6d3d1',
+      titleColor: '#0c0a09',
+      edgeLabelBackground: '#fafaf9',
+      labelBackground: '#fafaf9',
+      noteBkgColor: '#fffbeb',
+      noteTextColor: '#78350f',
+      noteBorderColor: '#fde68a',
+      activationBkgColor: '#eef2ff',
+      activationBorderColor: '#4338ca',
+      sequenceNumberColor: '#ffffff',
+      actorBkg: '#eef2ff',
+      actorBorder: '#4338ca',
+      actorTextColor: '#1e1b4b',
+      actorLineColor: '#a5b4fc',
+      signalColor: '#0c0a09',
+      signalTextColor: '#0c0a09',
+    },
+    flowchart: { curve: 'basis', padding: 18, useMaxWidth: true, htmlLabels: true, nodeSpacing: 36, rankSpacing: 56 },
+    sequence: { showSequenceNumbers: false, mirrorActors: false, actorMargin: 64, messageFontSize: 14, noteFontSize: 13, wrap: true },
+  });
+</script>
+
+<script>
+  // Scroll-spy for the side rail.
+  const rail = document.querySelector('.rail');
+  const links = rail ? Array.from(rail.querySelectorAll('a')) : [];
+  const targets = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+
+  function setActive() {
+    const y = window.scrollY + window.innerHeight * 0.35;
+    let activeIdx = -1;
+    targets.forEach((el, i) => {
+      if (el && el.offsetTop <= y) activeIdx = i;
+    });
+    links.forEach((a, i) => a.classList.toggle('active', i === activeIdx));
+  }
+  if (links.length) {
+    window.addEventListener('scroll', setActive, { passive: true });
+    window.addEventListener('resize', setActive);
+    setActive();
+  }
+</script>
+
+</body>
+</html>
