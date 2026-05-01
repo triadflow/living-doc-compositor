@@ -60,10 +60,11 @@ cd docs && python3 -m http.server 8111
 
 ## Skills
 
-Two skills in `.claude/skills/`:
+Three skills in `.claude/skills/`:
 
 - `/living-doc` — bootstrap skill. Connects a session to the relevant living docs, shows freshness, updates stale sections during work.
 - `/convergence-advisor` — thinking partner. Helps discover convergence types through dialog, shows existing types as examples, writes registry entries.
+- `/tiny-experiment` — pact runner. Bootstraps a pacts living doc from the template, adds new experiments (hypothesis, window, signals), and closes them with persist/pause/pivot + rationale.
 
 ## Constraints
 
