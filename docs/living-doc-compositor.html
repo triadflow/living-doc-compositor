@@ -4115,6 +4115,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "unsupported": "negative",
           "contradicted": "negative"
         }
+      },
+      "pact-status": {
+        "values": [
+          "running",
+          "closed"
+        ],
+        "tones": {
+          "running": "neutral",
+          "closed": "positive"
+        }
+      },
+      "pact-outcome": {
+        "values": [
+          "persist",
+          "pause",
+          "pivot"
+        ],
+        "tones": {
+          "persist": "positive",
+          "pause": "neutral",
+          "pivot": "warning"
+        }
       }
     },
     "convergenceCategories": {
@@ -7586,6 +7608,115 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "entityShape": [
           "change-entry"
         ]
+      },
+      "tiny-experiment": {
+        "name": "Tiny Experiment",
+        "category": "verification",
+        "kind": "act",
+        "description": "A small, time-bounded experiment with an explicit hypothesis and a closure decision of persist, pause, or pivot. The unit of pact-shaped learning.",
+        "structuralContract": "Two-column card grid. Each card is one experiment with a hypothesis, a window, the signals it watches, and on closure an outcome with rationale. Status is pact-status; outcome is pact-outcome and is only set when status is closed.",
+        "notFor": [
+          "ongoing tasks without a hypothesis or window (use attempt-log)",
+          "cohort views across multiple experiments (use experiment-evidence-surface)",
+          "settled decisions with no live signal (use decision-record)"
+        ],
+        "promptGuidance": {
+          "operatingThesis": "Each card is a pact: a declarative hypothesis, a window with start and end, the signals being tracked, and a closure that picks one of three legitimate moves — persist, pause, or pivot. The closure carries the data; the running state is just the wait.",
+          "keepDistinct": [
+            "hypothesis",
+            "window (start and end)",
+            "signals being tracked",
+            "status (running vs closed)",
+            "outcome (persist / pause / pivot) on closure",
+            "rationale on closure"
+          ],
+          "inspect": [
+            "Check that every running card has a window end date — undated experiments quietly turn into permanent commitments.",
+            "Check that closed cards have an outcome and a one or two sentence rationale.",
+            "If a card has been running past its window without a closure, that is itself a signal — either close it or extend the window deliberately."
+          ],
+          "update": [
+            "When the window closes, set status=closed, set outcome, and write the rationale before moving on. Skipping the rationale loses the data the experiment was trying to gather.",
+            "If pivoting, link nextPact to the follow-up experiment so the chain stays traceable.",
+            "Persisting does not mean unchanged — write down what is being kept and what (if anything) is being adjusted."
+          ],
+          "avoid": [
+            "Do not use this for tasks that have no hypothesis. Tasks without a question being asked belong in attempt-log or operating-surface.",
+            "Do not collapse persist/pause/pivot into pass/fail — the three-way choice is the point.",
+            "Do not let cards drift past their window without a closure. The closure is what makes it an experiment."
+          ]
+        },
+        "icon": "<path opacity='.28' d='M9 2h6v4l-3 3-3-3z'/><path d='M9 9l3 3 3-3v9a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V9z'/><circle cx='12' cy='16' r='1.4'/>",
+        "iconColor": "#7c3aed",
+        "projection": "card-grid",
+        "columns": 2,
+        "sources": [
+          {
+            "key": "ticketIds",
+            "entityType": "ticket",
+            "label": "Tickets"
+          },
+          {
+            "key": "notes",
+            "entityType": null,
+            "label": null
+          }
+        ],
+        "statusFields": [
+          {
+            "key": "status",
+            "statusSet": "pact-status"
+          },
+          {
+            "key": "outcome",
+            "statusSet": "pact-outcome"
+          }
+        ],
+        "textFields": [
+          {
+            "key": "windowStart",
+            "label": "Window start"
+          },
+          {
+            "key": "windowEnd",
+            "label": "Window end"
+          },
+          {
+            "key": "nextPact",
+            "label": "Next pact"
+          }
+        ],
+        "detailsFields": [
+          {
+            "key": "hypothesis",
+            "label": "Hypothesis"
+          },
+          {
+            "key": "signals",
+            "label": "Signals tracked"
+          },
+          {
+            "key": "rationale",
+            "label": "Rationale on closure"
+          }
+        ],
+        "aiActions": [
+          {
+            "id": "check-window-elapsed",
+            "name": "Check window elapsed",
+            "description": "If the window end has passed and status is still running, propose closure — surface the signals collected so far and ask the user for an outcome and rationale."
+          },
+          {
+            "id": "draft-rationale",
+            "name": "Draft closure rationale",
+            "description": "Read the signals and any linked attempts, then propose a one or two sentence rationale for the chosen outcome. Author still confirms."
+          }
+        ],
+        "domain": "research",
+        "entityShape": [
+          "time-series",
+          "has-evidence"
+        ]
       }
     },
     "generalAiActions": [
@@ -10952,6 +11083,336 @@ https://github.com/nodeca/pako/blob/main/LICENSE
                 "invocation": "`node scripts/render-living-doc.mjs docs/my-doc.json`",
                 "caveats": [
                   "Rendered HTML is portable, but the JSON remains the canonical version to keep current."
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "filename": "living-doc-template-starter-tiny-experiment.json",
+      "htmlFilename": "living-doc-template-starter-tiny-experiment.html",
+      "title": "Run Tiny Experiments",
+      "subtitle": "A small starting shape for work where personal, time-bounded experiments need an explicit hypothesis, window, and persist/pause/pivot closure.",
+      "scope": "A small set of running and recently-closed pacts, treated as the unit of learning rather than the unit of finishing.",
+      "objective": "Make the experiments you are actually running visible — their hypotheses, their windows, and the closure decision waiting at the end of each.",
+      "successCondition": "Every running pact has an end date and at least one trackable signal. Every closed pact has an outcome (persist / pause / pivot) and a one-or-two-sentence rationale.",
+      "updated": "2026-05-01T22:30:00.000Z",
+      "sectionCount": 3,
+      "sectionTitles": [
+        "Status Snapshot",
+        "Tiny Experiments",
+        "Attempts"
+      ],
+      "sectionTypes": [
+        "status-snapshot",
+        "tiny-experiment",
+        "attempt-log"
+      ],
+      "templateMeta": {
+        "level": "starter",
+        "order": 5,
+        "useWhen": "Use this when you want to run small, time-bounded experiments on yourself or a project — and need a place to write down the hypothesis, the window, and the persist/pause/pivot decision at the end.",
+        "goodFor": [
+          "personal practice changes",
+          "exploratory project bets",
+          "method or workflow trials",
+          "research probes that need a window",
+          "anything you want to learn from rather than finish"
+        ],
+        "startsWith": [
+          "Status Snapshot",
+          "Tiny Experiment",
+          "Attempt Log"
+        ],
+        "growsInto": [
+          "Decision Record",
+          "Investigation Findings",
+          "Experiment Evidence Surface",
+          "Proof Ladder"
+        ],
+        "operatingThesis": "Treat each card as a pact: a hypothesis, a window with a real end date, and a closure that picks one of three legitimate moves — persist, pause, or pivot. The closure carries the data; running is just the wait.",
+        "keepDistinct": [
+          "hypothesis",
+          "window (start and end)",
+          "signals being tracked",
+          "outcome on closure",
+          "rationale for the chosen outcome"
+        ],
+        "notFor": [
+          "open-ended task lists with no question being asked",
+          "outcome-locked goals (use a milestone tracker)",
+          "post-hoc journaling with no prior bet"
+        ]
+      },
+      "json": {
+        "docId": "template:starter-tiny-experiment",
+        "title": "Run Tiny Experiments",
+        "subtitle": "A small starting shape for work where personal, time-bounded experiments need an explicit hypothesis, window, and persist/pause/pivot closure.",
+        "brand": "LD",
+        "scope": "A small set of running and recently-closed pacts, treated as the unit of learning rather than the unit of finishing.",
+        "owner": "Template",
+        "version": "template-v1",
+        "canonicalOrigin": "docs/living-doc-template-starter-tiny-experiment.json",
+        "sourceCoverage": "Template only; replace example experiments with your own pacts.",
+        "updated": "2026-05-01T22:30:00.000Z",
+        "pills": [
+          "Template",
+          "Starter",
+          "Experiments"
+        ],
+        "templateMeta": {
+          "level": "starter",
+          "order": 5,
+          "useWhen": "Use this when you want to run small, time-bounded experiments on yourself or a project — and need a place to write down the hypothesis, the window, and the persist/pause/pivot decision at the end.",
+          "goodFor": [
+            "personal practice changes",
+            "exploratory project bets",
+            "method or workflow trials",
+            "research probes that need a window",
+            "anything you want to learn from rather than finish"
+          ],
+          "startsWith": [
+            "Status Snapshot",
+            "Tiny Experiment",
+            "Attempt Log"
+          ],
+          "growsInto": [
+            "Decision Record",
+            "Investigation Findings",
+            "Experiment Evidence Surface",
+            "Proof Ladder"
+          ],
+          "operatingThesis": "Treat each card as a pact: a hypothesis, a window with a real end date, and a closure that picks one of three legitimate moves — persist, pause, or pivot. The closure carries the data; running is just the wait.",
+          "keepDistinct": [
+            "hypothesis",
+            "window (start and end)",
+            "signals being tracked",
+            "outcome on closure",
+            "rationale for the chosen outcome"
+          ],
+          "notFor": [
+            "open-ended task lists with no question being asked",
+            "outcome-locked goals (use a milestone tracker)",
+            "post-hoc journaling with no prior bet"
+          ]
+        },
+        "objective": "Make the experiments you are actually running visible — their hypotheses, their windows, and the closure decision waiting at the end of each.",
+        "successCondition": "Every running pact has an end date and at least one trackable signal. Every closed pact has an outcome (persist / pause / pivot) and a one-or-two-sentence rationale.",
+        "callouts": [
+          {
+            "tone": "info",
+            "title": "How to use this starter",
+            "items": [
+              "Keep cards small. A pact you cannot summarise as 'if I do X for N, then Y' is too big.",
+              "Set a real window. Undated experiments quietly turn into permanent commitments.",
+              "Close the loop. Persist, pause, or pivot — never silently drop. The closure is the experiment."
+            ]
+          },
+          {
+            "tone": "info",
+            "title": "Inspired by",
+            "items": [
+              "Anne-Laure Le Cunff, Tiny Experiments: How to Live Freely in a Goal-Obsessed World (2025).",
+              "PACT (Purposeful, Actionable, Continuous, Trackable) replaces SMART. Persist / pause / pivot replaces pass/fail."
+            ]
+          }
+        ],
+        "sections": [
+          {
+            "id": "status-snapshot",
+            "title": "Status Snapshot",
+            "convergenceType": "status-snapshot",
+            "updated": "2026-05-01T22:30:00.000Z",
+            "stats": [
+              {
+                "label": "Running",
+                "value": "1"
+              },
+              {
+                "label": "Closed",
+                "value": "2"
+              },
+              {
+                "label": "Persist / Pause / Pivot",
+                "value": "1 / 0 / 1"
+              }
+            ],
+            "callout": {
+              "tone": "info",
+              "title": "Starter intent",
+              "items": [
+                "Use the snapshot to make the running/closed split visible at a glance.",
+                "Let the section below carry the actual experiments."
+              ]
+            },
+            "data": []
+          },
+          {
+            "id": "experiments",
+            "title": "Tiny Experiments",
+            "convergenceType": "tiny-experiment",
+            "updated": "2026-05-01T22:30:00.000Z",
+            "callout": {
+              "tone": "info",
+              "title": "How to read this section",
+              "items": [
+                "Each card is one pact. Running cards still have their window open; closed cards carry their outcome.",
+                "If a running card's window has passed, that is itself a signal — close it or extend deliberately."
+              ]
+            },
+            "data": [
+              {
+                "id": "act-surface-split",
+                "name": "Act/surface split sharpens the registry",
+                "status": "running",
+                "updated": "2026-05-01T22:00:00.000Z",
+                "windowStart": "2026-04-30",
+                "windowEnd": "2026-05-14",
+                "hypothesis": [
+                  {
+                    "type": "info",
+                    "text": "If I add a required kind: act | surface to every convergence type and update /convergence-advisor to ask the kind question first, new types entering the registry will declare kind cleanly and the advisor's first dialog turn will sharpen."
+                  }
+                ],
+                "signals": [
+                  {
+                    "type": "info",
+                    "text": "Number of new types proposed via the advisor in the next two weeks."
+                  },
+                  {
+                    "type": "info",
+                    "text": "Whether each new proposal cleanly answers act vs surface in its first turn."
+                  },
+                  {
+                    "type": "info",
+                    "text": "Subjective sharpness when adding sections to existing docs."
+                  }
+                ],
+                "ticketIds": [
+                  {
+                    "issueNumber": "156",
+                    "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/156"
+                  }
+                ],
+                "notes": [
+                  "This is the inaugural pact for this template — the act/surface split itself, retro-fitted as a tiny experiment.",
+                  "Closure window is 2026-05-14. If no new types come through the advisor in the window, the signal is silence — extend by one window or close as 'inconclusive, pause'."
+                ]
+              },
+              {
+                "id": "morning-pulse",
+                "name": "Daily 10-minute living-doc pulse",
+                "status": "closed",
+                "outcome": "persist",
+                "updated": "2026-04-14T08:00:00.000Z",
+                "windowStart": "2026-04-01",
+                "windowEnd": "2026-04-14",
+                "hypothesis": [
+                  {
+                    "type": "info",
+                    "text": "If I read one living doc end-to-end every morning for 14 days, drift catches will increase and recall in working sessions will sharpen."
+                  }
+                ],
+                "signals": [
+                  {
+                    "type": "info",
+                    "text": "Drift catches per week — cards discovered to be stale."
+                  },
+                  {
+                    "type": "info",
+                    "text": "Subjective recall when entering a session cold."
+                  }
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Drift catches went from ~1/week to ~4/week; cold-session recall measurably faster. Persisting as standing morning practice."
+                  }
+                ],
+                "notes": [
+                  "Example of a clean persist outcome — the practice produced what the hypothesis predicted.",
+                  "Persisting does not mean unchanged: dropped the doc-rotation rule (was reading the next-due doc; now reading whichever feels stalest)."
+                ]
+              },
+              {
+                "id": "auto-dossier-prose",
+                "name": "Auto-generate dossier prose from living-doc deltas",
+                "status": "closed",
+                "outcome": "pivot",
+                "updated": "2026-04-01T17:00:00.000Z",
+                "windowStart": "2026-03-15",
+                "windowEnd": "2026-04-01",
+                "hypothesis": [
+                  {
+                    "type": "info",
+                    "text": "If I draft each period dossier from the change-log plus current living-doc state, prose quality will match hand-written within three cycles."
+                  }
+                ],
+                "signals": [
+                  {
+                    "type": "info",
+                    "text": "Editorial pass count needed before publish."
+                  },
+                  {
+                    "type": "info",
+                    "text": "Subjective tone match against hand-written reference dossiers."
+                  },
+                  {
+                    "type": "info",
+                    "text": "Time saved per dossier."
+                  }
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Quality close on monitoring dossiers (3-4 edit passes) but tone fell flat on argumentative pieces (8+ passes). Pivoting to a hand-AI loop where the AI drafts only the structural skeleton."
+                  }
+                ],
+                "nextPact": "hand-ai-dossier-loop",
+                "notes": [
+                  "Example of a pivot outcome — the question got answered, but the answer redirected the work.",
+                  "Pivoting created a new pact (hand-ai-dossier-loop) that would live in this same section once it's running."
+                ]
+              }
+            ]
+          },
+          {
+            "id": "attempts",
+            "title": "Attempts",
+            "convergenceType": "attempt-log",
+            "updated": "2026-05-01T22:30:00.000Z",
+            "callout": {
+              "tone": "info",
+              "title": "Where attempts live",
+              "items": [
+                "Day-to-day actions inside an experiment go here, not on the experiment card.",
+                "Link an attempt back to the experiment it serves with a brief note."
+              ]
+            },
+            "data": [
+              {
+                "id": "advisor-script-update",
+                "name": "Updated /convergence-advisor to ask kind first",
+                "status": "workaround-shipped",
+                "updated": "2026-05-01T15:00:00.000Z",
+                "what_tried": [
+                  {
+                    "type": "info",
+                    "text": "Restructured step 3 of the skill to lead with 'is each card a unit of thinking-action or a projection of state?' before asking about sources/projection/derivation."
+                  }
+                ],
+                "what_proved": [
+                  {
+                    "type": "info",
+                    "text": "Skill landed; first observation window is open. Serves the act-surface-split experiment above."
+                  }
+                ],
+                "shipped_in": "https://github.com/triadflow/living-doc-compositor/commit/325c8f9",
+                "cost_to_apply": "Two edits, one in .claude and one in .agents.",
+                "notes": [
+                  "This card belongs to the act-surface-split experiment — it's one of the actions inside that pact, not the pact itself."
                 ]
               }
             ]

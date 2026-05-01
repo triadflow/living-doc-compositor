@@ -28,6 +28,16 @@ Borderline cases worth knowing:
 
 Do not collapse this distinction back into `category`. Categories group by *domain* (governance, verification, content, monitoring, …); kinds group by *what kind of thing the section holds*. A `verification` category has both kinds inside it.
 
+## Tiny experiments vs attempts vs evidence cohorts
+
+Three act types in the verification category sit close together and should not be collapsed:
+
+- **`tiny-experiment`** — a single pact. Carries a hypothesis, a window (start → end), the signals being watched, and a closure that picks one of three legitimate moves: persist, pause, or pivot. Inspired by Anne-Laure Le Cunff's *Tiny Experiments* (2025). The closure is what makes it an experiment.
+- **`attempt-log`** — actions taken against a problem and what each one proved. No hypothesis required, no window. Use for tried fixes, probes, and shipped workarounds. An experiment may *contain* attempts in its evidence; the experiment is the frame, the attempt is the action.
+- **`experiment-evidence-surface`** — a cohort view across many experiments where evidence accumulates from multiple lanes converging on one question. The horizontal section a reader scans to see what's been learned across many tries.
+
+A test for which to use: if you can name the hypothesis and the window, it's a `tiny-experiment`. If you only know the action and its outcome, it's an `attempt-log`. If you have many of either rolling up to one bigger question, it's an `experiment-evidence-surface`.
+
 ## Key Files
 
 | File | Purpose |
