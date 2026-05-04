@@ -747,8 +747,10 @@ export async function renderRegistryOverview(outputPath = defaultOutputPath, opt
     linkStats = { checked: results.size, missing };
   }
   const html = buildHtml(registry, usageSummary);
-  await writeFile(outputPath, html);
-  return { outputPath, typeCount: Object.keys(registry.convergenceTypes ?? {}).length, linkStats };
+  if (opts.write !== false) {
+    await writeFile(outputPath, html);
+  }
+  return { outputPath, html, typeCount: Object.keys(registry.convergenceTypes ?? {}).length, linkStats };
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

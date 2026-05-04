@@ -2,11 +2,13 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderRegistryOverview } from './render-registry-overview.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
 const docsPath = path.join(repoRoot, 'docs');
 const compositorPath = path.join(repoRoot, 'docs', 'living-doc-compositor.html');
+const overviewPath = path.join(repoRoot, 'docs', 'living-doc-registry-overview.html');
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
 const i18nPath = path.join(__dirname, 'living-doc-i18n.json');
 const rendererPath = path.join(__dirname, 'render-living-doc.mjs');
@@ -146,14 +148,26 @@ export async function syncCompositorEmbeds(options = {}) {
   out = replaceMarkedBlock(out, SYNC_EMBEDS_START, SYNC_EMBEDS_END, syncEmbedsBlock);
   out = replaceMarkedBlock(out, JSZIP_START, JSZIP_END, jszipBlock);
 
-  if (out !== html) {
-    if (write) {
-      await writeFile(compositorPath, out);
-    }
-    return { changed: true, path: compositorPath };
+  const compositorChanged = out !== html;
+  if (compositorChanged && write) {
+    await writeFile(compositorPath, out);
   }
 
-  return { changed: false, path: compositorPath };
+  // Keep the registry overview page in sync with the registry. Skip the
+  // network HEAD checks that the standalone CLI does — keeping sync local and
+  // CI-friendly. Run the standalone command when you want public-URL verification.
+  const overview = await renderRegistryOverview(overviewPath, { write: false, verifyLinks: false });
+  const existingOverview = await readFile(overviewPath, 'utf8').catch(() => '');
+  const overviewChanged = overview.html !== existingOverview;
+  if (overviewChanged && write) {
+    await writeFile(overviewPath, overview.html);
+  }
+
+  return {
+    changed: compositorChanged || overviewChanged,
+    compositor: { path: compositorPath, changed: compositorChanged },
+    overview: { path: overviewPath, changed: overviewChanged },
+  };
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -161,13 +175,21 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURL
 if (isDirectRun) {
   const checkOnly = process.argv.includes('--check');
   const result = await syncCompositorEmbeds({ write: !checkOnly });
+  const targets = [result.compositor, result.overview];
   if (checkOnly) {
-    if (result.changed) {
-      console.error(`Out of sync: ${path.relative(repoRoot, result.path)}`);
+    const drifted = targets.filter((t) => t.changed);
+    if (drifted.length > 0) {
+      for (const t of drifted) {
+        console.error(`Out of sync: ${path.relative(repoRoot, t.path)}`);
+      }
       process.exit(1);
     }
-    console.log(`Up to date: ${path.relative(repoRoot, result.path)}`);
+    for (const t of targets) {
+      console.log(`Up to date: ${path.relative(repoRoot, t.path)}`);
+    }
   } else {
-    console.log(`${result.changed ? 'Synced' : 'Already up to date'} ${path.relative(repoRoot, result.path)}`);
+    for (const t of targets) {
+      console.log(`${t.changed ? 'Synced' : 'Already up to date'} ${path.relative(repoRoot, t.path)}`);
+    }
   }
 }
