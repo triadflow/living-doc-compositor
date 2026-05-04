@@ -38,6 +38,24 @@ Three act types in the verification category sit close together and should not b
 
 A test for which to use: if you can name the hypothesis and the window, it's a `tiny-experiment`. If you only know the action and its outcome, it's an `attempt-log`. If you have many of either rolling up to one bigger question, it's an `experiment-evidence-surface`.
 
+## Design system types — surface, taste, alignment, derivation
+
+Four convergence types in the `design-system` category sit close together and should not be collapsed:
+
+- **`design-system-surface`** is **surface** — tokens, components, motifs as pointers. The primitives live in Figma / tokens.json / a code repo; the section reveals them. If the section stopped being maintained, the primitives would still change in their canonical sources.
+- **`taste-signature`** is **surface** — recurring traits across the designer's prior systems. Taste lives in the prior work; the section reveals it. Recurring requires at least two prior-system pointers — one is anecdotal.
+- **`brief-to-system-alignment`** is **act** — each card records one paired thinking-action: a brief constraint on one side, a design response on the other. Without maintenance, the recorded alignments simply stop accumulating.
+- **`design-system-derivation`** is **act** — each card is a derivation move (kept / swapped / inverted / scaled / dropped) from a prior system into the new one, with rationale. Without maintenance, the derivation chain disappears even though the new system still exists.
+
+Borderline tests:
+- `design-system-surface` vs `design-code-spec-flow` — flow is one *product surface* viewed through design / code / spec / interaction. Surface is *the design system itself*.
+- `taste-signature` vs `expert-stance-track` / `competitor-stance-track` — those track external actors. Taste-signature is self-stance.
+- `brief-to-system-alignment` vs `decision-record` — decision-record is one decision with rationale. Alignment cards are paired (constraint ↔ response) and serial; they map a brief end-to-end.
+- `design-system-derivation` vs `attempt-log` — attempt-log is "what I tried and what it proved". Derivation is "what I carried from prior systems and why" — every card has a `priorSystemRef`.
+- `design-system-derivation` vs `brief-to-system-alignment` — alignment maps brief → response. Derivation maps prior system → new system. Both can co-exist in one engagement.
+
+Pointer-first principle: cards in `design-system-surface` reference where the primitive lives (Figma variable, tokens.json key, repo path) — they never own the value. This is the same entity/scope distinction applied to design system primitives.
+
 ## Key Files
 
 | File | Purpose |
