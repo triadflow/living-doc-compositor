@@ -179,8 +179,11 @@ function addSectionUsage(byType, section, sampleBase) {
   return true;
 }
 
-async function collectUsageSamples(registry, outputPath, catalogPath = DEFAULT_CATALOG_PATH) {
+async function collectUsageSamples(registry, outputPath, catalogPath = DEFAULT_CATALOG_PATH, { useCatalog = true } = {}) {
   const byType = createUsageBuckets(registry);
+  if (!useCatalog) {
+    return { byType, scannedDocs: 0, scannedSections: 0, discovery: 'skipped', catalogPath: '(skipped)', livingDocCount: 0 };
+  }
   let scannedDocs = 0;
   let scannedSections = 0;
   let livingDocs = [];
@@ -739,7 +742,7 @@ function buildHtml(registry, usageSummary) {
 
 export async function renderRegistryOverview(outputPath = defaultOutputPath, opts = {}) {
   const registry = JSON.parse(await readFile(registryPath, 'utf8'));
-  const usageSummary = await collectUsageSamples(registry, outputPath);
+  const usageSummary = await collectUsageSamples(registry, outputPath, DEFAULT_CATALOG_PATH, { useCatalog: opts.useCatalog !== false });
   let linkStats = null;
   if (opts.verifyLinks !== false) {
     const results = await verifyPublicUrls(usageSummary);

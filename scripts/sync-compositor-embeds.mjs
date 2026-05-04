@@ -155,10 +155,11 @@ export async function syncCompositorEmbeds(options = {}) {
     await writeFile(compositorPath, out);
   }
 
-  // Keep the registry overview page in sync with the registry. Skip the
-  // network HEAD checks that the standalone CLI does — keeping sync local and
-  // CI-friendly. Run the standalone command when you want public-URL verification.
-  const overview = await renderRegistryOverview(overviewPath, { write: false, verifyLinks: false });
+  // Keep the registry overview page in sync with the registry. Skip both the
+  // network HEAD checks (verifyLinks) and the local catalog sample lookup
+  // (useCatalog) so the output is deterministic across machines and CI — the
+  // standalone CLI still does both by default for the periodic enrichment pass.
+  const overview = await renderRegistryOverview(overviewPath, { write: false, verifyLinks: false, useCatalog: false });
   const existingOverview = await readFile(overviewPath, 'utf8').catch(() => '');
   const overviewChanged = overview.html !== existingOverview;
   if (overviewChanged && write) {
