@@ -3701,6 +3701,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "displayKey": "name",
         "valueKey": "id",
         "collectionKey": "invariants"
+      },
+      "design-token": {
+        "label": "Token",
+        "refRender": "code-badge",
+        "displayKey": "ref",
+        "valueKey": "ref"
+      },
+      "design-component": {
+        "label": "Component",
+        "refRender": "code-badge",
+        "displayKey": "ref",
+        "valueKey": "ref"
+      },
+      "design-motif": {
+        "label": "Motif",
+        "refRender": "code-badge",
+        "displayKey": "ref",
+        "valueKey": "ref"
+      },
+      "design-system-ref": {
+        "label": "Prior system",
+        "refRender": "link",
+        "hrefTemplate": "{url}",
+        "displayKey": "name",
+        "valueKey": "id",
+        "collectionKey": "priorSystems"
+      },
+      "client-brief": {
+        "label": "Brief",
+        "refRender": "link",
+        "hrefTemplate": "{url}",
+        "displayKey": "name",
+        "valueKey": "id",
+        "collectionKey": "clientBriefs"
       }
     },
     "statusSets": {
@@ -4137,6 +4171,64 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "pause": "neutral",
           "pivot": "warning"
         }
+      },
+      "design-primitive-status": {
+        "values": [
+          "proposed",
+          "in-figma",
+          "coded",
+          "shipped",
+          "deprecated"
+        ],
+        "tones": {
+          "proposed": "neutral",
+          "in-figma": "warning",
+          "coded": "warning",
+          "shipped": "positive",
+          "deprecated": "negative"
+        }
+      },
+      "taste-recurrence": {
+        "values": [
+          "recurring",
+          "emerging",
+          "abandoned"
+        ],
+        "tones": {
+          "recurring": "positive",
+          "emerging": "warning",
+          "abandoned": "negative"
+        }
+      },
+      "derivation-move": {
+        "values": [
+          "kept",
+          "swapped",
+          "inverted",
+          "scaled",
+          "dropped"
+        ],
+        "tones": {
+          "kept": "positive",
+          "swapped": "warning",
+          "inverted": "warning",
+          "scaled": "warning",
+          "dropped": "negative"
+        }
+      },
+      "alignment-state": {
+        "values": [
+          "aligned",
+          "partial",
+          "deferred",
+          "conflicting"
+        ],
+        "tones": {
+          "aligned": "positive",
+          "partial": "warning",
+          "deferred": "neutral",
+          "conflicting": "negative"
+        }
       }
     },
     "convergenceCategories": {
@@ -4174,6 +4266,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         "label": "Monitoring",
         "description": "Topic-bounded tracking surfaces where state accumulates across monitoring periods. Stances, events, indicators, and sources gathered on a cadence rather than shipped to an outcome.",
         "order": 6
+      },
+      "design-system": {
+        "label": "Design System",
+        "description": "Tokens, components, motifs, and the thinking-actions that produce them — taste signature, brief alignment, and derivation across systems.",
+        "order": 7
       }
     },
     "convergenceTypes": {
@@ -7717,6 +7814,417 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "time-series",
           "has-evidence"
         ]
+      },
+      "design-system-surface": {
+        "name": "Design System Surface",
+        "category": "design-system",
+        "kind": "surface",
+        "description": "Current state of a design system, expressed as pointers. Each card is one primitive — a token, a component, or a motif — surfaced from where it actually lives (Figma variable, tokens.json key, CSS custom property, repo path).",
+        "structuralContract": "Two-column card grid where each card is one design primitive. The card never owns the value; it points at where the primitive lives. Status reflects implementation state across the design-primitive lifecycle.",
+        "notFor": [
+          "per-feature design-implementation alignment (use design-code-spec-flow)",
+          "evidence of design decisions (use decision-record)",
+          "inventories of system-consuming product surfaces"
+        ],
+        "promptGuidance": {
+          "operatingThesis": "Treat the section as the design system itself, surfaced as pointers. Tokens, components, and motifs each live in Figma / tokens.json / a code repo; this section reveals them and tracks their lifecycle.",
+          "keepDistinct": [
+            "primitive kind (token, component, motif)",
+            "pointer (where the primitive actually lives)",
+            "implementation status",
+            "provenance (which derivation move produced it, if any)"
+          ],
+          "inspect": [
+            "Check that every card has a pointer, not a duplicated value.",
+            "Recheck status against the actual source (Figma file, tokens.json, repo) before marking shipped.",
+            "Flag any primitive stuck in proposed for more than 14 days — that is itself a signal."
+          ],
+          "update": [
+            "Refresh status from the canonical source, not from memory.",
+            "When a primitive ships, link the commit or PR if there is one.",
+            "Set primitiveKind on every card so the renderer chooses the right chip."
+          ],
+          "avoid": [
+            "Do not author values here — the card is a pointer.",
+            "Do not turn this into a per-feature implementation board (that is design-code-spec-flow)."
+          ]
+        },
+        "icon": "<rect x='4' y='4' width='6' height='6' rx='1' opacity='.4'/><rect x='14' y='4' width='6' height='6' rx='1' opacity='.6'/><rect x='4' y='14' width='6' height='6' rx='1' opacity='.6'/><rect x='14' y='14' width='6' height='6' rx='1'/>",
+        "iconColor": "#0ea5e9",
+        "projection": "card-grid",
+        "columns": 2,
+        "sources": [
+          {
+            "key": "tokenRefs",
+            "entityType": "design-token",
+            "label": "Token refs"
+          },
+          {
+            "key": "componentRefs",
+            "entityType": "design-component",
+            "label": "Component refs"
+          },
+          {
+            "key": "motifRefs",
+            "entityType": "design-motif",
+            "label": "Motif refs"
+          },
+          {
+            "key": "derivedFrom",
+            "entityType": "design-system-ref",
+            "label": "Derived from",
+            "resolve": true
+          },
+          {
+            "key": "ticketIds",
+            "entityType": "ticket",
+            "label": "Tickets"
+          },
+          {
+            "key": "notes",
+            "entityType": null,
+            "label": null
+          }
+        ],
+        "statusFields": [
+          {
+            "key": "status",
+            "statusSet": "design-primitive-status"
+          }
+        ],
+        "textFields": [
+          {
+            "key": "primitiveKind",
+            "label": "Kind"
+          },
+          {
+            "key": "pointerSystem",
+            "label": "Source system"
+          }
+        ],
+        "aiActions": [
+          {
+            "id": "refresh-from-source",
+            "name": "Refresh status from source",
+            "description": "For each card with a Figma or tokens.json pointer, check the canonical source and propose status updates."
+          },
+          {
+            "id": "flag-stale-proposals",
+            "name": "Flag stale proposals",
+            "description": "Surface primitives that have been in proposed for more than 14 days; propose either promotion or downgrade."
+          }
+        ],
+        "domain": "design",
+        "entityShape": [
+          "pointer-card"
+        ]
+      },
+      "taste-signature": {
+        "name": "Taste Signature",
+        "category": "design-system",
+        "kind": "surface",
+        "description": "The designer's recurring identity, surfaced across prior systems. Each card is one trait — a colour relationship, a spacing rhythm, a motion preference, a typographic axis, a compositional habit — with pointers to the prior systems where it appears.",
+        "structuralContract": "Two-column card grid of traits. Each trait points at one or more prior design-system-ref entries as evidence. Recurrence status reflects how many systems the trait has been observed in.",
+        "notFor": [
+          "external actors' positions (use expert-stance-track or competitor-stance-track)",
+          "per-system inventory (use design-system-surface)",
+          "individual decisions inside one engagement (use decision-record)"
+        ],
+        "promptGuidance": {
+          "operatingThesis": "Treat the section as the designer's idiom made visible. Taste lives in the prior systems; this section reveals it. Each trait is evidenced, not asserted.",
+          "keepDistinct": [
+            "trait (the recurring choice)",
+            "evidence (prior systems where it appears)",
+            "recurrence status (recurring vs emerging vs abandoned)"
+          ],
+          "inspect": [
+            "Check that every recurring card has at least two prior-system pointers — one is anecdotal.",
+            "Look for emerging traits that have stalled at one pointer for a long time — they are candidates for abandoned."
+          ],
+          "update": [
+            "Promote emerging to recurring only when a second prior-system pointer exists.",
+            "Mark a trait abandoned when older systems carry it but the most recent ones have moved on — that is data, not failure."
+          ],
+          "avoid": [
+            "Do not assert taste without prior-system pointers.",
+            "Do not collapse multiple distinct traits into one card."
+          ]
+        },
+        "icon": "<circle cx='12' cy='12' r='9' opacity='.25'/><circle cx='12' cy='12' r='6.5' opacity='.5'/><circle cx='12' cy='12' r='4'/><circle cx='12' cy='12' r='1.5' opacity='.7'/>",
+        "iconColor": "#be185d",
+        "projection": "card-grid",
+        "columns": 2,
+        "sources": [
+          {
+            "key": "priorSystemRefs",
+            "entityType": "design-system-ref",
+            "label": "Prior systems",
+            "resolve": true
+          },
+          {
+            "key": "tokenRefs",
+            "entityType": "design-token",
+            "label": "Token examples"
+          },
+          {
+            "key": "componentRefs",
+            "entityType": "design-component",
+            "label": "Component examples"
+          },
+          {
+            "key": "motifRefs",
+            "entityType": "design-motif",
+            "label": "Motif examples"
+          },
+          {
+            "key": "notes",
+            "entityType": null,
+            "label": null
+          }
+        ],
+        "statusFields": [
+          {
+            "key": "status",
+            "statusSet": "taste-recurrence"
+          }
+        ],
+        "textFields": [
+          {
+            "key": "trait",
+            "label": "Trait"
+          }
+        ],
+        "detailsFields": [
+          {
+            "key": "evidence",
+            "label": "Evidence"
+          }
+        ],
+        "aiActions": [
+          {
+            "id": "find-recurring-traits",
+            "name": "Find recurring traits across prior systems",
+            "description": "Read the priorSystems collection and propose candidate taste traits with the prior-system pointers as evidence."
+          },
+          {
+            "id": "promote-recurrence",
+            "name": "Propose recurrence promotion",
+            "description": "For emerging traits with a newly-added prior-system pointer (now two or more), propose promotion to recurring."
+          }
+        ],
+        "domain": "design",
+        "entityShape": [
+          "evidenced-pattern"
+        ]
+      },
+      "brief-to-system-alignment": {
+        "name": "Brief to System Alignment",
+        "category": "design-system",
+        "kind": "act",
+        "description": "The thinking-action of mapping a client brief to design responses. Each card is one paired move — a brief constraint or aspiration on one side, a design move on the other, with rationale.",
+        "structuralContract": "Two-column card grid of paired moves. Each card carries a constraint, a response, a state from the alignment-state set, and a brief reference. Cards are not authored once and forgotten — alignment shifts as the system gets built.",
+        "notFor": [
+          "settled architecture decisions with no live tension (use decision-record)",
+          "inventories of what was built (use design-system-surface)",
+          "brief documents themselves (those are referenced, not authored here)"
+        ],
+        "promptGuidance": {
+          "operatingThesis": "Treat each card as one explicit translation from brief to design. The pairing is the unit — a constraint without a response is a question, not an alignment.",
+          "keepDistinct": [
+            "constraint (what the brief asks for)",
+            "response (the design move that answers it)",
+            "alignment state (aligned, partial, deferred, conflicting)",
+            "rationale (why this response, not another)"
+          ],
+          "inspect": [
+            "Check that every card has both a constraint and a response — neither side alone is alignment.",
+            "Look for partial and conflicting cards that have not moved in a long time — that is unresolved tension, not stable state."
+          ],
+          "update": [
+            "Promote partial to aligned only when the response actually closes the constraint.",
+            "Use conflicting honestly — do not paper over a tension that the brief and the design have not resolved."
+          ],
+          "avoid": [
+            "Do not collapse partial and conflicting into aligned.",
+            "Do not use this for decisions that have no brief constraint (use decision-record instead)."
+          ]
+        },
+        "icon": "<rect x='3' y='8' width='7' height='8' rx='1' opacity='.45'/><rect x='14' y='8' width='7' height='8' rx='1'/><rect x='10' y='11.25' width='4' height='1.5' opacity='.7'/>",
+        "iconColor": "#d97706",
+        "projection": "card-grid",
+        "columns": 2,
+        "sources": [
+          {
+            "key": "briefIds",
+            "entityType": "client-brief",
+            "label": "Brief",
+            "resolve": true
+          },
+          {
+            "key": "tokenRefs",
+            "entityType": "design-token",
+            "label": "Token refs"
+          },
+          {
+            "key": "componentRefs",
+            "entityType": "design-component",
+            "label": "Component refs"
+          },
+          {
+            "key": "ticketIds",
+            "entityType": "ticket",
+            "label": "Tickets"
+          },
+          {
+            "key": "notes",
+            "entityType": null,
+            "label": null
+          }
+        ],
+        "statusFields": [
+          {
+            "key": "status",
+            "statusSet": "alignment-state"
+          }
+        ],
+        "textFields": [
+          {
+            "key": "constraint",
+            "label": "Constraint"
+          },
+          {
+            "key": "response",
+            "label": "Response"
+          }
+        ],
+        "detailsFields": [
+          {
+            "key": "rationale",
+            "label": "Rationale"
+          }
+        ],
+        "aiActions": [
+          {
+            "id": "extract-constraints-from-brief",
+            "name": "Extract constraints from brief",
+            "description": "Read the linked client-brief and propose alignment cards for each constraint, with placeholder response fields the author then fills."
+          },
+          {
+            "id": "flag-unresolved-tension",
+            "name": "Flag unresolved tension",
+            "description": "Surface partial and conflicting cards older than 14 days; propose escalation to a decision-record if the tension is structural."
+          }
+        ],
+        "domain": "design",
+        "entityShape": [
+          "paired-move"
+        ]
+      },
+      "design-system-derivation": {
+        "name": "Design System Derivation",
+        "category": "design-system",
+        "kind": "act",
+        "description": "The thinking-action of deriving a new system from prior systems plus a brief. Each card is one derivation move — kept, swapped, inverted, scaled, or dropped — with pointers to the prior system and to the new one.",
+        "structuralContract": "Two-column card grid of derivation moves. Each card carries a prior-system pointer, a move from the derivation-move set, a target pointer, and a rationale. Move and rationale are paired — a move without rationale loses the data the derivation was built on.",
+        "notFor": [
+          "brief-driven choices that are not derivations (use brief-to-system-alignment)",
+          "inventories of the resulting system (use design-system-surface)",
+          "generic probes against a problem (use attempt-log)"
+        ],
+        "promptGuidance": {
+          "operatingThesis": "Treat the section as the chain from prior work to the new system. Every card has a priorSystemRef; derivation that does not point at a prior system is a fresh decision, not a derivation.",
+          "keepDistinct": [
+            "prior system pointer (where the move started)",
+            "move (kept, swapped, inverted, scaled, dropped)",
+            "target (where it landed in the new system)",
+            "rationale (why this move from this prior, against this brief)"
+          ],
+          "inspect": [
+            "Check that every card has a priorSystemRef.",
+            "kept cards still need rationale — kept without rationale loses the data the derivation was built on.",
+            "swapped and inverted cards should reference what they were swapped or inverted against."
+          ],
+          "update": [
+            "When the target ships in design-system-surface, link target back to that primitive's id.",
+            "If a kept move later gets swapped under pressure, supersede the original card rather than overwrite — the prior move is data."
+          ],
+          "avoid": [
+            "Do not collapse kept/swapped/inverted/scaled/dropped into a binary kept/changed.",
+            "Do not derive from systems with no pointer — anonymous influence is not a derivation."
+          ]
+        },
+        "icon": "<rect x='3' y='3' width='5' height='5' rx='1' opacity='.4'/><rect x='16' y='3' width='5' height='5' rx='1' opacity='.6'/><rect x='9' y='16' width='6' height='5' rx='1'/><path opacity='.45' d='M5.5 8l5 7.5h-1.5l-4.5-7.5zm13 0l-5 7.5h1.5l4.5-7.5z'/>",
+        "iconColor": "#15803d",
+        "projection": "card-grid",
+        "columns": 2,
+        "sources": [
+          {
+            "key": "priorSystemRefs",
+            "entityType": "design-system-ref",
+            "label": "Prior system",
+            "resolve": true
+          },
+          {
+            "key": "briefIds",
+            "entityType": "client-brief",
+            "label": "Brief",
+            "resolve": true
+          },
+          {
+            "key": "tokenRefs",
+            "entityType": "design-token",
+            "label": "Tokens"
+          },
+          {
+            "key": "componentRefs",
+            "entityType": "design-component",
+            "label": "Components"
+          },
+          {
+            "key": "motifRefs",
+            "entityType": "design-motif",
+            "label": "Motifs"
+          },
+          {
+            "key": "notes",
+            "entityType": null,
+            "label": null
+          }
+        ],
+        "statusFields": [
+          {
+            "key": "status",
+            "statusSet": "derivation-move"
+          }
+        ],
+        "textFields": [
+          {
+            "key": "targetRef",
+            "label": "Target"
+          }
+        ],
+        "detailsFields": [
+          {
+            "key": "rationale",
+            "label": "Rationale"
+          }
+        ],
+        "aiActions": [
+          {
+            "id": "propose-derivation-moves",
+            "name": "Propose derivation moves from prior system",
+            "description": "Given a priorSystemRef and the current brief, propose candidate kept/swapped/inverted/scaled/dropped moves with placeholder rationale the author then sharpens."
+          },
+          {
+            "id": "link-target-to-surface",
+            "name": "Link derivation target to surface card",
+            "description": "When a derivation card's target lands in design-system-surface, link the target field to that primitive's id."
+          }
+        ],
+        "domain": "design",
+        "entityShape": [
+          "derivation-move"
+        ]
       }
     },
     "generalAiActions": [
@@ -8715,6 +9223,655 @@ https://github.com/nodeca/pako/blob/main/LICENSE
                   }
                 ],
                 "lastUpdatedInPeriod": "P1"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "filename": "living-doc-template-design-system.json",
+      "htmlFilename": "living-doc-template-design-system.html",
+      "title": "Design a System — your taste, one client at a time",
+      "subtitle": "A small starting shape for designers building a client design system while keeping their own taste-signature visible and evidenced across prior work.",
+      "scope": "The designer's recurring taste across prior systems, plus the system being built for the current client engagement — alignment to the brief, derivation moves from prior systems, and the current state of the new system as pointers.",
+      "objective": "Make the design system you are building visible end-to-end: where each primitive lives, why it answers the brief, what it inherits from your prior work, and what about it is uniquely you.",
+      "successCondition": "Every primitive in the surface has a pointer (not a duplicated value). Every alignment card has both a constraint and a response. Every derivation card has a prior-system pointer and a one-or-two-sentence rationale. Every recurring taste card has at least two prior-system pointers as evidence.",
+      "updated": "2026-05-04T14:00:00.000Z",
+      "sectionCount": 5,
+      "sectionTitles": [
+        "Status Snapshot",
+        "Taste Signature",
+        "Brief to System Alignment",
+        "Design System Derivation",
+        "Design System Surface"
+      ],
+      "sectionTypes": [
+        "status-snapshot",
+        "taste-signature",
+        "brief-to-system-alignment",
+        "design-system-derivation",
+        "design-system-surface"
+      ],
+      "templateMeta": {
+        "level": "starter",
+        "order": 6,
+        "useWhen": "Use this when you are a designer building a system for one active client — and you also want to keep your own taste-signature visible and evidenced across the prior systems you have shipped.",
+        "goodFor": [
+          "independent designers running one client engagement at a time",
+          "studios where one lead designer carries taste across systems",
+          "rebrands that derive heavily from prior work plus a new brief",
+          "design systems that need to track the brief-to-decision chain"
+        ],
+        "startsWith": [
+          "Status Snapshot",
+          "Taste Signature",
+          "Brief to System Alignment",
+          "Design System Derivation",
+          "Design System Surface"
+        ],
+        "growsInto": [
+          "Decision Record",
+          "Design–Code–Spec Flow",
+          "Capability Surface"
+        ],
+        "operatingThesis": "Tokens, components, and motifs live in Figma / tokens.json / a code repo. This doc surfaces them as pointers and records the thinking that produces them — what recurs across your prior work (taste-signature), what the brief asks for (alignment), and what you carry over from prior systems (derivation).",
+        "keepDistinct": [
+          "taste (recurring across prior systems)",
+          "alignment (brief constraint ↔ design response)",
+          "derivation (kept / swapped / inverted / scaled / dropped from a prior system)",
+          "surface (current state of the primitives, as pointers)"
+        ],
+        "notFor": [
+          "per-product-feature design implementation (use design-code-spec-flow)",
+          "settled architecture decisions with no live tension (use decision-record)",
+          "delivery sprints across a wider system (use capability-surface)"
+        ]
+      },
+      "json": {
+        "docId": "template:design-system",
+        "title": "Design a System — your taste, one client at a time",
+        "subtitle": "A small starting shape for designers building a client design system while keeping their own taste-signature visible and evidenced across prior work.",
+        "brand": "DS",
+        "scope": "The designer's recurring taste across prior systems, plus the system being built for the current client engagement — alignment to the brief, derivation moves from prior systems, and the current state of the new system as pointers.",
+        "owner": "Template",
+        "version": "template-v1",
+        "canonicalOrigin": "docs/living-doc-template-design-system.json",
+        "sourceCoverage": "Template only; replace the example designer, prior systems, client brief, and primitives with your own.",
+        "updated": "2026-05-04T14:00:00.000Z",
+        "pills": [
+          "Template",
+          "Designer",
+          "Design System"
+        ],
+        "templateMeta": {
+          "level": "starter",
+          "order": 6,
+          "useWhen": "Use this when you are a designer building a system for one active client — and you also want to keep your own taste-signature visible and evidenced across the prior systems you have shipped.",
+          "goodFor": [
+            "independent designers running one client engagement at a time",
+            "studios where one lead designer carries taste across systems",
+            "rebrands that derive heavily from prior work plus a new brief",
+            "design systems that need to track the brief-to-decision chain"
+          ],
+          "startsWith": [
+            "Status Snapshot",
+            "Taste Signature",
+            "Brief to System Alignment",
+            "Design System Derivation",
+            "Design System Surface"
+          ],
+          "growsInto": [
+            "Decision Record",
+            "Design–Code–Spec Flow",
+            "Capability Surface"
+          ],
+          "operatingThesis": "Tokens, components, and motifs live in Figma / tokens.json / a code repo. This doc surfaces them as pointers and records the thinking that produces them — what recurs across your prior work (taste-signature), what the brief asks for (alignment), and what you carry over from prior systems (derivation).",
+          "keepDistinct": [
+            "taste (recurring across prior systems)",
+            "alignment (brief constraint ↔ design response)",
+            "derivation (kept / swapped / inverted / scaled / dropped from a prior system)",
+            "surface (current state of the primitives, as pointers)"
+          ],
+          "notFor": [
+            "per-product-feature design implementation (use design-code-spec-flow)",
+            "settled architecture decisions with no live tension (use decision-record)",
+            "delivery sprints across a wider system (use capability-surface)"
+          ]
+        },
+        "objective": "Make the design system you are building visible end-to-end: where each primitive lives, why it answers the brief, what it inherits from your prior work, and what about it is uniquely you.",
+        "successCondition": "Every primitive in the surface has a pointer (not a duplicated value). Every alignment card has both a constraint and a response. Every derivation card has a prior-system pointer and a one-or-two-sentence rationale. Every recurring taste card has at least two prior-system pointers as evidence.",
+        "priorSystems": [
+          {
+            "id": "studio-2024",
+            "name": "Studio Lin — 2024 rebrand",
+            "url": "https://example.com/work/studio-lin-2024",
+            "year": 2024,
+            "kind": "Studio identity"
+          },
+          {
+            "id": "kraft-2023",
+            "name": "Kraft Brewing — 2023",
+            "url": "https://example.com/work/kraft-2023",
+            "year": 2023,
+            "kind": "Craft beverage brand"
+          },
+          {
+            "id": "atelier-2022",
+            "name": "Atelier Norra — 2022",
+            "url": "https://example.com/work/atelier-norra-2022",
+            "year": 2022,
+            "kind": "Boutique fashion"
+          }
+        ],
+        "clientBriefs": [
+          {
+            "id": "alto-2026-brief",
+            "name": "Alto Audio — 2026 brief",
+            "url": "https://example.com/clients/alto/brief.pdf",
+            "received": "2026-04-08"
+          }
+        ],
+        "callouts": [
+          {
+            "tone": "info",
+            "title": "How to use this starter",
+            "items": [
+              "Replace the priorSystems list with your own shipped work — id, name, url, year. Two or three is enough; this is evidence, not a portfolio.",
+              "Replace the clientBriefs list with the brief you are working against right now. One brief per active engagement.",
+              "Pointers, not copies. Every primitive in the surface section references where it actually lives — Figma variable, tokens.json key, repo path.",
+              "Taste needs evidence. A recurring trait means at least two prior-system pointers. One pointer is emerging."
+            ]
+          },
+          {
+            "tone": "info",
+            "title": "Inspired by",
+            "items": [
+              "The compositor architecture: entities have identity, scopes borrow properties from sources. Tokens live in Figma; this doc surfaces them.",
+              "Brad Frost, Atomic Design (2016) — for the primitive lifecycle vocabulary, adapted to a pointer-first model."
+            ]
+          }
+        ],
+        "sections": [
+          {
+            "id": "status-snapshot",
+            "title": "Status Snapshot",
+            "convergenceType": "status-snapshot",
+            "updated": "2026-05-04T14:00:00.000Z",
+            "stats": [
+              {
+                "label": "Taste traits",
+                "value": "4"
+              },
+              {
+                "label": "Alignments aligned / partial / deferred",
+                "value": "2 / 1 / 1"
+              },
+              {
+                "label": "Derivation moves",
+                "value": "5"
+              },
+              {
+                "label": "Primitives shipped / coded / in-figma",
+                "value": "1 / 2 / 4"
+              }
+            ],
+            "callout": {
+              "tone": "info",
+              "title": "Reading order",
+              "items": [
+                "Start with Taste Signature — what recurs across your work. That is the throughline before any client.",
+                "Then Brief to System Alignment — how this client's constraints map to design moves.",
+                "Then Derivation — what you carried over from prior systems and why.",
+                "End with the Surface — current state of the primitives as pointers."
+              ]
+            },
+            "data": []
+          },
+          {
+            "id": "taste-signature",
+            "title": "Taste Signature",
+            "convergenceType": "taste-signature",
+            "updated": "2026-05-04T14:00:00.000Z",
+            "callout": {
+              "tone": "info",
+              "title": "How to read this section",
+              "items": [
+                "Each card is one recurring trait, evidenced by prior systems where it appears.",
+                "Recurring needs at least two prior-system pointers. One pointer is still emerging."
+              ]
+            },
+            "data": [
+              {
+                "id": "warm-grays",
+                "name": "Warm grays over neutral grays",
+                "status": "recurring",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "trait": "Greys carry a slight warm hue (yellow / red shift) over true neutral or cool greys, even when the client brand pulls cool.",
+                "priorSystemRefs": [
+                  "studio-2024",
+                  "kraft-2023",
+                  "atelier-2022"
+                ],
+                "evidence": [
+                  {
+                    "type": "info",
+                    "text": "Three of three recent systems. Atelier Norra had a cool brand mark but the supporting greys still leaned warm — the warmth survived the brief."
+                  }
+                ],
+                "notes": [
+                  "Useful to call out early in a new engagement so warm-cool tension surfaces in the brief, not in the second round of comps."
+                ]
+              },
+              {
+                "id": "soft-radius-shadow",
+                "name": "Soft radius with low-elevation shadow",
+                "status": "recurring",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "trait": "Components default to a small radius (6–10px) with a low-elevation soft shadow. Reads as restraint, not flourish.",
+                "priorSystemRefs": [
+                  "studio-2024",
+                  "kraft-2023",
+                  "atelier-2022"
+                ],
+                "motifRefs": [
+                  "8px-radius-soft-shadow"
+                ],
+                "evidence": [
+                  {
+                    "type": "info",
+                    "text": "Same motif across all three; the radius value drifts (6, 8, 10) but the relationship — soft, low — is constant."
+                  }
+                ],
+                "notes": []
+              },
+              {
+                "id": "generous-spacing",
+                "name": "Generous spacing scales",
+                "status": "recurring",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "trait": "Spacing scale runs ~1.5x default (24px baseline rather than 16px). Whitespace reads as quality.",
+                "priorSystemRefs": [
+                  "studio-2024",
+                  "atelier-2022"
+                ],
+                "evidence": [
+                  {
+                    "type": "info",
+                    "text": "Studio Lin and Atelier Norra both used 24px baselines. Kraft used 20px under client pressure for density; that one is a partial counter-example."
+                  }
+                ],
+                "notes": [
+                  "If a brief asks for density, this is the trait to negotiate first. Compressing later is cheap; expanding later is jarring."
+                ]
+              },
+              {
+                "id": "label-above-input",
+                "name": "Label-above-input form pattern",
+                "status": "emerging",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "trait": "Form labels sit above their inputs (not floating, not inline). Long-form readability over compact density.",
+                "priorSystemRefs": [
+                  "kraft-2023"
+                ],
+                "evidence": [
+                  {
+                    "type": "info",
+                    "text": "Only one prior system — Kraft. Still emerging; would be recurring if Alto Audio also adopts it."
+                  }
+                ],
+                "notes": [
+                  "Promote to recurring when a second prior-system pointer exists, not before."
+                ]
+              }
+            ]
+          },
+          {
+            "id": "brief-alignment",
+            "title": "Brief to System Alignment",
+            "convergenceType": "brief-to-system-alignment",
+            "updated": "2026-05-04T14:00:00.000Z",
+            "callout": {
+              "tone": "info",
+              "title": "How to read this section",
+              "items": [
+                "Each card is one paired move: a constraint from the brief on one side, a design response on the other.",
+                "partial and conflicting are useful states. Do not paper over a tension that has not been resolved."
+              ]
+            },
+            "data": [
+              {
+                "id": "premium-via-spacing",
+                "name": "Premium feel ↔ generous spacing",
+                "status": "aligned",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "constraint": "Brief: \"understated, premium feel — no neon, no gimmick\".",
+                "response": "Spacing scale set to 1.5x default; 24px baseline; padding tokens biased generous.",
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "tokenRefs": [
+                  "spacing/scale/base"
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Generous whitespace reads as restraint. Compressing later is cheap; expanding later is jarring. Also matches a recurring trait — low risk for this designer."
+                  }
+                ]
+              },
+              {
+                "id": "no-neon-muted-palette",
+                "name": "No neon ↔ chroma cap on the palette",
+                "status": "aligned",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "constraint": "Brief: \"no neon\".",
+                "response": "All hues in the brand and supporting palette capped at chroma 60 in OKLCH. Brand primary lives at chroma 48.",
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "tokenRefs": [
+                  "color/brand/primary",
+                  "color/surface/canvas"
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Chroma cap is the operational form of \"no neon\". Avoids relying on subjective designer call sheet by sheet."
+                  }
+                ]
+              },
+              {
+                "id": "accessibility-aaa",
+                "name": "Exceptionally accessible ↔ AAA contrast across body text",
+                "status": "partial",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "constraint": "Brief: \"exceptionally accessible — must outclass a typical consumer site\".",
+                "response": "All body text WCAG AAA against canvas; focus rings 3px and always visible, never opacity-faded on hover.",
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "tokenRefs": [
+                  "color/text/primary",
+                  "color/focus/ring"
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Body text and primary CTAs are AAA. Focus ring tokens drafted but not implemented in code yet — partial until coded."
+                  }
+                ]
+              },
+              {
+                "id": "audiophile-and-musician",
+                "name": "Audiophiles AND musicians ↔ density toggle",
+                "status": "deferred",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "constraint": "Brief: \"loved by audiophiles AND musicians, 25–65\".",
+                "response": "Component density toggle (compact / comfortable) covering tables and lists. Shipping comfortable as default; compact deferred to v2.",
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Two audiences want different densities. v1 ships one, v2 adds the toggle once the comfortable-default ships and we can measure complaint patterns."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "derivation",
+            "title": "Design System Derivation",
+            "convergenceType": "design-system-derivation",
+            "updated": "2026-05-04T14:00:00.000Z",
+            "callout": {
+              "tone": "info",
+              "title": "How to read this section",
+              "items": [
+                "Each card is one derivation move from a prior system, with rationale.",
+                "kept moves still need rationale — kept without rationale loses the data the derivation was built on."
+              ]
+            },
+            "data": [
+              {
+                "id": "kept-typescale-from-studio",
+                "name": "Kept type scale from Studio Lin",
+                "status": "kept",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "priorSystemRefs": [
+                  "studio-2024"
+                ],
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "targetRef": "type/scale/modular-1.25",
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "1.25 modular scale; works across marketing and product surfaces. No reason in this brief to redesign it."
+                  }
+                ]
+              },
+              {
+                "id": "kept-warm-gray-from-atelier",
+                "name": "Kept warm-gray base from Atelier Norra",
+                "status": "kept",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "priorSystemRefs": [
+                  "atelier-2022"
+                ],
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "targetRef": "color/surface/canvas",
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Validated under a cool-leaning brand mark; survived the cool/warm tension in 2022. Same constraint here, same response."
+                  }
+                ]
+              },
+              {
+                "id": "swapped-radius-from-8-to-12",
+                "name": "Swapped 8px radius for 12px",
+                "status": "swapped",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "priorSystemRefs": [
+                  "studio-2024",
+                  "kraft-2023"
+                ],
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "motifRefs": [
+                  "12px-radius-soft-shadow"
+                ],
+                "targetRef": "radius/soft",
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Brief asks for premium softness; 8px reads as a bit 'studio-y'. 12px keeps the soft-radius motif but pushes it premium-ward. The soft-radius taste trait still recurs; only the magnitude moved."
+                  }
+                ]
+              },
+              {
+                "id": "inverted-mode-default",
+                "name": "Inverted: dark mode is primary, not optional",
+                "status": "inverted",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "priorSystemRefs": [
+                  "kraft-2023"
+                ],
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "Kraft was light-default with a dark variant. Audiophile and studio contexts are dark-default; this brief flips the assumption. Light variant still ships, but dark is the canonical."
+                  }
+                ]
+              },
+              {
+                "id": "dropped-hairline-borders",
+                "name": "Dropped hairline borders from Atelier",
+                "status": "dropped",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "priorSystemRefs": [
+                  "atelier-2022"
+                ],
+                "briefIds": [
+                  "alto-2026-brief"
+                ],
+                "rationale": [
+                  {
+                    "type": "info",
+                    "text": "1px hairline borders at low contrast do not survive WCAG AAA in dark mode. The accessibility constraint outweighs the aesthetic carry-over. Dropping cleanly rather than half-keeping."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "surface",
+            "title": "Design System Surface",
+            "convergenceType": "design-system-surface",
+            "updated": "2026-05-04T14:00:00.000Z",
+            "callout": {
+              "tone": "info",
+              "title": "How to read this section",
+              "items": [
+                "Each card is one primitive (token, component, or motif). The card never owns the value — it points at where it lives.",
+                "Status reflects the design-primitive lifecycle: proposed → in-figma → coded → shipped, with deprecated as the exit."
+              ]
+            },
+            "data": [
+              {
+                "id": "color-brand-primary",
+                "name": "color/brand/primary",
+                "primitiveKind": "token",
+                "pointerSystem": "Figma variable",
+                "status": "in-figma",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "tokenRefs": [
+                  "figma:Variable:Color/Brand/Primary"
+                ],
+                "derivedFrom": [],
+                "notes": [
+                  "OKLCH chroma 48; satisfies the 'no neon' alignment. Awaiting code import."
+                ]
+              },
+              {
+                "id": "color-surface-canvas",
+                "name": "color/surface/canvas",
+                "primitiveKind": "token",
+                "pointerSystem": "tokens.json",
+                "status": "shipped",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "tokenRefs": [
+                  "tokens.color.surface.canvas"
+                ],
+                "derivedFrom": [
+                  "atelier-2022"
+                ],
+                "notes": [
+                  "Carries the warm-gray base from Atelier; validated against AAA contrast for body text."
+                ]
+              },
+              {
+                "id": "spacing-scale-base",
+                "name": "spacing/scale/base",
+                "primitiveKind": "token",
+                "pointerSystem": "tokens.json",
+                "status": "coded",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "tokenRefs": [
+                  "tokens.spacing.scale.base"
+                ],
+                "derivedFrom": [],
+                "notes": [
+                  "1.5x default; 24px baseline. Operationalises the 'premium-via-spacing' alignment."
+                ]
+              },
+              {
+                "id": "type-family-display",
+                "name": "type/family/display",
+                "primitiveKind": "token",
+                "pointerSystem": "Figma variable",
+                "status": "in-figma",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "tokenRefs": [
+                  "figma:Variable:Type/Family/Display"
+                ],
+                "notes": [
+                  "Display face for headings only. Body family lives in type/family/text."
+                ]
+              },
+              {
+                "id": "button-primary",
+                "name": "button/primary",
+                "primitiveKind": "component",
+                "pointerSystem": "Figma component + code",
+                "status": "coded",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "componentRefs": [
+                  "figma:Component:Button/Primary",
+                  "src/components/Button.tsx"
+                ],
+                "notes": [
+                  "AAA contrast met in both light and dark modes; focus ring still pending implementation."
+                ]
+              },
+              {
+                "id": "card-elevated",
+                "name": "card/elevated",
+                "primitiveKind": "component",
+                "pointerSystem": "Figma component",
+                "status": "in-figma",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "componentRefs": [
+                  "figma:Component:Card/Elevated"
+                ],
+                "motifRefs": [
+                  "12px-radius-soft-shadow"
+                ],
+                "notes": [
+                  "Uses the swapped 12px radius motif, not the prior 8px."
+                ]
+              },
+              {
+                "id": "soft-radius-motif",
+                "name": "12px radius + soft shadow",
+                "primitiveKind": "motif",
+                "pointerSystem": "Figma effect style",
+                "status": "in-figma",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "motifRefs": [
+                  "figma:EffectStyle:Soft/12"
+                ],
+                "derivedFrom": [
+                  "studio-2024",
+                  "kraft-2023"
+                ],
+                "notes": [
+                  "Carries the soft-radius taste trait at the new magnitude. Code implementation lands when the shadow tokens import."
+                ]
+              },
+              {
+                "id": "focus-ring",
+                "name": "focus/ring",
+                "primitiveKind": "token",
+                "pointerSystem": "tokens.json (proposed)",
+                "status": "proposed",
+                "updated": "2026-05-04T14:00:00.000Z",
+                "tokenRefs": [
+                  "tokens.focus.ring"
+                ],
+                "notes": [
+                  "3px outset, always visible. Currently the 'partial' on the accessibility-aaa alignment — promote to in-figma when drawn, coded when implemented."
+                ]
               }
             ]
           }
