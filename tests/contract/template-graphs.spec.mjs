@@ -76,5 +76,10 @@ assert.ok(
   graph.templates['surface-delivery'].relationships.some((relationship) => relationship.id === 'alignment-requires-verification'),
   'surface-delivery should encode alignment -> verification relationship',
 );
+assert.ok(graph.templates['proof-canonicality'], 'expected proof-canonicality template graph');
+assert.ok(
+  graph.templates['proof-canonicality'].relationships.some((relationship) => relationship.id === 'assertion-requires-proof'),
+  'proof-canonicality should encode assertion -> proof relationship',
+);
 
 console.log(`template graph contract ok: ${Object.keys(graph.templates).length} templates`);

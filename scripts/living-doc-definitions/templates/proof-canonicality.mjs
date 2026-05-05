@@ -1,0 +1,163 @@
+import { defineTemplate } from '../define.mjs';
+
+export default defineTemplate({
+  id: 'proof-canonicality',
+  name: 'Proof and Canonicality',
+  templatePath: 'docs/living-doc-template-proof-canonicality.json',
+  objectiveRole: 'Make a truth-bearing domain legible by separating model, assertion, proof, findings, decisions, and tooling.',
+  sections: [
+    {
+      id: 'status-snapshot',
+      convergenceType: 'status-snapshot',
+      role: 'Summarize proof posture and canonicality pressure without collapsing the evidence layers.',
+    },
+    {
+      id: 'formal-model',
+      convergenceType: 'formal-model',
+      role: 'Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.',
+    },
+    {
+      id: 'assertion',
+      convergenceType: 'model-assertion',
+      role: 'State the claims that the proof structure is trying to support or weaken.',
+    },
+    {
+      id: 'proof-ladder',
+      convergenceType: 'proof-ladder',
+      role: 'Track staged evidence rungs that increase confidence in the assertions.',
+    },
+    {
+      id: 'findings',
+      convergenceType: 'investigation-findings',
+      role: 'Record observed facts learned from proof work without turning them directly into decisions.',
+    },
+    {
+      id: 'decisions',
+      convergenceType: 'decision-record',
+      role: 'Preserve canonical choices justified by the model, proof, and findings.',
+    },
+    {
+      id: 'tooling',
+      convergenceType: 'tooling-surface',
+      role: 'Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.',
+    },
+  ],
+  relationships: [
+    {
+      id: 'model-frames-assertion',
+      from: 'formal-model',
+      to: 'model-assertion',
+      relation: 'frames',
+      rationale: 'Assertions are only meaningful inside the model primitives, invariants, and authority scope they claim against.',
+    },
+    {
+      id: 'assertion-requires-proof',
+      from: 'model-assertion',
+      to: 'proof-ladder',
+      relation: 'requires-proof',
+      rationale: 'A model assertion should not advance toward canonicality without staged proof strength.',
+    },
+    {
+      id: 'proof-produces-findings',
+      from: 'proof-ladder',
+      to: 'investigation-findings',
+      relation: 'produces-findings',
+      rationale: 'Proof work should produce factual findings before those findings become operating decisions.',
+    },
+    {
+      id: 'findings-justify-decisions',
+      from: 'investigation-findings',
+      to: 'decision-record',
+      relation: 'justifies',
+      rationale: 'Decisions should be justified by observed findings, not by unsupported assertions.',
+    },
+    {
+      id: 'tooling-supports-proof',
+      from: 'tooling-surface',
+      to: 'proof-ladder',
+      relation: 'supports',
+      rationale: 'Proof rungs need an operational tool path so the evidence can be rerun or extended.',
+    },
+  ],
+  stageSignals: [
+    {
+      id: 'seeding-missing-model',
+      stage: 'Seeding',
+      severity: 'high',
+      when: 'formal-model has no source-backed cards',
+      condition: { kind: 'section-empty', type: 'formal-model' },
+      question: 'What first model primitive, invariant, or authority makes this proof domain tangible?',
+    },
+    {
+      id: 'coherence-assertion-not-proven',
+      stage: 'Coherence',
+      severity: 'high',
+      when: 'model-assertion exists but proof-ladder has no corresponding proof rungs',
+      condition: { kind: 'related-relationship-gap' },
+      question: 'Which assertion lacks proof support, or which proof rung is attached to the wrong claim?',
+      relatedRelationships: ['assertion-requires-proof'],
+    },
+    {
+      id: 'operation-proof-without-findings',
+      stage: 'Operation',
+      severity: 'medium',
+      when: 'proof-ladder has rungs but investigation-findings has no observed findings',
+      condition: {
+        kind: 'source-populated-target-empty',
+        sourceType: 'proof-ladder',
+        targetType: 'investigation-findings',
+      },
+      question: 'What finding did the current proof rung actually establish?',
+      relatedRelationships: ['proof-produces-findings'],
+    },
+    {
+      id: 'judgment-canonicality-ready',
+      stage: 'Judgment',
+      severity: 'high',
+      when: 'model, assertion, proof, findings, decisions, and tooling are all populated and linked',
+      condition: {
+        kind: 'all-populated-no-high-gaps',
+        types: ['formal-model', 'model-assertion', 'proof-ladder', 'investigation-findings', 'decision-record', 'tooling-surface'],
+      },
+      question: 'What claim can responsibly become canonical, and what uncertainty remains?',
+      relatedRelationships: ['model-frames-assertion', 'assertion-requires-proof', 'proof-produces-findings', 'findings-justify-decisions', 'tooling-supports-proof'],
+    },
+  ],
+  validOperations: [
+    {
+      id: 'add-model-primitive',
+      label: 'Add model primitive',
+      stages: ['Seeding', 'Composition'],
+      description: 'Add a formal model card that names the primitive, invariant, authority, or scope being reasoned over.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'add-proof-rung',
+      label: 'Add proof rung',
+      stages: ['Composition', 'Coherence'],
+      description: 'Add a proof rung that directly supports or challenges a model assertion.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'record-investigation-finding',
+      label: 'Record investigation finding',
+      stages: ['Operation', 'Refresh'],
+      description: 'Record the factual finding produced by proof work before deciding what it means.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'weaken-assertion',
+      label: 'Weaken assertion',
+      stages: ['Coherence', 'Judgment'],
+      description: 'Lower or qualify an assertion when proof strength does not support canonical status.',
+      patchKind: 'card-update',
+    },
+    {
+      id: 'record-canonical-decision',
+      label: 'Record canonical decision',
+      stages: ['Judgment'],
+      description: 'Record a decision justified by the model, proof ladder, and findings.',
+      patchKind: 'card-create',
+    },
+  ],
+});

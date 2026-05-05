@@ -199,6 +199,35 @@ try {
   assert.ok(ops.operations.some((operation) => operation.id === 'add-alignment-row'));
   assert.ok(ops.operations.some((operation) => operation.id === 'add-verification-checkpoint'));
 
+  const proofGraph = await client.callTool('living_doc_template_graph', { templateId: 'proof-canonicality' });
+  assert.equal(proofGraph.templateId, 'proof-canonicality');
+  assert.ok(proofGraph.template.relationships.some((relationship) => relationship.id === 'assertion-requires-proof'));
+
+  const proofDocPath = path.join(tmpDir, 'proof-canonicality-gap.json');
+  await writeFile(proofDocPath, JSON.stringify({
+    docId: 'doc:proof-canonicality-gap',
+    title: 'Proof Canonicality Gap',
+    objective: 'Make a truth-bearing claim defensible.',
+    successCondition: 'Assertions are supported by proof.',
+    sections: [
+      { id: 'status-snapshot', title: 'Status Snapshot', convergenceType: 'status-snapshot', data: [] },
+      { id: 'formal-model', title: 'Formal Model', convergenceType: 'formal-model', data: [{ id: 'model', name: 'Model', status: 'specified' }] },
+      { id: 'assertion', title: 'Model Assertion', convergenceType: 'model-assertion', data: [{ id: 'claim', name: 'Claim', status: 'specified' }] },
+      { id: 'proof-ladder', title: 'Proof Ladder', convergenceType: 'proof-ladder', data: [] },
+      { id: 'findings', title: 'Investigation Findings', convergenceType: 'investigation-findings', data: [] },
+      { id: 'decisions', title: 'Decision Record', convergenceType: 'decision-record', data: [] },
+      { id: 'tooling', title: 'Tooling Surface', convergenceType: 'tooling-surface', data: [] },
+    ],
+  }, null, 2));
+
+  const proofGaps = await client.callTool('living_doc_relationship_gaps', { doc: proofDocPath });
+  assert.equal(proofGaps.templateId, 'proof-canonicality');
+  assert.ok(proofGaps.gaps.some((gap) => gap.relationshipId === 'assertion-requires-proof' && gap.kind === 'missing-target-cards'));
+
+  const proofStages = await client.callTool('living_doc_stage_diagnostics', { doc: proofDocPath });
+  assert.equal(proofStages.likelyStage, 'Coherence');
+  assert.ok(proofStages.candidates.some((candidate) => candidate.signalId === 'coherence-assertion-not-proven'));
+
   const governance = await client.callTool('living_doc_governance_evaluate', { doc: docPath });
   assert.equal(governance.ok, false);
   assert.ok(governance.violations.some((violation) => violation.kind === 'status-needs-evidence'));
