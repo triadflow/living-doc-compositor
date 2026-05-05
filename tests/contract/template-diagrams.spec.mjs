@@ -35,5 +35,9 @@ assert.ok(
   diagrams.templates['proof-canonicality'].mermaid.includes('model_assertion -- "requires-proof" --> proof_ladder'),
   'proof-canonicality diagram should include assertion -> proof edge',
 );
+assert.ok(
+  diagrams.templates['operations-support'].mermaid.includes('operation -- "routes-to" --> operating_surface'),
+  'operations-support diagram should include operation -> operating surface edge',
+);
 
 console.log(`template diagram contract ok: ${Object.keys(diagrams.templates).length} templates`);

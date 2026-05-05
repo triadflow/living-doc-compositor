@@ -1,0 +1,146 @@
+import { defineTemplate } from '../define.mjs';
+
+export default defineTemplate({
+  id: 'operations-support',
+  name: 'Operations and Support',
+  templatePath: 'docs/living-doc-template-operations-support.json',
+  objectiveRole: 'Make an operations or support domain legible across request flow, operating surfaces, enabling assets, and tooling.',
+  sections: [
+    {
+      id: 'status-snapshot',
+      convergenceType: 'status-snapshot',
+      role: 'Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.',
+    },
+    {
+      id: 'operations',
+      convergenceType: 'operation',
+      role: 'Describe the mediated request-to-execution flow that operators need to run.',
+    },
+    {
+      id: 'support-surface',
+      convergenceType: 'operating-surface',
+      role: 'Expose the bounded support lanes or operational paths that request flow routes into.',
+    },
+    {
+      id: 'enablers',
+      convergenceType: 'enabler-catalog',
+      role: 'Catalog compact support assets that improve operator speed, reliability, or coverage.',
+    },
+    {
+      id: 'tooling',
+      convergenceType: 'tooling-surface',
+      role: 'Expose the scripts, workflows, and local tools used to operate or evolve the support domain.',
+    },
+  ],
+  relationships: [
+    {
+      id: 'status-summarizes-operation',
+      from: 'status-snapshot',
+      to: 'operation',
+      relation: 'summarizes',
+      rationale: 'Operational status should summarize real support flow rather than stand apart as a dashboard label.',
+    },
+    {
+      id: 'operation-routes-surface',
+      from: 'operation',
+      to: 'operating-surface',
+      relation: 'routes-to',
+      rationale: 'Mediated operations should name the concrete support lanes or operating surfaces they route requests into.',
+    },
+    {
+      id: 'surface-needs-enablers',
+      from: 'operating-surface',
+      to: 'enabler-catalog',
+      relation: 'needs',
+      rationale: 'Support lanes stay operational only when their enabling snippets, fixtures, runbooks, or assets are visible.',
+    },
+    {
+      id: 'tooling-supports-operation',
+      from: 'tooling-surface',
+      to: 'operation',
+      relation: 'supports',
+      rationale: 'Operational request flow needs a tool path so a future session can rerun, inspect, or extend the support process.',
+    },
+  ],
+  stageSignals: [
+    {
+      id: 'seeding-missing-operation',
+      stage: 'Seeding',
+      severity: 'high',
+      when: 'operation has no request-flow cards',
+      condition: { kind: 'section-empty', type: 'operation' },
+      question: 'What first real request flow, intake path, or mediated operation makes this support doc tangible?',
+    },
+    {
+      id: 'coherence-operation-not-routed',
+      stage: 'Coherence',
+      severity: 'high',
+      when: 'operation exists but operating-surface has no corresponding support lanes',
+      condition: { kind: 'related-relationship-gap' },
+      question: 'Which operation cards lack a concrete support lane or operating surface?',
+      relatedRelationships: ['operation-routes-surface'],
+    },
+    {
+      id: 'operation-surface-without-enablers',
+      stage: 'Operation',
+      severity: 'medium',
+      when: 'operating-surface has lanes but enabler-catalog has no assets that support them',
+      condition: {
+        kind: 'source-populated-target-empty',
+        sourceType: 'operating-surface',
+        targetType: 'enabler-catalog',
+      },
+      question: 'Which enabler would make the current support lane faster, safer, or easier to operate?',
+      relatedRelationships: ['surface-needs-enablers'],
+    },
+    {
+      id: 'judgment-support-readiness',
+      stage: 'Judgment',
+      severity: 'high',
+      when: 'operation, operating surface, enablers, and tooling are all populated and linked',
+      condition: {
+        kind: 'all-populated-no-high-gaps',
+        types: ['operation', 'operating-surface', 'enabler-catalog', 'tooling-surface'],
+      },
+      question: 'Can the support domain be operated from this document, or are key request paths still implicit?',
+      relatedRelationships: ['operation-routes-surface', 'surface-needs-enablers', 'tooling-supports-operation'],
+    },
+  ],
+  validOperations: [
+    {
+      id: 'add-operation-card',
+      label: 'Add operation card',
+      stages: ['Seeding', 'Composition'],
+      description: 'Add a request-flow or mediated-operation card that names how work enters and moves through the support domain.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'add-operating-surface-card',
+      label: 'Add operating surface card',
+      stages: ['Composition', 'Coherence'],
+      description: 'Add a bounded support lane or operational surface that a request flow routes into.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'add-enabler-card',
+      label: 'Add enabler card',
+      stages: ['Coherence', 'Operation'],
+      description: 'Add a support asset, runbook, fixture, or snippet that strengthens an operating surface.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'link-tooling-to-operation',
+      label: 'Link tooling to operation',
+      stages: ['Operation', 'Refresh'],
+      description: 'Link the script, workflow, or local tool used to run or inspect the operation.',
+      patchKind: 'card-update',
+    },
+    {
+      id: 'lower-support-status',
+      label: 'Lower support status',
+      stages: ['Coherence', 'Refresh', 'Judgment'],
+      description: 'Lower or qualify operational readiness when support lanes, enablers, or tooling do not support the claim.',
+      patchKind: 'card-update',
+    },
+  ],
+});

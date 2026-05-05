@@ -241,6 +241,37 @@ try {
   assert.equal(proofStages.likelyStage, 'Coherence');
   assert.ok(proofStages.candidates.some((candidate) => candidate.signalId === 'coherence-assertion-not-proven'));
 
+  const opsGraph = await client.callTool('living_doc_template_graph', { templateId: 'operations-support' });
+  assert.equal(opsGraph.templateId, 'operations-support');
+  assert.ok(opsGraph.template.relationships.some((relationship) => relationship.id === 'operation-routes-surface'));
+
+  const opsDiagram = await client.callTool('living_doc_template_diagrams', { templateId: 'operations-support' });
+  assert.equal(opsDiagram.templateId, 'operations-support');
+  assert.match(opsDiagram.template.mermaid, /operation -- "routes-to" --> operating_surface/);
+
+  const opsDocPath = path.join(tmpDir, 'operations-support-gap.json');
+  await writeFile(opsDocPath, JSON.stringify({
+    docId: 'doc:operations-support-gap',
+    title: 'Operations Support Gap',
+    objective: 'Make a support domain operationally legible.',
+    successCondition: 'Request flow has concrete support lanes.',
+    sections: [
+      { id: 'status-snapshot', title: 'Status Snapshot', convergenceType: 'status-snapshot', data: [] },
+      { id: 'operations', title: 'Mediated Operation', convergenceType: 'operation', data: [{ id: 'intake', name: 'Intake', status: 'ready' }] },
+      { id: 'support-surface', title: 'Operating Surface', convergenceType: 'operating-surface', data: [] },
+      { id: 'enablers', title: 'Enabler Catalog', convergenceType: 'enabler-catalog', data: [] },
+      { id: 'tooling', title: 'Tooling Surface', convergenceType: 'tooling-surface', data: [] },
+    ],
+  }, null, 2));
+
+  const opsGaps = await client.callTool('living_doc_relationship_gaps', { doc: opsDocPath });
+  assert.equal(opsGaps.templateId, 'operations-support');
+  assert.ok(opsGaps.gaps.some((gap) => gap.relationshipId === 'operation-routes-surface' && gap.kind === 'missing-target-cards'));
+
+  const opsStages = await client.callTool('living_doc_stage_diagnostics', { doc: opsDocPath });
+  assert.equal(opsStages.likelyStage, 'Coherence');
+  assert.ok(opsStages.candidates.some((candidate) => candidate.signalId === 'coherence-operation-not-routed'));
+
   const governance = await client.callTool('living_doc_governance_evaluate', { doc: docPath });
   assert.equal(governance.ok, false);
   assert.ok(governance.violations.some((violation) => violation.kind === 'status-needs-evidence'));
