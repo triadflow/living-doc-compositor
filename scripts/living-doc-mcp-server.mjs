@@ -11,6 +11,7 @@ import {
   inferTemplateGraphForDoc,
   loadSemanticDiagrams,
   loadSemanticGraph,
+  semanticContextForPath,
   semanticGraphSummaryForDoc,
 } from './living-doc-semantic-context.mjs';
 
@@ -69,6 +70,10 @@ const tools = [
   tool('living_doc_template_diagrams', 'Return generated Mermaid relationship diagram source for a template or matching living doc.', objectSchema({
     templateId: optionalString('Template id such as surface-delivery. If omitted with doc, inferred from the doc shape where possible.'),
     doc: optionalString('Optional living doc JSON path used to infer the matching template graph.'),
+  })),
+  tool('living_doc_semantic_context', 'Return full semantic graph and diagram context for a living doc JSON path or rendered HTML snapshot.', objectSchema({
+    doc: optionalString('Living doc JSON path used to compute semantic context from generated artifacts.'),
+    html: optionalString('Rendered HTML snapshot path used to read embedded doc-semantic-context.'),
   })),
   tool('living_doc_relationship_gaps', 'Compare a living doc against its generated template graph and return missing or weak expected relationships.', objectSchema({
     doc: stringProp('Living doc JSON path.'),
@@ -191,6 +196,7 @@ function tool(name, description, inputSchema) {
     'living_doc_structure_reflect',
     'living_doc_template_graph',
     'living_doc_template_diagrams',
+    'living_doc_semantic_context',
     'living_doc_relationship_gaps',
     'living_doc_stage_diagnostics',
     'living_doc_valid_stage_operations',
@@ -617,6 +623,19 @@ async function templateDiagramsTool(args = {}) {
     generatedFrom: diagrams.generatedFrom,
     templateIds: Object.keys(diagramTemplates).sort(),
     templates: diagramTemplates,
+  };
+}
+
+async function semanticContextTool(args = {}) {
+  const target = args.html || args.doc || '';
+  if (!target) throw new McpError(-32602, 'Pass doc or html.');
+  const context = await semanticContextForPath(resolvePath(target));
+  return {
+    source: {
+      kind: args.html ? 'rendered-html' : 'living-doc-json',
+      path: resolvePath(target),
+    },
+    context,
   };
 }
 
@@ -1206,6 +1225,8 @@ async function callTool(name, args = {}) {
       return templateGraphTool(args);
     case 'living_doc_template_diagrams':
       return templateDiagramsTool(args);
+    case 'living_doc_semantic_context':
+      return semanticContextTool(args);
     case 'living_doc_relationship_gaps':
       return relationshipGapsTool(args);
     case 'living_doc_stage_diagnostics':

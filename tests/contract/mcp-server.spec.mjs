@@ -14,6 +14,7 @@ const expectedTools = [
   'living_doc_structure_reflect',
   'living_doc_template_graph',
   'living_doc_template_diagrams',
+  'living_doc_semantic_context',
   'living_doc_relationship_gaps',
   'living_doc_stage_diagnostics',
   'living_doc_valid_stage_operations',
@@ -170,6 +171,20 @@ try {
   const inferredDiagram = await client.callTool('living_doc_template_diagrams', { doc: 'docs/living-doc-template-surface-delivery.json' });
   assert.equal(inferredDiagram.templateId, 'surface-delivery');
   assert.equal(inferredDiagram.inferredFromDoc.method, 'docId');
+
+  const semanticContext = await client.callTool('living_doc_semantic_context', { doc: 'docs/living-doc-template-surface-delivery.json' });
+  assert.equal(semanticContext.source.kind, 'living-doc-json');
+  assert.equal(semanticContext.context.templateId, 'surface-delivery');
+  assert.ok(semanticContext.context.graph.template.relationships.some((relationship) => relationship.id === 'alignment-requires-verification'));
+
+  const semanticTemplatePath = path.join(tmpDir, 'surface-delivery-template.json');
+  await writeFile(semanticTemplatePath, await readFile('docs/living-doc-template-surface-delivery.json', 'utf8'));
+  const semanticRender = await client.callTool('living_doc_render', { doc: semanticTemplatePath });
+  assert.equal(semanticRender.ok, true);
+  const renderedSemanticContext = await client.callTool('living_doc_semantic_context', { html: semanticRender.html });
+  assert.equal(renderedSemanticContext.source.kind, 'rendered-html');
+  assert.equal(renderedSemanticContext.context.templateId, 'surface-delivery');
+  assert.match(renderedSemanticContext.context.diagram.template.mermaid, /design_implementation_alignment -- "requires-verification" --> verification_checkpoints/);
 
   const reflectedTemplate = await client.callTool('living_doc_structure_reflect', { doc: 'docs/living-doc-template-surface-delivery.json' });
   assert.equal(reflectedTemplate.semanticGraph.templateId, 'surface-delivery');

@@ -85,6 +85,26 @@ export async function semanticContextForDoc(doc) {
   };
 }
 
+export function semanticContextFromRenderedHtml(html) {
+  const source = String(html || '');
+  const match = source.match(/<script\b(?=[^>]*\bid=["']doc-semantic-context["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/i)
+    || source.match(/<script\b(?=[^>]*\btype=["']application\/json["'])(?=[^>]*\bid=["']doc-semantic-context["'])[^>]*>([\s\S]*?)<\/script>/i);
+  if (!match?.[1]) return null;
+  return JSON.parse(unescapeScriptJson(match[1]));
+}
+
+export async function semanticContextForPath(filePath) {
+  const source = await readFile(filePath, 'utf8');
+  if (String(filePath).toLowerCase().endsWith('.html')) {
+    return semanticContextFromRenderedHtml(source);
+  }
+  return semanticContextForDoc(JSON.parse(source));
+}
+
+function unescapeScriptJson(value) {
+  return String(value || '').replace(/<\\\/script/gi, '</script');
+}
+
 function sameStringArray(a, b) {
   if (a.length !== b.length) return false;
   return a.every((value, index) => value === b[index]);

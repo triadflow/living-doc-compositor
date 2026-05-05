@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/typed-semantic-definitions-refactor.json",
   "sourceCoverage": "Seeded from GitHub issue #163 and internal model pages created on 2026-05-05.",
-  "updated": "2026-05-05T10:12:17.200Z",
+  "updated": "2026-05-05T10:16:32.342Z",
   "pills": [
     "Refactor",
     "Semantic Definitions",
@@ -609,13 +609,14 @@
           "id": "semantic-context-helper",
           "name": "Semantic context helper",
           "status": "current",
-          "updated": "2026-05-05T10:12:17.200Z",
+          "updated": "2026-05-05T10:16:32.342Z",
           "path": "scripts/living-doc-semantic-context.mjs",
           "range": "whole file",
           "revision": "working tree",
-          "what_it_does": "Centralizes semantic graph loading, diagram loading, template inference, semantic graph summaries, and rendered semantic context construction.",
+          "what_it_does": "Centralizes semantic graph loading, diagram loading, template inference, semantic graph summaries, rendered semantic context construction, and rendered HTML semantic-context extraction.",
           "why_it_matters": [
-            "Renderer and MCP now share the same template-inference behavior instead of carrying duplicate docId/canonicalOrigin/section-sequence matching logic."
+            "Renderer and MCP now share the same template-inference behavior instead of carrying duplicate docId/canonicalOrigin/section-sequence matching logic.",
+            "MCP can now retrieve semantic context from either source JSON or standalone rendered HTML."
           ],
           "ticketIds": [
             {
@@ -650,7 +651,7 @@
       "title": "Attempt Log",
       "convergenceType": "attempt-log",
       "rationale": "Records probes and migration attempts as they happen so learning accumulates without prematurely turning every experiment into a decision or reusable template.",
-      "updated": "2026-05-05T10:12:17.200Z",
+      "updated": "2026-05-05T10:16:32.342Z",
       "data": [
         {
           "id": "model-pages",
@@ -899,6 +900,29 @@
             "`tests/contract/render.spec.mjs` now renders a copied surface-delivery template and verifies the embedded semantic graph and diagram source.",
             "This still embeds semantic context as a machine-readable script payload; no visible UI has been added for it yet."
           ]
+        },
+        {
+          "id": "mcp-semantic-context-slice",
+          "name": "Expose semantic context retrieval through MCP",
+          "status": "probe",
+          "updated": "2026-05-05T10:16:32.342Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "low",
+          "what_tried": [
+            "Added `living_doc_semantic_context` so inference-time tools can retrieve full graph and diagram context from either living doc JSON or rendered HTML snapshots."
+          ],
+          "what_proved": [
+            "The embedded snapshot context is not just archival; it can be recovered through MCP and used as the same semantic reasoning substrate as source JSON."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`tests/contract/mcp-server.spec.mjs` now renders a copied surface-delivery template and reads its embedded semantic context back through MCP."
+          ]
         }
       ]
     },
@@ -907,7 +931,7 @@
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
       "rationale": "Defines the safety and value proof needed before expanding the refactor beyond an additive template graph and one template family.",
-      "updated": "2026-05-05T10:12:17.200Z",
+      "updated": "2026-05-05T10:16:32.342Z",
       "data": [
         {
           "id": "deterministic-generation",
@@ -962,7 +986,7 @@
           "id": "semantic-context-travels-with-snapshot",
           "name": "Generated semantic context travels with rendered snapshots",
           "status": "ready",
-          "updated": "2026-05-05T10:12:17.200Z",
+          "updated": "2026-05-05T10:16:32.342Z",
           "ticketIds": [
             {
               "issueNumber": "163",
@@ -972,7 +996,8 @@
           "notes": [
             "Rendered HTML for matching template docs now includes `<script type=\"application/json\" id=\"doc-semantic-context\">`.",
             "The payload includes template inference method, generated graph template metadata, and generated Mermaid diagram source.",
-            "This keeps standalone snapshots compatible with tools that inspect HTML artifacts rather than source JSON in the repo."
+            "This keeps standalone snapshots compatible with tools that inspect HTML artifacts rather than source JSON in the repo.",
+            "`living_doc_semantic_context` can retrieve this payload from rendered HTML snapshots."
           ]
         }
       ]
@@ -1076,7 +1101,7 @@
       "title": "Tooling Surface",
       "convergenceType": "tooling-surface",
       "rationale": "Tracks the generator, contract tests, MCP commands, and render/sync tools that must exist or remain stable for the refactor to be operational.",
-      "updated": "2026-05-05T10:12:17.200Z",
+      "updated": "2026-05-05T10:16:32.342Z",
       "data": [
         {
           "id": "semantic-graph-generator",
@@ -1113,7 +1138,7 @@
           "id": "template-graph-contract-test",
           "name": "Template graph contract test",
           "status": "trusted",
-          "updated": "2026-05-05T10:12:17.200Z",
+          "updated": "2026-05-05T10:16:32.342Z",
           "scriptPaths": [
             "tests/contract/template-graphs.spec.mjs",
             "tests/contract/template-diagrams.spec.mjs",
@@ -1126,12 +1151,13 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
             }
           ],
-          "purpose": "Ensure generated graph and diagram metadata is deterministic, references valid registry/template types and relationships, is exposed through MCP, and travels with rendered matching docs.",
+          "purpose": "Ensure generated graph and diagram metadata is deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.",
           "whenToUse": "Run as part of `npm run test:contract` after the generator exists.",
           "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs && node tests/contract/mcp-server.spec.mjs && node tests/contract/render.spec.mjs",
           "caveats": [
             "Validates deterministic generation and registry/template references for surface-delivery, proof-canonicality, and operations-support.",
             "Validates rendered semantic context embedding on surface-delivery.",
+            "Validates MCP semantic context retrieval from both source JSON and rendered HTML.",
             "Will need stronger assertions as generated diagnostics move from section/card population toward richer card-level semantic edges."
           ]
         },
@@ -1139,7 +1165,7 @@
           "id": "existing-mcp-server",
           "name": "Existing living-doc MCP server",
           "status": "usable-with-caveats",
-          "updated": "2026-05-05T09:54:32.937Z",
+          "updated": "2026-05-05T10:16:32.342Z",
           "scriptPaths": [
             "scripts/living-doc-mcp-server.mjs"
           ],
@@ -1153,7 +1179,7 @@
           "whenToUse": "Use as the integration point for generated relationship/stage metadata.",
           "invocation": "npm run ldoc:mcp",
           "caveats": [
-            "Now exposes `living_doc_template_graph`, `living_doc_template_diagrams`, `living_doc_relationship_gaps`, `living_doc_stage_diagnostics`, and `living_doc_valid_stage_operations`.",
+            "Now exposes `living_doc_template_graph`, `living_doc_template_diagrams`, `living_doc_semantic_context`, `living_doc_relationship_gaps`, `living_doc_stage_diagnostics`, and `living_doc_valid_stage_operations`.",
             "`living_doc_structure_reflect` includes semantic graph metadata for matching docs.",
             "Relationship diagnostics are intentionally conservative and do not yet validate card-level semantic edges."
           ]
