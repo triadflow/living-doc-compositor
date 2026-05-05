@@ -78,10 +78,12 @@ const tools = [
   tool('living_doc_relationship_gaps', 'Compare a living doc against its generated template graph and return missing or weak expected relationships.', objectSchema({
     doc: stringProp('Living doc JSON path.'),
     templateId: optionalString('Optional template graph id. If omitted, inferred from the doc shape where possible.'),
+    registry: optionalString('Optional registry JSON path.'),
   }, ['doc'])),
   tool('living_doc_stage_diagnostics', 'Infer stage candidates from generated template graph relationships and current section/card population.', objectSchema({
     doc: stringProp('Living doc JSON path.'),
     templateId: optionalString('Optional template graph id. If omitted, inferred from the doc shape where possible.'),
+    registry: optionalString('Optional registry JSON path.'),
   }, ['doc'])),
   tool('living_doc_valid_stage_operations', 'Return generated valid operations for a template graph, optionally filtered by stage.', objectSchema({
     templateId: optionalString('Template graph id. If omitted with doc, inferred from the doc shape where possible.'),
@@ -642,6 +644,7 @@ async function semanticContextTool(args = {}) {
 async function relationshipGapsTool(args = {}) {
   const { graph, template, inferred } = await resolveTemplateGraphContext(args);
   const doc = await readJson(args.doc);
+  const registry = await loadRegistry(args);
   const sectionStats = sectionStatsByType(doc);
   const sectionCards = sectionCardsByType(doc);
   const operationsById = new Map((template.validOperations || []).map((operation) => [operation.id, operation]));
@@ -669,6 +672,9 @@ async function relationshipGapsTool(args = {}) {
         repairOperations,
         sourceEntries: sectionCards.get(relationship.from) || [],
       });
+      if (patchDraft) {
+        patchDraft.validation = validatePatch(patchDraft.patch, { registry, doc });
+      }
       gaps.push({
         relationshipId: relationship.id,
         relation: relationship.relation,
