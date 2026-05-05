@@ -9,7 +9,10 @@
   "canonicalOrigin": "docs/living-doc-template-proof-canonicality.json",
   "sourceCoverage": "Template only; replace placeholder references with real formal primitives, invariants, evidence, tickets, and tooling.",
   "updated": "2026-04-14T12:00:00.000Z",
-  "pills": ["Template", "Proof"],
+  "pills": [
+    "Template",
+    "Proof"
+  ],
   "templateMeta": {
     "level": "advanced",
     "order": 12,
@@ -41,7 +44,262 @@
       "flat verification checklists",
       "implementation status dashboards",
       "domains where claim and evidence can be safely collapsed"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "proof-canonicality",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize proof posture and canonicality pressure without collapsing the evidence layers.\"]\n  formal_model[\"formal-model<br/>Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.\"]\n  model_assertion[\"model-assertion<br/>State the claims that the proof structure is trying to support or weaken.\"]\n  proof_ladder[\"proof-ladder<br/>Track staged evidence rungs that increase confidence in the assertions.\"]\n  investigation_findings[\"investigation-findings<br/>Record observed facts learned from proof work without turning them directly into decisions.\"]\n  decision_record[\"decision-record<br/>Preserve canonical choices justified by the model, proof, and findings.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.\"]\n\n  formal_model -- \"frames\" --> model_assertion\n  model_assertion -- \"requires-proof\" --> proof_ladder\n  proof_ladder -- \"produces-findings\" --> investigation_findings\n  investigation_findings -- \"justifies\" --> decision_record\n  tooling_surface -- \"supports\" --> proof_ladder\n"
+      },
+      "objectiveRole": "Make a truth-bearing domain legible by separating model, assertion, proof, findings, decisions, and tooling.",
+      "templateObjective": "Make a truth-bearing domain legible by separating the model, the assertion, the proof ladder, the findings, the decisions, and the tooling.",
+      "templateSuccessCondition": "A reader can tell what is being claimed, what proof exists, where evidence is weak, what was learned, and which tools are used to evolve or verify the claim.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize proof posture and canonicality pressure without collapsing the evidence layers.",
+          "required": true
+        },
+        {
+          "id": "formal-model",
+          "convergenceType": "formal-model",
+          "role": "Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.",
+          "required": true
+        },
+        {
+          "id": "assertion",
+          "convergenceType": "model-assertion",
+          "role": "State the claims that the proof structure is trying to support or weaken.",
+          "required": true
+        },
+        {
+          "id": "proof-ladder",
+          "convergenceType": "proof-ladder",
+          "role": "Track staged evidence rungs that increase confidence in the assertions.",
+          "required": true
+        },
+        {
+          "id": "findings",
+          "convergenceType": "investigation-findings",
+          "role": "Record observed facts learned from proof work without turning them directly into decisions.",
+          "required": true
+        },
+        {
+          "id": "decisions",
+          "convergenceType": "decision-record",
+          "role": "Preserve canonical choices justified by the model, proof, and findings.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "convergenceType": "tooling-surface",
+          "role": "Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "model-frames-assertion",
+          "from": "formal-model",
+          "to": "model-assertion",
+          "relation": "frames",
+          "rationale": "Assertions are only meaningful inside the model primitives, invariants, and authority scope they claim against.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "assertion-requires-proof",
+          "from": "model-assertion",
+          "to": "proof-ladder",
+          "relation": "requires-proof",
+          "rationale": "A model assertion should not advance toward canonicality without staged proof strength.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "primitiveRefs",
+              "invariantRefs",
+              "authorityRefs"
+            ],
+            "targetFields": [
+              "assertionIds",
+              "primitiveRefs",
+              "invariantRefs",
+              "authorityRefs"
+            ],
+            "description": "A proof rung should identify the assertion, primitive, invariant, or authority it supports or challenges."
+          },
+          "repairOperationIds": [
+            "add-proof-rung",
+            "weaken-assertion"
+          ],
+          "required": true
+        },
+        {
+          "id": "proof-produces-findings",
+          "from": "proof-ladder",
+          "to": "investigation-findings",
+          "relation": "produces-findings",
+          "rationale": "Proof work should produce factual findings before those findings become operating decisions.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "findings-justify-decisions",
+          "from": "investigation-findings",
+          "to": "decision-record",
+          "relation": "justifies",
+          "rationale": "Decisions should be justified by observed findings, not by unsupported assertions.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-proof",
+          "from": "tooling-surface",
+          "to": "proof-ladder",
+          "relation": "supports",
+          "rationale": "Proof rungs need an operational tool path so the evidence can be rerun or extended.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-model",
+          "stage": "Seeding",
+          "when": "formal-model has no source-backed cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "formal-model"
+          },
+          "severity": "high",
+          "question": "What first model primitive, invariant, or authority makes this proof domain tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-assertion-not-proven",
+          "stage": "Coherence",
+          "when": "model-assertion exists but proof-ladder has no corresponding proof rungs",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which assertion lacks proof support, or which proof rung is attached to the wrong claim?",
+          "relatedRelationships": [
+            "assertion-requires-proof"
+          ]
+        },
+        {
+          "id": "operation-proof-without-findings",
+          "stage": "Operation",
+          "when": "proof-ladder has rungs but investigation-findings has no observed findings",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "proof-ladder",
+            "targetType": "investigation-findings"
+          },
+          "severity": "medium",
+          "question": "What finding did the current proof rung actually establish?",
+          "relatedRelationships": [
+            "proof-produces-findings"
+          ]
+        },
+        {
+          "id": "judgment-canonicality-ready",
+          "stage": "Judgment",
+          "when": "model, assertion, proof, findings, decisions, and tooling are all populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "formal-model",
+              "model-assertion",
+              "proof-ladder",
+              "investigation-findings",
+              "decision-record",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "What claim can responsibly become canonical, and what uncertainty remains?",
+          "relatedRelationships": [
+            "model-frames-assertion",
+            "assertion-requires-proof",
+            "proof-produces-findings",
+            "findings-justify-decisions",
+            "tooling-supports-proof"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-model-primitive",
+          "label": "Add model primitive",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a formal model card that names the primitive, invariant, authority, or scope being reasoned over.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-proof-rung",
+          "label": "Add proof rung",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a proof rung that directly supports or challenges a model assertion.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-investigation-finding",
+          "label": "Record investigation finding",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Record the factual finding produced by proof work before deciding what it means.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "weaken-assertion",
+          "label": "Weaken assertion",
+          "stages": [
+            "Coherence",
+            "Judgment"
+          ],
+          "description": "Lower or qualify an assertion when proof strength does not support canonical status.",
+          "patchKind": "card-update"
+        },
+        {
+          "id": "record-canonical-decision",
+          "label": "Record canonical decision",
+          "stages": [
+            "Judgment"
+          ],
+          "description": "Record a decision justified by the model, proof ladder, and findings.",
+          "patchKind": "card-create"
+        }
+      ],
+      "counts": {
+        "sections": 7,
+        "relationships": 5,
+        "stageSignals": 4,
+        "validOperations": 5
+      }
+    }
   },
   "objective": "Make a truth-bearing domain legible by separating the model, the assertion, the proof ladder, the findings, the decisions, and the tooling.",
   "successCondition": "A reader can tell what is being claimed, what proof exists, where evidence is weak, what was learned, and which tools are used to evolve or verify the claim.",
@@ -62,10 +320,22 @@
       "convergenceType": "status-snapshot",
       "updated": "2026-04-14T12:00:00.000Z",
       "stats": [
-        { "label": "Assertions", "value": "1" },
-        { "label": "Proof rungs", "value": "3" },
-        { "label": "Findings", "value": "2" },
-        { "label": "Decisions", "value": "1" }
+        {
+          "label": "Assertions",
+          "value": "1"
+        },
+        {
+          "label": "Proof rungs",
+          "value": "3"
+        },
+        {
+          "label": "Findings",
+          "value": "2"
+        },
+        {
+          "label": "Decisions",
+          "value": "1"
+        }
       ],
       "callout": {
         "tone": "info",
@@ -88,10 +358,18 @@
           "name": "Authoritative graph semantics",
           "status": "canonical",
           "updated": "2026-04-14T11:15:00.000Z",
-          "primitiveRefs": ["GraphIR"],
-          "invariantRefs": ["edge-preserving evolution"],
-          "authorityRefs": ["parser-runtime"],
-          "codePaths": ["src/graph-ir.ts"],
+          "primitiveRefs": [
+            "GraphIR"
+          ],
+          "invariantRefs": [
+            "edge-preserving evolution"
+          ],
+          "authorityRefs": [
+            "parser-runtime"
+          ],
+          "codePaths": [
+            "src/graph-ir.ts"
+          ],
           "definition": "The model must preserve graph-valid relationships through every evolution pass.",
           "authorityScope": "Any parser or repair path that claims semantic correctness for the graph representation.",
           "notes": [
@@ -114,9 +392,15 @@
           "name": "Canonical truth path",
           "status": "canonical",
           "updated": "2026-04-14T11:40:00.000Z",
-          "primitiveRefs": ["canonical-output"],
-          "invariantRefs": ["same-input-same-meaning"],
-          "authorityRefs": ["proof-ladder-overview"],
+          "primitiveRefs": [
+            "canonical-output"
+          ],
+          "invariantRefs": [
+            "same-input-same-meaning"
+          ],
+          "authorityRefs": [
+            "proof-ladder-overview"
+          ],
           "ticketIds": [
             {
               "issueNumber": "201",
@@ -230,8 +514,12 @@
           "name": "Proof replay runner",
           "status": "usable-with-caveats",
           "updated": "2026-04-14T11:35:00.000Z",
-          "scriptPaths": ["scripts/run-proof-suite.sh"],
-          "artifactPaths": ["artifacts/frozen-evidence/sample.eml"],
+          "scriptPaths": [
+            "scripts/run-proof-suite.sh"
+          ],
+          "artifactPaths": [
+            "artifacts/frozen-evidence/sample.eml"
+          ],
           "purpose": "Replay retained evidence against the current implementation so each proof rung can be evaluated without fresh interpretation noise.",
           "whenToUse": "Use when a claim needs replayable evidence rather than one-off local confirmation.",
           "invocation": "`./scripts/run-proof-suite.sh artifacts/frozen-evidence/sample.eml`",
@@ -247,8 +535,12 @@
           "name": "Living-doc renderer for proof ladders",
           "status": "trusted",
           "updated": "2026-04-14T11:25:00.000Z",
-          "scriptPaths": ["scripts/render-living-doc.mjs"],
-          "artifactPaths": ["docs/living-doc-compositor.html"],
+          "scriptPaths": [
+            "scripts/render-living-doc.mjs"
+          ],
+          "artifactPaths": [
+            "docs/living-doc-compositor.html"
+          ],
           "purpose": "Package the current proof state into a portable snapshot with lineage so claims, findings, and decisions can be reviewed together.",
           "whenToUse": "Use when the proof structure needs to be shared without requiring access to every underlying system.",
           "invocation": "`node scripts/render-living-doc.mjs docs/proof-ladder-overview.json`",

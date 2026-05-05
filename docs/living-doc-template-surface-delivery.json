@@ -9,7 +9,10 @@
   "canonicalOrigin": "docs/living-doc-template-surface-delivery.json",
   "sourceCoverage": "Template only; replace placeholder design, code, ticket, and verification references with real domain sources.",
   "updated": "2026-04-14T12:00:00.000Z",
-  "pills": ["Template", "Delivery"],
+  "pills": [
+    "Template",
+    "Delivery"
+  ],
   "templateMeta": {
     "level": "advanced",
     "order": 11,
@@ -37,7 +40,246 @@
       "broad platform roadmaps",
       "support-ops domains",
       "formal claim and proof work"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "surface-delivery",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize delivery pressure and current readiness without carrying the detailed evidence.\"]\n  design_code_spec_flow[\"design-code-spec-flow<br/>Hold the product surface as a joined design, code, spec, interaction, and ticket entity.\"]\n  design_implementation_alignment[\"design-implementation-alignment<br/>Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.\"]\n  verification_checkpoints[\"verification-checkpoints<br/>Track the checks that prove the aligned implementation is ready enough to ship or continue.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.\"]\n\n  status_snapshot -- \"summarizes\" --> design_code_spec_flow\n  design_code_spec_flow -- \"feeds\" --> design_implementation_alignment\n  design_implementation_alignment -- \"requires-verification\" --> verification_checkpoints\n  tooling_surface -- \"supports\" --> verification_checkpoints\n"
+      },
+      "objectiveRole": "Make one product surface legible across intent, implementation state, verification readiness, and tooling.",
+      "templateObjective": "Make one product surface legible across intent, implementation state, verification readiness, and the tools used to work on it.",
+      "templateSuccessCondition": "A reader can identify the main surface, current implementation drift, immediate verification gaps, and which tools are used to evolve the work.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize delivery pressure and current readiness without carrying the detailed evidence.",
+          "required": true
+        },
+        {
+          "id": "surface-flow",
+          "convergenceType": "design-code-spec-flow",
+          "role": "Hold the product surface as a joined design, code, spec, interaction, and ticket entity.",
+          "required": true
+        },
+        {
+          "id": "alignment",
+          "convergenceType": "design-implementation-alignment",
+          "role": "Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.",
+          "required": true
+        },
+        {
+          "id": "verification",
+          "convergenceType": "verification-checkpoints",
+          "role": "Track the checks that prove the aligned implementation is ready enough to ship or continue.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "convergenceType": "tooling-surface",
+          "role": "Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-flow",
+          "from": "status-snapshot",
+          "to": "design-code-spec-flow",
+          "relation": "summarizes",
+          "rationale": "Status is only meaningful when it summarizes the actual surface flow being delivered.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "flow-feeds-alignment",
+          "from": "design-code-spec-flow",
+          "to": "design-implementation-alignment",
+          "relation": "feeds",
+          "rationale": "Alignment rows should judge the design/code/spec entities named in the surface flow.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "defaultNodeIds",
+              "codeRefs"
+            ],
+            "targetFields": [
+              "sourceCardIds",
+              "figmaNodeId",
+              "localPath"
+            ],
+            "description": "An alignment row should identify the surface-flow card, Figma node, or code path it judges."
+          },
+          "repairOperationIds": [
+            "add-alignment-row"
+          ],
+          "required": true
+        },
+        {
+          "id": "alignment-requires-verification",
+          "from": "design-implementation-alignment",
+          "to": "verification-checkpoints",
+          "relation": "requires-verification",
+          "rationale": "Implementation alignment is not delivery readiness until checks exist for the aligned behavior.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-verification",
+          "from": "tooling-surface",
+          "to": "verification-checkpoints",
+          "relation": "supports",
+          "rationale": "Verification checkpoints need an operational tool path so a future session can rerun or extend them.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-surface-flow",
+          "stage": "Seeding",
+          "when": "design-code-spec-flow has no source-backed cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "design-code-spec-flow"
+          },
+          "severity": "high",
+          "question": "What first real surface, spec, code path, and ticket make this delivery doc tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-flow-not-aligned",
+          "stage": "Coherence",
+          "when": "design-code-spec-flow exists but design-implementation-alignment has no corresponding rows",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which surface-flow cards lack an implementation-alignment judgment?",
+          "relatedRelationships": [
+            "flow-feeds-alignment"
+          ]
+        },
+        {
+          "id": "operation-alignment-not-verified",
+          "stage": "Operation",
+          "when": "alignment rows are partial/current but verification-checkpoints do not cover the same surface concerns",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "design-implementation-alignment",
+            "targetType": "verification-checkpoints"
+          },
+          "severity": "medium",
+          "question": "Which verification checkpoint would make the current implementation alignment actionable?",
+          "relatedRelationships": [
+            "alignment-requires-verification"
+          ]
+        },
+        {
+          "id": "refresh-status-drift",
+          "stage": "Refresh",
+          "when": "status-snapshot or alignment state is older than source/code/check updates",
+          "condition": {
+            "kind": "manual-review"
+          },
+          "severity": "medium",
+          "question": "What changed since the last delivery pass, and which status should move?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "judgment-delivery-readiness",
+          "stage": "Judgment",
+          "when": "surface flow, alignment, verification, and tooling are all populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "design-code-spec-flow",
+              "design-implementation-alignment",
+              "verification-checkpoints",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Is the surface shippable, blocked, or only visually/partially complete?",
+          "relatedRelationships": [
+            "flow-feeds-alignment",
+            "alignment-requires-verification",
+            "tooling-supports-verification"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-surface-flow-card",
+          "label": "Add surface flow card",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add the first source-backed surface card with design/spec/code/ticket references.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-alignment-row",
+          "label": "Add alignment row",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add or update an alignment row for a surface-flow entity that lacks implementation judgment.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-verification-checkpoint",
+          "label": "Add verification checkpoint",
+          "stages": [
+            "Coherence",
+            "Operation"
+          ],
+          "description": "Add a check that proves or bounds a current alignment claim.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "lower-readiness-status",
+          "label": "Lower readiness status",
+          "stages": [
+            "Coherence",
+            "Refresh",
+            "Judgment"
+          ],
+          "description": "Lower or qualify status when verification does not support the delivery claim.",
+          "patchKind": "card-update"
+        },
+        {
+          "id": "link-tooling-to-check",
+          "label": "Link tooling to check",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Link the script, workflow, or local tool that can run or inspect a verification checkpoint.",
+          "patchKind": "card-update"
+        }
+      ],
+      "counts": {
+        "sections": 5,
+        "relationships": 4,
+        "stageSignals": 5,
+        "validOperations": 5
+      }
+    }
   },
   "objective": "Make one product surface legible across intent, implementation state, verification readiness, and the tools used to work on it.",
   "successCondition": "A reader can identify the main surface, current implementation drift, immediate verification gaps, and which tools are used to evolve the work.",
@@ -79,10 +321,22 @@
       "convergenceType": "status-snapshot",
       "updated": "2026-04-14T12:00:00.000Z",
       "stats": [
-        { "label": "Surface flows", "value": "2" },
-        { "label": "Alignment rows", "value": "2" },
-        { "label": "Checks", "value": "2" },
-        { "label": "Tooling blocks", "value": "2" }
+        {
+          "label": "Surface flows",
+          "value": "2"
+        },
+        {
+          "label": "Alignment rows",
+          "value": "2"
+        },
+        {
+          "label": "Checks",
+          "value": "2"
+        },
+        {
+          "label": "Tooling blocks",
+          "value": "2"
+        }
       ],
       "callout": {
         "tone": "info",
@@ -108,14 +362,22 @@
           "status": "ground-truth",
           "codeStatus": "partial",
           "updated": "2026-04-14T11:15:00.000Z",
-          "pageIds": ["1:2"],
-          "defaultNodeIds": ["1:5"],
+          "pageIds": [
+            "1:2"
+          ],
+          "defaultNodeIds": [
+            "1:5"
+          ],
           "codeRefs": [
             "apps/web/src/routes/feature.tsx",
             "apps/web/src/components/FeaturePanel.tsx"
           ],
-          "specRefIds": ["ux-spec-primary-surface"],
-          "interactionSurfaceIds": ["primary-submit"],
+          "specRefIds": [
+            "ux-spec-primary-surface"
+          ],
+          "interactionSurfaceIds": [
+            "primary-submit"
+          ],
           "ticketIds": [
             {
               "issueNumber": "101",
@@ -135,13 +397,21 @@
           "status": "reference",
           "codeStatus": "not-started",
           "updated": "2026-04-14T10:40:00.000Z",
-          "pageIds": ["1:8"],
-          "defaultNodeIds": ["1:13"],
+          "pageIds": [
+            "1:8"
+          ],
+          "defaultNodeIds": [
+            "1:13"
+          ],
           "codeRefs": [
             "apps/web/src/components/FeatureEmptyState.tsx"
           ],
-          "specRefIds": ["ux-spec-primary-surface"],
-          "interactionSurfaceIds": ["empty-state-recovery"],
+          "specRefIds": [
+            "ux-spec-primary-surface"
+          ],
+          "interactionSurfaceIds": [
+            "empty-state-recovery"
+          ],
           "ticketIds": [
             {
               "issueNumber": "102",
@@ -223,8 +493,12 @@
           "name": "Universal renderer",
           "status": "trusted",
           "updated": "2026-04-14T11:45:00.000Z",
-          "scriptPaths": ["scripts/render-living-doc.mjs"],
-          "artifactPaths": ["docs/living-doc-compositor.html"],
+          "scriptPaths": [
+            "scripts/render-living-doc.mjs"
+          ],
+          "artifactPaths": [
+            "docs/living-doc-compositor.html"
+          ],
           "purpose": "Render the canonical JSON document into a standalone HTML snapshot with the full compositor embedded.",
           "whenToUse": "Use whenever you need a shareable artifact or want to refresh an existing rendered living doc.",
           "invocation": "`node scripts/render-living-doc.mjs docs/my-doc.json`",
@@ -240,8 +514,12 @@
           "name": "Registry overview generator",
           "status": "trusted",
           "updated": "2026-04-14T11:30:00.000Z",
-          "scriptPaths": ["scripts/render-registry-overview.mjs"],
-          "artifactPaths": ["docs/living-doc-registry-overview.html"],
+          "scriptPaths": [
+            "scripts/render-registry-overview.mjs"
+          ],
+          "artifactPaths": [
+            "docs/living-doc-registry-overview.html"
+          ],
           "purpose": "Expose the current convergence-type language so contributors can decide whether the doc needs a new section type or just a new section instance.",
           "whenToUse": "Use when the delivery surface starts needing structure that does not fit the existing type vocabulary.",
           "invocation": "`node scripts/render-registry-overview.mjs`",

@@ -10742,7 +10742,235 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "single-lane personal task trackers",
           "pure component implementation maps",
           "verification-evidence-led domains"
-        ]
+        ],
+        "semanticDefinition": {
+          "schema": "living-doc-template-semantic-definition/v1",
+          "definitionId": "operations-support",
+          "generatedFrom": "scripts/living-doc-definitions",
+          "graph": {
+            "schema": "living-doc-semantic-graph/v1",
+            "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+          },
+          "diagram": {
+            "schema": "living-doc-semantic-diagrams/v1",
+            "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+            "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.\"]\n  operation[\"operation<br/>Describe the mediated request-to-execution flow that operators need to run.\"]\n  operating_surface[\"operating-surface<br/>Expose the bounded support lanes or operational paths that request flow routes into.\"]\n  enabler_catalog[\"enabler-catalog<br/>Catalog compact support assets that improve operator speed, reliability, or coverage.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, workflows, and local tools used to operate or evolve the support domain.\"]\n\n  status_snapshot -- \"summarizes\" --> operation\n  operation -- \"routes-to\" --> operating_surface\n  operating_surface -- \"needs\" --> enabler_catalog\n  tooling_surface -- \"supports\" --> operation\n"
+          },
+          "objectiveRole": "Make an operations or support domain legible across request flow, operating surfaces, enabling assets, and tooling.",
+          "templateObjective": "Make an operations or support domain legible across request flow, operational surfaces, enabling assets, and the tools used to support the work.",
+          "templateSuccessCondition": "A reader can see how requests enter the system, which support paths exist, what enablers are available, and which tools the operators rely on.",
+          "sections": [
+            {
+              "id": "status-snapshot",
+              "convergenceType": "status-snapshot",
+              "role": "Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.",
+              "required": true
+            },
+            {
+              "id": "operations",
+              "convergenceType": "operation",
+              "role": "Describe the mediated request-to-execution flow that operators need to run.",
+              "required": true
+            },
+            {
+              "id": "support-surface",
+              "convergenceType": "operating-surface",
+              "role": "Expose the bounded support lanes or operational paths that request flow routes into.",
+              "required": true
+            },
+            {
+              "id": "enablers",
+              "convergenceType": "enabler-catalog",
+              "role": "Catalog compact support assets that improve operator speed, reliability, or coverage.",
+              "required": true
+            },
+            {
+              "id": "tooling",
+              "convergenceType": "tooling-surface",
+              "role": "Expose the scripts, workflows, and local tools used to operate or evolve the support domain.",
+              "required": true
+            }
+          ],
+          "relationships": [
+            {
+              "id": "status-summarizes-operation",
+              "from": "status-snapshot",
+              "to": "operation",
+              "relation": "summarizes",
+              "rationale": "Operational status should summarize real support flow rather than stand apart as a dashboard label.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "operation-routes-surface",
+              "from": "operation",
+              "to": "operating-surface",
+              "relation": "routes-to",
+              "rationale": "Mediated operations should name the concrete support lanes or operating surfaces they route requests into.",
+              "evidence": {
+                "kind": "shared-field-value",
+                "sourceFields": [
+                  "id",
+                  "workflowPaths",
+                  "requestInputs"
+                ],
+                "targetFields": [
+                  "operationIds",
+                  "workflowPaths",
+                  "requestInputs"
+                ],
+                "description": "An operating surface should identify the operation, workflow path, or request input it supports."
+              },
+              "repairOperationIds": [
+                "add-operating-surface-card"
+              ],
+              "required": true
+            },
+            {
+              "id": "surface-needs-enablers",
+              "from": "operating-surface",
+              "to": "enabler-catalog",
+              "relation": "needs",
+              "rationale": "Support lanes stay operational only when their enabling snippets, fixtures, runbooks, or assets are visible.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "tooling-supports-operation",
+              "from": "tooling-surface",
+              "to": "operation",
+              "relation": "supports",
+              "rationale": "Operational request flow needs a tool path so a future session can rerun, inspect, or extend the support process.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            }
+          ],
+          "stageSignals": [
+            {
+              "id": "seeding-missing-operation",
+              "stage": "Seeding",
+              "when": "operation has no request-flow cards",
+              "condition": {
+                "kind": "section-empty",
+                "type": "operation"
+              },
+              "severity": "high",
+              "question": "What first real request flow, intake path, or mediated operation makes this support doc tangible?",
+              "relatedRelationships": []
+            },
+            {
+              "id": "coherence-operation-not-routed",
+              "stage": "Coherence",
+              "when": "operation exists but operating-surface has no corresponding support lanes",
+              "condition": {
+                "kind": "related-relationship-gap"
+              },
+              "severity": "high",
+              "question": "Which operation cards lack a concrete support lane or operating surface?",
+              "relatedRelationships": [
+                "operation-routes-surface"
+              ]
+            },
+            {
+              "id": "operation-surface-without-enablers",
+              "stage": "Operation",
+              "when": "operating-surface has lanes but enabler-catalog has no assets that support them",
+              "condition": {
+                "kind": "source-populated-target-empty",
+                "sourceType": "operating-surface",
+                "targetType": "enabler-catalog"
+              },
+              "severity": "medium",
+              "question": "Which enabler would make the current support lane faster, safer, or easier to operate?",
+              "relatedRelationships": [
+                "surface-needs-enablers"
+              ]
+            },
+            {
+              "id": "judgment-support-readiness",
+              "stage": "Judgment",
+              "when": "operation, operating surface, enablers, and tooling are all populated and linked",
+              "condition": {
+                "kind": "all-populated-no-high-gaps",
+                "types": [
+                  "operation",
+                  "operating-surface",
+                  "enabler-catalog",
+                  "tooling-surface"
+                ]
+              },
+              "severity": "high",
+              "question": "Can the support domain be operated from this document, or are key request paths still implicit?",
+              "relatedRelationships": [
+                "operation-routes-surface",
+                "surface-needs-enablers",
+                "tooling-supports-operation"
+              ]
+            }
+          ],
+          "validOperations": [
+            {
+              "id": "add-operation-card",
+              "label": "Add operation card",
+              "stages": [
+                "Seeding",
+                "Composition"
+              ],
+              "description": "Add a request-flow or mediated-operation card that names how work enters and moves through the support domain.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "add-operating-surface-card",
+              "label": "Add operating surface card",
+              "stages": [
+                "Composition",
+                "Coherence"
+              ],
+              "description": "Add a bounded support lane or operational surface that a request flow routes into.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "add-enabler-card",
+              "label": "Add enabler card",
+              "stages": [
+                "Coherence",
+                "Operation"
+              ],
+              "description": "Add a support asset, runbook, fixture, or snippet that strengthens an operating surface.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "link-tooling-to-operation",
+              "label": "Link tooling to operation",
+              "stages": [
+                "Operation",
+                "Refresh"
+              ],
+              "description": "Link the script, workflow, or local tool used to run or inspect the operation.",
+              "patchKind": "card-update"
+            },
+            {
+              "id": "lower-support-status",
+              "label": "Lower support status",
+              "stages": [
+                "Coherence",
+                "Refresh",
+                "Judgment"
+              ],
+              "description": "Lower or qualify operational readiness when support lanes, enablers, or tooling do not support the claim.",
+              "patchKind": "card-update"
+            }
+          ],
+          "counts": {
+            "sections": 5,
+            "relationships": 4,
+            "stageSignals": 4,
+            "validOperations": 5
+          }
+        }
       },
       "json": {
         "docId": "template:operations-support",
@@ -10786,7 +11014,235 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             "single-lane personal task trackers",
             "pure component implementation maps",
             "verification-evidence-led domains"
-          ]
+          ],
+          "semanticDefinition": {
+            "schema": "living-doc-template-semantic-definition/v1",
+            "definitionId": "operations-support",
+            "generatedFrom": "scripts/living-doc-definitions",
+            "graph": {
+              "schema": "living-doc-semantic-graph/v1",
+              "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+            },
+            "diagram": {
+              "schema": "living-doc-semantic-diagrams/v1",
+              "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+              "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.\"]\n  operation[\"operation<br/>Describe the mediated request-to-execution flow that operators need to run.\"]\n  operating_surface[\"operating-surface<br/>Expose the bounded support lanes or operational paths that request flow routes into.\"]\n  enabler_catalog[\"enabler-catalog<br/>Catalog compact support assets that improve operator speed, reliability, or coverage.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, workflows, and local tools used to operate or evolve the support domain.\"]\n\n  status_snapshot -- \"summarizes\" --> operation\n  operation -- \"routes-to\" --> operating_surface\n  operating_surface -- \"needs\" --> enabler_catalog\n  tooling_surface -- \"supports\" --> operation\n"
+            },
+            "objectiveRole": "Make an operations or support domain legible across request flow, operating surfaces, enabling assets, and tooling.",
+            "templateObjective": "Make an operations or support domain legible across request flow, operational surfaces, enabling assets, and the tools used to support the work.",
+            "templateSuccessCondition": "A reader can see how requests enter the system, which support paths exist, what enablers are available, and which tools the operators rely on.",
+            "sections": [
+              {
+                "id": "status-snapshot",
+                "convergenceType": "status-snapshot",
+                "role": "Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.",
+                "required": true
+              },
+              {
+                "id": "operations",
+                "convergenceType": "operation",
+                "role": "Describe the mediated request-to-execution flow that operators need to run.",
+                "required": true
+              },
+              {
+                "id": "support-surface",
+                "convergenceType": "operating-surface",
+                "role": "Expose the bounded support lanes or operational paths that request flow routes into.",
+                "required": true
+              },
+              {
+                "id": "enablers",
+                "convergenceType": "enabler-catalog",
+                "role": "Catalog compact support assets that improve operator speed, reliability, or coverage.",
+                "required": true
+              },
+              {
+                "id": "tooling",
+                "convergenceType": "tooling-surface",
+                "role": "Expose the scripts, workflows, and local tools used to operate or evolve the support domain.",
+                "required": true
+              }
+            ],
+            "relationships": [
+              {
+                "id": "status-summarizes-operation",
+                "from": "status-snapshot",
+                "to": "operation",
+                "relation": "summarizes",
+                "rationale": "Operational status should summarize real support flow rather than stand apart as a dashboard label.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "operation-routes-surface",
+                "from": "operation",
+                "to": "operating-surface",
+                "relation": "routes-to",
+                "rationale": "Mediated operations should name the concrete support lanes or operating surfaces they route requests into.",
+                "evidence": {
+                  "kind": "shared-field-value",
+                  "sourceFields": [
+                    "id",
+                    "workflowPaths",
+                    "requestInputs"
+                  ],
+                  "targetFields": [
+                    "operationIds",
+                    "workflowPaths",
+                    "requestInputs"
+                  ],
+                  "description": "An operating surface should identify the operation, workflow path, or request input it supports."
+                },
+                "repairOperationIds": [
+                  "add-operating-surface-card"
+                ],
+                "required": true
+              },
+              {
+                "id": "surface-needs-enablers",
+                "from": "operating-surface",
+                "to": "enabler-catalog",
+                "relation": "needs",
+                "rationale": "Support lanes stay operational only when their enabling snippets, fixtures, runbooks, or assets are visible.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "tooling-supports-operation",
+                "from": "tooling-surface",
+                "to": "operation",
+                "relation": "supports",
+                "rationale": "Operational request flow needs a tool path so a future session can rerun, inspect, or extend the support process.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              }
+            ],
+            "stageSignals": [
+              {
+                "id": "seeding-missing-operation",
+                "stage": "Seeding",
+                "when": "operation has no request-flow cards",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "operation"
+                },
+                "severity": "high",
+                "question": "What first real request flow, intake path, or mediated operation makes this support doc tangible?",
+                "relatedRelationships": []
+              },
+              {
+                "id": "coherence-operation-not-routed",
+                "stage": "Coherence",
+                "when": "operation exists but operating-surface has no corresponding support lanes",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "severity": "high",
+                "question": "Which operation cards lack a concrete support lane or operating surface?",
+                "relatedRelationships": [
+                  "operation-routes-surface"
+                ]
+              },
+              {
+                "id": "operation-surface-without-enablers",
+                "stage": "Operation",
+                "when": "operating-surface has lanes but enabler-catalog has no assets that support them",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "operating-surface",
+                  "targetType": "enabler-catalog"
+                },
+                "severity": "medium",
+                "question": "Which enabler would make the current support lane faster, safer, or easier to operate?",
+                "relatedRelationships": [
+                  "surface-needs-enablers"
+                ]
+              },
+              {
+                "id": "judgment-support-readiness",
+                "stage": "Judgment",
+                "when": "operation, operating surface, enablers, and tooling are all populated and linked",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "operation",
+                    "operating-surface",
+                    "enabler-catalog",
+                    "tooling-surface"
+                  ]
+                },
+                "severity": "high",
+                "question": "Can the support domain be operated from this document, or are key request paths still implicit?",
+                "relatedRelationships": [
+                  "operation-routes-surface",
+                  "surface-needs-enablers",
+                  "tooling-supports-operation"
+                ]
+              }
+            ],
+            "validOperations": [
+              {
+                "id": "add-operation-card",
+                "label": "Add operation card",
+                "stages": [
+                  "Seeding",
+                  "Composition"
+                ],
+                "description": "Add a request-flow or mediated-operation card that names how work enters and moves through the support domain.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "add-operating-surface-card",
+                "label": "Add operating surface card",
+                "stages": [
+                  "Composition",
+                  "Coherence"
+                ],
+                "description": "Add a bounded support lane or operational surface that a request flow routes into.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "add-enabler-card",
+                "label": "Add enabler card",
+                "stages": [
+                  "Coherence",
+                  "Operation"
+                ],
+                "description": "Add a support asset, runbook, fixture, or snippet that strengthens an operating surface.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "link-tooling-to-operation",
+                "label": "Link tooling to operation",
+                "stages": [
+                  "Operation",
+                  "Refresh"
+                ],
+                "description": "Link the script, workflow, or local tool used to run or inspect the operation.",
+                "patchKind": "card-update"
+              },
+              {
+                "id": "lower-support-status",
+                "label": "Lower support status",
+                "stages": [
+                  "Coherence",
+                  "Refresh",
+                  "Judgment"
+                ],
+                "description": "Lower or qualify operational readiness when support lanes, enablers, or tooling do not support the claim.",
+                "patchKind": "card-update"
+              }
+            ],
+            "counts": {
+              "sections": 5,
+              "relationships": 4,
+              "stageSignals": 4,
+              "validOperations": 5
+            }
+          }
         },
         "objective": "Make an operations or support domain legible across request flow, operational surfaces, enabling assets, and the tools used to support the work.",
         "successCondition": "A reader can see how requests enter the system, which support paths exist, what enablers are available, and which tools the operators rely on.",
@@ -11343,7 +11799,262 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "flat verification checklists",
           "implementation status dashboards",
           "domains where claim and evidence can be safely collapsed"
-        ]
+        ],
+        "semanticDefinition": {
+          "schema": "living-doc-template-semantic-definition/v1",
+          "definitionId": "proof-canonicality",
+          "generatedFrom": "scripts/living-doc-definitions",
+          "graph": {
+            "schema": "living-doc-semantic-graph/v1",
+            "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+          },
+          "diagram": {
+            "schema": "living-doc-semantic-diagrams/v1",
+            "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+            "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize proof posture and canonicality pressure without collapsing the evidence layers.\"]\n  formal_model[\"formal-model<br/>Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.\"]\n  model_assertion[\"model-assertion<br/>State the claims that the proof structure is trying to support or weaken.\"]\n  proof_ladder[\"proof-ladder<br/>Track staged evidence rungs that increase confidence in the assertions.\"]\n  investigation_findings[\"investigation-findings<br/>Record observed facts learned from proof work without turning them directly into decisions.\"]\n  decision_record[\"decision-record<br/>Preserve canonical choices justified by the model, proof, and findings.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.\"]\n\n  formal_model -- \"frames\" --> model_assertion\n  model_assertion -- \"requires-proof\" --> proof_ladder\n  proof_ladder -- \"produces-findings\" --> investigation_findings\n  investigation_findings -- \"justifies\" --> decision_record\n  tooling_surface -- \"supports\" --> proof_ladder\n"
+          },
+          "objectiveRole": "Make a truth-bearing domain legible by separating model, assertion, proof, findings, decisions, and tooling.",
+          "templateObjective": "Make a truth-bearing domain legible by separating the model, the assertion, the proof ladder, the findings, the decisions, and the tooling.",
+          "templateSuccessCondition": "A reader can tell what is being claimed, what proof exists, where evidence is weak, what was learned, and which tools are used to evolve or verify the claim.",
+          "sections": [
+            {
+              "id": "status-snapshot",
+              "convergenceType": "status-snapshot",
+              "role": "Summarize proof posture and canonicality pressure without collapsing the evidence layers.",
+              "required": true
+            },
+            {
+              "id": "formal-model",
+              "convergenceType": "formal-model",
+              "role": "Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.",
+              "required": true
+            },
+            {
+              "id": "assertion",
+              "convergenceType": "model-assertion",
+              "role": "State the claims that the proof structure is trying to support or weaken.",
+              "required": true
+            },
+            {
+              "id": "proof-ladder",
+              "convergenceType": "proof-ladder",
+              "role": "Track staged evidence rungs that increase confidence in the assertions.",
+              "required": true
+            },
+            {
+              "id": "findings",
+              "convergenceType": "investigation-findings",
+              "role": "Record observed facts learned from proof work without turning them directly into decisions.",
+              "required": true
+            },
+            {
+              "id": "decisions",
+              "convergenceType": "decision-record",
+              "role": "Preserve canonical choices justified by the model, proof, and findings.",
+              "required": true
+            },
+            {
+              "id": "tooling",
+              "convergenceType": "tooling-surface",
+              "role": "Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.",
+              "required": true
+            }
+          ],
+          "relationships": [
+            {
+              "id": "model-frames-assertion",
+              "from": "formal-model",
+              "to": "model-assertion",
+              "relation": "frames",
+              "rationale": "Assertions are only meaningful inside the model primitives, invariants, and authority scope they claim against.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "assertion-requires-proof",
+              "from": "model-assertion",
+              "to": "proof-ladder",
+              "relation": "requires-proof",
+              "rationale": "A model assertion should not advance toward canonicality without staged proof strength.",
+              "evidence": {
+                "kind": "shared-field-value",
+                "sourceFields": [
+                  "id",
+                  "primitiveRefs",
+                  "invariantRefs",
+                  "authorityRefs"
+                ],
+                "targetFields": [
+                  "assertionIds",
+                  "primitiveRefs",
+                  "invariantRefs",
+                  "authorityRefs"
+                ],
+                "description": "A proof rung should identify the assertion, primitive, invariant, or authority it supports or challenges."
+              },
+              "repairOperationIds": [
+                "add-proof-rung",
+                "weaken-assertion"
+              ],
+              "required": true
+            },
+            {
+              "id": "proof-produces-findings",
+              "from": "proof-ladder",
+              "to": "investigation-findings",
+              "relation": "produces-findings",
+              "rationale": "Proof work should produce factual findings before those findings become operating decisions.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "findings-justify-decisions",
+              "from": "investigation-findings",
+              "to": "decision-record",
+              "relation": "justifies",
+              "rationale": "Decisions should be justified by observed findings, not by unsupported assertions.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "tooling-supports-proof",
+              "from": "tooling-surface",
+              "to": "proof-ladder",
+              "relation": "supports",
+              "rationale": "Proof rungs need an operational tool path so the evidence can be rerun or extended.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            }
+          ],
+          "stageSignals": [
+            {
+              "id": "seeding-missing-model",
+              "stage": "Seeding",
+              "when": "formal-model has no source-backed cards",
+              "condition": {
+                "kind": "section-empty",
+                "type": "formal-model"
+              },
+              "severity": "high",
+              "question": "What first model primitive, invariant, or authority makes this proof domain tangible?",
+              "relatedRelationships": []
+            },
+            {
+              "id": "coherence-assertion-not-proven",
+              "stage": "Coherence",
+              "when": "model-assertion exists but proof-ladder has no corresponding proof rungs",
+              "condition": {
+                "kind": "related-relationship-gap"
+              },
+              "severity": "high",
+              "question": "Which assertion lacks proof support, or which proof rung is attached to the wrong claim?",
+              "relatedRelationships": [
+                "assertion-requires-proof"
+              ]
+            },
+            {
+              "id": "operation-proof-without-findings",
+              "stage": "Operation",
+              "when": "proof-ladder has rungs but investigation-findings has no observed findings",
+              "condition": {
+                "kind": "source-populated-target-empty",
+                "sourceType": "proof-ladder",
+                "targetType": "investigation-findings"
+              },
+              "severity": "medium",
+              "question": "What finding did the current proof rung actually establish?",
+              "relatedRelationships": [
+                "proof-produces-findings"
+              ]
+            },
+            {
+              "id": "judgment-canonicality-ready",
+              "stage": "Judgment",
+              "when": "model, assertion, proof, findings, decisions, and tooling are all populated and linked",
+              "condition": {
+                "kind": "all-populated-no-high-gaps",
+                "types": [
+                  "formal-model",
+                  "model-assertion",
+                  "proof-ladder",
+                  "investigation-findings",
+                  "decision-record",
+                  "tooling-surface"
+                ]
+              },
+              "severity": "high",
+              "question": "What claim can responsibly become canonical, and what uncertainty remains?",
+              "relatedRelationships": [
+                "model-frames-assertion",
+                "assertion-requires-proof",
+                "proof-produces-findings",
+                "findings-justify-decisions",
+                "tooling-supports-proof"
+              ]
+            }
+          ],
+          "validOperations": [
+            {
+              "id": "add-model-primitive",
+              "label": "Add model primitive",
+              "stages": [
+                "Seeding",
+                "Composition"
+              ],
+              "description": "Add a formal model card that names the primitive, invariant, authority, or scope being reasoned over.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "add-proof-rung",
+              "label": "Add proof rung",
+              "stages": [
+                "Composition",
+                "Coherence"
+              ],
+              "description": "Add a proof rung that directly supports or challenges a model assertion.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "record-investigation-finding",
+              "label": "Record investigation finding",
+              "stages": [
+                "Operation",
+                "Refresh"
+              ],
+              "description": "Record the factual finding produced by proof work before deciding what it means.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "weaken-assertion",
+              "label": "Weaken assertion",
+              "stages": [
+                "Coherence",
+                "Judgment"
+              ],
+              "description": "Lower or qualify an assertion when proof strength does not support canonical status.",
+              "patchKind": "card-update"
+            },
+            {
+              "id": "record-canonical-decision",
+              "label": "Record canonical decision",
+              "stages": [
+                "Judgment"
+              ],
+              "description": "Record a decision justified by the model, proof ladder, and findings.",
+              "patchKind": "card-create"
+            }
+          ],
+          "counts": {
+            "sections": 7,
+            "relationships": 5,
+            "stageSignals": 4,
+            "validOperations": 5
+          }
+        }
       },
       "json": {
         "docId": "template:proof-canonicality",
@@ -11391,7 +12102,262 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             "flat verification checklists",
             "implementation status dashboards",
             "domains where claim and evidence can be safely collapsed"
-          ]
+          ],
+          "semanticDefinition": {
+            "schema": "living-doc-template-semantic-definition/v1",
+            "definitionId": "proof-canonicality",
+            "generatedFrom": "scripts/living-doc-definitions",
+            "graph": {
+              "schema": "living-doc-semantic-graph/v1",
+              "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+            },
+            "diagram": {
+              "schema": "living-doc-semantic-diagrams/v1",
+              "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+              "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize proof posture and canonicality pressure without collapsing the evidence layers.\"]\n  formal_model[\"formal-model<br/>Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.\"]\n  model_assertion[\"model-assertion<br/>State the claims that the proof structure is trying to support or weaken.\"]\n  proof_ladder[\"proof-ladder<br/>Track staged evidence rungs that increase confidence in the assertions.\"]\n  investigation_findings[\"investigation-findings<br/>Record observed facts learned from proof work without turning them directly into decisions.\"]\n  decision_record[\"decision-record<br/>Preserve canonical choices justified by the model, proof, and findings.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.\"]\n\n  formal_model -- \"frames\" --> model_assertion\n  model_assertion -- \"requires-proof\" --> proof_ladder\n  proof_ladder -- \"produces-findings\" --> investigation_findings\n  investigation_findings -- \"justifies\" --> decision_record\n  tooling_surface -- \"supports\" --> proof_ladder\n"
+            },
+            "objectiveRole": "Make a truth-bearing domain legible by separating model, assertion, proof, findings, decisions, and tooling.",
+            "templateObjective": "Make a truth-bearing domain legible by separating the model, the assertion, the proof ladder, the findings, the decisions, and the tooling.",
+            "templateSuccessCondition": "A reader can tell what is being claimed, what proof exists, where evidence is weak, what was learned, and which tools are used to evolve or verify the claim.",
+            "sections": [
+              {
+                "id": "status-snapshot",
+                "convergenceType": "status-snapshot",
+                "role": "Summarize proof posture and canonicality pressure without collapsing the evidence layers.",
+                "required": true
+              },
+              {
+                "id": "formal-model",
+                "convergenceType": "formal-model",
+                "role": "Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.",
+                "required": true
+              },
+              {
+                "id": "assertion",
+                "convergenceType": "model-assertion",
+                "role": "State the claims that the proof structure is trying to support or weaken.",
+                "required": true
+              },
+              {
+                "id": "proof-ladder",
+                "convergenceType": "proof-ladder",
+                "role": "Track staged evidence rungs that increase confidence in the assertions.",
+                "required": true
+              },
+              {
+                "id": "findings",
+                "convergenceType": "investigation-findings",
+                "role": "Record observed facts learned from proof work without turning them directly into decisions.",
+                "required": true
+              },
+              {
+                "id": "decisions",
+                "convergenceType": "decision-record",
+                "role": "Preserve canonical choices justified by the model, proof, and findings.",
+                "required": true
+              },
+              {
+                "id": "tooling",
+                "convergenceType": "tooling-surface",
+                "role": "Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.",
+                "required": true
+              }
+            ],
+            "relationships": [
+              {
+                "id": "model-frames-assertion",
+                "from": "formal-model",
+                "to": "model-assertion",
+                "relation": "frames",
+                "rationale": "Assertions are only meaningful inside the model primitives, invariants, and authority scope they claim against.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "assertion-requires-proof",
+                "from": "model-assertion",
+                "to": "proof-ladder",
+                "relation": "requires-proof",
+                "rationale": "A model assertion should not advance toward canonicality without staged proof strength.",
+                "evidence": {
+                  "kind": "shared-field-value",
+                  "sourceFields": [
+                    "id",
+                    "primitiveRefs",
+                    "invariantRefs",
+                    "authorityRefs"
+                  ],
+                  "targetFields": [
+                    "assertionIds",
+                    "primitiveRefs",
+                    "invariantRefs",
+                    "authorityRefs"
+                  ],
+                  "description": "A proof rung should identify the assertion, primitive, invariant, or authority it supports or challenges."
+                },
+                "repairOperationIds": [
+                  "add-proof-rung",
+                  "weaken-assertion"
+                ],
+                "required": true
+              },
+              {
+                "id": "proof-produces-findings",
+                "from": "proof-ladder",
+                "to": "investigation-findings",
+                "relation": "produces-findings",
+                "rationale": "Proof work should produce factual findings before those findings become operating decisions.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "findings-justify-decisions",
+                "from": "investigation-findings",
+                "to": "decision-record",
+                "relation": "justifies",
+                "rationale": "Decisions should be justified by observed findings, not by unsupported assertions.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "tooling-supports-proof",
+                "from": "tooling-surface",
+                "to": "proof-ladder",
+                "relation": "supports",
+                "rationale": "Proof rungs need an operational tool path so the evidence can be rerun or extended.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              }
+            ],
+            "stageSignals": [
+              {
+                "id": "seeding-missing-model",
+                "stage": "Seeding",
+                "when": "formal-model has no source-backed cards",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "formal-model"
+                },
+                "severity": "high",
+                "question": "What first model primitive, invariant, or authority makes this proof domain tangible?",
+                "relatedRelationships": []
+              },
+              {
+                "id": "coherence-assertion-not-proven",
+                "stage": "Coherence",
+                "when": "model-assertion exists but proof-ladder has no corresponding proof rungs",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "severity": "high",
+                "question": "Which assertion lacks proof support, or which proof rung is attached to the wrong claim?",
+                "relatedRelationships": [
+                  "assertion-requires-proof"
+                ]
+              },
+              {
+                "id": "operation-proof-without-findings",
+                "stage": "Operation",
+                "when": "proof-ladder has rungs but investigation-findings has no observed findings",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "proof-ladder",
+                  "targetType": "investigation-findings"
+                },
+                "severity": "medium",
+                "question": "What finding did the current proof rung actually establish?",
+                "relatedRelationships": [
+                  "proof-produces-findings"
+                ]
+              },
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "when": "model, assertion, proof, findings, decisions, and tooling are all populated and linked",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "severity": "high",
+                "question": "What claim can responsibly become canonical, and what uncertainty remains?",
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ],
+            "validOperations": [
+              {
+                "id": "add-model-primitive",
+                "label": "Add model primitive",
+                "stages": [
+                  "Seeding",
+                  "Composition"
+                ],
+                "description": "Add a formal model card that names the primitive, invariant, authority, or scope being reasoned over.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "add-proof-rung",
+                "label": "Add proof rung",
+                "stages": [
+                  "Composition",
+                  "Coherence"
+                ],
+                "description": "Add a proof rung that directly supports or challenges a model assertion.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "record-investigation-finding",
+                "label": "Record investigation finding",
+                "stages": [
+                  "Operation",
+                  "Refresh"
+                ],
+                "description": "Record the factual finding produced by proof work before deciding what it means.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "weaken-assertion",
+                "label": "Weaken assertion",
+                "stages": [
+                  "Coherence",
+                  "Judgment"
+                ],
+                "description": "Lower or qualify an assertion when proof strength does not support canonical status.",
+                "patchKind": "card-update"
+              },
+              {
+                "id": "record-canonical-decision",
+                "label": "Record canonical decision",
+                "stages": [
+                  "Judgment"
+                ],
+                "description": "Record a decision justified by the model, proof ladder, and findings.",
+                "patchKind": "card-create"
+              }
+            ],
+            "counts": {
+              "sections": 7,
+              "relationships": 5,
+              "stageSignals": 4,
+              "validOperations": 5
+            }
+          }
         },
         "objective": "Make a truth-bearing domain legible by separating the model, the assertion, the proof ladder, the findings, the decisions, and the tooling.",
         "successCondition": "A reader can tell what is being claimed, what proof exists, where evidence is weak, what was learned, and which tools are used to evolve or verify the claim.",
@@ -12912,7 +13878,246 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "broad platform roadmaps",
           "support-ops domains",
           "formal claim and proof work"
-        ]
+        ],
+        "semanticDefinition": {
+          "schema": "living-doc-template-semantic-definition/v1",
+          "definitionId": "surface-delivery",
+          "generatedFrom": "scripts/living-doc-definitions",
+          "graph": {
+            "schema": "living-doc-semantic-graph/v1",
+            "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+          },
+          "diagram": {
+            "schema": "living-doc-semantic-diagrams/v1",
+            "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+            "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize delivery pressure and current readiness without carrying the detailed evidence.\"]\n  design_code_spec_flow[\"design-code-spec-flow<br/>Hold the product surface as a joined design, code, spec, interaction, and ticket entity.\"]\n  design_implementation_alignment[\"design-implementation-alignment<br/>Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.\"]\n  verification_checkpoints[\"verification-checkpoints<br/>Track the checks that prove the aligned implementation is ready enough to ship or continue.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.\"]\n\n  status_snapshot -- \"summarizes\" --> design_code_spec_flow\n  design_code_spec_flow -- \"feeds\" --> design_implementation_alignment\n  design_implementation_alignment -- \"requires-verification\" --> verification_checkpoints\n  tooling_surface -- \"supports\" --> verification_checkpoints\n"
+          },
+          "objectiveRole": "Make one product surface legible across intent, implementation state, verification readiness, and tooling.",
+          "templateObjective": "Make one product surface legible across intent, implementation state, verification readiness, and the tools used to work on it.",
+          "templateSuccessCondition": "A reader can identify the main surface, current implementation drift, immediate verification gaps, and which tools are used to evolve the work.",
+          "sections": [
+            {
+              "id": "status-snapshot",
+              "convergenceType": "status-snapshot",
+              "role": "Summarize delivery pressure and current readiness without carrying the detailed evidence.",
+              "required": true
+            },
+            {
+              "id": "surface-flow",
+              "convergenceType": "design-code-spec-flow",
+              "role": "Hold the product surface as a joined design, code, spec, interaction, and ticket entity.",
+              "required": true
+            },
+            {
+              "id": "alignment",
+              "convergenceType": "design-implementation-alignment",
+              "role": "Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.",
+              "required": true
+            },
+            {
+              "id": "verification",
+              "convergenceType": "verification-checkpoints",
+              "role": "Track the checks that prove the aligned implementation is ready enough to ship or continue.",
+              "required": true
+            },
+            {
+              "id": "tooling",
+              "convergenceType": "tooling-surface",
+              "role": "Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.",
+              "required": true
+            }
+          ],
+          "relationships": [
+            {
+              "id": "status-summarizes-flow",
+              "from": "status-snapshot",
+              "to": "design-code-spec-flow",
+              "relation": "summarizes",
+              "rationale": "Status is only meaningful when it summarizes the actual surface flow being delivered.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "flow-feeds-alignment",
+              "from": "design-code-spec-flow",
+              "to": "design-implementation-alignment",
+              "relation": "feeds",
+              "rationale": "Alignment rows should judge the design/code/spec entities named in the surface flow.",
+              "evidence": {
+                "kind": "shared-field-value",
+                "sourceFields": [
+                  "id",
+                  "defaultNodeIds",
+                  "codeRefs"
+                ],
+                "targetFields": [
+                  "sourceCardIds",
+                  "figmaNodeId",
+                  "localPath"
+                ],
+                "description": "An alignment row should identify the surface-flow card, Figma node, or code path it judges."
+              },
+              "repairOperationIds": [
+                "add-alignment-row"
+              ],
+              "required": true
+            },
+            {
+              "id": "alignment-requires-verification",
+              "from": "design-implementation-alignment",
+              "to": "verification-checkpoints",
+              "relation": "requires-verification",
+              "rationale": "Implementation alignment is not delivery readiness until checks exist for the aligned behavior.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            },
+            {
+              "id": "tooling-supports-verification",
+              "from": "tooling-surface",
+              "to": "verification-checkpoints",
+              "relation": "supports",
+              "rationale": "Verification checkpoints need an operational tool path so a future session can rerun or extend them.",
+              "evidence": null,
+              "repairOperationIds": [],
+              "required": true
+            }
+          ],
+          "stageSignals": [
+            {
+              "id": "seeding-missing-surface-flow",
+              "stage": "Seeding",
+              "when": "design-code-spec-flow has no source-backed cards",
+              "condition": {
+                "kind": "section-empty",
+                "type": "design-code-spec-flow"
+              },
+              "severity": "high",
+              "question": "What first real surface, spec, code path, and ticket make this delivery doc tangible?",
+              "relatedRelationships": []
+            },
+            {
+              "id": "coherence-flow-not-aligned",
+              "stage": "Coherence",
+              "when": "design-code-spec-flow exists but design-implementation-alignment has no corresponding rows",
+              "condition": {
+                "kind": "related-relationship-gap"
+              },
+              "severity": "high",
+              "question": "Which surface-flow cards lack an implementation-alignment judgment?",
+              "relatedRelationships": [
+                "flow-feeds-alignment"
+              ]
+            },
+            {
+              "id": "operation-alignment-not-verified",
+              "stage": "Operation",
+              "when": "alignment rows are partial/current but verification-checkpoints do not cover the same surface concerns",
+              "condition": {
+                "kind": "source-populated-target-empty",
+                "sourceType": "design-implementation-alignment",
+                "targetType": "verification-checkpoints"
+              },
+              "severity": "medium",
+              "question": "Which verification checkpoint would make the current implementation alignment actionable?",
+              "relatedRelationships": [
+                "alignment-requires-verification"
+              ]
+            },
+            {
+              "id": "refresh-status-drift",
+              "stage": "Refresh",
+              "when": "status-snapshot or alignment state is older than source/code/check updates",
+              "condition": {
+                "kind": "manual-review"
+              },
+              "severity": "medium",
+              "question": "What changed since the last delivery pass, and which status should move?",
+              "relatedRelationships": []
+            },
+            {
+              "id": "judgment-delivery-readiness",
+              "stage": "Judgment",
+              "when": "surface flow, alignment, verification, and tooling are all populated and linked",
+              "condition": {
+                "kind": "all-populated-no-high-gaps",
+                "types": [
+                  "design-code-spec-flow",
+                  "design-implementation-alignment",
+                  "verification-checkpoints",
+                  "tooling-surface"
+                ]
+              },
+              "severity": "high",
+              "question": "Is the surface shippable, blocked, or only visually/partially complete?",
+              "relatedRelationships": [
+                "flow-feeds-alignment",
+                "alignment-requires-verification",
+                "tooling-supports-verification"
+              ]
+            }
+          ],
+          "validOperations": [
+            {
+              "id": "add-surface-flow-card",
+              "label": "Add surface flow card",
+              "stages": [
+                "Seeding",
+                "Composition"
+              ],
+              "description": "Add the first source-backed surface card with design/spec/code/ticket references.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "add-alignment-row",
+              "label": "Add alignment row",
+              "stages": [
+                "Composition",
+                "Coherence"
+              ],
+              "description": "Add or update an alignment row for a surface-flow entity that lacks implementation judgment.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "add-verification-checkpoint",
+              "label": "Add verification checkpoint",
+              "stages": [
+                "Coherence",
+                "Operation"
+              ],
+              "description": "Add a check that proves or bounds a current alignment claim.",
+              "patchKind": "card-create"
+            },
+            {
+              "id": "lower-readiness-status",
+              "label": "Lower readiness status",
+              "stages": [
+                "Coherence",
+                "Refresh",
+                "Judgment"
+              ],
+              "description": "Lower or qualify status when verification does not support the delivery claim.",
+              "patchKind": "card-update"
+            },
+            {
+              "id": "link-tooling-to-check",
+              "label": "Link tooling to check",
+              "stages": [
+                "Operation",
+                "Refresh"
+              ],
+              "description": "Link the script, workflow, or local tool that can run or inspect a verification checkpoint.",
+              "patchKind": "card-update"
+            }
+          ],
+          "counts": {
+            "sections": 5,
+            "relationships": 4,
+            "stageSignals": 5,
+            "validOperations": 5
+          }
+        }
       },
       "json": {
         "docId": "template:surface-delivery",
@@ -12956,7 +14161,246 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             "broad platform roadmaps",
             "support-ops domains",
             "formal claim and proof work"
-          ]
+          ],
+          "semanticDefinition": {
+            "schema": "living-doc-template-semantic-definition/v1",
+            "definitionId": "surface-delivery",
+            "generatedFrom": "scripts/living-doc-definitions",
+            "graph": {
+              "schema": "living-doc-semantic-graph/v1",
+              "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+            },
+            "diagram": {
+              "schema": "living-doc-semantic-diagrams/v1",
+              "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+              "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize delivery pressure and current readiness without carrying the detailed evidence.\"]\n  design_code_spec_flow[\"design-code-spec-flow<br/>Hold the product surface as a joined design, code, spec, interaction, and ticket entity.\"]\n  design_implementation_alignment[\"design-implementation-alignment<br/>Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.\"]\n  verification_checkpoints[\"verification-checkpoints<br/>Track the checks that prove the aligned implementation is ready enough to ship or continue.\"]\n  tooling_surface[\"tooling-surface<br/>Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.\"]\n\n  status_snapshot -- \"summarizes\" --> design_code_spec_flow\n  design_code_spec_flow -- \"feeds\" --> design_implementation_alignment\n  design_implementation_alignment -- \"requires-verification\" --> verification_checkpoints\n  tooling_surface -- \"supports\" --> verification_checkpoints\n"
+            },
+            "objectiveRole": "Make one product surface legible across intent, implementation state, verification readiness, and tooling.",
+            "templateObjective": "Make one product surface legible across intent, implementation state, verification readiness, and the tools used to work on it.",
+            "templateSuccessCondition": "A reader can identify the main surface, current implementation drift, immediate verification gaps, and which tools are used to evolve the work.",
+            "sections": [
+              {
+                "id": "status-snapshot",
+                "convergenceType": "status-snapshot",
+                "role": "Summarize delivery pressure and current readiness without carrying the detailed evidence.",
+                "required": true
+              },
+              {
+                "id": "surface-flow",
+                "convergenceType": "design-code-spec-flow",
+                "role": "Hold the product surface as a joined design, code, spec, interaction, and ticket entity.",
+                "required": true
+              },
+              {
+                "id": "alignment",
+                "convergenceType": "design-implementation-alignment",
+                "role": "Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.",
+                "required": true
+              },
+              {
+                "id": "verification",
+                "convergenceType": "verification-checkpoints",
+                "role": "Track the checks that prove the aligned implementation is ready enough to ship or continue.",
+                "required": true
+              },
+              {
+                "id": "tooling",
+                "convergenceType": "tooling-surface",
+                "role": "Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.",
+                "required": true
+              }
+            ],
+            "relationships": [
+              {
+                "id": "status-summarizes-flow",
+                "from": "status-snapshot",
+                "to": "design-code-spec-flow",
+                "relation": "summarizes",
+                "rationale": "Status is only meaningful when it summarizes the actual surface flow being delivered.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "flow-feeds-alignment",
+                "from": "design-code-spec-flow",
+                "to": "design-implementation-alignment",
+                "relation": "feeds",
+                "rationale": "Alignment rows should judge the design/code/spec entities named in the surface flow.",
+                "evidence": {
+                  "kind": "shared-field-value",
+                  "sourceFields": [
+                    "id",
+                    "defaultNodeIds",
+                    "codeRefs"
+                  ],
+                  "targetFields": [
+                    "sourceCardIds",
+                    "figmaNodeId",
+                    "localPath"
+                  ],
+                  "description": "An alignment row should identify the surface-flow card, Figma node, or code path it judges."
+                },
+                "repairOperationIds": [
+                  "add-alignment-row"
+                ],
+                "required": true
+              },
+              {
+                "id": "alignment-requires-verification",
+                "from": "design-implementation-alignment",
+                "to": "verification-checkpoints",
+                "relation": "requires-verification",
+                "rationale": "Implementation alignment is not delivery readiness until checks exist for the aligned behavior.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              },
+              {
+                "id": "tooling-supports-verification",
+                "from": "tooling-surface",
+                "to": "verification-checkpoints",
+                "relation": "supports",
+                "rationale": "Verification checkpoints need an operational tool path so a future session can rerun or extend them.",
+                "evidence": null,
+                "repairOperationIds": [],
+                "required": true
+              }
+            ],
+            "stageSignals": [
+              {
+                "id": "seeding-missing-surface-flow",
+                "stage": "Seeding",
+                "when": "design-code-spec-flow has no source-backed cards",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "design-code-spec-flow"
+                },
+                "severity": "high",
+                "question": "What first real surface, spec, code path, and ticket make this delivery doc tangible?",
+                "relatedRelationships": []
+              },
+              {
+                "id": "coherence-flow-not-aligned",
+                "stage": "Coherence",
+                "when": "design-code-spec-flow exists but design-implementation-alignment has no corresponding rows",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "severity": "high",
+                "question": "Which surface-flow cards lack an implementation-alignment judgment?",
+                "relatedRelationships": [
+                  "flow-feeds-alignment"
+                ]
+              },
+              {
+                "id": "operation-alignment-not-verified",
+                "stage": "Operation",
+                "when": "alignment rows are partial/current but verification-checkpoints do not cover the same surface concerns",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "design-implementation-alignment",
+                  "targetType": "verification-checkpoints"
+                },
+                "severity": "medium",
+                "question": "Which verification checkpoint would make the current implementation alignment actionable?",
+                "relatedRelationships": [
+                  "alignment-requires-verification"
+                ]
+              },
+              {
+                "id": "refresh-status-drift",
+                "stage": "Refresh",
+                "when": "status-snapshot or alignment state is older than source/code/check updates",
+                "condition": {
+                  "kind": "manual-review"
+                },
+                "severity": "medium",
+                "question": "What changed since the last delivery pass, and which status should move?",
+                "relatedRelationships": []
+              },
+              {
+                "id": "judgment-delivery-readiness",
+                "stage": "Judgment",
+                "when": "surface flow, alignment, verification, and tooling are all populated and linked",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "design-code-spec-flow",
+                    "design-implementation-alignment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "severity": "high",
+                "question": "Is the surface shippable, blocked, or only visually/partially complete?",
+                "relatedRelationships": [
+                  "flow-feeds-alignment",
+                  "alignment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ],
+            "validOperations": [
+              {
+                "id": "add-surface-flow-card",
+                "label": "Add surface flow card",
+                "stages": [
+                  "Seeding",
+                  "Composition"
+                ],
+                "description": "Add the first source-backed surface card with design/spec/code/ticket references.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "add-alignment-row",
+                "label": "Add alignment row",
+                "stages": [
+                  "Composition",
+                  "Coherence"
+                ],
+                "description": "Add or update an alignment row for a surface-flow entity that lacks implementation judgment.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "add-verification-checkpoint",
+                "label": "Add verification checkpoint",
+                "stages": [
+                  "Coherence",
+                  "Operation"
+                ],
+                "description": "Add a check that proves or bounds a current alignment claim.",
+                "patchKind": "card-create"
+              },
+              {
+                "id": "lower-readiness-status",
+                "label": "Lower readiness status",
+                "stages": [
+                  "Coherence",
+                  "Refresh",
+                  "Judgment"
+                ],
+                "description": "Lower or qualify status when verification does not support the delivery claim.",
+                "patchKind": "card-update"
+              },
+              {
+                "id": "link-tooling-to-check",
+                "label": "Link tooling to check",
+                "stages": [
+                  "Operation",
+                  "Refresh"
+                ],
+                "description": "Link the script, workflow, or local tool that can run or inspect a verification checkpoint.",
+                "patchKind": "card-update"
+              }
+            ],
+            "counts": {
+              "sections": 5,
+              "relationships": 4,
+              "stageSignals": 5,
+              "validOperations": 5
+            }
+          }
         },
         "objective": "Make one product surface legible across intent, implementation state, verification readiness, and the tools used to work on it.",
         "successCondition": "A reader can identify the main surface, current implementation drift, immediate verification gaps, and which tools are used to evolve the work.",
