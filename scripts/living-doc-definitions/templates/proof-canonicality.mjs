@@ -56,6 +56,12 @@ export default defineTemplate({
       to: 'proof-ladder',
       relation: 'requires-proof',
       rationale: 'A model assertion should not advance toward canonicality without staged proof strength.',
+      evidence: {
+        kind: 'shared-field-value',
+        sourceFields: ['id', 'primitiveRefs', 'invariantRefs', 'authorityRefs'],
+        targetFields: ['assertionIds', 'primitiveRefs', 'invariantRefs', 'authorityRefs'],
+        description: 'A proof rung should identify the assertion, primitive, invariant, or authority it supports or challenges.',
+      },
     },
     {
       id: 'proof-produces-findings',

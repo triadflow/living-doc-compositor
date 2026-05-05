@@ -46,6 +46,12 @@ export default defineTemplate({
       to: 'operating-surface',
       relation: 'routes-to',
       rationale: 'Mediated operations should name the concrete support lanes or operating surfaces they route requests into.',
+      evidence: {
+        kind: 'shared-field-value',
+        sourceFields: ['id', 'workflowPaths', 'requestInputs'],
+        targetFields: ['operationIds', 'workflowPaths', 'requestInputs'],
+        description: 'An operating surface should identify the operation, workflow path, or request input it supports.',
+      },
     },
     {
       id: 'surface-needs-enablers',
