@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/typed-semantic-definitions-refactor.json",
   "sourceCoverage": "Seeded from GitHub issue #163 and internal model pages created on 2026-05-05.",
-  "updated": "2026-05-05T09:51:01.015Z",
+  "updated": "2026-05-05T09:54:32.937Z",
   "pills": [
     "Refactor",
     "Semantic Definitions",
@@ -135,7 +135,7 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows the current stage of the refactor at a glance so the integration objective does not disappear behind detailed architecture, proof, and tooling sections.",
-      "updated": "2026-05-05T09:51:01.015Z",
+      "updated": "2026-05-05T09:54:32.937Z",
       "stats": [
         {
           "label": "Issue",
@@ -533,13 +533,13 @@
           "id": "relationship-stage-tools",
           "name": "Relationship and stage MCP tools",
           "status": "current",
-          "updated": "2026-05-05T09:40:34.158Z",
+          "updated": "2026-05-05T09:54:32.937Z",
           "path": "scripts/living-doc-mcp-server.mjs",
-          "range": "living_doc_relationship_gaps / living_doc_stage_diagnostics / living_doc_valid_stage_operations",
+          "range": "living_doc_template_diagrams / living_doc_relationship_gaps / living_doc_stage_diagnostics / living_doc_valid_stage_operations",
           "revision": "working tree",
-          "what_it_does": "Compares living docs to generated template graph metadata and exposes relationship gaps, likely stage candidates, and valid operations.",
+          "what_it_does": "Exposes generated template graph and diagram metadata, compares living docs to expected relationships, and returns relationship gaps, likely stage candidates, and valid operations.",
           "why_it_matters": [
-            "This is the first point where typed semantic definitions produce inference-time behavior rather than only a generated artifact."
+            "This is the first point where typed semantic definitions produce inference-time behavior and inspectable representation rather than only a generated artifact."
           ],
           "ticketIds": [
             {
@@ -593,7 +593,7 @@
       "title": "Attempt Log",
       "convergenceType": "attempt-log",
       "rationale": "Records probes and migration attempts as they happen so learning accumulates without prematurely turning every experiment into a decision or reusable template.",
-      "updated": "2026-05-05T09:51:01.015Z",
+      "updated": "2026-05-05T09:54:32.937Z",
       "data": [
         {
           "id": "model-pages",
@@ -772,6 +772,29 @@
           "notes": [
             "The internal model page references the generated artifact but still keeps richer hand-authored explanatory diagrams for now."
           ]
+        },
+        {
+          "id": "mcp-template-diagram-slice",
+          "name": "Expose generated template diagrams through MCP",
+          "status": "probe",
+          "updated": "2026-05-05T09:54:32.937Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "low",
+          "what_tried": [
+            "Added `living_doc_template_diagrams` to the living-doc MCP server with direct template lookup and doc-shape inference."
+          ],
+          "what_proved": [
+            "Generated relationship diagrams can be retrieved at inference time from the same semantic source as graph diagnostics, without asking a skill to reconstruct the shape from prose."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`tests/contract/mcp-server.spec.mjs` now checks surface-delivery and proof-canonicality diagram lookup."
+          ]
         }
       ]
     },
@@ -780,7 +803,7 @@
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
       "rationale": "Defines the safety and value proof needed before expanding the refactor beyond an additive template graph and one template family.",
-      "updated": "2026-05-05T09:51:01.015Z",
+      "updated": "2026-05-05T09:54:32.937Z",
       "data": [
         {
           "id": "deterministic-generation",
@@ -817,8 +840,8 @@
         {
           "id": "existing-suite-remains-green",
           "name": "Existing contract and render tests remain green",
-          "status": "partial",
-          "updated": "2026-05-05T09:40:34.158Z",
+          "status": "ready",
+          "updated": "2026-05-05T09:54:32.937Z",
           "ticketIds": [
             {
               "issueNumber": "163",
@@ -826,8 +849,8 @@
             }
           ],
           "notes": [
-            "Targeted MCP contract passes with generated graph lookup, relationship gap diagnostics, stage diagnostics, and valid stage operations.",
-            "Full contract suite still needs to be run after this doc update."
+            "Targeted MCP contract passes with generated graph lookup, generated diagram lookup, relationship gap diagnostics, stage diagnostics, and valid stage operations.",
+            "`npm run test:contract` passes after the generated diagram and MCP diagram-tool slices."
           ]
         }
       ]
@@ -931,7 +954,7 @@
       "title": "Tooling Surface",
       "convergenceType": "tooling-surface",
       "rationale": "Tracks the generator, contract tests, MCP commands, and render/sync tools that must exist or remain stable for the refactor to be operational.",
-      "updated": "2026-05-05T09:51:01.015Z",
+      "updated": "2026-05-05T09:54:32.937Z",
       "data": [
         {
           "id": "semantic-graph-generator",
@@ -966,10 +989,11 @@
           "id": "template-graph-contract-test",
           "name": "Template graph contract test",
           "status": "trusted",
-          "updated": "2026-05-05T09:51:01.015Z",
+          "updated": "2026-05-05T09:54:32.937Z",
           "scriptPaths": [
             "tests/contract/template-graphs.spec.mjs",
-            "tests/contract/template-diagrams.spec.mjs"
+            "tests/contract/template-diagrams.spec.mjs",
+            "tests/contract/mcp-server.spec.mjs"
           ],
           "ticketIds": [
             {
@@ -977,9 +1001,9 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
             }
           ],
-          "purpose": "Ensure generated graph and diagram metadata is deterministic and references valid registry/template types and relationships.",
+          "purpose": "Ensure generated graph and diagram metadata is deterministic, references valid registry/template types and relationships, and is exposed through MCP.",
           "whenToUse": "Run as part of `npm run test:contract` after the generator exists.",
-          "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs",
+          "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs && node tests/contract/mcp-server.spec.mjs",
           "caveats": [
             "Validates deterministic generation and registry/template references for surface-delivery and proof-canonicality.",
             "Will need stronger assertions as generated diagnostics move from section/card population toward richer card-level semantic edges."
@@ -989,7 +1013,7 @@
           "id": "existing-mcp-server",
           "name": "Existing living-doc MCP server",
           "status": "usable-with-caveats",
-          "updated": "2026-05-05T09:40:34.158Z",
+          "updated": "2026-05-05T09:54:32.937Z",
           "scriptPaths": [
             "scripts/living-doc-mcp-server.mjs"
           ],
@@ -1003,7 +1027,7 @@
           "whenToUse": "Use as the integration point for generated relationship/stage metadata.",
           "invocation": "npm run ldoc:mcp",
           "caveats": [
-            "Now exposes `living_doc_template_graph`, `living_doc_relationship_gaps`, `living_doc_stage_diagnostics`, and `living_doc_valid_stage_operations`.",
+            "Now exposes `living_doc_template_graph`, `living_doc_template_diagrams`, `living_doc_relationship_gaps`, `living_doc_stage_diagnostics`, and `living_doc_valid_stage_operations`.",
             "`living_doc_structure_reflect` includes semantic graph metadata for matching docs.",
             "Relationship diagnostics are intentionally conservative and do not yet validate card-level semantic edges."
           ]

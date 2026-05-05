@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const harnessCli = path.join(repoRoot, '.agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs');
 const semanticGraphPath = path.join(repoRoot, 'scripts/generated/living-doc-template-graphs.json');
+const semanticDiagramPath = path.join(repoRoot, 'scripts/generated/living-doc-template-diagrams.json');
 
 const protocolVersion = '2024-11-05';
 
@@ -58,6 +59,10 @@ const tools = [
     registry: optionalString(),
   }, ['doc'])),
   tool('living_doc_template_graph', 'Return generated semantic relationship graph metadata for a template or matching living doc.', objectSchema({
+    templateId: optionalString('Template id such as surface-delivery. If omitted with doc, inferred from the doc shape where possible.'),
+    doc: optionalString('Optional living doc JSON path used to infer the matching template graph.'),
+  })),
+  tool('living_doc_template_diagrams', 'Return generated Mermaid relationship diagram source for a template or matching living doc.', objectSchema({
     templateId: optionalString('Template id such as surface-delivery. If omitted with doc, inferred from the doc shape where possible.'),
     doc: optionalString('Optional living doc JSON path used to infer the matching template graph.'),
   })),
@@ -181,6 +186,7 @@ function tool(name, description, inputSchema) {
     'living_doc_structure_select',
     'living_doc_structure_reflect',
     'living_doc_template_graph',
+    'living_doc_template_diagrams',
     'living_doc_relationship_gaps',
     'living_doc_stage_diagnostics',
     'living_doc_valid_stage_operations',
@@ -262,6 +268,10 @@ async function loadRegistry(args = {}) {
 
 async function loadSemanticGraph() {
   return JSON.parse(await readFile(semanticGraphPath, 'utf8'));
+}
+
+async function loadSemanticDiagrams() {
+  return JSON.parse(await readFile(semanticDiagramPath, 'utf8'));
 }
 
 function slugify(value, fallback = 'item') {
@@ -601,6 +611,33 @@ async function templateGraphTool(args = {}) {
     generatedFrom: graph.generatedFrom,
     templateIds: Object.keys(templates).sort(),
     templates,
+  };
+}
+
+async function templateDiagramsTool(args = {}) {
+  const [graph, diagrams] = await Promise.all([loadSemanticGraph(), loadSemanticDiagrams()]);
+  const graphTemplates = graph.templates || {};
+  const diagramTemplates = diagrams.templates || {};
+  const inferred = args.doc ? inferTemplateGraphForDoc(await readJson(args.doc), graphTemplates) : null;
+  const templateId = args.templateId || inferred?.templateId || '';
+
+  if (templateId) {
+    const template = diagramTemplates[templateId];
+    if (!template) throw new McpError(-32602, `Unknown template diagram: ${templateId}`);
+    return {
+      schema: diagrams.schema,
+      generatedFrom: diagrams.generatedFrom,
+      templateId,
+      inferredFromDoc: inferred || null,
+      template,
+    };
+  }
+
+  return {
+    schema: diagrams.schema,
+    generatedFrom: diagrams.generatedFrom,
+    templateIds: Object.keys(diagramTemplates).sort(),
+    templates: diagramTemplates,
   };
 }
 
@@ -1217,6 +1254,8 @@ async function callTool(name, args = {}) {
       return structureReflect(args);
     case 'living_doc_template_graph':
       return templateGraphTool(args);
+    case 'living_doc_template_diagrams':
+      return templateDiagramsTool(args);
     case 'living_doc_relationship_gaps':
       return relationshipGapsTool(args);
     case 'living_doc_stage_diagnostics':

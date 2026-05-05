@@ -13,6 +13,7 @@ const expectedTools = [
   'living_doc_structure_select',
   'living_doc_structure_reflect',
   'living_doc_template_graph',
+  'living_doc_template_diagrams',
   'living_doc_relationship_gaps',
   'living_doc_stage_diagnostics',
   'living_doc_valid_stage_operations',
@@ -158,9 +159,17 @@ try {
   assert.ok(templateGraph.template.relationships.some((relationship) => relationship.id === 'alignment-requires-verification'));
   assert.ok(templateGraph.template.stageSignals.some((signal) => signal.stage === 'Coherence'));
 
+  const templateDiagram = await client.callTool('living_doc_template_diagrams', { templateId: 'surface-delivery' });
+  assert.equal(templateDiagram.templateId, 'surface-delivery');
+  assert.match(templateDiagram.template.mermaid, /design_code_spec_flow -- "feeds" --> design_implementation_alignment/);
+
   const inferredGraph = await client.callTool('living_doc_template_graph', { doc: 'docs/living-doc-template-surface-delivery.json' });
   assert.equal(inferredGraph.templateId, 'surface-delivery');
   assert.equal(inferredGraph.inferredFromDoc.method, 'docId');
+
+  const inferredDiagram = await client.callTool('living_doc_template_diagrams', { doc: 'docs/living-doc-template-surface-delivery.json' });
+  assert.equal(inferredDiagram.templateId, 'surface-delivery');
+  assert.equal(inferredDiagram.inferredFromDoc.method, 'docId');
 
   const reflectedTemplate = await client.callTool('living_doc_structure_reflect', { doc: 'docs/living-doc-template-surface-delivery.json' });
   assert.equal(reflectedTemplate.semanticGraph.templateId, 'surface-delivery');
@@ -202,6 +211,10 @@ try {
   const proofGraph = await client.callTool('living_doc_template_graph', { templateId: 'proof-canonicality' });
   assert.equal(proofGraph.templateId, 'proof-canonicality');
   assert.ok(proofGraph.template.relationships.some((relationship) => relationship.id === 'assertion-requires-proof'));
+
+  const proofDiagram = await client.callTool('living_doc_template_diagrams', { templateId: 'proof-canonicality' });
+  assert.equal(proofDiagram.templateId, 'proof-canonicality');
+  assert.match(proofDiagram.template.mermaid, /model_assertion -- "requires-proof" --> proof_ladder/);
 
   const proofDocPath = path.join(tmpDir, 'proof-canonicality-gap.json');
   await writeFile(proofDocPath, JSON.stringify({
