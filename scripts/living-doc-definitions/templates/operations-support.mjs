@@ -52,6 +52,7 @@ export default defineTemplate({
         targetFields: ['operationIds', 'workflowPaths', 'requestInputs'],
         description: 'An operating surface should identify the operation, workflow path, or request input it supports.',
       },
+      repairOperationIds: ['add-operating-surface-card'],
     },
     {
       id: 'surface-needs-enablers',

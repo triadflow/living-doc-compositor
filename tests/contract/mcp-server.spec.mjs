@@ -253,6 +253,7 @@ try {
     gap.relationshipId === 'flow-feeds-alignment'
     && gap.kind === 'missing-card-evidence'
     && gap.unmatchedSourceCards.some((card) => card.cardId === 'primary-surface')
+    && gap.repairOperations.some((operation) => operation.id === 'add-alignment-row')
   )));
 
   const proofGraph = await client.callTool('living_doc_template_graph', { templateId: 'proof-canonicality' });
@@ -310,6 +311,7 @@ try {
     gap.relationshipId === 'assertion-requires-proof'
     && gap.kind === 'missing-card-evidence'
     && gap.unmatchedSourceCards.some((card) => card.cardId === 'claim')
+    && gap.repairOperations.some((operation) => operation.id === 'add-proof-rung')
   )));
 
   const opsGraph = await client.callTool('living_doc_template_graph', { templateId: 'operations-support' });
@@ -363,6 +365,7 @@ try {
     gap.relationshipId === 'operation-routes-surface'
     && gap.kind === 'missing-card-evidence'
     && gap.unmatchedSourceCards.some((card) => card.cardId === 'intake')
+    && gap.repairOperations.some((operation) => operation.id === 'add-operating-surface-card')
   )));
 
   const governance = await client.callTool('living_doc_governance_evaluate', { doc: docPath });

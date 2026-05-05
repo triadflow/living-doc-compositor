@@ -31,6 +31,7 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
   const sectionTypes = new Set((template.sections || []).map((section) => section.convergenceType));
   const graphSectionTypes = new Set(templateGraph.sections.map((section) => section.convergenceType));
   const relationshipIds = new Set();
+  const operationIds = new Set((templateGraph.validOperations || []).map((operation) => operation.id));
 
   for (const section of templateGraph.sections) {
     assert.ok(section.id, `${templateId} section missing id`);
@@ -55,6 +56,10 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
     assert.ok(graphSectionTypes.has(relationship.from), `${templateId}.${relationship.id} from type not present in graph sections`);
     assert.ok(graphSectionTypes.has(relationship.to), `${templateId}.${relationship.id} to type not present in graph sections`);
     assert.ok(relationship.relation, `${templateId}.${relationship.id} missing relation`);
+    assert.ok(Array.isArray(relationship.repairOperationIds), `${templateId}.${relationship.id} repairOperationIds must be an array`);
+    for (const operationId of relationship.repairOperationIds) {
+      assert.ok(operationIds.has(operationId), `${templateId}.${relationship.id} references unknown repair operation ${operationId}`);
+    }
     if (relationship.evidence) {
       assert.ok(evidenceKinds.has(relationship.evidence.kind), `${templateId}.${relationship.id} has unknown evidence kind ${relationship.evidence.kind}`);
       assert.ok(Array.isArray(relationship.evidence.sourceFields), `${templateId}.${relationship.id} evidence sourceFields must be an array`);

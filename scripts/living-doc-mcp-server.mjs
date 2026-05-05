@@ -644,6 +644,7 @@ async function relationshipGapsTool(args = {}) {
   const doc = await readJson(args.doc);
   const sectionStats = sectionStatsByType(doc);
   const sectionCards = sectionCardsByType(doc);
+  const operationsById = new Map((template.validOperations || []).map((operation) => [operation.id, operation]));
   const gaps = [];
 
   for (const relationship of template.relationships || []) {
@@ -670,6 +671,9 @@ async function relationshipGapsTool(args = {}) {
         ...(status.unmatchedSourceCards ? { unmatchedSourceCards: status.unmatchedSourceCards } : {}),
         ...(status.matchedSourceCount !== undefined ? { matchedSourceCount: status.matchedSourceCount } : {}),
         ...(status.totalSourceCount !== undefined ? { totalSourceCount: status.totalSourceCount } : {}),
+        repairOperations: (relationship.repairOperationIds || [])
+          .map((operationId) => operationsById.get(operationId))
+          .filter(Boolean),
         question: relationshipGapQuestion(relationship, status),
       });
     }

@@ -62,6 +62,7 @@ export default defineTemplate({
         targetFields: ['assertionIds', 'primitiveRefs', 'invariantRefs', 'authorityRefs'],
         description: 'A proof rung should identify the assertion, primitive, invariant, or authority it supports or challenges.',
       },
+      repairOperationIds: ['add-proof-rung', 'weaken-assertion'],
     },
     {
       id: 'proof-produces-findings',

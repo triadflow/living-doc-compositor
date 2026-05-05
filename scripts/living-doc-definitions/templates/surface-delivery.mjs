@@ -52,6 +52,7 @@ export default defineTemplate({
         targetFields: ['sourceCardIds', 'figmaNodeId', 'localPath'],
         description: 'An alignment row should identify the surface-flow card, Figma node, or code path it judges.',
       },
+      repairOperationIds: ['add-alignment-row'],
     },
     {
       id: 'alignment-requires-verification',
