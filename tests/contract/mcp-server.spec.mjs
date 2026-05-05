@@ -223,11 +223,21 @@ try {
   assert.deepEqual(surfaceTargetGap.patchDraft.patch.changes[0].card.sourceCardIds, ['primary-surface']);
   assert.equal(surfaceTargetGap.patchDraft.validation.ok, true);
   assert.equal((await client.callTool('living_doc_patch_validate', { doc: surfaceDocPath, patch: surfaceTargetGap.patchDraft.patch })).ok, true);
+  assert.equal((await client.callTool('living_doc_patch_apply', { doc: surfaceDocPath, patch: surfaceTargetGap.patchDraft.patch })).ok, true);
+  const repairedSurfaceDoc = JSON.parse(await readFile(surfaceDocPath, 'utf8'));
+  const repairedAlignmentSection = repairedSurfaceDoc.sections.find((section) => section.id === 'alignment');
+  assert.ok(repairedAlignmentSection.data.some((card) => (
+    card.id === 'primary-surface-feeds'
+    && card.sourceCardIds.includes('primary-surface')
+  )));
+  const repairedGaps = await client.callTool('living_doc_relationship_gaps', { doc: surfaceDocPath });
+  assert.equal(findGap(repairedGaps, 'flow-feeds-alignment', 'missing-target-cards'), undefined);
+  assert.equal(findGap(repairedGaps, 'flow-feeds-alignment', 'missing-card-evidence'), undefined);
 
   const stages = await client.callTool('living_doc_stage_diagnostics', { doc: surfaceDocPath });
   assert.equal(stages.templateId, 'surface-delivery');
-  assert.equal(stages.likelyStage, 'Coherence');
-  assert.ok(stages.candidates.some((candidate) => candidate.signalId === 'coherence-flow-not-aligned'));
+  assert.equal(stages.likelyStage, 'Operation');
+  assert.ok(stages.candidates.some((candidate) => candidate.signalId === 'operation-alignment-not-verified'));
 
   const ops = await client.callTool('living_doc_valid_stage_operations', { doc: surfaceDocPath, stage: 'Coherence' });
   assert.ok(ops.operations.some((operation) => operation.id === 'add-alignment-row'));

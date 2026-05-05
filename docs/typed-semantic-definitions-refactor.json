@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/typed-semantic-definitions-refactor.json",
   "sourceCoverage": "Seeded from GitHub issue #163 and internal model pages created on 2026-05-05.",
-  "updated": "2026-05-05T12:17:40.631Z",
+  "updated": "2026-05-05T12:35:36.874Z",
   "pills": [
     "Refactor",
     "Semantic Definitions",
@@ -168,7 +168,7 @@
         "items": [
           "The full refactor objective is integration: typed definitions become the executable source for semantic machinery while concrete living docs remain JSON artifacts.",
           "The remaining questions are implementation checkpoints, not direction decisions: what to migrate next, what to generate next, how skills consume the MCP output, and what proof closes the full refactor.",
-          "The current slices prove the substrate works, make selected template and registry artifacts carry generated semantic blocks, and route the core skills through semantic diagnostics and patch drafts; the refactor is not finished until the selected registry/template semantics, MCP behavior, skill operation path, render/sync path, and drift tests are integrated as one maintained system."
+          "The current slices prove the substrate works, make selected template and registry artifacts carry generated semantic blocks, route the core skills through semantic diagnostics and patch drafts, and prove a generated patch draft can be applied to repair a relationship gap; the refactor is not finished until this is exercised in real ongoing living-doc work beyond contract fixtures."
         ]
       },
       "data": []
@@ -415,8 +415,8 @@
           ],
           "notes": [
             "The destination is full integration: typed definitions author the selected semantic structure and behavior, generated artifacts stay deterministic and readable, MCP consumes the generated semantics, skills can operate from the diagnostics, and JSON remains the document instance format.",
-            "Current completed checkpoints include typed definitions for three template families, generated graphs and diagrams, generated semantic-definition blocks embedded into selected template JSON artifacts, generated semantic-use blocks embedded into registry convergence types, semantic context in rendered snapshots, relationship and stage diagnostics, repair operations, patch drafts, and contract coverage.",
-            "Remaining checkpoints include expanding typed coverage where the current templates still depend on hand-maintained JSON/prose, proving skill workflows consume the MCP diagnostics and patch drafts in real runs, deciding how far full template generation should go, and closing the proof that render/sync/MCP/tests all share the same semantic source.",
+            "Current completed checkpoints include typed definitions for three template families, generated graphs and diagrams, generated semantic-definition blocks embedded into selected template JSON artifacts, generated semantic-use blocks embedded into registry convergence types, semantic context in rendered snapshots, relationship and stage diagnostics, repair operations, patch drafts, patch-draft application proof, and contract coverage.",
+            "Remaining checkpoints include expanding typed coverage where the current templates still depend on hand-maintained JSON/prose, exercising semantic diagnostics and patch drafts in real ongoing living-doc work beyond contract fixtures, deciding how far full template generation should go, and closing the proof that render/sync/MCP/tests all share the same semantic source.",
             "Do not stop after very small slices unless the slice clearly advances one of those remaining checkpoints."
           ]
         },
@@ -632,7 +632,7 @@
           "id": "semantic-skill-instructions",
           "name": "Semantic-aware skill instructions",
           "status": "current",
-          "updated": "2026-05-05T12:17:40.631Z",
+          "updated": "2026-05-05T12:35:36.874Z",
           "path": ".agents/skills/living-doc/SKILL.md",
           "range": "READ AND ASSESS / UPDATE DURING WORK / Key Principles",
           "revision": "working tree",
@@ -1160,7 +1160,7 @@
           "id": "relationship-gap-patch-draft-slice",
           "name": "Add patch drafts to relationship gaps",
           "status": "probe",
-          "updated": "2026-05-05T11:59:23.301Z",
+          "updated": "2026-05-05T12:35:36.874Z",
           "shipped_in": "working tree",
           "cost_to_apply": "low",
           "what_tried": [
@@ -1178,7 +1178,8 @@
           "notes": [
             "The draft uses the relationship evidence rule to choose the target link field, such as `sourceCardIds`, `assertionIds`, or `operationIds`.",
             "The draft is intentionally not auto-applied; it is a structured starting point for a skill or user to review.",
-            "The MCP response now includes the draft validation result from the same validator exposed by `living_doc_patch_validate`."
+            "The MCP response now includes the draft validation result from the same validator exposed by `living_doc_patch_validate`.",
+            "`tests/contract/mcp-server.spec.mjs` now applies a generated surface-delivery patch draft through `living_doc_patch_apply` and verifies the original relationship gap is resolved."
           ]
         },
         {
@@ -1232,6 +1233,31 @@
           ]
         },
         {
+          "id": "patch-draft-application-proof-slice",
+          "name": "Apply a generated relationship patch draft",
+          "status": "probe",
+          "updated": "2026-05-05T12:35:36.874Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "low",
+          "what_tried": [
+            "Extended the MCP contract so a generated `flow-feeds-alignment` patch draft is applied to a surface-delivery living doc fixture through `living_doc_patch_apply`.",
+            "Re-ran relationship gaps and stage diagnostics after application."
+          ],
+          "what_proved": [
+            "The generated semantic path can move from diagnosis to valid operation to patch draft to applied JSON update, and the original relationship gap disappears after application."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "The applied draft creates an alignment card linked with `sourceCardIds: [\"primary-surface\"]`.",
+            "After application, `flow-feeds-alignment` no longer reports `missing-target-cards` or `missing-card-evidence`, and stage diagnostics move from Coherence toward the next Operation gap."
+          ]
+        },
+        {
           "id": "generated-registry-semantic-uses-slice",
           "name": "Generate semantic uses into selected registry types",
           "status": "probe",
@@ -1278,7 +1304,7 @@
           ],
           "notes": [
             "The refactor is not complete just because one diagnostic, diagram, or patch draft works.",
-            "Completion requires proof that typed definitions are the maintained source for the selected semantic machinery, generated artifacts are deterministic, selected template and registry artifacts carry generated semantic blocks, MCP behavior uses that generated source, skills are instructed to act on the output, rendered docs remain standalone, and contract tests catch drift.",
+            "Completion requires proof that typed definitions are the maintained source for the selected semantic machinery, generated artifacts are deterministic, selected template and registry artifacts carry generated semantic blocks, MCP behavior uses that generated source, skills are instructed to act on the output, generated patch drafts can be applied to update JSON, rendered docs remain standalone, and contract tests catch drift.",
             "Each implementation slice should name which part of this completion proof it advances."
           ]
         },
@@ -1314,6 +1340,23 @@
             "`node scripts/generate-living-doc-registry-semantics.mjs --check` verifies generated semantic-use blocks on all convergence types used by typed template families.",
             "The selected registry entries now contain `semanticUses` with template roles, incoming and outgoing relationships, related stage signals, and graph artifact provenance.",
             "`node scripts/sync-compositor-embeds.mjs` mirrors those generated registry semantics into the standalone compositor and docs/scripts registry."
+          ]
+        },
+        {
+          "id": "patch-draft-application-repairs-gap",
+          "name": "Generated patch draft repairs a relationship gap",
+          "status": "ready",
+          "updated": "2026-05-05T12:35:36.874Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`tests/contract/mcp-server.spec.mjs` now proves `living_doc_relationship_gaps -> patchDraft -> living_doc_patch_validate -> living_doc_patch_apply -> living_doc_relationship_gaps` on a generated surface-delivery doc fixture.",
+            "The proof confirms that applying the generated draft changes the JSON document and resolves the original relationship gap.",
+            "The next weaker part is not the patch path itself, but exercising the same path in a non-fixture ongoing living-doc session."
           ]
         },
         {
@@ -1355,7 +1398,7 @@
           "id": "existing-suite-remains-green",
           "name": "Existing contract and render tests remain green",
           "status": "ready",
-          "updated": "2026-05-05T12:17:40.631Z",
+          "updated": "2026-05-05T12:35:36.874Z",
           "ticketIds": [
             {
               "issueNumber": "163",
@@ -1369,7 +1412,8 @@
             "The targeted MCP contract passes after adding patch drafts, embedding validation results in the relationship gap response, and validating those drafts through `living_doc_patch_validate`.",
             "`npm run test:contract` passes after adding the template artifact generator and selected template artifact contract.",
             "`npm run test:contract` passes after adding the semantic-tools skill contract.",
-            "`npm run test:contract` passes after adding the registry semantic-use generator and contract."
+            "`npm run test:contract` passes after adding the registry semantic-use generator and contract.",
+            "`npm run test:contract` passes after proving patch-draft application repairs a generated relationship gap."
           ]
         },
         {
@@ -1576,7 +1620,7 @@
             "Validates relationship repair operation references against each template's valid operations.",
             "Validates rendered semantic context embedding on surface-delivery.",
             "Validates MCP semantic context retrieval from both source JSON and rendered HTML.",
-            "Validates MCP relationship gap detection, repair operation output, patch draft shape, embedded patch validation, and patch draft validation for populated-but-unlinked surface/alignment, assertion/proof, and operation/surface cards.",
+            "Validates MCP relationship gap detection, repair operation output, patch draft shape, embedded patch validation, patch draft validation, patch draft application, and post-apply gap resolution for generated relationship gaps.",
             "Will need stronger assertions as generated diagnostics move from section/card population toward richer card-level semantic edges."
           ]
         },
