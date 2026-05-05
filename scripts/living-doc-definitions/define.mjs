@@ -29,6 +29,7 @@ function normalizeTemplateDefinition(definition) {
       to: relationship.to,
       relation: relationship.relation,
       rationale: relationship.rationale || '',
+      evidence: relationship.evidence || null,
       required: relationship.required !== false,
     })),
     stageSignals: (definition.stageSignals || []).map((signal) => ({

@@ -223,6 +223,38 @@ try {
   assert.ok(ops.operations.some((operation) => operation.id === 'add-alignment-row'));
   assert.ok(ops.operations.some((operation) => operation.id === 'add-verification-checkpoint'));
 
+  const surfaceEvidenceGapPath = path.join(tmpDir, 'surface-delivery-evidence-gap.json');
+  await writeFile(surfaceEvidenceGapPath, JSON.stringify({
+    docId: 'doc:surface-delivery-evidence-gap',
+    title: 'Surface Delivery Evidence Gap',
+    objective: 'Make one product surface legible across implementation and verification.',
+    successCondition: 'Alignment rows identify the surface they judge.',
+    sections: [
+      { id: 'status-snapshot', title: 'Status Snapshot', convergenceType: 'status-snapshot', data: [] },
+      {
+        id: 'surface-flow',
+        title: 'Design-Code-Spec Flow',
+        convergenceType: 'design-code-spec-flow',
+        data: [{ id: 'primary-surface', name: 'Primary surface', status: 'ground-truth', defaultNodeIds: ['1:5'], codeRefs: ['src/Surface.tsx'] }],
+      },
+      {
+        id: 'alignment',
+        title: 'Design-Implementation Alignment',
+        convergenceType: 'design-implementation-alignment',
+        data: [{ id: 'unlinked-alignment', name: 'Unlinked alignment', status: 'partial', figmaNodeId: '9:9', localPath: 'src/Other.tsx' }],
+      },
+      { id: 'verification', title: 'Verification Checkpoints', convergenceType: 'verification-checkpoints', data: [] },
+      { id: 'tooling', title: 'Tooling Surface', convergenceType: 'tooling-surface', data: [] },
+    ],
+  }, null, 2));
+
+  const evidenceGaps = await client.callTool('living_doc_relationship_gaps', { doc: surfaceEvidenceGapPath });
+  assert.ok(evidenceGaps.gaps.some((gap) => (
+    gap.relationshipId === 'flow-feeds-alignment'
+    && gap.kind === 'missing-card-evidence'
+    && gap.unmatchedSourceCards.some((card) => card.cardId === 'primary-surface')
+  )));
+
   const proofGraph = await client.callTool('living_doc_template_graph', { templateId: 'proof-canonicality' });
   assert.equal(proofGraph.templateId, 'proof-canonicality');
   assert.ok(proofGraph.template.relationships.some((relationship) => relationship.id === 'assertion-requires-proof'));

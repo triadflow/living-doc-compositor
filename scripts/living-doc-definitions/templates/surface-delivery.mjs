@@ -46,6 +46,12 @@ export default defineTemplate({
       to: 'design-implementation-alignment',
       relation: 'feeds',
       rationale: 'Alignment rows should judge the design/code/spec entities named in the surface flow.',
+      evidence: {
+        kind: 'shared-field-value',
+        sourceFields: ['id', 'defaultNodeIds', 'codeRefs'],
+        targetFields: ['sourceCardIds', 'figmaNodeId', 'localPath'],
+        description: 'An alignment row should identify the surface-flow card, Figma node, or code path it judges.',
+      },
     },
     {
       id: 'alignment-requires-verification',

@@ -643,12 +643,20 @@ async function relationshipGapsTool(args = {}) {
   const { graph, template, inferred } = await resolveTemplateGraphContext(args);
   const doc = await readJson(args.doc);
   const sectionStats = sectionStatsByType(doc);
+  const sectionCards = sectionCardsByType(doc);
   const gaps = [];
 
   for (const relationship of template.relationships || []) {
     const fromStats = sectionStats.get(relationship.from);
     const toStats = sectionStats.get(relationship.to);
-    const status = classifyRelationshipStatus(fromStats, toStats);
+    let status = classifyRelationshipStatus(fromStats, toStats);
+    if (status.kind === 'present' && relationship.evidence) {
+      status = evaluateRelationshipEvidence(
+        relationship,
+        sectionCards.get(relationship.from) || [],
+        sectionCards.get(relationship.to) || [],
+      );
+    }
     if (status.kind !== 'present') {
       gaps.push({
         relationshipId: relationship.id,
@@ -658,6 +666,10 @@ async function relationshipGapsTool(args = {}) {
         severity: status.severity,
         kind: status.kind,
         reason: status.reason,
+        ...(status.evidence ? { evidence: status.evidence } : {}),
+        ...(status.unmatchedSourceCards ? { unmatchedSourceCards: status.unmatchedSourceCards } : {}),
+        ...(status.matchedSourceCount !== undefined ? { matchedSourceCount: status.matchedSourceCount } : {}),
+        ...(status.totalSourceCount !== undefined ? { totalSourceCount: status.totalSourceCount } : {}),
         question: relationshipGapQuestion(relationship, status),
       });
     }
@@ -748,6 +760,17 @@ function sectionStatsByType(doc) {
   return stats;
 }
 
+function sectionCardsByType(doc) {
+  const cardsByType = new Map();
+  for (const section of doc.sections || []) {
+    const type = section.convergenceType;
+    if (!type) continue;
+    const cards = getCards(section).map((card) => ({ sectionId: section.id, card }));
+    cardsByType.set(type, [...(cardsByType.get(type) || []), ...cards]);
+  }
+  return cardsByType;
+}
+
 function classifyRelationshipStatus(fromStats, toStats) {
   if (!fromStats) {
     return { kind: 'missing-source-section', severity: 'high', reason: 'The source convergence type is not present in the document.' };
@@ -767,7 +790,99 @@ function classifyRelationshipStatus(fromStats, toStats) {
   return { kind: 'present', severity: 'none', reason: 'Both sides are populated. Card-level relationship quality is not checked yet.' };
 }
 
+function evaluateRelationshipEvidence(relationship, sourceEntries, targetEntries) {
+  const evidence = relationship.evidence || {};
+  if (evidence.kind !== 'shared-field-value') {
+    return { kind: 'present', severity: 'none', reason: 'No supported card-level evidence rule is defined.' };
+  }
+
+  const sourceFields = Array.isArray(evidence.sourceFields) ? evidence.sourceFields : [];
+  const targetFields = Array.isArray(evidence.targetFields) ? evidence.targetFields : [];
+  if (sourceFields.length === 0 || targetFields.length === 0) {
+    return { kind: 'present', severity: 'none', reason: 'Card-level evidence rule is incomplete.' };
+  }
+
+  const targetValueSets = targetEntries.map(({ card }) => valuesForFields(card, targetFields));
+  let matchedSourceCount = 0;
+  const unmatchedSourceCards = [];
+
+  for (const { sectionId, card } of sourceEntries) {
+    const sourceValues = valuesForFields(card, sourceFields);
+    const matched = targetValueSets.some((targetValues) => intersects(sourceValues, targetValues));
+    if (matched) {
+      matchedSourceCount += 1;
+    } else {
+      unmatchedSourceCards.push({
+        sectionId,
+        cardId: String(card?.id || card?.name || card?.title || '').trim(),
+        name: String(card?.name || card?.title || card?.id || '').trim(),
+        expectedEvidence: {
+          sourceFields,
+          targetFields,
+        },
+      });
+    }
+  }
+
+  if (unmatchedSourceCards.length === 0) {
+    return {
+      kind: 'present',
+      severity: 'none',
+      reason: 'Both sides are populated and card-level evidence links were found.',
+      evidence,
+      matchedSourceCount,
+      totalSourceCount: sourceEntries.length,
+    };
+  }
+
+  return {
+    kind: matchedSourceCount > 0 ? 'partial-card-evidence' : 'missing-card-evidence',
+    severity: matchedSourceCount > 0 ? 'medium' : 'high',
+    reason: matchedSourceCount > 0
+      ? 'Some source cards have card-level evidence in the target section, but at least one source card is not evidenced.'
+      : 'Both sides are populated, but no source cards have card-level evidence in the target section.',
+    evidence,
+    unmatchedSourceCards,
+    matchedSourceCount,
+    totalSourceCount: sourceEntries.length,
+  };
+}
+
+function valuesForFields(card, fields) {
+  const values = new Set();
+  for (const field of fields) {
+    collectPrimitiveValues(card?.[field], values);
+  }
+  return values;
+}
+
+function collectPrimitiveValues(value, out) {
+  if (value === undefined || value === null) return;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    const text = String(value).trim();
+    if (text) out.add(text);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectPrimitiveValues(item, out);
+    return;
+  }
+  if (typeof value === 'object') {
+    for (const item of Object.values(value)) collectPrimitiveValues(item, out);
+  }
+}
+
+function intersects(a, b) {
+  for (const value of a) {
+    if (b.has(value)) return true;
+  }
+  return false;
+}
+
 function relationshipGapQuestion(relationship, status) {
+  if (status.kind === 'missing-card-evidence' || status.kind === 'partial-card-evidence') {
+    return `Which ${relationship.to} card explicitly carries evidence for each ${relationship.from} card?`;
+  }
   if (status.kind === 'missing-target-cards') {
     return `What ${relationship.to} card should carry the ${relationship.relation} relationship from ${relationship.from}?`;
   }

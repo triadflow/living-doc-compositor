@@ -16,6 +16,9 @@ const conditionKinds = new Set([
   'all-populated-no-high-gaps',
   'manual-review',
 ]);
+const evidenceKinds = new Set([
+  'shared-field-value',
+]);
 
 assert.equal(graph.schema, 'living-doc-semantic-graph/v1');
 assert.ok(graph.templates && typeof graph.templates === 'object', 'graph must define templates');
@@ -52,6 +55,11 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
     assert.ok(graphSectionTypes.has(relationship.from), `${templateId}.${relationship.id} from type not present in graph sections`);
     assert.ok(graphSectionTypes.has(relationship.to), `${templateId}.${relationship.id} to type not present in graph sections`);
     assert.ok(relationship.relation, `${templateId}.${relationship.id} missing relation`);
+    if (relationship.evidence) {
+      assert.ok(evidenceKinds.has(relationship.evidence.kind), `${templateId}.${relationship.id} has unknown evidence kind ${relationship.evidence.kind}`);
+      assert.ok(Array.isArray(relationship.evidence.sourceFields), `${templateId}.${relationship.id} evidence sourceFields must be an array`);
+      assert.ok(Array.isArray(relationship.evidence.targetFields), `${templateId}.${relationship.id} evidence targetFields must be an array`);
+    }
   }
 
   for (const signal of templateGraph.stageSignals) {
@@ -75,6 +83,10 @@ assert.ok(graph.templates['surface-delivery'], 'expected initial surface-deliver
 assert.ok(
   graph.templates['surface-delivery'].relationships.some((relationship) => relationship.id === 'alignment-requires-verification'),
   'surface-delivery should encode alignment -> verification relationship',
+);
+assert.ok(
+  graph.templates['surface-delivery'].relationships.some((relationship) => relationship.id === 'flow-feeds-alignment' && relationship.evidence?.kind === 'shared-field-value'),
+  'surface-delivery should encode card-level evidence for flow -> alignment',
 );
 assert.ok(graph.templates['proof-canonicality'], 'expected proof-canonicality template graph');
 assert.ok(
