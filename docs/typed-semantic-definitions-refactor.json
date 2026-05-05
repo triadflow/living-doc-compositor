@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/typed-semantic-definitions-refactor.json",
   "sourceCoverage": "Seeded from GitHub issue #163 and internal model pages created on 2026-05-05.",
-  "updated": "2026-05-05T09:58:02.605Z",
+  "updated": "2026-05-05T10:12:17.200Z",
   "pills": [
     "Refactor",
     "Semantic Definitions",
@@ -411,7 +411,7 @@
       "title": "Code Anchors",
       "convergenceType": "code-anchor",
       "rationale": "Pins the refactor to the concrete files that currently own registry, templates, MCP behavior, tests, and publishing so the migration stays source-grounded.",
-      "updated": "2026-05-05T09:58:02.605Z",
+      "updated": "2026-05-05T10:12:17.200Z",
       "data": [
         {
           "id": "registry-json",
@@ -476,11 +476,11 @@
           "id": "sync-embeds",
           "name": "Compositor embed sync",
           "status": "current",
-          "updated": "2026-05-05T08:10:51.000Z",
+          "updated": "2026-05-05T10:12:17.200Z",
           "path": "scripts/sync-compositor-embeds.mjs",
           "range": "loadEmbeddedTemplates and syncCompositorEmbeds",
           "revision": "working tree",
-          "what_it_does": "Embeds registry, templates, profiles, renderer, and helper scripts into the standalone compositor and mirrored docs/scripts assets.",
+          "what_it_does": "Embeds registry, templates, profiles, renderer, semantic context helper, and helper scripts into the standalone compositor and mirrored docs/scripts assets.",
           "why_it_matters": [
             "Generated artifacts must preserve this publishing path; changing source authorship must not break rendered docs or GitHub Pages."
           ],
@@ -604,6 +604,44 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
             }
           ]
+        },
+        {
+          "id": "semantic-context-helper",
+          "name": "Semantic context helper",
+          "status": "current",
+          "updated": "2026-05-05T10:12:17.200Z",
+          "path": "scripts/living-doc-semantic-context.mjs",
+          "range": "whole file",
+          "revision": "working tree",
+          "what_it_does": "Centralizes semantic graph loading, diagram loading, template inference, semantic graph summaries, and rendered semantic context construction.",
+          "why_it_matters": [
+            "Renderer and MCP now share the same template-inference behavior instead of carrying duplicate docId/canonicalOrigin/section-sequence matching logic."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "rendered-semantic-context",
+          "name": "Rendered semantic context embed",
+          "status": "current",
+          "updated": "2026-05-05T10:12:17.200Z",
+          "path": "scripts/render-living-doc.mjs",
+          "range": "doc-semantic-context script embed",
+          "revision": "working tree",
+          "what_it_does": "Embeds generated semantic graph and Mermaid diagram context into standalone rendered HTML when the document matches a known semantic template.",
+          "why_it_matters": [
+            "Standalone snapshots now carry the generated relationship context needed by downstream tools, rather than relying only on repo-local generated JSON files."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
         }
       ]
     },
@@ -612,7 +650,7 @@
       "title": "Attempt Log",
       "convergenceType": "attempt-log",
       "rationale": "Records probes and migration attempts as they happen so learning accumulates without prematurely turning every experiment into a decision or reusable template.",
-      "updated": "2026-05-05T09:58:02.605Z",
+      "updated": "2026-05-05T10:12:17.200Z",
       "data": [
         {
           "id": "model-pages",
@@ -837,6 +875,30 @@
           "notes": [
             "This is still hand-authored typed definition coverage, not generated registry or template JSON replacement."
           ]
+        },
+        {
+          "id": "rendered-semantic-context-slice",
+          "name": "Embed generated semantic context in rendered snapshots",
+          "status": "probe",
+          "updated": "2026-05-05T10:12:17.200Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Added `scripts/living-doc-semantic-context.mjs`, used it from both MCP and renderer, and embedded `doc-semantic-context` JSON in rendered HTML for matching template docs."
+          ],
+          "what_proved": [
+            "Generated graph and diagram context can travel with standalone HTML snapshots, so semantic template knowledge is no longer available only through repo-local MCP reads."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`tests/contract/render.spec.mjs` now renders a copied surface-delivery template and verifies the embedded semantic graph and diagram source.",
+            "This still embeds semantic context as a machine-readable script payload; no visible UI has been added for it yet."
+          ]
         }
       ]
     },
@@ -845,7 +907,7 @@
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
       "rationale": "Defines the safety and value proof needed before expanding the refactor beyond an additive template graph and one template family.",
-      "updated": "2026-05-05T09:58:02.605Z",
+      "updated": "2026-05-05T10:12:17.200Z",
       "data": [
         {
           "id": "deterministic-generation",
@@ -883,7 +945,7 @@
           "id": "existing-suite-remains-green",
           "name": "Existing contract and render tests remain green",
           "status": "ready",
-          "updated": "2026-05-05T09:58:02.605Z",
+          "updated": "2026-05-05T10:12:17.200Z",
           "ticketIds": [
             {
               "issueNumber": "163",
@@ -892,7 +954,25 @@
           ],
           "notes": [
             "Targeted MCP contract passes with generated graph lookup, generated diagram lookup, relationship gap diagnostics, stage diagnostics, and valid stage operations across three template families.",
-            "`npm run test:contract` passes after adding operations-support semantic definition coverage."
+            "Targeted render contract proves matching rendered docs embed `doc-semantic-context` with generated graph and diagram payloads.",
+            "`npm run test:contract` passes after adding rendered semantic context embedding."
+          ]
+        },
+        {
+          "id": "semantic-context-travels-with-snapshot",
+          "name": "Generated semantic context travels with rendered snapshots",
+          "status": "ready",
+          "updated": "2026-05-05T10:12:17.200Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Rendered HTML for matching template docs now includes `<script type=\"application/json\" id=\"doc-semantic-context\">`.",
+            "The payload includes template inference method, generated graph template metadata, and generated Mermaid diagram source.",
+            "This keeps standalone snapshots compatible with tools that inspect HTML artifacts rather than source JSON in the repo."
           ]
         }
       ]
@@ -996,7 +1076,7 @@
       "title": "Tooling Surface",
       "convergenceType": "tooling-surface",
       "rationale": "Tracks the generator, contract tests, MCP commands, and render/sync tools that must exist or remain stable for the refactor to be operational.",
-      "updated": "2026-05-05T09:58:02.605Z",
+      "updated": "2026-05-05T10:12:17.200Z",
       "data": [
         {
           "id": "semantic-graph-generator",
@@ -1033,11 +1113,12 @@
           "id": "template-graph-contract-test",
           "name": "Template graph contract test",
           "status": "trusted",
-          "updated": "2026-05-05T09:58:02.605Z",
+          "updated": "2026-05-05T10:12:17.200Z",
           "scriptPaths": [
             "tests/contract/template-graphs.spec.mjs",
             "tests/contract/template-diagrams.spec.mjs",
-            "tests/contract/mcp-server.spec.mjs"
+            "tests/contract/mcp-server.spec.mjs",
+            "tests/contract/render.spec.mjs"
           ],
           "ticketIds": [
             {
@@ -1045,11 +1126,12 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
             }
           ],
-          "purpose": "Ensure generated graph and diagram metadata is deterministic, references valid registry/template types and relationships, and is exposed through MCP.",
+          "purpose": "Ensure generated graph and diagram metadata is deterministic, references valid registry/template types and relationships, is exposed through MCP, and travels with rendered matching docs.",
           "whenToUse": "Run as part of `npm run test:contract` after the generator exists.",
-          "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs && node tests/contract/mcp-server.spec.mjs",
+          "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs && node tests/contract/mcp-server.spec.mjs && node tests/contract/render.spec.mjs",
           "caveats": [
             "Validates deterministic generation and registry/template references for surface-delivery, proof-canonicality, and operations-support.",
+            "Validates rendered semantic context embedding on surface-delivery.",
             "Will need stronger assertions as generated diagnostics move from section/card population toward richer card-level semantic edges."
           ]
         },

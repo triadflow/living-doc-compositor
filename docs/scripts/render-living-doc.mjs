@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncCompositorEmbeds } from './sync-compositor-embeds.mjs';
 import { checkFingerprint } from './meta-fingerprint.mjs';
+import { semanticContextForDoc } from './living-doc-semantic-context.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
@@ -2256,6 +2257,8 @@ const updateSource = normalizeUpdateSource(data);
 const metaJson = JSON.stringify(data, null, 2).replace(/<\/script/gi, '<\\/script');
 const registryJson = JSON.stringify(registry, null, 2).replace(/<\/script/gi, '<\\/script');
 const i18nJson = JSON.stringify(i18n, null, 2).replace(/<\/script/gi, '<\\/script');
+const semanticContext = await semanticContextForDoc(data);
+const semanticContextJson = semanticContext ? safeJsonForScript(semanticContext) : '';
 const aiSpecJson = documentAiArtifacts.serializableSpec ? safeJsonForScript(documentAiArtifacts.serializableSpec) : '';
 const aiMetaJson = documentAiArtifacts.serializableMeta ? safeJsonForScript(documentAiArtifacts.serializableMeta) : '';
 const aiRenderGraphRuntimeSource = documentAiArtifacts.serializableSpec
@@ -2967,6 +2970,7 @@ const html = `<!doctype html>
   </head>
   <body>
     <script type="application/json" id="doc-meta">${metaJson}</script>
+    ${semanticContextJson ? `<script type="application/json" id="doc-semantic-context">${semanticContextJson}</script>` : ''}
     ${documentAiArtifacts.serializableSpec ? `<script type="application/ai-render-graph+json" id="doc-ai-spec">${aiSpecJson}</script>` : ''}
     ${documentAiArtifacts.serializableMeta ? `<script type="application/json" id="doc-ai-meta">${aiMetaJson}</script>` : ''}
 

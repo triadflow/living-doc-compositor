@@ -9,9 +9,12 @@ const jsonPath = path.join(tmpDir, 'feature-doc.json');
 const htmlPath = path.join(tmpDir, 'feature-doc.html');
 const aiJsonPath = path.join(tmpDir, 'ai-enhanced-doc.json');
 const aiHtmlPath = path.join(tmpDir, 'ai-enhanced-doc.html');
+const semanticJsonPath = path.join(tmpDir, 'surface-delivery-template.json');
+const semanticHtmlPath = path.join(tmpDir, 'surface-delivery-template.html');
 
 await copyFile('tests/fixtures/feature-doc.json', jsonPath);
 await copyFile('tests/fixtures/ai-enhanced-doc.json', aiJsonPath);
+await copyFile('docs/living-doc-template-surface-delivery.json', semanticJsonPath);
 
 const render = spawnSync(process.execPath, ['scripts/render-living-doc.mjs', jsonPath], {
   encoding: 'utf8',
@@ -59,5 +62,28 @@ assert.doesNotMatch(aiSpecPayload, /"runtime":/, 'ai-render-graph spec should no
 assert.doesNotMatch(aiSpecPayload, /"resultAliases":/, 'ai-render-graph spec should not embed living-doc alias metadata');
 assert.match(aiHtml, /Run section pass/, 'enhanced rendered HTML should include a local section action affordance');
 assert.match(aiHtml, /This pass reads the current section only and writes no source data\./, 'enhanced rendered HTML should explain the grounding boundary');
+
+const semanticRender = spawnSync(process.execPath, ['scripts/render-living-doc.mjs', semanticJsonPath], {
+  encoding: 'utf8',
+});
+
+assert.equal(semanticRender.status, 0, semanticRender.stderr || semanticRender.stdout);
+
+const semanticHtml = await readFile(semanticHtmlPath, 'utf8');
+const semanticContextMatch = semanticHtml.match(/<script type="application\/json" id="doc-semantic-context">([\s\S]*?)<\/script>/);
+assert.ok(semanticContextMatch?.[1], 'rendered semantic template should include embedded semantic context');
+const semanticContext = JSON.parse(semanticContextMatch[1]);
+assert.equal(semanticContext.schema, 'living-doc-semantic-context/v1');
+assert.equal(semanticContext.templateId, 'surface-delivery');
+assert.equal(semanticContext.inferredFromDoc.method, 'docId');
+assert.ok(
+  semanticContext.graph.template.relationships.some((relationship) => relationship.id === 'alignment-requires-verification'),
+  'embedded semantic context should include generated relationship graph',
+);
+assert.match(
+  semanticContext.diagram.template.mermaid,
+  /design_implementation_alignment -- "requires-verification" --> verification_checkpoints/,
+  'embedded semantic context should include generated Mermaid diagram source',
+);
 
 console.log(`render contract ok: ${htmlPath}`);

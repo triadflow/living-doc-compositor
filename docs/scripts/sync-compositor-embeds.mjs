@@ -14,6 +14,7 @@ const i18nPath = path.join(__dirname, 'living-doc-i18n.json');
 const rendererPath = path.join(__dirname, 'render-living-doc.mjs');
 const fingerprintPath = path.join(__dirname, 'meta-fingerprint.mjs');
 const syncEmbedsSourcePath = path.join(__dirname, 'sync-compositor-embeds.mjs');
+const semanticContextPath = path.join(__dirname, 'living-doc-semantic-context.mjs');
 const jszipPath = path.join(__dirname, 'vendor', 'jszip.min.js');
 const profilesDir = path.join(__dirname, 'living-doc-profiles');
 const docsScriptsDir = path.join(docsPath, 'scripts');
@@ -174,6 +175,7 @@ export async function syncCompositorEmbeds(options = {}) {
     [registryPath, path.join(docsScriptsDir, 'living-doc-registry.json')],
     [i18nPath, path.join(docsScriptsDir, 'living-doc-i18n.json')],
     [rendererPath, path.join(docsScriptsDir, 'render-living-doc.mjs')],
+    [semanticContextPath, path.join(docsScriptsDir, 'living-doc-semantic-context.mjs')],
     [syncEmbedsSourcePath, path.join(docsScriptsDir, 'sync-compositor-embeds.mjs')],
     [fingerprintPath, path.join(docsScriptsDir, 'meta-fingerprint.mjs')],
   ];

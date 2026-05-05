@@ -7,12 +7,16 @@ import { fileURLToPath } from 'node:url';
 
 import { applyAiPatch } from './apply-ai-patch.mjs';
 import { validatePatch } from './validate-ai-patch.mjs';
+import {
+  inferTemplateGraphForDoc,
+  loadSemanticDiagrams,
+  loadSemanticGraph,
+  semanticGraphSummaryForDoc,
+} from './living-doc-semantic-context.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const harnessCli = path.join(repoRoot, '.agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs');
-const semanticGraphPath = path.join(repoRoot, 'scripts/generated/living-doc-template-graphs.json');
-const semanticDiagramPath = path.join(repoRoot, 'scripts/generated/living-doc-template-diagrams.json');
 
 const protocolVersion = '2024-11-05';
 
@@ -264,14 +268,6 @@ async function writeJson(filePath, value) {
 
 async function loadRegistry(args = {}) {
   return JSON.parse(await readFile(registryPath(args), 'utf8'));
-}
-
-async function loadSemanticGraph() {
-  return JSON.parse(await readFile(semanticGraphPath, 'utf8'));
-}
-
-async function loadSemanticDiagrams() {
-  return JSON.parse(await readFile(semanticDiagramPath, 'utf8'));
 }
 
 function slugify(value, fallback = 'item') {
@@ -563,28 +559,11 @@ async function structureReflect(args) {
     doc: resolvePath(args.doc),
     objective: doc.objective || '',
     structureStillFits: recommendations.filter((rec) => rec.severity === 'high' && ['fix-section-type', 'cover-facet', 'add-governance'].includes(rec.kind)).length === 0,
-    semanticGraph: await semanticGraphForDoc(doc),
+    semanticGraph: await semanticGraphSummaryForDoc(doc),
     sectionDiagnostics,
     coverage,
     governance,
     recommendations,
-  };
-}
-
-async function semanticGraphForDoc(doc) {
-  const graph = await loadSemanticGraph().catch(() => null);
-  const templates = graph?.templates || {};
-  const inferred = inferTemplateGraphForDoc(doc, templates);
-  if (!inferred) return null;
-  const template = templates[inferred.templateId];
-  if (!template) return null;
-  return {
-    schema: graph.schema,
-    templateId: inferred.templateId,
-    inferredFromDoc: inferred,
-    relationships: template.relationships || [],
-    stageSignals: template.stageSignals || [],
-    validOperations: template.validOperations || [],
   };
 }
 
@@ -822,35 +801,6 @@ function evaluateStageSignal(signal, sectionStats, gaps) {
 
 function severityRank(severity) {
   return { high: 0, medium: 1, low: 2, none: 3 }[severity] ?? 4;
-}
-
-function inferTemplateGraphForDoc(doc, templates) {
-  const docId = String(doc.docId || '');
-  if (docId.startsWith('template:')) {
-    const templateId = docId.slice('template:'.length);
-    if (templates[templateId]) return { templateId, method: 'docId' };
-  }
-
-  const canonicalOrigin = String(doc.canonicalOrigin || '');
-  const filenameMatch = canonicalOrigin.match(/living-doc-template-([a-z0-9-]+)\.json$/);
-  if (filenameMatch?.[1] && templates[filenameMatch[1]]) {
-    return { templateId: filenameMatch[1], method: 'canonicalOrigin' };
-  }
-
-  const docTypes = (doc.sections || []).map((section) => section.convergenceType).filter(Boolean);
-  for (const [templateId, template] of Object.entries(templates)) {
-    const templateTypes = (template.sections || []).map((section) => section.convergenceType).filter(Boolean);
-    if (sameStringArray(docTypes, templateTypes)) {
-      return { templateId, method: 'sectionTypeSequence' };
-    }
-  }
-
-  return null;
-}
-
-function sameStringArray(a, b) {
-  if (a.length !== b.length) return false;
-  return a.every((value, index) => value === b[index]);
 }
 
 async function structureRefine(args) {
