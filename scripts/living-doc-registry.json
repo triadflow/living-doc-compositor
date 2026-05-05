@@ -738,7 +738,7 @@
       "category": "governance",
       "kind": "surface",
       "description": "Projection of doc-root objective facets, coverage edges, and invariants. Each card is one facet with its carrying sections, governing invariants, and current coverage state.",
-      "structuralContract": "Two-column card grid of coherence-state items, derived from doc-root objectiveFacets, coverage, and invariants. Cards are not authored per item \u2014 the renderer computes them from doc-root fields.",
+      "structuralContract": "Two-column card grid of coherence-state items, derived from doc-root objectiveFacets, coverage, and invariants. Cards are not authored per item — the renderer computes them from doc-root fields.",
       "notFor": [
         "per-section implementation work",
         "ticket inventories",
@@ -756,7 +756,7 @@
           "Recompute coverage from doc-root objectiveFacets and coverage edges before editing."
         ],
         "update": [
-          "Edit doc-root objectiveFacets, coverage, or invariants \u2014 do not author coherence-map items by hand."
+          "Edit doc-root objectiveFacets, coverage, or invariants — do not author coherence-map items by hand."
         ],
         "avoid": [
           "Do not put implementation state or ticket status into coherence cards."
@@ -856,7 +856,7 @@
       "entityShape": []
     },
     "design-code-spec-flow": {
-      "name": "Design\u2013Code\u2013Spec Flow",
+      "name": "Design–Code–Spec Flow",
       "category": "delivery",
       "kind": "surface",
       "description": "A product surface where design artifacts, code, specs, and tracked interactions converge into one implementation flow.",
@@ -965,7 +965,93 @@
       "entityShape": [
         "has-code-refs",
         "has-tickets"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "surface-delivery",
+            "templateName": "Surface Delivery",
+            "templatePath": "docs/living-doc-template-surface-delivery.json",
+            "sectionIds": [
+              "surface-flow"
+            ],
+            "roles": [
+              "Hold the product surface as a joined design, code, spec, interaction, and ticket entity."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "status-summarizes-flow",
+                  "from": "status-snapshot",
+                  "to": "design-code-spec-flow",
+                  "relation": "summarizes",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "flow-feeds-alignment",
+                  "from": "design-code-spec-flow",
+                  "to": "design-implementation-alignment",
+                  "relation": "feeds",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-alignment-row"
+                  ],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "seeding-missing-surface-flow",
+                "stage": "Seeding",
+                "severity": "high",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "design-code-spec-flow"
+                },
+                "relatedRelationships": []
+              },
+              {
+                "id": "coherence-flow-not-aligned",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "relatedRelationships": [
+                  "flow-feeds-alignment"
+                ]
+              },
+              {
+                "id": "judgment-delivery-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "design-code-spec-flow",
+                    "design-implementation-alignment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "flow-feeds-alignment",
+                  "alignment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "status-snapshot": {
       "name": "Status Snapshot",
@@ -1002,7 +1088,82 @@
       "sources": [],
       "statusFields": [],
       "domain": "ops",
-      "entityShape": []
+      "entityShape": [],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "operations-support",
+            "templateName": "Operations and Support",
+            "templatePath": "docs/living-doc-template-operations-support.json",
+            "sectionIds": [
+              "status-snapshot"
+            ],
+            "roles": [
+              "Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "status-summarizes-operation",
+                  "from": "status-snapshot",
+                  "to": "operation",
+                  "relation": "summarizes",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": []
+          },
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "status-snapshot"
+            ],
+            "roles": [
+              "Summarize proof posture and canonicality pressure without collapsing the evidence layers."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": []
+            },
+            "stageSignals": []
+          },
+          {
+            "templateId": "surface-delivery",
+            "templateName": "Surface Delivery",
+            "templatePath": "docs/living-doc-template-surface-delivery.json",
+            "sectionIds": [
+              "status-snapshot"
+            ],
+            "roles": [
+              "Summarize delivery pressure and current readiness without carrying the detailed evidence."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "status-summarizes-flow",
+                  "from": "status-snapshot",
+                  "to": "design-code-spec-flow",
+                  "relation": "summarizes",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": []
+          }
+        ]
+      }
     },
     "capability-surface": {
       "name": "Capability Surface",
@@ -1065,7 +1226,7 @@
         {
           "id": "propose-status-from-commits",
           "name": "Propose status from commits",
-          "description": "Look at recent commits touching the card\u2019s codePaths and propose a status change (built / partial / not-built / gap / blocked) based on what landed."
+          "description": "Look at recent commits touching the card’s codePaths and propose a status change (built / partial / not-built / gap / blocked) based on what landed."
         }
       ],
       "domain": "engineering",
@@ -1131,7 +1292,96 @@
       ],
       "nestable": true,
       "domain": "ops",
-      "entityShape": []
+      "entityShape": [],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "operations-support",
+            "templateName": "Operations and Support",
+            "templatePath": "docs/living-doc-template-operations-support.json",
+            "sectionIds": [
+              "support-surface"
+            ],
+            "roles": [
+              "Expose the bounded support lanes or operational paths that request flow routes into."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "operation-routes-surface",
+                  "from": "operation",
+                  "to": "operating-surface",
+                  "relation": "routes-to",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-operating-surface-card"
+                  ],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "surface-needs-enablers",
+                  "from": "operating-surface",
+                  "to": "enabler-catalog",
+                  "relation": "needs",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "coherence-operation-not-routed",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "relatedRelationships": [
+                  "operation-routes-surface"
+                ]
+              },
+              {
+                "id": "operation-surface-without-enablers",
+                "stage": "Operation",
+                "severity": "medium",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "operating-surface",
+                  "targetType": "enabler-catalog"
+                },
+                "relatedRelationships": [
+                  "surface-needs-enablers"
+                ]
+              },
+              {
+                "id": "judgment-support-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "operation",
+                    "operating-surface",
+                    "enabler-catalog",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "operation-routes-surface",
+                  "surface-needs-enablers",
+                  "tooling-supports-operation"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "enabler-catalog": {
       "name": "Enabler Catalog",
@@ -1193,7 +1443,73 @@
       "domain": "engineering",
       "entityShape": [
         "has-tickets"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "operations-support",
+            "templateName": "Operations and Support",
+            "templatePath": "docs/living-doc-template-operations-support.json",
+            "sectionIds": [
+              "enablers"
+            ],
+            "roles": [
+              "Catalog compact support assets that improve operator speed, reliability, or coverage."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "surface-needs-enablers",
+                  "from": "operating-surface",
+                  "to": "enabler-catalog",
+                  "relation": "needs",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": []
+            },
+            "stageSignals": [
+              {
+                "id": "operation-surface-without-enablers",
+                "stage": "Operation",
+                "severity": "medium",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "operating-surface",
+                  "targetType": "enabler-catalog"
+                },
+                "relatedRelationships": [
+                  "surface-needs-enablers"
+                ]
+              },
+              {
+                "id": "judgment-support-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "operation",
+                    "operating-surface",
+                    "enabler-catalog",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "operation-routes-surface",
+                  "surface-needs-enablers",
+                  "tooling-supports-operation"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "tooling-surface": {
       "name": "Tooling Surface",
@@ -1290,10 +1606,159 @@
       "domain": "ops",
       "entityShape": [
         "has-code-refs"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "operations-support",
+            "templateName": "Operations and Support",
+            "templatePath": "docs/living-doc-template-operations-support.json",
+            "sectionIds": [
+              "tooling"
+            ],
+            "roles": [
+              "Expose the scripts, workflows, and local tools used to operate or evolve the support domain."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "tooling-supports-operation",
+                  "from": "tooling-surface",
+                  "to": "operation",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "judgment-support-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "operation",
+                    "operating-surface",
+                    "enabler-catalog",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "operation-routes-surface",
+                  "surface-needs-enablers",
+                  "tooling-supports-operation"
+                ]
+              }
+            ]
+          },
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "tooling"
+            ],
+            "roles": [
+              "Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "tooling-supports-proof",
+                  "from": "tooling-surface",
+                  "to": "proof-ladder",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ]
+          },
+          {
+            "templateId": "surface-delivery",
+            "templateName": "Surface Delivery",
+            "templatePath": "docs/living-doc-template-surface-delivery.json",
+            "sectionIds": [
+              "tooling"
+            ],
+            "roles": [
+              "Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "tooling-supports-verification",
+                  "from": "tooling-surface",
+                  "to": "verification-checkpoints",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "judgment-delivery-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "design-code-spec-flow",
+                    "design-implementation-alignment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "flow-feeds-alignment",
+                  "alignment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "design-implementation-alignment": {
-      "name": "Design\u2013Implementation Alignment",
+      "name": "Design–Implementation Alignment",
       "category": "delivery",
       "kind": "surface",
       "description": "A direct mapping between a design artifact and its implementation target in code.",
@@ -1355,7 +1820,96 @@
       "domain": "engineering",
       "entityShape": [
         "has-code-refs"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "surface-delivery",
+            "templateName": "Surface Delivery",
+            "templatePath": "docs/living-doc-template-surface-delivery.json",
+            "sectionIds": [
+              "alignment"
+            ],
+            "roles": [
+              "Judge whether implementation targets satisfy the design and spec intent carried by the surface flow."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "flow-feeds-alignment",
+                  "from": "design-code-spec-flow",
+                  "to": "design-implementation-alignment",
+                  "relation": "feeds",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-alignment-row"
+                  ],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "alignment-requires-verification",
+                  "from": "design-implementation-alignment",
+                  "to": "verification-checkpoints",
+                  "relation": "requires-verification",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "coherence-flow-not-aligned",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "relatedRelationships": [
+                  "flow-feeds-alignment"
+                ]
+              },
+              {
+                "id": "operation-alignment-not-verified",
+                "stage": "Operation",
+                "severity": "medium",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "design-implementation-alignment",
+                  "targetType": "verification-checkpoints"
+                },
+                "relatedRelationships": [
+                  "alignment-requires-verification"
+                ]
+              },
+              {
+                "id": "judgment-delivery-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "design-code-spec-flow",
+                    "design-implementation-alignment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "flow-feeds-alignment",
+                  "alignment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "verification-surface": {
       "name": "Verification Surface",
@@ -1539,7 +2093,82 @@
       "domain": "engineering",
       "entityShape": [
         "has-evidence"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "surface-delivery",
+            "templateName": "Surface Delivery",
+            "templatePath": "docs/living-doc-template-surface-delivery.json",
+            "sectionIds": [
+              "verification"
+            ],
+            "roles": [
+              "Track the checks that prove the aligned implementation is ready enough to ship or continue."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "alignment-requires-verification",
+                  "from": "design-implementation-alignment",
+                  "to": "verification-checkpoints",
+                  "relation": "requires-verification",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                },
+                {
+                  "id": "tooling-supports-verification",
+                  "from": "tooling-surface",
+                  "to": "verification-checkpoints",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": []
+            },
+            "stageSignals": [
+              {
+                "id": "operation-alignment-not-verified",
+                "stage": "Operation",
+                "severity": "medium",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "design-implementation-alignment",
+                  "targetType": "verification-checkpoints"
+                },
+                "relatedRelationships": [
+                  "alignment-requires-verification"
+                ]
+              },
+              {
+                "id": "judgment-delivery-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "design-code-spec-flow",
+                    "design-implementation-alignment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "flow-feeds-alignment",
+                  "alignment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "proof-ladder": {
       "name": "Proof Ladder",
@@ -1619,14 +2248,117 @@
         {
           "id": "check-monotonic",
           "name": "Check monotonic invariant",
-          "description": "Confirm every rung below this one is ready. If not, flag the inversion \u2014 this rung cannot legitimately claim ready state."
+          "description": "Confirm every rung below this one is ready. If not, flag the inversion — this rung cannot legitimately claim ready state."
         }
       ],
       "domain": "engineering",
       "entityShape": [
         "has-code-refs",
         "has-evidence"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "proof-ladder"
+            ],
+            "roles": [
+              "Track staged evidence rungs that increase confidence in the assertions."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "assertion-requires-proof",
+                  "from": "model-assertion",
+                  "to": "proof-ladder",
+                  "relation": "requires-proof",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-proof-rung",
+                    "weaken-assertion"
+                  ],
+                  "required": true
+                },
+                {
+                  "id": "tooling-supports-proof",
+                  "from": "tooling-surface",
+                  "to": "proof-ladder",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "proof-produces-findings",
+                  "from": "proof-ladder",
+                  "to": "investigation-findings",
+                  "relation": "produces-findings",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "coherence-assertion-not-proven",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "relatedRelationships": [
+                  "assertion-requires-proof"
+                ]
+              },
+              {
+                "id": "operation-proof-without-findings",
+                "stage": "Operation",
+                "severity": "medium",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "proof-ladder",
+                  "targetType": "investigation-findings"
+                },
+                "relatedRelationships": [
+                  "proof-produces-findings"
+                ]
+              },
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "operation": {
       "name": "Mediated Operation",
@@ -1709,7 +2441,102 @@
       "domain": "ops",
       "entityShape": [
         "has-tickets"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "operations-support",
+            "templateName": "Operations and Support",
+            "templatePath": "docs/living-doc-template-operations-support.json",
+            "sectionIds": [
+              "operations"
+            ],
+            "roles": [
+              "Describe the mediated request-to-execution flow that operators need to run."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "status-summarizes-operation",
+                  "from": "status-snapshot",
+                  "to": "operation",
+                  "relation": "summarizes",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                },
+                {
+                  "id": "tooling-supports-operation",
+                  "from": "tooling-surface",
+                  "to": "operation",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "operation-routes-surface",
+                  "from": "operation",
+                  "to": "operating-surface",
+                  "relation": "routes-to",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-operating-surface-card"
+                  ],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "seeding-missing-operation",
+                "stage": "Seeding",
+                "severity": "high",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "operation"
+                },
+                "relatedRelationships": []
+              },
+              {
+                "id": "coherence-operation-not-routed",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "relatedRelationships": [
+                  "operation-routes-surface"
+                ]
+              },
+              {
+                "id": "judgment-support-readiness",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "operation",
+                    "operating-surface",
+                    "enabler-catalog",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "operation-routes-surface",
+                  "surface-needs-enablers",
+                  "tooling-supports-operation"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "stack-depth": {
       "name": "Stack-Depth Integration",
@@ -2064,7 +2891,74 @@
         }
       ],
       "domain": "research",
-      "entityShape": []
+      "entityShape": [],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "formal-model"
+            ],
+            "roles": [
+              "Define the primitives, invariants, authorities, and scope that make the domain truth-bearing."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "model-frames-assertion",
+                  "from": "formal-model",
+                  "to": "model-assertion",
+                  "relation": "frames",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "seeding-missing-model",
+                "stage": "Seeding",
+                "severity": "high",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "formal-model"
+                },
+                "relatedRelationships": []
+              },
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "model-assertion": {
       "name": "Model Assertion",
@@ -2141,7 +3035,88 @@
       "domain": "research",
       "entityShape": [
         "has-evidence"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "assertion"
+            ],
+            "roles": [
+              "State the claims that the proof structure is trying to support or weaken."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "model-frames-assertion",
+                  "from": "formal-model",
+                  "to": "model-assertion",
+                  "relation": "frames",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "assertion-requires-proof",
+                  "from": "model-assertion",
+                  "to": "proof-ladder",
+                  "relation": "requires-proof",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-proof-rung",
+                    "weaken-assertion"
+                  ],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "coherence-assertion-not-proven",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "related-relationship-gap"
+                },
+                "relatedRelationships": [
+                  "assertion-requires-proof"
+                ]
+              },
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "content-production": {
       "name": "Content Production",
@@ -2950,7 +3925,64 @@
       "domain": "governance",
       "entityShape": [
         "time-series"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "decisions"
+            ],
+            "roles": [
+              "Preserve canonical choices justified by the model, proof, and findings."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "findings-justify-decisions",
+                  "from": "investigation-findings",
+                  "to": "decision-record",
+                  "relation": "justifies",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": []
+            },
+            "stageSignals": [
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "investigation-findings": {
       "name": "Investigation Findings",
@@ -3013,14 +4045,94 @@
       "domain": "research",
       "entityShape": [
         "has-evidence"
-      ]
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "proof-canonicality",
+            "templateName": "Proof and Canonicality",
+            "templatePath": "docs/living-doc-template-proof-canonicality.json",
+            "sectionIds": [
+              "findings"
+            ],
+            "roles": [
+              "Record observed facts learned from proof work without turning them directly into decisions."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "proof-produces-findings",
+                  "from": "proof-ladder",
+                  "to": "investigation-findings",
+                  "relation": "produces-findings",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "findings-justify-decisions",
+                  "from": "investigation-findings",
+                  "to": "decision-record",
+                  "relation": "justifies",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "operation-proof-without-findings",
+                "stage": "Operation",
+                "severity": "medium",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "proof-ladder",
+                  "targetType": "investigation-findings"
+                },
+                "relatedRelationships": [
+                  "proof-produces-findings"
+                ]
+              },
+              {
+                "id": "judgment-canonicality-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "formal-model",
+                    "model-assertion",
+                    "proof-ladder",
+                    "investigation-findings",
+                    "decision-record",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "model-frames-assertion",
+                  "assertion-requires-proof",
+                  "proof-produces-findings",
+                  "findings-justify-decisions",
+                  "tooling-supports-proof"
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "attempt-log": {
       "name": "Attempt Log",
       "category": "verification",
       "kind": "act",
       "description": "A record of actions taken against a problem and what each one proved. Distinct from findings (observations) and decisions (chosen directions).",
-      "structuralContract": "Two-column card grid. Each card is one attempt with an outcome. Status is attempt-log-status. Use when capturing tried fixes, probes, and shipped workarounds \u2014 not to record decisions or generic findings.",
+      "structuralContract": "Two-column card grid. Each card is one attempt with an outcome. Status is attempt-log-status. Use when capturing tried fixes, probes, and shipped workarounds — not to record decisions or generic findings.",
       "notFor": [
         "observed behaviors (use symptom-observation)",
         "settled team decisions (use decision-record)",
@@ -3036,16 +4148,16 @@
           "attempt status"
         ],
         "inspect": [
-          "Verify each attempt has a concrete outcome \u2014 probes that revealed nothing are noise.",
+          "Verify each attempt has a concrete outcome — probes that revealed nothing are noise.",
           "Check the shipped_in URL resolves and the referenced code or patch still exists."
         ],
         "update": [
           "When an attempt is superseded by a newer one, mark it superseded rather than deleting.",
-          "Preserve rejected attempts \u2014 they tell the next reader what not to try."
+          "Preserve rejected attempts — they tell the next reader what not to try."
         ],
         "avoid": [
           "Do not collapse attempts into observations or decisions.",
-          "Do not mix generic notes into attempt cards \u2014 supporting context goes in notes[]."
+          "Do not mix generic notes into attempt cards — supporting context goes in notes[]."
         ]
       },
       "icon": "<path opacity='.28' d='M4 4h12v12H4z'/><path d='M6 7h8v1.5H6zm0 3h6v1.5H6zm0 3h4v1.5H6z'/><path d='M15 13l3 3-1 1-3-3z'/>",
@@ -3112,7 +4224,7 @@
       "name": "Issue Orbit",
       "category": "verification",
       "kind": "surface",
-      "description": "A graph of sibling issues and PRs that share root cause, symmetry, or adjacency with the focal issue. Not a list of findings \u2014 each card is metadata about another issue.",
+      "description": "A graph of sibling issues and PRs that share root cause, symmetry, or adjacency with the focal issue. Not a list of findings — each card is metadata about another issue.",
       "structuralContract": "Two-column card grid. Each card names another issue/PR, its state, its relationship to the focal issue, and why it matters. Use when a doc needs to preserve the shape of nearby bugs in the same problem space.",
       "notFor": [
         "observations about the focal issue (use symptom-observation)",
@@ -3120,7 +4232,7 @@
         "general references or citations"
       ],
       "promptGuidance": {
-        "operatingThesis": "Each card describes a different issue and its relationship to the focal one. The relationship is required \u2014 a card without a clear relationship does not belong here.",
+        "operatingThesis": "Each card describes a different issue and its relationship to the focal one. The relationship is required — a card without a clear relationship does not belong here.",
         "keepDistinct": [
           "sibling issue identity",
           "github state",
@@ -3128,14 +4240,14 @@
           "relevance to focal"
         ],
         "inspect": [
-          "Verify the github_state is current \u2014 closed issues may have reopened, open issues may have gone stale.",
-          "Challenge the relationship classification \u2014 a weak relationship is usually no relationship."
+          "Verify the github_state is current — closed issues may have reopened, open issues may have gone stale.",
+          "Challenge the relationship classification — a weak relationship is usually no relationship."
         ],
         "update": [
           "When a sibling issue is closed by a PR, link it via ticketIds or notes and update status."
         ],
         "avoid": [
-          "Do not include issues with only topical overlap \u2014 the relationship must be structural."
+          "Do not include issues with only topical overlap — the relationship must be structural."
         ]
       },
       "icon": "<circle cx='10' cy='10' r='2'/><circle cx='10' cy='10' r='6' fill='none' stroke='currentColor' stroke-width='1' opacity='.4'/><circle cx='16' cy='10' r='1.5'/><circle cx='6' cy='14' r='1.5'/><circle cx='6' cy='6' r='1.5'/>",
@@ -3207,7 +4319,7 @@
         "tried fixes (use attempt-log)"
       ],
       "promptGuidance": {
-        "operatingThesis": "Each anchor pins source code at a revision. Without a revision, a code anchor is not trustworthy \u2014 if the file moves, the pointer stales silently.",
+        "operatingThesis": "Each anchor pins source code at a revision. Without a revision, a code anchor is not trustworthy — if the file moves, the pointer stales silently.",
         "keepDistinct": [
           "file path",
           "line range",
@@ -3293,15 +4405,15 @@
       "name": "Symptom Observation",
       "category": "verification",
       "kind": "act",
-      "description": "Observed behaviors with reproduction paths and witness attribution. Distinct from generic findings \u2014 the presence of repro steps and a named witness is the semantic contract.",
-      "structuralContract": "Two-column card grid. Each card is one observed behavior with environment, reproduction steps, and a witness. Use when the section captures reproducible behaviors of a bug or feature \u2014 not generalized findings.",
+      "description": "Observed behaviors with reproduction paths and witness attribution. Distinct from generic findings — the presence of repro steps and a named witness is the semantic contract.",
+      "structuralContract": "Two-column card grid. Each card is one observed behavior with environment, reproduction steps, and a witness. Use when the section captures reproducible behaviors of a bug or feature — not generalized findings.",
       "notFor": [
         "conclusions or synthesized findings (use investigation-findings)",
         "tried fixes (use attempt-log)",
         "decisions or positions (use maintainer-stance or decision-record)"
       ],
       "promptGuidance": {
-        "operatingThesis": "A symptom is a reproducible behavior. Without repro steps and a witness, it is not a symptom \u2014 it is a generic finding and belongs elsewhere.",
+        "operatingThesis": "A symptom is a reproducible behavior. Without repro steps and a witness, it is not a symptom — it is a generic finding and belongs elsewhere.",
         "keepDistinct": [
           "environment",
           "reproduction steps",
@@ -3309,7 +4421,7 @@
           "contradicting observers (when present)"
         ],
         "inspect": [
-          "Verify the repro steps actually reproduce \u2014 if the environment shifted, mark unconfirmed.",
+          "Verify the repro steps actually reproduce — if the environment shifted, mark unconfirmed.",
           "Check whether any other observer contradicted the symptom."
         ],
         "update": [
@@ -3382,8 +4494,8 @@
       "name": "Maintainer Stance",
       "category": "verification",
       "kind": "surface",
-      "description": "Named, evolving positions held by stakeholders. Distinct from settled decision records \u2014 a stance has an owner, a timestamp, and may be rebutted or shift over time.",
-      "structuralContract": "One-column card grid. Each card is one stakeholder's position with rationale and any rebuttal. Use when the section preserves an evolving debate \u2014 not a settled team decision.",
+      "description": "Named, evolving positions held by stakeholders. Distinct from settled decision records — a stance has an owner, a timestamp, and may be rebutted or shift over time.",
+      "structuralContract": "One-column card grid. Each card is one stakeholder's position with rationale and any rebuttal. Use when the section preserves an evolving debate — not a settled team decision.",
       "notFor": [
         "settled, authoritative decisions (use decision-record)",
         "observations (use symptom-observation or investigation-findings)",
@@ -3401,14 +4513,14 @@
         ],
         "inspect": [
           "Verify the stated_at timestamp links to the original comment or statement.",
-          "Check whether the stance has shifted since \u2014 update evolution accordingly."
+          "Check whether the stance has shifted since — update evolution accordingly."
         ],
         "update": [
           "When a stance is rebutted or softens, add to rebuttal/evolution rather than overwriting position."
         ],
         "avoid": [
           "Do not promote a stance to a decision before the team actually decides.",
-          "Do not erase a stance that was retracted \u2014 mark it retracted and preserve the history."
+          "Do not erase a stance that was retracted — mark it retracted and preserve the history."
         ]
       },
       "icon": "<path opacity='.28' d='M4 6h12v10H4z'/><circle cx='8' cy='10' r='1.5'/><circle cx='14' cy='10' r='1.5'/><path d='M6 14h3M11 14h3' stroke='currentColor' stroke-width='1' stroke-linecap='round'/>",
@@ -3625,7 +4737,7 @@
         },
         {
           "key": "deltaVsLastPeriod",
-          "label": "\u0394 vs last period"
+          "label": "Δ vs last period"
         }
       ],
       "domain": "intelligence",
@@ -3775,11 +4887,11 @@
       "textFields": [
         {
           "key": "axisX",
-          "label": "Magnitude (weak \u2192 strong)"
+          "label": "Magnitude (weak → strong)"
         },
         {
           "key": "axisY",
-          "label": "Institutional role (market \u2192 institution)"
+          "label": "Institutional role (market → institution)"
         },
         {
           "key": "priorPosition",
@@ -3793,8 +4905,8 @@
       "name": "Build Lifecycle Surface",
       "category": "monitoring",
       "kind": "surface",
-      "description": "Parallel lifecycle status across a coherent set of physical or contractual build items. Each card is one item (a datacenter campus, a power-purchase agreement, a plant) progressing through announced \u2192 permitting \u2192 construction \u2192 energizing \u2192 operational.",
-      "structuralContract": "Two-column card grid of build-lifecycle items. Each card has a current lifecycle status, planned and operational capacity (text), operator attribution, location, first-announced and expected-operational dates, and an optional delay-versus-plan description. Use when tracking the gap between what was announced and what actually gets delivered \u2014 not for strategic postures and not for events.",
+      "description": "Parallel lifecycle status across a coherent set of physical or contractual build items. Each card is one item (a datacenter campus, a power-purchase agreement, a plant) progressing through announced → permitting → construction → energizing → operational.",
+      "structuralContract": "Two-column card grid of build-lifecycle items. Each card has a current lifecycle status, planned and operational capacity (text), operator attribution, location, first-announced and expected-operational dates, and an optional delay-versus-plan description. Use when tracking the gap between what was announced and what actually gets delivered — not for strategic postures and not for events.",
       "notFor": [
         "strategic posture tracking (use competitor-stance-track)",
         "discrete dated events (use strategic-move-log)",
@@ -3807,11 +4919,11 @@
           "planned capacity and operational capacity as separate fields",
           "operator attribution and location",
           "first-announced date and expected-operational date",
-          "delay versus plan \u2014 described, not collapsed into status"
+          "delay versus plan — described, not collapsed into status"
         ],
         "inspect": [
           "Confirm the current lifecycle state against a dated public source before transitioning status.",
-          "Check whether operationalCapacity has moved \u2014 that is the indicator that matters more than status by itself."
+          "Check whether operationalCapacity has moved — that is the indicator that matters more than status by itself."
         ],
         "update": [
           "Preserve the history by updating expectedOperational with a new date rather than rewriting the original.",
@@ -3819,7 +4931,7 @@
         ],
         "avoid": [
           "Do not use announced capacity as if it were delivered capacity.",
-          "Do not drop a card when a project is cancelled \u2014 mark it cancelled and keep the record."
+          "Do not drop a card when a project is cancelled — mark it cancelled and keep the record."
         ]
       },
       "icon": "<rect x='3' y='10' width='4' height='10' rx='.8' opacity='.28'/><rect x='9' y='6' width='4' height='14' rx='.8' opacity='.5'/><rect x='15' y='3' width='4' height='17' rx='.8' opacity='.8'/><path d='M3 20h18' fill='none' stroke='currentColor' stroke-width='1.4'/><path d='M6 6l3 0M12 3l3 0' fill='none' stroke='currentColor' stroke-width='1.4' opacity='.55'/>",
@@ -3898,7 +5010,7 @@
       "category": "monitoring",
       "kind": "surface",
       "description": "An organization's strategic posture tracked across monitoring periods, where the 'stance' is revealed through behavior (launches, pricing, hires, earnings commentary) rather than stated in writing.",
-      "structuralContract": "One-column card grid. Each card names a competitor with sector/stage/geography, a strategic-posture label, a one-paragraph current-bet prose, an evolutionSinceLastPeriod field describing behavioral shifts, and references to signals (press, earnings, product pages). Use for tracking organizations. Not for individual public-intellectual stances \u2014 those belong in expert-stance-track.",
+      "structuralContract": "One-column card grid. Each card names a competitor with sector/stage/geography, a strategic-posture label, a one-paragraph current-bet prose, an evolutionSinceLastPeriod field describing behavioral shifts, and references to signals (press, earnings, product pages). Use for tracking organizations. Not for individual public-intellectual stances — those belong in expert-stance-track.",
       "notFor": [
         "individual public-intellectual stances (use expert-stance-track)",
         "one-off PR or forum positions (use maintainer-stance)",
@@ -3909,13 +5021,13 @@
         "keepDistinct": [
           "company name and identifying facts (sector, stage, geography)",
           "current strategic posture as a label",
-          "current bet prose \u2014 what they are actually investing in right now",
-          "evolution since last period \u2014 behavioral moves that shifted the picture",
-          "signal references \u2014 the events and publications that ground the read"
+          "current bet prose — what they are actually investing in right now",
+          "evolution since last period — behavioral moves that shifted the picture",
+          "signal references — the events and publications that ground the read"
         ],
         "inspect": [
-          "Check public signals in the current monitoring period before shifting a posture \u2014 launches, pricing updates, exec hires, earnings transcripts, job posts, product-page edits.",
-          "Re-derive the current bet from the last 3\u20136 months of behavior, not from a dated About page."
+          "Check public signals in the current monitoring period before shifting a posture — launches, pricing updates, exec hires, earnings transcripts, job posts, product-page edits.",
+          "Re-derive the current bet from the last 3–6 months of behavior, not from a dated About page."
         ],
         "update": [
           "When a competitor softens, retracts, or pivots a bet, record the status transition and cite the triggering signals in evolutionSinceLastPeriod.",
@@ -3924,7 +5036,7 @@
         "avoid": [
           "Do not infer a pivot from a single data point. Strategic shifts require corroborating signals.",
           "Do not source from confidential or paid-subscription intel in a shareable tracker.",
-          "Do not conflate a marketing narrative with a strategic bet \u2014 marketing speaks; behavior reveals."
+          "Do not conflate a marketing narrative with a strategic bet — marketing speaks; behavior reveals."
         ]
       },
       "icon": "<path opacity='.24' d='M4 20V8l8-4 8 4v12z'/><path d='M9 20v-6h6v6zm-3-8h2v2H6zm10 0h2v2h-2z'/>",
@@ -3991,8 +5103,8 @@
       "name": "Strategic Move Log",
       "category": "monitoring",
       "kind": "surface",
-      "description": "Discrete actions taken by tracked competitors with observable effect \u2014 product launches, pricing changes, acquisitions, key hires, partnerships, exits. Events that happened in the world, not sources you read to learn about them.",
-      "structuralContract": "One-column card grid of move-outcome items. Each card is one dated move attributed to a tracked competitor (byCompany reference), with moveType, dateOf, inferred intent, observed effect, and optional linkedIndicators. Use for the record of what competitors did. Not for articles or analyst reports you consumed \u2014 those are citations.",
+      "description": "Discrete actions taken by tracked competitors with observable effect — product launches, pricing changes, acquisitions, key hires, partnerships, exits. Events that happened in the world, not sources you read to learn about them.",
+      "structuralContract": "One-column card grid of move-outcome items. Each card is one dated move attributed to a tracked competitor (byCompany reference), with moveType, dateOf, inferred intent, observed effect, and optional linkedIndicators. Use for the record of what competitors did. Not for articles or analyst reports you consumed — those are citations.",
       "notFor": [
         "articles, papers, or interviews you read (use citation-feed)",
         "your own organization's strategic moves (that is a work-bounded doc)",
@@ -4004,8 +5116,8 @@
           "which competitor made the move (byCompany reference)",
           "move type (launch / pricing / acquisition / hire / partnership / exit / product-retired)",
           "when it happened (dateOf)",
-          "inferred intent \u2014 what the competitor is trying to achieve",
-          "observed effect \u2014 what changed after the move",
+          "inferred intent — what the competitor is trying to achieve",
+          "observed effect — what changed after the move",
           "indicators the move is expected to or did affect"
         ],
         "inspect": [
@@ -4013,12 +5125,12 @@
           "Check whether an indicator card needs updating as the observed effect."
         ],
         "update": [
-          "Transition move-outcome as evidence lands: pending-evaluation \u2192 succeeded / failed / ambiguous.",
+          "Transition move-outcome as evidence lands: pending-evaluation → succeeded / failed / ambiguous.",
           "Cross-link to the competitor card via byCompany so the stance evolution can cite the moves that drove it."
         ],
         "avoid": [
           "Do not invent intent without corroborating signals from the competitor.",
-          "Do not treat marketing press as a move \u2014 moves require an actual change in what the competitor does (ship, price, hire, buy, exit).",
+          "Do not treat marketing press as a move — moves require an actual change in what the competitor does (ship, price, hire, buy, exit).",
           "Do not file a move before its dateOf has passed; forecasted moves belong in the predictions ladder, not here."
         ]
       },
@@ -4089,7 +5201,7 @@
         "editorial decisions about methodology (use decision-record)"
       ],
       "promptGuidance": {
-        "operatingThesis": "The change-log is the reader's ambient signal for what drifted since the paired dossier was frozen. Entries are generated \u2014 don't hand-write them. If the entry looks wrong, fix the diff script, not the data.",
+        "operatingThesis": "The change-log is the reader's ambient signal for what drifted since the paired dossier was frozen. Entries are generated — don't hand-write them. If the entry looks wrong, fix the diff script, not the data.",
         "keepDistinct": [
           "commit SHA and commit subject",
           "the target section and card the change applied to",
@@ -4102,7 +5214,7 @@
           "Verify the from-ref matches the dossier-source-commit meta on the paired dossier piece."
         ],
         "update": [
-          "Regenerate the section whenever the living doc is committed to \u2014 not per-edit.",
+          "Regenerate the section whenever the living doc is committed to — not per-edit.",
           "Leave historical entries in place; do not re-write past entries retroactively."
         ],
         "avoid": [
@@ -4177,7 +5289,7 @@
         "settled decisions with no live signal (use decision-record)"
       ],
       "promptGuidance": {
-        "operatingThesis": "Each card is a pact: a declarative hypothesis, a window with start and end, the signals being tracked, and a closure that picks one of three legitimate moves \u2014 persist, pause, or pivot. The closure carries the data; the running state is just the wait.",
+        "operatingThesis": "Each card is a pact: a declarative hypothesis, a window with start and end, the signals being tracked, and a closure that picks one of three legitimate moves — persist, pause, or pivot. The closure carries the data; the running state is just the wait.",
         "keepDistinct": [
           "hypothesis",
           "window (start and end)",
@@ -4187,18 +5299,18 @@
           "rationale on closure"
         ],
         "inspect": [
-          "Check that every running card has a window end date \u2014 undated experiments quietly turn into permanent commitments.",
+          "Check that every running card has a window end date — undated experiments quietly turn into permanent commitments.",
           "Check that closed cards have an outcome and a one or two sentence rationale.",
-          "If a card has been running past its window without a closure, that is itself a signal \u2014 either close it or extend the window deliberately."
+          "If a card has been running past its window without a closure, that is itself a signal — either close it or extend the window deliberately."
         ],
         "update": [
           "When the window closes, set status=closed, set outcome, and write the rationale before moving on. Skipping the rationale loses the data the experiment was trying to gather.",
           "If pivoting, link nextPact to the follow-up experiment so the chain stays traceable.",
-          "Persisting does not mean unchanged \u2014 write down what is being kept and what (if anything) is being adjusted."
+          "Persisting does not mean unchanged — write down what is being kept and what (if anything) is being adjusted."
         ],
         "avoid": [
           "Do not use this for tasks that have no hypothesis. Tasks without a question being asked belong in attempt-log or operating-surface.",
-          "Do not collapse persist/pause/pivot into pass/fail \u2014 the three-way choice is the point.",
+          "Do not collapse persist/pause/pivot into pass/fail — the three-way choice is the point.",
           "Do not let cards drift past their window without a closure. The closure is what makes it an experiment."
         ]
       },
@@ -4260,7 +5372,7 @@
         {
           "id": "check-window-elapsed",
           "name": "Check window elapsed",
-          "description": "If the window end has passed and status is still running, propose closure \u2014 surface the signals collected so far and ask the user for an outcome and rationale."
+          "description": "If the window end has passed and status is still running, propose closure — surface the signals collected so far and ask the user for an outcome and rationale."
         },
         {
           "id": "draft-rationale",
@@ -4705,12 +5817,12 @@
     {
       "id": "propose-coverage",
       "name": "Propose coverage edges",
-      "description": "Map the card to the objective facets it carries. Surface orphan facets honestly if none match \u2014 do not fabricate coverage."
+      "description": "Map the card to the objective facets it carries. Surface orphan facets honestly if none match — do not fabricate coverage."
     },
     {
       "id": "summarise",
       "name": "Summarise",
-      "description": "Concise one-paragraph summary of the card's current state. Read-only \u2014 never writes changes back to the doc."
+      "description": "Concise one-paragraph summary of the card's current state. Read-only — never writes changes back to the doc."
     }
   ]
 }
