@@ -68,6 +68,7 @@ export default defineTemplate({
       stage: 'Seeding',
       severity: 'high',
       when: 'design-code-spec-flow has no source-backed cards',
+      condition: { kind: 'section-empty', type: 'design-code-spec-flow' },
       question: 'What first real surface, spec, code path, and ticket make this delivery doc tangible?',
     },
     {
@@ -75,6 +76,7 @@ export default defineTemplate({
       stage: 'Coherence',
       severity: 'high',
       when: 'design-code-spec-flow exists but design-implementation-alignment has no corresponding rows',
+      condition: { kind: 'related-relationship-gap' },
       question: 'Which surface-flow cards lack an implementation-alignment judgment?',
       relatedRelationships: ['flow-feeds-alignment'],
     },
@@ -83,6 +85,11 @@ export default defineTemplate({
       stage: 'Operation',
       severity: 'medium',
       when: 'alignment rows are partial/current but verification-checkpoints do not cover the same surface concerns',
+      condition: {
+        kind: 'source-populated-target-empty',
+        sourceType: 'design-implementation-alignment',
+        targetType: 'verification-checkpoints',
+      },
       question: 'Which verification checkpoint would make the current implementation alignment actionable?',
       relatedRelationships: ['alignment-requires-verification'],
     },
@@ -91,6 +98,7 @@ export default defineTemplate({
       stage: 'Refresh',
       severity: 'medium',
       when: 'status-snapshot or alignment state is older than source/code/check updates',
+      condition: { kind: 'manual-review' },
       question: 'What changed since the last delivery pass, and which status should move?',
     },
     {
@@ -98,6 +106,10 @@ export default defineTemplate({
       stage: 'Judgment',
       severity: 'high',
       when: 'surface flow, alignment, verification, and tooling are all populated and linked',
+      condition: {
+        kind: 'all-populated-no-high-gaps',
+        types: ['design-code-spec-flow', 'design-implementation-alignment', 'verification-checkpoints', 'tooling-surface'],
+      },
       question: 'Is the surface shippable, blocked, or only visually/partially complete?',
       relatedRelationships: ['flow-feeds-alignment', 'alignment-requires-verification', 'tooling-supports-verification'],
     },

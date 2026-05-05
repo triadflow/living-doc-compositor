@@ -746,28 +746,40 @@ function relationshipGapQuestion(relationship, status) {
 }
 
 function evaluateStageSignal(signal, sectionStats, gaps) {
-  const stage = signal.stage;
-  if (stage === 'Seeding') {
-    const flow = sectionStats.get('design-code-spec-flow');
-    if (!flow || flow.cardCount === 0) return { triggered: true, reason: 'The objective-bearing surface-flow section has no cards.' };
-  }
-  if (stage === 'Coherence') {
-    const hasRelatedGap = (signal.relatedRelationships || []).some((id) => gaps.some((gap) => gap.relationshipId === id));
-    if (hasRelatedGap) return { triggered: true, reason: 'An expected relationship needed for whole-doc coherence is missing or weak.' };
-  }
-  if (stage === 'Operation') {
-    const alignment = sectionStats.get('design-implementation-alignment');
-    const verification = sectionStats.get('verification-checkpoints');
-    if (alignment?.cardCount > 0 && (!verification || verification.cardCount === 0)) {
-      return { triggered: true, reason: 'Alignment exists, but no verification checkpoints make it actionable.' };
+  const condition = signal.condition || {};
+  if (!condition.kind || condition.kind === 'manual-review') return { triggered: false, reason: '' };
+
+  if (condition.kind === 'section-empty') {
+    const stats = sectionStats.get(condition.type);
+    if (!stats || stats.cardCount === 0) {
+      return { triggered: true, reason: `${condition.type} has no cards.` };
     }
   }
-  if (stage === 'Judgment') {
-    const requiredTypes = ['design-code-spec-flow', 'design-implementation-alignment', 'verification-checkpoints', 'tooling-surface'];
-    const populated = requiredTypes.every((type) => (sectionStats.get(type)?.cardCount || 0) > 0);
-    const highGaps = gaps.some((gap) => gap.severity === 'high');
-    if (populated && !highGaps) return { triggered: true, reason: 'All critical surface-delivery sections are populated and no high-severity relationship gaps were found.' };
+
+  if (condition.kind === 'related-relationship-gap') {
+    const hasRelatedGap = (signal.relatedRelationships || []).some((id) => gaps.some((gap) => gap.relationshipId === id));
+    if (hasRelatedGap) {
+      return { triggered: true, reason: 'An expected relationship referenced by this stage signal is missing or weak.' };
+    }
   }
+
+  if (condition.kind === 'source-populated-target-empty') {
+    const source = sectionStats.get(condition.sourceType);
+    const target = sectionStats.get(condition.targetType);
+    if ((source?.cardCount || 0) > 0 && (!target || target.cardCount === 0)) {
+      return { triggered: true, reason: `${condition.sourceType} has cards, but ${condition.targetType} has no cards.` };
+    }
+  }
+
+  if (condition.kind === 'all-populated-no-high-gaps') {
+    const types = Array.isArray(condition.types) ? condition.types : [];
+    const populated = types.every((type) => (sectionStats.get(type)?.cardCount || 0) > 0);
+    const highGaps = gaps.some((gap) => gap.severity === 'high');
+    if (populated && !highGaps) {
+      return { triggered: true, reason: 'All required condition types are populated and no high-severity relationship gaps were found.' };
+    }
+  }
+
   return { triggered: false, reason: '' };
 }
 

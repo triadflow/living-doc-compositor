@@ -35,6 +35,7 @@ function normalizeTemplateDefinition(definition) {
       id: signal.id,
       stage: signal.stage,
       when: signal.when || '',
+      condition: signal.condition || null,
       severity: signal.severity || 'medium',
       question: signal.question || '',
       relatedRelationships: signal.relatedRelationships || [],

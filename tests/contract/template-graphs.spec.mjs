@@ -9,6 +9,13 @@ assert.equal(check.status, 0, check.stderr || check.stdout);
 
 const registry = JSON.parse(await readFile('scripts/living-doc-registry.json', 'utf8'));
 const graph = JSON.parse(await readFile('scripts/generated/living-doc-template-graphs.json', 'utf8'));
+const conditionKinds = new Set([
+  'section-empty',
+  'related-relationship-gap',
+  'source-populated-target-empty',
+  'all-populated-no-high-gaps',
+  'manual-review',
+]);
 
 assert.equal(graph.schema, 'living-doc-semantic-graph/v1');
 assert.ok(graph.templates && typeof graph.templates === 'object', 'graph must define templates');
@@ -50,6 +57,8 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
   for (const signal of templateGraph.stageSignals) {
     assert.ok(signal.id, `${templateId} stage signal missing id`);
     assert.ok(signal.stage, `${templateId}.${signal.id} missing stage`);
+    assert.ok(signal.condition && typeof signal.condition === 'object', `${templateId}.${signal.id} missing condition`);
+    assert.ok(conditionKinds.has(signal.condition.kind), `${templateId}.${signal.id} has unknown condition kind ${signal.condition.kind}`);
     for (const relationshipId of signal.relatedRelationships || []) {
       assert.ok(relationshipIds.has(relationshipId), `${templateId}.${signal.id} references unknown relationship ${relationshipId}`);
     }
