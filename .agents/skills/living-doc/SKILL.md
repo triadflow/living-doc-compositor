@@ -55,6 +55,14 @@ For each discovered doc, read the JSON and assess:
   ```
 - **Staleness** — flag sections where the timestamp is older than the most recent relevant commit
 - **Meta-layer freshness** — if the doc carries `objectiveFacets`, check `metaFingerprint` against the current sections.
+- **Semantic template context** — if the doc matches a generated template graph, inspect generated semantics:
+  ```text
+  living_doc_semantic_context
+  living_doc_relationship_gaps
+  living_doc_stage_diagnostics
+  living_doc_valid_stage_operations
+  ```
+  Report the inferred `templateId`, likely stage, relationship gaps, valid operations for that stage, and whether any relationship gap includes a validated `patchDraft`.
 
 Present a summary:
 
@@ -68,6 +76,11 @@ Last updated: <timestamp> (<relative>)
 Stale sections: <list or "none">
 Governance layer: <present | absent>
 Meta fingerprint: <fresh | stale: reason | missing>
+Semantic template: <templateId | none>
+Likely stage: <stage | none>
+Relationship gaps: <N> (<top gap kinds or "none">)
+Valid stage operations: <operation ids or "none">
+Patch drafts: <N validated | none>
 ```
 
 ### 3. VERIFY META FRESHNESS BEFORE EDITING
@@ -97,6 +110,9 @@ node -e "import('./scripts/meta-fingerprint.mjs').then(async m => {
 When working in the domain and you notice the living doc is stale or incomplete:
 
 - Read the convergence type from the registry to know what entity types each section needs
+- If the doc has generated semantic context, read relationship gaps and stage diagnostics before choosing an update target.
+- Prefer valid stage operations from `living_doc_valid_stage_operations` when the update is repairing a generated relationship or stage gap.
+- Treat relationship-gap `patchDraft` output as an editable starting point, not an automatic edit. Before applying any draft, inspect the card fields, confirm it fits the source material, and validate it with `living_doc_patch_validate`; then apply through `living_doc_patch_apply` only when it is correct.
 - Read the `syncHints` for scope boundaries (repo, branch, Figma file, etc.)
 - Find the actual entities from the codebase, tickets, or other sources
 - Update the data arrays in the JSON
@@ -122,5 +138,6 @@ Updated <doc title>:
 2. **Don't force updates.** Only update sections relevant to the current work. A session fixing a bug doesn't need to sync the design alignment section.
 3. **Full-precision timestamps.** Always write ISO timestamps with time, not just dates. Freshness matters at hour level.
 4. **The registry is the vocabulary.** Look up convergence types in `scripts/living-doc-registry.json` to know what entity types each section expects.
-5. **Render after updating.** If `render-living-doc.mjs` exists, re-render the HTML so the human-readable view stays in sync.
-6. **Refresh the meta layer before trusting it.** If a doc has `objectiveFacets` but its fingerprint is stale, `coverage` is a liar — do not use it for section targeting until `/crystallize --refresh` runs.
+5. **Generated semantics are operational.** When a doc matches a generated template graph, use `living_doc_semantic_context`, relationship gaps, stage diagnostics, valid operations, and validated patch drafts to choose the next concrete repair.
+6. **Render after updating.** If `render-living-doc.mjs` exists, re-render the HTML so the human-readable view stays in sync.
+7. **Refresh the meta layer before trusting it.** If a doc has `objectiveFacets` but its fingerprint is stale, `coverage` is a liar — do not use it for section targeting until `/crystallize --refresh` runs.

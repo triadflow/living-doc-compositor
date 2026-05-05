@@ -699,7 +699,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/typed-semantic-definitions-refactor.json",
   "sourceCoverage": "Seeded from GitHub issue #163 and internal model pages created on 2026-05-05.",
-  "updated": "2026-05-05T12:09:36.321Z",
+  "updated": "2026-05-05T12:14:30.819Z",
   "pills": [
     "Refactor",
     "Semantic Definitions",
@@ -859,7 +859,7 @@
         "items": [
           "The full refactor objective is integration: typed definitions become the executable source for semantic machinery while concrete living docs remain JSON artifacts.",
           "The remaining questions are implementation checkpoints, not direction decisions: what to migrate next, what to generate next, how skills consume the MCP output, and what proof closes the full refactor.",
-          "The current slices prove the substrate works and now make selected template artifacts carry generated semantic blocks, but the refactor is not finished until the selected registry/template semantics, MCP behavior, skill operation path, render/sync path, and drift tests are integrated as one maintained system."
+          "The current slices prove the substrate works, make selected template artifacts carry generated semantic blocks, and route the core skills through semantic diagnostics and patch drafts; the refactor is not finished until the selected registry/template semantics, MCP behavior, skill operation path, render/sync path, and drift tests are integrated as one maintained system."
         ]
       },
       "data": []
@@ -957,7 +957,7 @@
       "title": "Model Assertions",
       "convergenceType": "model-assertion",
       "rationale": "Keeps the core claims of the refactor explicit so implementation does not proceed on hidden assumptions about JSON, code representation, MCP value, or proof requirements.",
-      "updated": "2026-05-05T12:04:19.944Z",
+      "updated": "2026-05-05T12:14:30.819Z",
       "data": [
         {
           "id": "full-integration-objective-is-settled",
@@ -1107,7 +1107,7 @@
           "notes": [
             "The destination is full integration: typed definitions author the selected semantic structure and behavior, generated artifacts stay deterministic and readable, MCP consumes the generated semantics, skills can operate from the diagnostics, and JSON remains the document instance format.",
             "Current completed checkpoints include typed definitions for three template families, generated graphs and diagrams, generated semantic-definition blocks embedded into selected template JSON artifacts, semantic context in rendered snapshots, relationship and stage diagnostics, repair operations, patch drafts, and contract coverage.",
-            "Remaining checkpoints include expanding typed coverage where the current templates still depend on hand-maintained JSON/prose, making skill workflows consume the MCP diagnostics and patch drafts, deciding whether selected registry fields should also be generated, and closing the proof that render/sync/MCP/tests all share the same semantic source.",
+            "Remaining checkpoints include expanding typed coverage where the current templates still depend on hand-maintained JSON/prose, proving skill workflows consume the MCP diagnostics and patch drafts in real runs, deciding whether selected registry fields should also be generated, and closing the proof that render/sync/MCP/tests all share the same semantic source.",
             "Do not stop after very small slices unless the slice clearly advances one of those remaining checkpoints."
           ]
         },
@@ -1320,6 +1320,46 @@
           ]
         },
         {
+          "id": "semantic-skill-instructions",
+          "name": "Semantic-aware skill instructions",
+          "status": "current",
+          "updated": "2026-05-05T12:14:30.819Z",
+          "path": ".agents/skills/living-doc/SKILL.md",
+          "range": "READ AND ASSESS / UPDATE DURING WORK / Key Principles",
+          "revision": "working tree",
+          "what_it_does": "Requires the bootstrap living-doc skill to inspect generated semantic context, relationship gaps, stage diagnostics, valid stage operations, and validated patch drafts when a document matches a generated template graph.",
+          "why_it_matters": [
+            "This makes the generated semantic machinery part of the operator workflow instead of leaving it as an optional MCP surface.",
+            "The skill now treats patch drafts as reviewed operation proposals that must be validated and applied through the patch tools."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "semantic-inference-harness-instructions",
+          "name": "Semantic-aware inference harness instructions",
+          "status": "current",
+          "updated": "2026-05-05T12:14:30.819Z",
+          "path": ".agents/skills/inference-living-doc-run-codex/SKILL.md",
+          "range": "Tool Assumptions / Select Structure / Reflect On Structure / Tool Sequence",
+          "revision": "working tree",
+          "what_it_does": "Requires complex living-doc runs to use generated semantic context, relationship gaps, stage diagnostics, valid operations, and reviewed patch drafts during structure selection and reflection.",
+          "why_it_matters": [
+            "This connects typed semantic definitions to the run harness that actually performs objective work.",
+            "The harness keeps the objective-completion boundary while using generated semantic diagnostics to choose concrete document repair operations."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
           "id": "proof-canonicality-definition-source",
           "name": "Proof-canonicality typed definition source",
           "status": "current",
@@ -1382,7 +1422,7 @@
           "id": "template-artifact-generator",
           "name": "Template artifact semantic generator",
           "status": "current",
-          "updated": "2026-05-05T12:09:36.321Z",
+          "updated": "2026-05-05T12:14:30.819Z",
           "path": "scripts/generate-living-doc-template-artifacts.mjs",
           "range": "whole file",
           "revision": "working tree",
@@ -1836,6 +1876,31 @@
             "`tests/contract/template-artifacts.spec.mjs` checks that each selected template artifact contains a semantic-definition block matching the generated graph and diagram artifacts.",
             "`npm run test:contract` now includes the template artifact contract."
           ]
+        },
+        {
+          "id": "skill-workflow-semantic-diagnostics-slice",
+          "name": "Route skills through generated semantic diagnostics",
+          "status": "probe",
+          "updated": "2026-05-05T12:14:30.819Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Updated the bootstrap living-doc skill and complex inference harness skill to inspect generated semantic context, relationship gaps, stage diagnostics, valid operations, and reviewed patch drafts.",
+            "Added a contract test that prevents those skills from dropping the semantic tool path."
+          ],
+          "what_proved": [
+            "The generated semantic MCP surface is now part of the instructed skill workflow rather than a sidecar tool an agent may ignore."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Patch drafts remain proposals: the skills require review, validation, and application through `living_doc_patch_validate` and `living_doc_patch_apply`.",
+            "`tests/contract/skills-semantic-tools.spec.mjs` checks both skill files for the required semantic and patch tool references."
+          ]
         }
       ]
     },
@@ -1859,7 +1924,7 @@
           ],
           "notes": [
             "The refactor is not complete just because one diagnostic, diagram, or patch draft works.",
-            "Completion requires proof that typed definitions are the maintained source for the selected semantic machinery, generated artifacts are deterministic, selected template artifacts carry generated semantic blocks, MCP behavior uses that generated source, skills can act on the output, rendered docs remain standalone, and contract tests catch drift.",
+            "Completion requires proof that typed definitions are the maintained source for the selected semantic machinery, generated artifacts are deterministic, selected template artifacts carry generated semantic blocks, MCP behavior uses that generated source, skills are instructed to act on the output, rendered docs remain standalone, and contract tests catch drift.",
             "Each implementation slice should name which part of this completion proof it advances."
           ]
         },
@@ -1919,7 +1984,7 @@
           "id": "existing-suite-remains-green",
           "name": "Existing contract and render tests remain green",
           "status": "ready",
-          "updated": "2026-05-05T12:09:36.321Z",
+          "updated": "2026-05-05T12:14:30.819Z",
           "ticketIds": [
             {
               "issueNumber": "163",
@@ -1931,7 +1996,8 @@
             "Targeted render contract proves matching rendered docs embed `doc-semantic-context` with generated graph and diagram payloads.",
             "`npm run test:contract` passes after adding generated repair operations to relationship gaps.",
             "The targeted MCP contract passes after adding patch drafts, embedding validation results in the relationship gap response, and validating those drafts through `living_doc_patch_validate`.",
-            "`npm run test:contract` passes after adding the template artifact generator and selected template artifact contract."
+            "`npm run test:contract` passes after adding the template artifact generator and selected template artifact contract.",
+            "`npm run test:contract` passes after adding the semantic-tools skill contract."
           ]
         },
         {
@@ -2115,6 +2181,7 @@
             "tests/contract/template-graphs.spec.mjs",
             "tests/contract/template-diagrams.spec.mjs",
             "tests/contract/template-artifacts.spec.mjs",
+            "tests/contract/skills-semantic-tools.spec.mjs",
             "tests/contract/mcp-server.spec.mjs",
             "tests/contract/render.spec.mjs"
           ],
@@ -2124,12 +2191,13 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
             }
           ],
-          "purpose": "Ensure generated graph, diagram, and selected template artifact metadata is deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.",
+          "purpose": "Ensure generated graph, diagram, selected template artifact metadata, and semantic-aware skill instructions are deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.",
           "whenToUse": "Run as part of `npm run test:contract` after the generator exists.",
-          "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs && node tests/contract/template-artifacts.spec.mjs && node tests/contract/mcp-server.spec.mjs && node tests/contract/render.spec.mjs",
+          "invocation": "node tests/contract/template-graphs.spec.mjs && node tests/contract/template-diagrams.spec.mjs && node tests/contract/template-artifacts.spec.mjs && node tests/contract/skills-semantic-tools.spec.mjs && node tests/contract/mcp-server.spec.mjs && node tests/contract/render.spec.mjs",
           "caveats": [
             "Validates deterministic generation and registry/template references for surface-delivery, proof-canonicality, and operations-support.",
             "Validates generated semantic-definition blocks embedded into the selected template JSON artifacts.",
+            "Validates the core skills reference generated semantic context, relationship gaps, stage diagnostics, valid operations, patch draft review, patch validation, and patch application.",
             "Validates relationship evidence rule shape in the generated graph.",
             "Validates relationship repair operation references against each template's valid operations.",
             "Validates rendered semantic context embedding on surface-delivery.",
@@ -23409,7 +23477,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-05T12:12:32.115Z" title="2026-05-05T12:12:32.115Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-05T12:12:32.115Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-05T12:15:52.913Z" title="2026-05-05T12:15:52.913Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-05T12:15:52.913Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -23460,7 +23528,7 @@ ${tmplLine}
 
     <section class="callout callout-warning">
       <h3 class="callout-title">Objective is settled; completion is not</h3>
-      <p><span class="callout-line">The full refactor objective is integration: typed definitions become the executable source for semantic machinery while concrete living docs remain JSON artifacts.</span></p><p><span class="callout-line">The remaining questions are implementation checkpoints, not direction decisions: what to migrate next, what to generate next, how skills consume the MCP output, and what proof closes the full refactor.</span></p><p><span class="callout-line">The current slices prove the substrate works and now make selected template artifacts carry generated semantic blocks, but the refactor is not finished until the selected registry/template semantics, MCP behavior, skill operation path, render/sync path, and drift tests are integrated as one maintained system.</span></p>
+      <p><span class="callout-line">The full refactor objective is integration: typed definitions become the executable source for semantic machinery while concrete living docs remain JSON artifacts.</span></p><p><span class="callout-line">The remaining questions are implementation checkpoints, not direction decisions: what to migrate next, what to generate next, how skills consume the MCP output, and what proof closes the full refactor.</span></p><p><span class="callout-line">The current slices prove the substrate works, make selected template artifacts carry generated semantic blocks, and route the core skills through semantic diagnostics and patch drafts; the refactor is not finished until the selected registry/template semantics, MCP behavior, skill operation path, render/sync path, and drift tests are integrated as one maintained system.</span></p>
 
     </section>
 
@@ -23537,7 +23605,7 @@ ${tmplLine}
       </div>
     </section>
     <section class="section" id="assertions" data-section-id="assertions">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#4338ca"><path opacity='.24' d='M12 3l7 4v10l-7 4-7-4V7l7-4z'/><path d='M12 6.2L8.8 8v4.4l3.2 1.8 3.2-1.8V8L12 6.2zm-1 9.2h2V19h-2z'/></svg> Model Assertions <span class="kind-badge kind-act" title="Act type — a kind of thinking-action recorded here">act</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-05T12:04:19.944Z" title="2026-05-05T12:04:19.944Z" data-relative-to-snapshot="true">2026-05-05T12:04:19.944Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#4338ca"><path opacity='.24' d='M12 3l7 4v10l-7 4-7-4V7l7-4z'/><path d='M12 6.2L8.8 8v4.4l3.2 1.8 3.2-1.8V8L12 6.2zm-1 9.2h2V19h-2z'/></svg> Model Assertions <span class="kind-badge kind-act" title="Act type — a kind of thinking-action recorded here">act</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-05T12:14:30.819Z" title="2026-05-05T12:14:30.819Z" data-relative-to-snapshot="true">2026-05-05T12:14:30.819Z</time></span></h2>
 
 
 
@@ -23631,7 +23699,7 @@ ${tmplLine}
       <div class="flow-meta"><strong>Code refs</strong> <a href="../scripts/living-doc-definitions"><code>scripts/living-doc-definitions</code></a> <a href="../scripts/generated/living-doc-template-graphs.json"><code>scripts/generated/living-doc-template-graphs.json</code></a> <a href="../scripts/generated/living-doc-template-diagrams.json"><code>scripts/generated/living-doc-template-diagrams.json</code></a> <a href="../scripts/living-doc-mcp-server.mjs"><code>scripts/living-doc-mcp-server.mjs</code></a> <a href="../scripts/render-living-doc.mjs"><code>scripts/render-living-doc.mjs</code></a> <a href="../tests/contract"><code>tests/contract</code></a></div><div class="flow-meta"><strong>UX spec refs</strong> <code>#issue-163</code> <code>#code-representation-page</code> <code>#graph-mcp-model-page</code></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The destination is full integration: typed definitions author the selected semantic structure and behavior, generated artifacts stay deterministic and readable, MCP consumes the generated semantics, skills can operate from the diagnostics, and JSON remains the document instance format.</span></p><p class="note-description"><span class="note-line">Current completed checkpoints include typed definitions for three template families, generated graphs and diagrams, generated semantic-definition blocks embedded into selected template JSON artifacts, semantic context in rendered snapshots, relationship and stage diagnostics, repair operations, patch drafts, and contract coverage.</span></p><p class="note-description"><span class="note-line">Remaining checkpoints include expanding typed coverage where the current templates still depend on hand-maintained JSON/prose, making skill workflows consume the MCP diagnostics and patch drafts, deciding whether selected registry fields should also be generated, and closing the proof that render/sync/MCP/tests all share the same semantic source.</span></p><p class="note-description"><span class="note-line">Do not stop after very small slices unless the slice clearly advances one of those remaining checkpoints.</span></p>
+      <p class="note-description"><span class="note-line">The destination is full integration: typed definitions author the selected semantic structure and behavior, generated artifacts stay deterministic and readable, MCP consumes the generated semantics, skills can operate from the diagnostics, and JSON remains the document instance format.</span></p><p class="note-description"><span class="note-line">Current completed checkpoints include typed definitions for three template families, generated graphs and diagrams, generated semantic-definition blocks embedded into selected template JSON artifacts, semantic context in rendered snapshots, relationship and stage diagnostics, repair operations, patch drafts, and contract coverage.</span></p><p class="note-description"><span class="note-line">Remaining checkpoints include expanding typed coverage where the current templates still depend on hand-maintained JSON/prose, proving skill workflows consume the MCP diagnostics and patch drafts in real runs, deciding whether selected registry fields should also be generated, and closing the proof that render/sync/MCP/tests all share the same semantic source.</span></p><p class="note-description"><span class="note-line">Do not stop after very small slices unless the slice clearly advances one of those remaining checkpoints.</span></p>
     </div>
 
 
@@ -23819,6 +23887,46 @@ ${tmplLine}
     </div>
     </details>
     </article>
+    <article class="flow-card" id="semantic-skill-instructions" data-section-id="code-anchors" data-card-key="semantic-skill-instructions">
+      <header class="flow-card-header">
+        <div>
+          <h3>Semantic-aware skill instructions</h3>
+          <div class="meta-row"><span><time datetime="2026-05-05T12:14:30.819Z" title="2026-05-05T12:14:30.819Z" data-relative-to-snapshot="true">2026-05-05T12:14:30.819Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-positive">Current</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+
+      <p class="code-refs"><strong>Path</strong> .agents/skills/living-doc/SKILL.md</p><p class="code-refs"><strong>Line</strong> READ AND ASSESS / UPDATE DURING WORK / Key Principles</p><p class="code-refs"><strong>Revision</strong> working tree</p><p class="code-refs"><strong>What it does</strong> Requires the bootstrap living-doc skill to inspect generated semantic context, relationship gaps, stage diagnostics, valid stage operations, and validated patch drafts when a document matches a generated template graph.</p>
+
+    <details class="details-block">
+      <summary>Why it matters (2)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">This makes the generated semantic machinery part of the operator workflow instead of leaving it as an optional MCP surface.</span></p><p class="note-description"><span class="note-line">The skill now treats patch drafts as reviewed operation proposals that must be validated and applied through the patch tools.</span></p>
+    </div>
+    </details>
+    </article>
+    <article class="flow-card" id="semantic-inference-harness-instructions" data-section-id="code-anchors" data-card-key="semantic-inference-harness-instructions">
+      <header class="flow-card-header">
+        <div>
+          <h3>Semantic-aware inference harness instructions</h3>
+          <div class="meta-row"><span><time datetime="2026-05-05T12:14:30.819Z" title="2026-05-05T12:14:30.819Z" data-relative-to-snapshot="true">2026-05-05T12:14:30.819Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-positive">Current</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+
+      <p class="code-refs"><strong>Path</strong> .agents/skills/inference-living-doc-run-codex/SKILL.md</p><p class="code-refs"><strong>Line</strong> Tool Assumptions / Select Structure / Reflect On Structure / Tool Sequence</p><p class="code-refs"><strong>Revision</strong> working tree</p><p class="code-refs"><strong>What it does</strong> Requires complex living-doc runs to use generated semantic context, relationship gaps, stage diagnostics, valid operations, and reviewed patch drafts during structure selection and reflection.</p>
+
+    <details class="details-block">
+      <summary>Why it matters (2)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">This connects typed semantic definitions to the run harness that actually performs objective work.</span></p><p class="note-description"><span class="note-line">The harness keeps the objective-completion boundary while using generated semantic diagnostics to choose concrete document repair operations.</span></p>
+    </div>
+    </details>
+    </article>
     <article class="flow-card" id="proof-canonicality-definition-source" data-section-id="code-anchors" data-card-key="proof-canonicality-definition-source">
       <header class="flow-card-header">
         <div>
@@ -23883,7 +23991,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Template artifact semantic generator</h3>
-          <div class="meta-row"><span><time datetime="2026-05-05T12:09:36.321Z" title="2026-05-05T12:09:36.321Z" data-relative-to-snapshot="true">2026-05-05T12:09:36.321Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-05T12:14:30.819Z" title="2026-05-05T12:14:30.819Z" data-relative-to-snapshot="true">2026-05-05T12:14:30.819Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-positive">Current</span></div>
       </header>
@@ -24453,6 +24561,36 @@ ${tmplLine}
       <p class="note-description"><span class="note-line">The selected template JSON artifacts can now participate in the typed-definition generation chain without moving concrete living doc instances out of JSON.</span></p>
     </div>
     </details>
+    </article>
+    <article class="flow-card" id="skill-workflow-semantic-diagnostics-slice" data-section-id="attempts" data-card-key="skill-workflow-semantic-diagnostics-slice">
+      <header class="flow-card-header">
+        <div>
+          <h3>Route skills through generated semantic diagnostics</h3>
+          <div class="meta-row"><span><time datetime="2026-05-05T12:14:30.819Z" title="2026-05-05T12:14:30.819Z" data-relative-to-snapshot="true">2026-05-05T12:14:30.819Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Probe</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">Patch drafts remain proposals: the skills require review, validation, and application through <code>living_doc_patch_validate</code> and <code>living_doc_patch_apply</code>.</span></p><p class="note-description"><span class="note-line"><code>tests/contract/skills-semantic-tools.spec.mjs</code> checks both skill files for the required semantic and patch tool references.</span></p>
+    </div>
+      <p class="code-refs"><strong>Shipped in</strong> working tree</p><p class="code-refs"><strong>Cost to apply</strong> medium</p>
+
+    <details class="details-block">
+      <summary>What was tried (2)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">Updated the bootstrap living-doc skill and complex inference harness skill to inspect generated semantic context, relationship gaps, stage diagnostics, valid operations, and reviewed patch drafts.</span></p><p class="note-description"><span class="note-line">Added a contract test that prevents those skills from dropping the semantic tool path.</span></p>
+    </div>
+    </details>
+    <details class="details-block">
+      <summary>What it proved (1)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">The generated semantic MCP surface is now part of the instructed skill workflow rather than a sidecar tool an agent may ignore.</span></p>
+    </div>
+    </details>
     </article></div>
       </div>
     </section>
@@ -24476,7 +24614,7 @@ ${tmplLine}
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The refactor is not complete just because one diagnostic, diagram, or patch draft works.</span></p><p class="note-description"><span class="note-line">Completion requires proof that typed definitions are the maintained source for the selected semantic machinery, generated artifacts are deterministic, selected template artifacts carry generated semantic blocks, MCP behavior uses that generated source, skills can act on the output, rendered docs remain standalone, and contract tests catch drift.</span></p><p class="note-description"><span class="note-line">Each implementation slice should name which part of this completion proof it advances.</span></p>
+      <p class="note-description"><span class="note-line">The refactor is not complete just because one diagnostic, diagram, or patch draft works.</span></p><p class="note-description"><span class="note-line">Completion requires proof that typed definitions are the maintained source for the selected semantic machinery, generated artifacts are deterministic, selected template artifacts carry generated semantic blocks, MCP behavior uses that generated source, skills are instructed to act on the output, rendered docs remain standalone, and contract tests catch drift.</span></p><p class="note-description"><span class="note-line">Each implementation slice should name which part of this completion proof it advances.</span></p>
     </div>
 
 
@@ -24533,14 +24671,14 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Existing contract and render tests remain green</h3>
-          <div class="meta-row"><span><time datetime="2026-05-05T12:09:36.321Z" title="2026-05-05T12:09:36.321Z" data-relative-to-snapshot="true">2026-05-05T12:09:36.321Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-05T12:14:30.819Z" title="2026-05-05T12:14:30.819Z" data-relative-to-snapshot="true">2026-05-05T12:14:30.819Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-positive">Ready</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Targeted MCP contract passes with generated graph lookup, generated diagram lookup, relationship gap diagnostics, stage diagnostics, and valid stage operations across three template families.</span></p><p class="note-description"><span class="note-line">Targeted render contract proves matching rendered docs embed <code>doc-semantic-context</code> with generated graph and diagram payloads.</span></p><p class="note-description"><span class="note-line"><code>npm run test:contract</code> passes after adding generated repair operations to relationship gaps.</span></p><p class="note-description"><span class="note-line">The targeted MCP contract passes after adding patch drafts, embedding validation results in the relationship gap response, and validating those drafts through <code>living_doc_patch_validate</code>.</span></p><p class="note-description"><span class="note-line"><code>npm run test:contract</code> passes after adding the template artifact generator and selected template artifact contract.</span></p>
+      <p class="note-description"><span class="note-line">Targeted MCP contract passes with generated graph lookup, generated diagram lookup, relationship gap diagnostics, stage diagnostics, and valid stage operations across three template families.</span></p><p class="note-description"><span class="note-line">Targeted render contract proves matching rendered docs embed <code>doc-semantic-context</code> with generated graph and diagram payloads.</span></p><p class="note-description"><span class="note-line"><code>npm run test:contract</code> passes after adding generated repair operations to relationship gaps.</span></p><p class="note-description"><span class="note-line">The targeted MCP contract passes after adding patch drafts, embedding validation results in the relationship gap response, and validating those drafts through <code>living_doc_patch_validate</code>.</span></p><p class="note-description"><span class="note-line"><code>npm run test:contract</code> passes after adding the template artifact generator and selected template artifact contract.</span></p><p class="note-description"><span class="note-line"><code>npm run test:contract</code> passes after adding the semantic-tools skill contract.</span></p>
     </div>
 
 
@@ -24718,15 +24856,15 @@ ${tmplLine}
         </div>
         <div class="badge-row"><span class="badge badge-positive">Trusted</span></div>
       </header>
-      <div class="flow-meta"><strong>Scripts</strong> <a href="../tests/contract/template-graphs.spec.mjs"><code>tests/contract/template-graphs.spec.mjs</code></a> <a href="../tests/contract/template-diagrams.spec.mjs"><code>tests/contract/template-diagrams.spec.mjs</code></a> <a href="../tests/contract/template-artifacts.spec.mjs"><code>tests/contract/template-artifacts.spec.mjs</code></a> <a href="../tests/contract/mcp-server.spec.mjs"><code>tests/contract/mcp-server.spec.mjs</code></a> <a href="../tests/contract/render.spec.mjs"><code>tests/contract/render.spec.mjs</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+      <div class="flow-meta"><strong>Scripts</strong> <a href="../tests/contract/template-graphs.spec.mjs"><code>tests/contract/template-graphs.spec.mjs</code></a> <a href="../tests/contract/template-diagrams.spec.mjs"><code>tests/contract/template-diagrams.spec.mjs</code></a> <a href="../tests/contract/template-artifacts.spec.mjs"><code>tests/contract/template-artifacts.spec.mjs</code></a> <a href="../tests/contract/skills-semantic-tools.spec.mjs"><code>tests/contract/skills-semantic-tools.spec.mjs</code></a> <a href="../tests/contract/mcp-server.spec.mjs"><code>tests/contract/mcp-server.spec.mjs</code></a> <a href="../tests/contract/render.spec.mjs"><code>tests/contract/render.spec.mjs</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
 
-      <p class="code-refs"><strong>Purpose</strong> Ensure generated graph, diagram, and selected template artifact metadata is deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.</p><p class="code-refs"><strong>When to use</strong> Run as part of <code>npm run test:contract</code> after the generator exists.</p><p class="code-refs"><strong>Invocation</strong> node tests/contract/template-graphs.spec.mjs &amp;&amp; node tests/contract/template-diagrams.spec.mjs &amp;&amp; node tests/contract/template-artifacts.spec.mjs &amp;&amp; node tests/contract/mcp-server.spec.mjs &amp;&amp; node tests/contract/render.spec.mjs</p>
+      <p class="code-refs"><strong>Purpose</strong> Ensure generated graph, diagram, selected template artifact metadata, and semantic-aware skill instructions are deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.</p><p class="code-refs"><strong>When to use</strong> Run as part of <code>npm run test:contract</code> after the generator exists.</p><p class="code-refs"><strong>Invocation</strong> node tests/contract/template-graphs.spec.mjs &amp;&amp; node tests/contract/template-diagrams.spec.mjs &amp;&amp; node tests/contract/template-artifacts.spec.mjs &amp;&amp; node tests/contract/skills-semantic-tools.spec.mjs &amp;&amp; node tests/contract/mcp-server.spec.mjs &amp;&amp; node tests/contract/render.spec.mjs</p>
 
     <details class="details-block">
-      <summary>Caveats and gaps (8)</summary>
+      <summary>Caveats and gaps (9)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Validates deterministic generation and registry/template references for surface-delivery, proof-canonicality, and operations-support.</span></p><p class="note-description"><span class="note-line">Validates generated semantic-definition blocks embedded into the selected template JSON artifacts.</span></p><p class="note-description"><span class="note-line">Validates relationship evidence rule shape in the generated graph.</span></p><p class="note-description"><span class="note-line">Validates relationship repair operation references against each template&#39;s valid operations.</span></p><p class="note-description"><span class="note-line">Validates rendered semantic context embedding on surface-delivery.</span></p><p class="note-description"><span class="note-line">Validates MCP semantic context retrieval from both source JSON and rendered HTML.</span></p><p class="note-description"><span class="note-line">Validates MCP relationship gap detection, repair operation output, patch draft shape, embedded patch validation, and patch draft validation for populated-but-unlinked surface/alignment, assertion/proof, and operation/surface cards.</span></p><p class="note-description"><span class="note-line">Will need stronger assertions as generated diagnostics move from section/card population toward richer card-level semantic edges.</span></p>
+      <p class="note-description"><span class="note-line">Validates deterministic generation and registry/template references for surface-delivery, proof-canonicality, and operations-support.</span></p><p class="note-description"><span class="note-line">Validates generated semantic-definition blocks embedded into the selected template JSON artifacts.</span></p><p class="note-description"><span class="note-line">Validates the core skills reference generated semantic context, relationship gaps, stage diagnostics, valid operations, patch draft review, patch validation, and patch application.</span></p><p class="note-description"><span class="note-line">Validates relationship evidence rule shape in the generated graph.</span></p><p class="note-description"><span class="note-line">Validates relationship repair operation references against each template&#39;s valid operations.</span></p><p class="note-description"><span class="note-line">Validates rendered semantic context embedding on surface-delivery.</span></p><p class="note-description"><span class="note-line">Validates MCP semantic context retrieval from both source JSON and rendered HTML.</span></p><p class="note-description"><span class="note-line">Validates MCP relationship gap detection, repair operation output, patch draft shape, embedded patch validation, and patch draft validation for populated-but-unlinked surface/alignment, assertion/proof, and operation/surface cards.</span></p><p class="note-description"><span class="note-line">Will need stronger assertions as generated diagnostics move from section/card population toward richer card-level semantic edges.</span></p>
     </div>
     </details>
     </article>
@@ -24754,7 +24892,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-1f51408 (2026-05-05)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-86951b6 (2026-05-05)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -25353,7 +25491,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Current</span>
-        <span class="board-count">13</span>
+        <span class="board-count">15</span>
       </header>
       <div class="board-lane-cards">
 
@@ -25404,6 +25542,20 @@ ${tmplLine}
       <h3>Relationship and stage MCP tools</h3>
       <div class="badge-row"><span class="badge badge-positive">Current</span></div>
       <p class="board-card-note"><strong>Path</strong> scripts/living-doc-mcp-server.mjs</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="code-anchors">
+      <div class="board-card-kicker">Code Anchors · Code Anchor</div>
+      <h3>Semantic-aware skill instructions</h3>
+      <div class="badge-row"><span class="badge badge-positive">Current</span></div>
+      <p class="board-card-note"><strong>Path</strong> .agents/skills/living-doc/SKILL.md</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="code-anchors">
+      <div class="board-card-kicker">Code Anchors · Code Anchor</div>
+      <h3>Semantic-aware inference harness instructions</h3>
+      <div class="badge-row"><span class="badge badge-positive">Current</span></div>
+      <p class="board-card-note"><strong>Path</strong> .agents/skills/inference-living-doc-run-codex/SKILL.md</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="code-anchors">
@@ -25482,7 +25634,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Probe</span>
-        <span class="board-count">17</span>
+        <span class="board-count">18</span>
       </header>
       <div class="board-lane-cards">
 
@@ -25601,6 +25753,13 @@ ${tmplLine}
     <article class="board-card" data-section-id="attempts">
       <div class="board-card-kicker">Attempt Log · Attempt Log</div>
       <h3>Generate semantic blocks into selected template artifacts</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Probe</span></div>
+      <p class="board-card-note"><strong>Shipped in</strong> working tree</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="attempts">
+      <div class="board-card-kicker">Attempt Log · Attempt Log</div>
+      <h3>Route skills through generated semantic diagnostics</h3>
       <div class="badge-row"><span class="badge badge-neutral">Probe</span></div>
       <p class="board-card-note"><strong>Shipped in</strong> working tree</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
@@ -25863,8 +26022,8 @@ ${tmplLine}
       <div class="board-card-kicker">Tooling Surface · Tooling Surface</div>
       <h3>Template graph contract test</h3>
       <div class="badge-row"><span class="badge badge-positive">Trusted</span></div>
-      <p class="board-card-note"><strong>Purpose</strong> Ensure generated graph, diagram, and selected template artifact metadata is deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.</p>
-      <div class="flow-meta"><strong>Scripts</strong> <a href="../tests/contract/template-graphs.spec.mjs"><code>tests/contract/template-graphs.spec.mjs</code></a> <a href="../tests/contract/template-diagrams.spec.mjs"><code>tests/contract/template-diagrams.spec.mjs</code></a> <a href="../tests/contract/template-artifacts.spec.mjs"><code>tests/contract/template-artifacts.spec.mjs</code></a> <a href="../tests/contract/mcp-server.spec.mjs"><code>tests/contract/mcp-server.spec.mjs</code></a> <a href="../tests/contract/render.spec.mjs"><code>tests/contract/render.spec.mjs</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
+      <p class="board-card-note"><strong>Purpose</strong> Ensure generated graph, diagram, selected template artifact metadata, and semantic-aware skill instructions are deterministic, references valid registry/template types and relationships, is exposed through MCP, travels with rendered matching docs, and can be retrieved from rendered snapshots.</p>
+      <div class="flow-meta"><strong>Scripts</strong> <a href="../tests/contract/template-graphs.spec.mjs"><code>tests/contract/template-graphs.spec.mjs</code></a> <a href="../tests/contract/template-diagrams.spec.mjs"><code>tests/contract/template-diagrams.spec.mjs</code></a> <a href="../tests/contract/template-artifacts.spec.mjs"><code>tests/contract/template-artifacts.spec.mjs</code></a> <a href="../tests/contract/skills-semantic-tools.spec.mjs"><code>tests/contract/skills-semantic-tools.spec.mjs</code></a> <a href="../tests/contract/mcp-server.spec.mjs"><code>tests/contract/mcp-server.spec.mjs</code></a> <a href="../tests/contract/render.spec.mjs"><code>tests/contract/render.spec.mjs</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/163" class="ticket-link"><span class="ticket-badge badge badge-neutral">#163</span></a></div></div>
     </article>
       </div>
     </section>
@@ -25934,9 +26093,9 @@ ${tmplLine}
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="section" style="--toggle-color: #7c3aed; border-color: #7c3aed; background: #7c3aed;">
             <span class="shape-icon" aria-hidden="true"></span>Sections (10)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="card" style="--toggle-color: #64748b; border-color: #64748b; background: #64748b;">
-            <span class="shape-icon" aria-hidden="true"></span>Cards (54)
+            <span class="shape-icon" aria-hidden="true"></span>Cards (57)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="source" style="--toggle-color: #f59e0b; border-color: #f59e0b; background: #f59e0b;">
-            <span class="shape-icon" aria-hidden="true"></span>Refs (36)
+            <span class="shape-icon" aria-hidden="true"></span>Refs (37)
           </button>
         </div>
         <div class="toolbar-section toolbar-controls">
@@ -25946,7 +26105,7 @@ ${tmplLine}
       </div>
       <div class="json-graph-shell">
         <div class="json-graph-canvas graph-container" tabindex="0" aria-label="Living doc JSON structure graph">
-          <svg class="json-graph-svg graph-canvas" viewBox="110 -138 1983 2006" data-graph-svg data-graph-initial-view-box="110 -138 1983 2006" role="img" aria-labelledby="json-graph-title">
+          <svg class="json-graph-svg graph-canvas" viewBox="78 -138 2015 2006" data-graph-svg data-graph-initial-view-box="78 -138 2015 2006" role="img" aria-labelledby="json-graph-title">
             <title id="json-graph-title">Living doc JSON structure graph</title>
             <defs>
               <marker id="json-graph-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -26162,83 +26321,95 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 976.4579870641893 982.6524758424986 L 1198.0530271784517 1287.6518827218536"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-registry-json" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1228.2327935354717 1292.250068781865 L 1594.6227412017852 922.4978394672593"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1226.0502408875282 1290.3547135539648 L 1580.5518543660567 823.3936628808428"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-registry-json" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1622.7498704197071 902.8103694827191 L 1852.3170445657588 806.4745496286582"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1742.124800975654" y="852.7157431586074">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1608.03310371633 807.7757750004423 L 1851.0005518533005 800.4114148401356"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1734.3761767475546" y="803.9463077170828">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-template-surface-delivery" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1231.3958754284674 1296.2049468577984 L 1648.9246104541617 1034.863821183923"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1229.3303831126204 1293.4200172420997 L 1652.074847536969 924.8593856831952"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-template-surface-delivery" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1675.7497945493183 1012.905283450421 L 1856.6028483366445 812.5166091645622"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1769.7933825187279" y="908.7031728217744">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1680.3686871716266 904.5778939502139 L 1853.1470779110994 808.1792583973312"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1770.2134503561524" y="854.4506034627149">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-mcp-server" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1233.778080639516 1301.418101435349 L 1681.7365456228217 1163.833793856335"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1232.1751630973688 1297.5539329117673 L 1705.3196004670488 1046.1347518389575"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-mcp-server" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1706.6938622909222 1143.7697980364676 L 1860.7734014641667 815.2873201101575"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1786.8152226610093" y="972.9589095147863">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1730.4772129349826 1023.5887354276778 L 1859.0897281822026 814.3786532580876"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1797.355720863537" y="914.7994926994909">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-sync-embeds" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.213783220609 1303.0601000013066 L 1531.754137078936 1236.2891450365325"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1232.673458530384 1298.5519393535492 L 1569.3672139592231 1140.977676724061"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-sync-embeds" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1559.76901993705 1219.236729497932 L 1857.9245440170873 813.594236336324"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1714.8098924586693" y="1008.3026330538958">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1596.9028992836784 1120.7029738667377 L 1857.0202684564215 812.8811669271664"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1732.1639312535049" y="960.6356342581606">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-typed-definition-source" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.469084259647 1311.367244880043 L 1524.721928376033 1358.0015789847137"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.582607769427 1305.1875139497688 L 1582.4349395797258 1262.3364418160043"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-typed-definition-source" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1551.4915041352463 1347.165081627882 L 1859.481950524468 814.6125726881711"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1711.6465362576416" y="1070.2377769792324">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1609.3161132179616 1246.170752125176 L 1859.4675484986285 814.6042341723647"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1739.3948595639083" y="1021.7561627897142">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-template-graph-artifact" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1231.35633233182 1319.612607223379 L 1492.6161612507815 1484.3724607295962"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.1670849090117 1312.8980815951672 L 1571.1549942457482 1391.888998754995"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-template-graph-artifact" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1516.0384403242847 1480.296209071575 L 1860.1821496374437 814.9958685561893"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1694.9931691671275" y="1134.3400320035744">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1596.4208036303858 1381.7266798893552 L 1860.8025835751387 815.300974686124"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1733.8993292016573" y="1087.185313183675">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-relationship-stage-tools" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1225.678934036198 1325.6756814574762 L 1330.8924941965504 1470.4897234505918"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1232.4043720790883 1317.7572676373206 L 1407.7710346832584 1405.9009755605002"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-relationship-stage-tools" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1351.7956228469516 1473.1635777568822 L 1857.649088866859 813.3874405646009"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1614.8394251773034" y="1130.079986416896">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1434.106987822753 1401.456919640025 L 1858.0480665058724 813.6841756807945"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1654.556348737975" y="1095.815092781225">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-semantic-skill-instructions" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1225.678934036198 1325.6756814574762 L 1364.984038829514 1517.4127091243388"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-semantic-skill-instructions" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1385.0678951553903 1519.498473099914 L 1858.519565711667 814.0122865409857"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1631.262763844654" y="1152.6456560892711">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-semantic-inference-harness-instructions" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1218.2435992241658 1329.1797636696685 L 1295.3307447732748 1627.9722017992988"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-semantic-inference-harness-instructions" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1308.9915234038517 1633.0831099685465 L 1858.5213211484722 814.0134644560558"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1594.7470182310544" y="1207.1668943020513">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-proof-canonicality-definition-source" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1217.2762141243702 1329.4061761959047 L 1269.2293673508016 1576.3927872015581"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1207.6215908048353 1329.2717795338262 L 1151.366621282522 1564.0609868861422"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-proof-canonicality-definition-source" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1282.725280608254 1582.1745808815972 L 1857.8088048482298 813.5084078223579"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1581.7687132130413" y="1182.4681708907929">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1157.780793838977 1570.770800490207 L 1856.4739403310798 812.3990624432755"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1521.1012300148705" y="1176.4174967058025">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-operations-support-definition-source" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1210.7531518038136 1329.7867106560639 L 1179.278282541252 1675.5341597080405"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1203.4421423251083 1327.8123864369477 L 1055.1960688797228 1645.397903797076"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-operations-support-definition-source" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1187.3316999281863 1681.789785611204 L 1857.605805774463 813.3541446950364"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1535.8742349682502" y="1230.2032523347968">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1058.1883098573717 1651.022968411719 L 1856.2746237160848 812.2124492380254"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1473.1931930639025" y="1214.8414984413982">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-semantic-diagram-generator" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1201.5328244800937 1326.8042063822797 L 1046.0848468070367 1589.1485389652478"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1200.2785679532158 1326.0024774091526 L 936.4022999568878 1709.575133210166"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-semantic-diagram-generator" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1047.8912073548338 1594.3618307988388 L 1855.7826055820642 811.7248380518199"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1467.9947344329935" y="1187.390594570389">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 937.0499160122553 1714.018588273528 L 1855.8628487127096 811.8071121817791"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1414.8326410164916" y="1244.8686207058186">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-template-artifact-generator" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1198.9324117571362 1324.998608870182 L 934.8774924274467 1652.243132220323"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1195.0330375026274 1320.9230809743165 L 837.7794712588515 1584.0192586191058"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-template-artifact-generator" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 934.7353844300012 1656.2124195389943 L 1855.4666792366254 811.389751950037"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1413.5156577294458" y="1216.9046323927364">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 835.2143779551252 1585.598552742581 L 1854.462982135326 810.1893597473064"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1365.2236521288296" y="1182.3857723850383">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-semantic-context-helper" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1196.769762460807 1323.0003641048168 L 804.7448567950834 1694.0513959664206"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1193.8736145780265 1319.1808674881247 L 712.7164004990141 1607.3432464973412"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-semantic-context-helper" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 803.1830624262128 1696.8045239673336 L 1854.9906195212805 810.8483045796639"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1350.1229921156482" y="1236.1072898857453">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 709.5390147879071 1607.9517873919958 L 1854.0496405322417 809.6221062005418"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1304.684540174961" y="1192.8203531724398">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-code-anchors" data-graph-edge-to="graph-card-code-anchors-rendered-semantic-context" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1193.1001013033783 1317.7754638118042 L 728.2241138020242 1551.973288478656"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1192.8177195498856 1317.1938269963407 L 576.9783194176593 1605.0762809458186"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-code-anchors-rendered-semantic-context" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 724.6244895019635 1551.7309446773777 L 1853.7884827042797 809.2365536119836"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1311.789765967168" y="1165.6338613233727">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 573.3546459345248 1604.6753898784175 L 1853.5549176136306 808.8712922089584"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1239.0587872076599" y="1190.8572590902986">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-attempts" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 960 988 L 960 1365"><title>section</title></path>
 
@@ -26249,101 +26420,107 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1598.2368568509098 1116.0606774628588 L 1856.9586116540522 812.8288134107311"><title>ticketIds</title></path>
     <text class="json-graph-edge-label" x="1732.772169348544" y="958.3801081557524">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-issue-creation" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.5142990031773 1385.4027248938216 L 1586.3110570869028 1256.1669510568472"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.4754385027604 1385.2244852513938 L 1589.1270892734985 1250.1003796412797"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-issue-creation" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1612.9366215490832 1238.3662685038992 L 1859.4449001783094 814.5910830760531"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1741.1209264362808" y="1018.0031720814192">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1615.7384345095595 1232.1570321969189 L 1859.4243491809627 814.5791093967468"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1742.4551101386892" y="1015.0165123408294">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-living-doc-specialization" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.9994670805802 1389.8468720454396 L 1577.9061832723394 1385.699045362863"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.9925657883201 1389.4281171042862 L 1585.9857767625438 1373.722201304917"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-living-doc-specialization" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1603.6265427600845 1371.0467922233304 L 1860.8518773074 815.3238868526305"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1737.3837167246886" y="1082.0708814305665">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1611.6507837662546 1358.685536002928 L 1860.9043566018001 815.3480695309432"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1741.2626416407384" y="1076.150053437496">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-initial-typed-definition-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.9899635551473 1390.6644568031834 L 1415.4203150923297 1403.7611472575716"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.9999904808822 1390.020465607605 L 1428.0422562888402 1390.435398786563"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-initial-typed-definition-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1443.7376349553756 1391.3339981460254 L 1858.0838863441122 813.7099407454837"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1659.1976856775186" y="1090.9694882977437">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1456.3292617656855 1377.4242065807068 L 1858.1252962232354 813.7395514304272"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1665.2631996836114" y="1084.3081859025615">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-relationship-stage-mcp-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.0397512641022 1396.4287531251957 L 1372.8323974646314 1516.1420599544344"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.3251258701434 1395.4073104795766 L 1393.88638424101 1500.018501496244"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-relationship-stage-mcp-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1399.8243350269588 1508.3455445165764 L 1858.6201772829222 814.0792893763092"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1638.3981730000598" y="1147.3270918436374">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1420.9908185394122 1491.252262866588 L 1858.7625131308184 814.1723305672111"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1648.6320997269434" y="1139.1706980709118">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-stage-condition-definition-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 978.1921357446817 1402.3711841408604 L 1305.3785104473982 1624.8674840055514"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 979.0441225969196 1401.014599153555 L 1336.7229425694663 1607.8862367238512"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-stage-condition-definition-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1329.8516448736266 1622.1639390932908 L 1858.6833947832865 814.1208639259862"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1604.8441548266496" y="1201.9815400062923">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1361.6963237994955 1603.8598577189205 L 1858.933677307864 814.2815542662108"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1620.259747623847" y="1193.2791399235114">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-second-template-family-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 976.4514472987206 1404.6065013530763 L 1154.7275843254326 1562.8898784577984"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 977.9696779723592 1402.6921500767091 L 1188.5936291909934 1551.4577986725483"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-second-template-family-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1179.6476336181358 1563.619574311057 L 1856.6112682829823 812.5242031681497"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1531.668723643856" y="1173.0499813167453">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1214.6191121683792 1550.3519132890985 L 1856.8298941622838 812.7178733961678"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1548.5687188052095" y="1166.7822125447747">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-generated-diagram-artifact-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 968.6814805024271 1410.2146455889283 L 1067.832352911273 1641.0853761074743"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 971.665184834671 1408.6527065803589 L 1112.0225115529338 1633.0849868043333"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-generated-diagram-artifact-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1086.1829605090468 1646.7870705145904 L 1856.4614725974732 812.3875643301882"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1486.7277867950286" y="1212.8993272987013">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1132.65517399652 1637.1722983160175 L 1856.774677105942 812.6695896231528"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1509.1973156134195" y="1208.4308897957278">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-mcp-template-diagram-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 960 1412 L 960 1707"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 963.8251665950647 1411.664904812161 L 1015.6200427444942 1705.0197257454147"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-mcp-template-diagram-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 971.2014446535231 1714.575130737113 L 1856.0912133328875 812.0353037829075"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1431.3441243667926" y="1245.2544207209262">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1029.7505727936325 1711.949978701656 L 1856.4890851290406 812.4129985112432"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1459.6545992080446" y="1244.1907490026413">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-third-template-family-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 950.1447011495394 1409.669089571409 L 862.6293367552788 1584.331224861682"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 955.0833758497819 1411.4435726259755 L 914.2457351760595 1589.5545867903616"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-third-template-family-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 866.6700773645008 1591.3962756542173 L 1854.656104764336 810.4383885296039"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1380.4228116124152" y="1185.2981743494183">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 922.2290357294414 1597.7570635567315 L 1854.9989300741727 810.8581632807716"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1407.2693807887017" y="1188.5696354132324">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-rendered-semantic-context-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 944.8763910186211 1405.9773731063137 L 745.482157231098 1616.6278912725368"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 948.334815165329 1408.6527065803589 L 807.9774884470663 1633.084986804333"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-rendered-semantic-context-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 745.3353819011235 1620.9811578408037 L 1854.271067233009 809.9320898979297"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1321.981938273704" y="1199.2356425105093">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 810.4355179273196 1639.2474716385082 L 1854.6769592794906 810.4647179680062"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1353.4410674304486" y="1208.280439729847">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-mcp-semantic-context-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 941.8078642553183 1402.3711841408604 L 614.621489552602 1624.8674840055517"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 944.2327218050423 1405.3425205987417 L 685.9395352007965 1656.6774997238986"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-mcp-semantic-context-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 612.2732302450756 1626.7524419816355 L 1853.7944219576045 809.2455796071202"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1257.8642499355906" y="1201.6488735468874">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 685.2597857910987 1660.5139056584094 L 1854.2467125450278 809.8987050032679"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1293.1329877031417" y="1218.194001317736">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-card-level-evidence-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.4982812561201 1394.655758913333 L 582.8747373322279 1471.6587884914243"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 939.4566279462712 1397.8720940455555 L 644.1119893220177 1511.0463463065785"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-card-level-evidence-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 578.5100470333488 1468.3163390636657 L 1852.8999613951753 807.7199205745798"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1241.1928025014986" y="1124.806201449341">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 640.2210887817212 1509.8357934458427 L 1853.2759517679278 808.4061334485606"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1271.0096175345486" y="1145.092370247256">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-evidence-rules-across-template-families" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.1190761324447 1392.285863229121 L 462.15339805191223 1442.009195225225"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.6748741298566 1395.4073104795766 L 526.1136157589898 1500.018501496244"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-evidence-rules-across-template-families" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 457.83564094280086 1437.3923736551737 L 1852.5021310885834 806.8992923791734"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1183.062215818608" y="1109.5359713916537">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 521.9028667652286 1497.3278772774443 L 1852.8984427875125 807.7169902556763"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1214.0205662968162" y="1138.730216026125">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-relationship-repair-operations-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.0005329194198 1389.8468720454396 L 342.09381672766045 1385.699045362863"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.1967079899447 1392.9353803031736 L 404.8695588731389 1464.7372902139894"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-relationship-repair-operations-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 338.0552825829711 1379.8950870021451 L 1852.096679820115 805.9225736501397"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1125.356809146286" y="1081.4293800591022">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 400.62835554188723 1460.7024878699958 L 1852.4920287506657 806.8769026756887"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1155.597465610452" y="1120.713183568956">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-relationship-gap-patch-draft-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.7776465408476 1384.202438990851 L 386.2669099705037 1233.266553880758"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.2276340328492 1386.8434068693516 L 431.4971646745657 1313.3767968977986"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-relationship-gap-patch-draft-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 383.3235029618089 1223.8661528743846 L 1851.646197294147 804.5643852207169"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1146.8513040146247" y="1005.8292336944774">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 427.79095859437155 1305.3521083687604 L 1851.9519723301053 805.5260788520585"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1168.3546857369531" y="1045.4425730200753">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-generated-template-artifact-slice" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 939.3058919916657 1382.5331469989428 L 293.99669917635566 1149.692529706225"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.5245614972396 1385.2244852513938 L 330.8729107265015 1250.10037964128"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-generated-template-artifact-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 291.76484485844554 1139.8704462908024 L 1851.374897789206 803.480657685484"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1102.762072382441" y="964.9477562160369">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 327.7061297844067 1241.565879123059 L 1851.65129781121 804.5822095377233"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1120.1576171583447" y="1014.3343709386844">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-attempts" data-graph-edge-to="graph-card-attempts-skill-workflow-semantic-diagnostics-slice" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 939.0056949446989 1383.424351344167 L 238.2322623376066 1163.934357842205"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-attempts-skill-workflow-semantic-diagnostics-slice" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 235.7353992979829 1154.8554123244626 L 1851.3810046521337 803.5088549291629"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1075.8711140821415" y="972.1552024789067">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-proof-ladder" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 943.5420129358107 982.6524758424986 L 721.9469728215485 1287.6518827218536"><title>section</title></path>
 
@@ -26461,15 +26638,15 @@ ${tmplLine}
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-code-file-tests-contract-template-artifacts-spec-mjs" data-graph-edge-label="scriptPaths">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 531.947452127198 376.5212975570783 L 340.3826251217419 204.3682514396565"><title>scriptPaths</title></path>
     <text class="json-graph-edge-label" x="432.3337420843608" y="287.001713576019">scriptPaths</text>
-  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-code-file-tests-contract-mcp-server-spec-mjs" data-graph-edge-label="scriptPaths">
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-code-file-tests-contract-skills-semantic-tools-spec-mjs" data-graph-edge-label="scriptPaths">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 539.5136409517128 371.81424817746733 L 507.9006333569916 259.4815983519342"><title>scriptPaths</title></path>
     <text class="json-graph-edge-label" x="523.0748770024578" y="313.4012702681901">scriptPaths</text>
-  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-code-file-tests-contract-render-spec-mjs" data-graph-edge-label="scriptPaths">
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-code-file-tests-contract-mcp-server-spec-mjs" data-graph-edge-label="scriptPaths">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 545.0303518665321 371.25971084290165 L 561.8125638475485 144.76989104029138"><title>scriptPaths</title></path>
     <text class="json-graph-edge-label" x="553.7571020966607" y="253.4850045455443">scriptPaths</text>
-  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-163" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 559.1233778652233 391.97665019933993 L 1851.762703258443 794.8381553357374"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1231.2958270696977" y="601.4646328702665">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-tooling-template-graph-contract-test" data-graph-edge-to="graph-source-code-file-tests-contract-render-spec-mjs" data-graph-edge-label="scriptPaths">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 548.0533755907692 371.77850821255237 L 640.1310039311327 33.768587730647006"><title>scriptPaths</title></path>
+    <text class="json-graph-edge-label" x="595.9337423277582" y="196.01334956196158">scriptPaths</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-tooling" data-graph-edge-to="graph-card-tooling-existing-mcp-server" data-graph-edge-label="card">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 707.4488690830492 590.1235702336786 L 710.4450653309343 254.73201297804994"><title>card</title></path>
 
@@ -26491,8 +26668,8 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="960"
       data-graph-size="24"
-      data-graph-label="typed semantic definitions refactor 10 sections · 54 cards $"
-      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Typed Semantic Definitions Refactor&quot;,&quot;sections&quot;:10,&quot;cards&quot;:54,&quot;objective&quot;:&quot;Integrate typed semantic definitions into Living Doc Compositor so living-doc structure and behavior have one executable source that generates the registry/template artifacts, relationship graphs, MCP diagnostics, tests, and reference diagrams while concrete living doc instances remain JSON.&quot;,&quot;successCondition&quot;:&quot;The refactor is complete when typed definitions are the maintained executable source for the intended living-doc semantic machinery, generate the selected registry/template artifacts deterministically, preserve existing JSON/HTML rendering and sync flows, drive MCP relationship/stage diagnostics and valid operations, support skill use through concrete patchable operations, and have contract tests that prevent drift. Individual implementation slices are checkpoints toward this full integration, not alternative objectives or completion claims.&quot;}"
+      data-graph-label="typed semantic definitions refactor 10 sections · 57 cards $"
+      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Typed Semantic Definitions Refactor&quot;,&quot;sections&quot;:10,&quot;cards&quot;:57,&quot;objective&quot;:&quot;Integrate typed semantic definitions into Living Doc Compositor so living-doc structure and behavior have one executable source that generates the registry/template artifacts, relationship graphs, MCP diagnostics, tests, and reference diagrams while concrete living doc instances remain JSON.&quot;,&quot;successCondition&quot;:&quot;The refactor is complete when typed definitions are the maintained executable source for the intended living-doc semantic machinery, generate the selected registry/template artifacts deterministically, preserve existing JSON/HTML rendering and sync flows, drive MCP relationship/stage diagnostics and valid operations, support skill use through concrete patchable operations, and have contract tests that prevent drift. Individual implementation slices are checkpoints toward this full integration, not alternative objectives or completion claims.&quot;}"
       transform="translate(960, 960)">
       <title>Typed Semantic Definitions Refactor · $</title>
       <circle class="json-graph-node-hit" r="42"></circle>
@@ -26500,7 +26677,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="40" text-anchor="middle">
         <tspan x="0" dy="0">Typed Semantic Definitions</tspan><tspan x="0" dy="12">Refactor</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">10 sections · 54 cards</text>
+      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">10 sections · 57 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-governance" tabindex="0" role="button"
       data-graph-node="graph-governance-objective"
@@ -27403,8 +27580,8 @@ ${tmplLine}
       data-graph-home-x="1212.7476584857634"
       data-graph-home-y="1307.8773075812273"
       data-graph-size="18"
-      data-graph-label="code anchors code anchor · 13 cards $.sections[4]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[4]&quot;,&quot;id&quot;:&quot;code-anchors&quot;,&quot;title&quot;:&quot;Code Anchors&quot;,&quot;convergenceType&quot;:&quot;code-anchor&quot;,&quot;cards&quot;:13}"
+      data-graph-label="code anchors code anchor · 15 cards $.sections[4]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[4]&quot;,&quot;id&quot;:&quot;code-anchors&quot;,&quot;title&quot;:&quot;Code Anchors&quot;,&quot;convergenceType&quot;:&quot;code-anchor&quot;,&quot;cards&quot;:15}"
       transform="translate(1212.7476584857634, 1307.8773075812273)">
       <title>Code Anchors · $.sections[4]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -27412,19 +27589,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Code Anchors</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Code Anchor · 13 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Code Anchor · 15 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-registry-json"
       data-graph-type="card"
-      data-graph-x="1607.9962669265333"
-      data-graph-y="909.0015877769008"
-      data-graph-home-x="1607.9962669265333"
-      data-graph-home-y="909.0015877769008"
+      data-graph-x="1592.0404482584897"
+      data-graph-y="808.2605134936615"
+      data-graph-home-x="1592.0404482584897"
+      data-graph-home-y="808.2605134936615"
       data-graph-size="12"
       data-graph-label="current registry json status: current $.sections[4].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[0]&quot;,&quot;id&quot;:&quot;registry-json&quot;,&quot;title&quot;:&quot;Current registry JSON&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1607.9962669265333, 909.0015877769008)">
+      transform="translate(1592.0404482584897, 808.2605134936615)">
       <title>Current registry JSON · $.sections[4].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27436,14 +27613,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-template-surface-delivery"
       data-graph-type="card"
-      data-graph-x="1665.0298887228605"
-      data-graph-y="1024.7831460136888"
-      data-graph-home-x="1665.0298887228605"
-      data-graph-home-y="1024.7831460136888"
+      data-graph-x="1666.396291532891"
+      data-graph-y="912.373544026676"
+      data-graph-home-x="1666.396291532891"
+      data-graph-home-y="912.373544026676"
       data-graph-size="12"
       data-graph-label="surface delivery template status: current $.sections[4].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[1]&quot;,&quot;id&quot;:&quot;template-surface-delivery&quot;,&quot;title&quot;:&quot;Surface delivery template&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1665.0298887228605, 1024.7831460136888)">
+      transform="translate(1666.396291532891, 912.373544026676)">
       <title>Surface delivery template · $.sections[4].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27455,14 +27632,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-mcp-server"
       data-graph-type="card"
-      data-graph-x="1699.8991829374263"
-      data-graph-y="1158.2553885485308"
-      data-graph-home-x="1699.8991829374263"
-      data-graph-home-y="1158.2553885485308"
+      data-graph-x="1722.0978999043443"
+      data-graph-y="1037.2191100789694"
+      data-graph-home-x="1722.0978999043443"
+      data-graph-home-y="1037.2191100789694"
       data-graph-size="12"
       data-graph-label="living doc mcp server status: current $.sections[4].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;mcp-server&quot;,&quot;title&quot;:&quot;Living doc MCP server&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1699.8991829374263, 1158.2553885485308)">
+      transform="translate(1722.0978999043443, 1037.2191100789694)">
       <title>Living doc MCP server · $.sections[4].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27474,14 +27651,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-sync-embeds"
       data-graph-type="card"
-      data-graph-x="1550.2930629863029"
-      data-graph-y="1232.1288293993284"
-      data-graph-home-x="1550.2930629863029"
-      data-graph-home-y="1232.1288293993284"
+      data-graph-x="1586.5758594523047"
+      data-graph-y="1132.9239496183388"
+      data-graph-home-x="1586.5758594523047"
+      data-graph-home-y="1132.9239496183388"
       data-graph-size="12"
       data-graph-label="compositor embed sync status: current $.sections[4].data[3]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[3]&quot;,&quot;id&quot;:&quot;sync-embeds&quot;,&quot;title&quot;:&quot;Compositor embed sync&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1550.2930629863029, 1232.1288293993284)">
+      transform="translate(1586.5758594523047, 1132.9239496183388)">
       <title>Compositor embed sync · $.sections[4].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27493,14 +27670,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-typed-definition-source"
       data-graph-type="card"
-      data-graph-x="1543.481341544387"
-      data-graph-y="1361.0156157427816"
-      data-graph-home-x="1543.481341544387"
-      data-graph-home-y="1361.0156157427816"
+      data-graph-x="1601.2923957792534"
+      data-graph-y="1260.013438225199"
+      data-graph-home-x="1601.2923957792534"
+      data-graph-home-y="1260.013438225199"
       data-graph-size="12"
       data-graph-label="typed definition source status: current $.sections[4].data[4]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[4]&quot;,&quot;id&quot;:&quot;typed-definition-source&quot;,&quot;title&quot;:&quot;Typed definition source&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1543.481341544387, 1361.0156157427816)">
+      transform="translate(1601.2923957792534, 1260.013438225199)">
       <title>Typed definition source · $.sections[4].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27512,14 +27689,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-template-graph-artifact"
       data-graph-type="card"
-      data-graph-x="1508.687288663285"
-      data-graph-y="1494.507492238727"
-      data-graph-home-x="1508.687288663285"
-      data-graph-home-y="1494.507492238727"
+      data-graph-x="1589.653589793099"
+      data-graph-y="1396.2251217670341"
+      data-graph-home-x="1589.653589793099"
+      data-graph-home-y="1396.2251217670341"
       data-graph-size="12"
       data-graph-label="generated template graph artifact status: current $.sections[4].data[5]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[5]&quot;,&quot;id&quot;:&quot;template-graph-artifact&quot;,&quot;title&quot;:&quot;Generated template graph artifact&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1508.687288663285, 1494.507492238727)">
+      transform="translate(1589.653589793099, 1396.2251217670341)">
       <title>Generated template graph artifact · $.sections[4].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27531,14 +27708,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-relationship-stage-tools"
       data-graph-type="card"
-      data-graph-x="1342.0604139901075"
-      data-graph-y="1485.8610463437158"
-      data-graph-home-x="1342.0604139901075"
-      data-graph-home-y="1485.8610463437158"
+      data-graph-x="1424.747287332039"
+      data-graph-y="1414.4336683362174"
+      data-graph-home-x="1424.747287332039"
+      data-graph-home-y="1414.4336683362174"
       data-graph-size="12"
       data-graph-label="relationship and stage mcp tools status: current $.sections[4].data[6]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[6]&quot;,&quot;id&quot;:&quot;relationship-stage-tools&quot;,&quot;title&quot;:&quot;Relationship and stage MCP tools&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1342.0604139901075, 1485.8610463437158)">
+      transform="translate(1424.747287332039, 1414.4336683362174)">
       <title>Relationship and stage MCP tools · $.sections[4].data[6]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27548,17 +27725,55 @@ ${tmplLine}
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Current</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-code-anchors-semantic-skill-instructions"
+      data-graph-type="card"
+      data-graph-x="1376.151958623071"
+      data-graph-y="1532.7840320174628"
+      data-graph-home-x="1376.151958623071"
+      data-graph-home-y="1532.7840320174628"
+      data-graph-size="12"
+      data-graph-label="semantic-aware skill instructions status: current $.sections[4].data[7]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[7]&quot;,&quot;id&quot;:&quot;semantic-skill-instructions&quot;,&quot;title&quot;:&quot;Semantic-aware skill instructions&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(1376.151958623071, 1532.7840320174628)">
+      <title>Semantic-aware skill instructions · $.sections[4].data[7]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Semantic-aware skill</tspan><tspan x="0" dy="12">instructions</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Current</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-code-anchors-semantic-inference-harness-instructions"
+      data-graph-type="card"
+      data-graph-x="1300.0772390473494"
+      data-graph-y="1646.3697775120436"
+      data-graph-home-x="1300.0772390473494"
+      data-graph-home-y="1646.3697775120436"
+      data-graph-size="12"
+      data-graph-label="semantic-aware inference harness instructions status: current $.sections[4].data[8]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[8]&quot;,&quot;id&quot;:&quot;semantic-inference-harness-instructions&quot;,&quot;title&quot;:&quot;Semantic-aware inference harness instructions&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(1300.0772390473494, 1646.3697775120436)">
+      <title>Semantic-aware inference harness instructions · $.sections[4].data[8]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Semantic-aware</tspan><tspan x="0" dy="12">inference harness</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Current</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-proof-canonicality-definition-source"
       data-graph-type="card"
-      data-graph-x="1273.140392675053"
-      data-graph-y="1594.9859010051432"
-      data-graph-home-x="1273.140392675053"
-      data-graph-home-y="1594.9859010051432"
+      data-graph-x="1146.9395628308112"
+      data-graph-y="1582.538030845205"
+      data-graph-home-x="1146.9395628308112"
+      data-graph-home-y="1582.538030845205"
       data-graph-size="12"
-      data-graph-label="proof-canonicality typed definition source status: current $.sections[4].data[7]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[7]&quot;,&quot;id&quot;:&quot;proof-canonicality-definition-source&quot;,&quot;title&quot;:&quot;Proof-canonicality typed definition source&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1273.140392675053, 1594.9859010051432)">
-      <title>Proof-canonicality typed definition source · $.sections[4].data[7]</title>
+      data-graph-label="proof-canonicality typed definition source status: current $.sections[4].data[9]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[9]&quot;,&quot;id&quot;:&quot;proof-canonicality-definition-source&quot;,&quot;title&quot;:&quot;Proof-canonicality typed definition source&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(1146.9395628308112, 1582.538030845205)">
+      <title>Proof-canonicality typed definition source · $.sections[4].data[9]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -27569,15 +27784,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-operations-support-definition-source"
       data-graph-type="card"
-      data-graph-x="1177.5557540432046"
-      data-graph-y="1694.4559169090357"
-      data-graph-home-x="1177.5557540432046"
-      data-graph-home-y="1694.4559169090357"
+      data-graph-x="1047.1594867409754"
+      data-graph-y="1662.6145628088345"
+      data-graph-home-x="1047.1594867409754"
+      data-graph-home-y="1662.6145628088345"
       data-graph-size="12"
-      data-graph-label="operations-support typed definition source status: current $.sections[4].data[8]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[8]&quot;,&quot;id&quot;:&quot;operations-support-definition-source&quot;,&quot;title&quot;:&quot;Operations-support typed definition source&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1177.5557540432046, 1694.4559169090357)">
-      <title>Operations-support typed definition source · $.sections[4].data[8]</title>
+      data-graph-label="operations-support typed definition source status: current $.sections[4].data[10]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[10]&quot;,&quot;id&quot;:&quot;operations-support-definition-source&quot;,&quot;title&quot;:&quot;Operations-support typed definition source&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(1047.1594867409754, 1662.6145628088345)">
+      <title>Operations-support typed definition source · $.sections[4].data[10]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -27588,15 +27803,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-semantic-diagram-generator"
       data-graph-type="card"
-      data-graph-x="1036.3993083475946"
-      data-graph-y="1605.494497020702"
-      data-graph-home-x="1036.3993083475946"
-      data-graph-home-y="1605.494497020702"
+      data-graph-x="925.6335399515058"
+      data-graph-y="1725.228688970647"
+      data-graph-home-x="925.6335399515058"
+      data-graph-home-y="1725.228688970647"
       data-graph-size="12"
-      data-graph-label="semantic diagram generator status: current $.sections[4].data[9]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[9]&quot;,&quot;id&quot;:&quot;semantic-diagram-generator&quot;,&quot;title&quot;:&quot;Semantic diagram generator&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1036.3993083475946, 1605.494497020702)">
-      <title>Semantic diagram generator · $.sections[4].data[9]</title>
+      data-graph-label="semantic diagram generator status: current $.sections[4].data[11]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[11]&quot;,&quot;id&quot;:&quot;semantic-diagram-generator&quot;,&quot;title&quot;:&quot;Semantic diagram generator&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(925.6335399515058, 1725.228688970647)">
+      <title>Semantic diagram generator · $.sections[4].data[11]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -27607,15 +27822,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-template-artifact-generator"
       data-graph-type="card"
-      data-graph-x="922.9461429799959"
-      data-graph-y="1667.0297106062383"
-      data-graph-home-x="922.9461429799959"
-      data-graph-home-y="1667.0297106062383"
+      data-graph-x="822.4804804097794"
+      data-graph-y="1595.2860629131374"
+      data-graph-home-x="822.4804804097794"
+      data-graph-home-y="1595.2860629131374"
       data-graph-size="12"
-      data-graph-label="template artifact semantic generator status: current $.sections[4].data[10]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[10]&quot;,&quot;id&quot;:&quot;template-artifact-generator&quot;,&quot;title&quot;:&quot;Template artifact semantic generator&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(922.9461429799959, 1667.0297106062383)">
-      <title>Template artifact semantic generator · $.sections[4].data[10]</title>
+      data-graph-label="template artifact semantic generator status: current $.sections[4].data[12]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[12]&quot;,&quot;id&quot;:&quot;template-artifact-generator&quot;,&quot;title&quot;:&quot;Template artifact semantic generator&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(822.4804804097794, 1595.2860629131374)">
+      <title>Template artifact semantic generator · $.sections[4].data[12]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -27626,15 +27841,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-semantic-context-helper"
       data-graph-type="card"
-      data-graph-x="790.9457647735301"
-      data-graph-y="1707.1122175095206"
-      data-graph-home-x="790.9457647735301"
-      data-graph-home-y="1707.1122175095206"
+      data-graph-x="696.4160898514231"
+      data-graph-y="1617.1054118714796"
+      data-graph-home-x="696.4160898514231"
+      data-graph-home-y="1617.1054118714796"
       data-graph-size="12"
-      data-graph-label="semantic context helper status: current $.sections[4].data[11]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[11]&quot;,&quot;id&quot;:&quot;semantic-context-helper&quot;,&quot;title&quot;:&quot;Semantic context helper&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(790.9457647735301, 1707.1122175095206)">
-      <title>Semantic context helper · $.sections[4].data[11]</title>
+      data-graph-label="semantic context helper status: current $.sections[4].data[13]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[13]&quot;,&quot;id&quot;:&quot;semantic-context-helper&quot;,&quot;title&quot;:&quot;Semantic context helper&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(696.4160898514231, 1617.1054118714796)">
+      <title>Semantic context helper · $.sections[4].data[13]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -27645,15 +27860,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-code-anchors-rendered-semantic-context"
       data-graph-type="card"
-      data-graph-x="711.2557689626917"
-      data-graph-y="1560.5216961323363"
-      data-graph-home-x="711.2557689626917"
-      data-graph-home-y="1560.5216961323363"
+      data-graph-x="559.7660994275832"
+      data-graph-y="1613.1223658952347"
+      data-graph-home-x="559.7660994275832"
+      data-graph-home-y="1613.1223658952347"
       data-graph-size="12"
-      data-graph-label="rendered semantic context embed status: current $.sections[4].data[12]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[12]&quot;,&quot;id&quot;:&quot;rendered-semantic-context&quot;,&quot;title&quot;:&quot;Rendered semantic context embed&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(711.2557689626917, 1560.5216961323363)">
-      <title>Rendered semantic context embed · $.sections[4].data[12]</title>
+      data-graph-label="rendered semantic context embed status: current $.sections[4].data[14]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[14]&quot;,&quot;id&quot;:&quot;rendered-semantic-context&quot;,&quot;title&quot;:&quot;Rendered semantic context embed&quot;,&quot;section&quot;:&quot;Code Anchors&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(559.7660994275832, 1613.1223658952347)">
+      <title>Rendered semantic context embed · $.sections[4].data[14]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -27669,8 +27884,8 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="1390"
       data-graph-size="18"
-      data-graph-label="attempt log attempt log · 17 cards $.sections[5]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[5]&quot;,&quot;id&quot;:&quot;attempts&quot;,&quot;title&quot;:&quot;Attempt Log&quot;,&quot;convergenceType&quot;:&quot;attempt-log&quot;,&quot;cards&quot;:17}"
+      data-graph-label="attempt log attempt log · 18 cards $.sections[5]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[5]&quot;,&quot;id&quot;:&quot;attempts&quot;,&quot;title&quot;:&quot;Attempt Log&quot;,&quot;convergenceType&quot;:&quot;attempt-log&quot;,&quot;cards&quot;:18}"
       transform="translate(960, 1390)">
       <title>Attempt Log · $.sections[5]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -27678,7 +27893,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Attempt Log</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Attempt Log · 17 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Attempt Log · 18 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-model-pages"
@@ -27702,14 +27917,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-issue-creation"
       data-graph-type="card"
-      data-graph-x="1604.8915880441923"
-      data-graph-y="1252.1965771015114"
-      data-graph-home-x="1604.8915880441923"
-      data-graph-home-y="1252.1965771015114"
+      data-graph-x="1607.6740588895188"
+      data-graph-y="1245.9760714493016"
+      data-graph-home-x="1607.6740588895188"
+      data-graph-home-y="1245.9760714493016"
       data-graph-size="12"
       data-graph-label="capture refactor as github issue #163 status: probe $.sections[5].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;issue-creation&quot;,&quot;title&quot;:&quot;Capture refactor as GitHub issue #163&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1604.8915880441923, 1252.1965771015114)">
+      transform="translate(1607.6740588895188, 1245.9760714493016)">
       <title>Capture refactor as GitHub issue #163 · $.sections[5].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27721,14 +27936,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-living-doc-specialization"
       data-graph-type="card"
-      data-graph-x="1596.9057230237495"
-      data-graph-y="1385.5667984930153"
-      data-graph-home-x="1596.9057230237495"
-      data-graph-home-y="1385.5667984930153"
+      data-graph-x="1604.979356307002"
+      data-graph-y="1373.228302440437"
+      data-graph-home-x="1604.979356307002"
+      data-graph-home-y="1373.228302440437"
       data-graph-size="12"
       data-graph-label="create one-off refactor living doc before making a template status: probe $.sections[5].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[2]&quot;,&quot;id&quot;:&quot;living-doc-specialization&quot;,&quot;title&quot;:&quot;Create one-off refactor living doc before making a template&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1596.9057230237495, 1385.5667984930153)">
+      transform="translate(1604.979356307002, 1373.228302440437)">
       <title>Create one-off refactor living doc before making a template · $.sections[5].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27740,14 +27955,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-initial-typed-definition-slice"
       data-graph-type="card"
-      data-graph-x="1434.4116472535932"
-      data-graph-y="1404.3349963148662"
-      data-graph-home-x="1434.4116472535932"
-      data-graph-home-y="1404.3349963148662"
+      data-graph-x="1447.042248067784"
+      data-graph-y="1390.4530736294946"
+      data-graph-home-x="1447.042248067784"
+      data-graph-home-y="1390.4530736294946"
       data-graph-size="12"
       data-graph-label="implement additive typed definition and template graph slice status: probe $.sections[5].data[3]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[3]&quot;,&quot;id&quot;:&quot;initial-typed-definition-slice&quot;,&quot;title&quot;:&quot;Implement additive typed definition and template graph slice&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1434.4116472535932, 1404.3349963148662)">
+      transform="translate(1447.042248067784, 1390.4530736294946)">
       <title>Implement additive typed definition and template graph slice · $.sections[5].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27759,14 +27974,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-relationship-stage-mcp-slice"
       data-graph-type="card"
-      data-graph-x="1391.0030917381741"
-      data-graph-y="1521.6941649261944"
-      data-graph-home-x="1391.0030917381741"
-      data-graph-home-y="1521.6941649261944"
+      data-graph-x="1412.3035384015886"
+      data-graph-y="1504.6884514558783"
+      data-graph-home-x="1412.3035384015886"
+      data-graph-home-y="1504.6884514558783"
       data-graph-size="12"
       data-graph-label="expose relationship gaps and stage diagnostics through mcp status: probe $.sections[5].data[4]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[4]&quot;,&quot;id&quot;:&quot;relationship-stage-mcp-slice&quot;,&quot;title&quot;:&quot;Expose relationship gaps and stage diagnostics through MCP&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1391.0030917381741, 1521.6941649261944)">
+      transform="translate(1412.3035384015886, 1504.6884514558783)">
       <title>Expose relationship gaps and stage diagnostics through MCP · $.sections[5].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27778,14 +27993,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-stage-condition-definition-slice"
       data-graph-type="card"
-      data-graph-x="1321.0899004087141"
-      data-graph-y="1635.55168849084"
-      data-graph-home-x="1321.0899004087141"
-      data-graph-home-y="1635.55168849084"
+      data-graph-x="1353.170139357715"
+      data-graph-y="1617.3988450837398"
+      data-graph-home-x="1353.170139357715"
+      data-graph-home-y="1617.3988450837398"
       data-graph-size="12"
       data-graph-label="move stage signal behavior into typed definitions status: probe $.sections[5].data[5]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[5]&quot;,&quot;id&quot;:&quot;stage-condition-definition-slice&quot;,&quot;title&quot;:&quot;Move stage signal behavior into typed definitions&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1321.0899004087141, 1635.55168849084)">
+      transform="translate(1353.170139357715, 1617.3988450837398)">
       <title>Move stage signal behavior into typed definitions · $.sections[5].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27797,14 +28012,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-second-template-family-slice"
       data-graph-type="card"
-      data-graph-x="1168.935652447055"
-      data-graph-y="1575.5045841718188"
-      data-graph-home-x="1168.935652447055"
-      data-graph-home-y="1575.5045841718188"
+      data-graph-x="1204.1128965307582"
+      data-graph-y="1562.4192010115244"
+      data-graph-home-x="1204.1128965307582"
+      data-graph-home-y="1562.4192010115244"
       data-graph-size="12"
       data-graph-label="add proof-canonicality as second typed template family status: probe $.sections[5].data[6]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[6]&quot;,&quot;id&quot;:&quot;second-template-family-slice&quot;,&quot;title&quot;:&quot;Add proof-canonicality as second typed template family&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1168.935652447055, 1575.5045841718188)">
+      transform="translate(1204.1128965307582, 1562.4192010115244)">
       <title>Add proof-canonicality as second typed template family · $.sections[5].data[6]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27816,14 +28031,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-generated-diagram-artifact-slice"
       data-graph-type="card"
-      data-graph-x="1075.329995163369"
-      data-graph-y="1658.5434791160942"
-      data-graph-home-x="1075.329995163369"
-      data-graph-home-y="1658.5434791160942"
+      data-graph-x="1122.096989364695"
+      data-graph-y="1649.1941424873705"
+      data-graph-home-x="1122.096989364695"
+      data-graph-home-y="1649.1941424873705"
       data-graph-size="12"
       data-graph-label="generate template relationship diagrams from semantic graph status: probe $.sections[5].data[7]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[7]&quot;,&quot;id&quot;:&quot;generated-diagram-artifact-slice&quot;,&quot;title&quot;:&quot;Generate template relationship diagrams from semantic graph&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(1075.329995163369, 1658.5434791160942)">
+      transform="translate(1122.096989364695, 1649.1941424873705)">
       <title>Generate template relationship diagrams from semantic graph · $.sections[5].data[7]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27835,14 +28050,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-mcp-template-diagram-slice"
       data-graph-type="card"
-      data-graph-x="960"
-      data-graph-y="1726"
-      data-graph-home-x="960"
-      data-graph-home-y="1726"
+      data-graph-x="1018.9235957129591"
+      data-graph-y="1723.7303253559176"
+      data-graph-home-x="1018.9235957129591"
+      data-graph-home-y="1723.7303253559176"
       data-graph-size="12"
       data-graph-label="expose generated template diagrams through mcp status: probe $.sections[5].data[8]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[8]&quot;,&quot;id&quot;:&quot;mcp-template-diagram-slice&quot;,&quot;title&quot;:&quot;Expose generated template diagrams through MCP&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(960, 1726)">
+      transform="translate(1018.9235957129591, 1723.7303253559176)">
       <title>Expose generated template diagrams through MCP · $.sections[5].data[8]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27854,14 +28069,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-third-template-family-slice"
       data-graph-type="card"
-      data-graph-x="854.1179422935174"
-      data-graph-y="1601.3181658551714"
-      data-graph-home-x="854.1179422935174"
-      data-graph-home-y="1601.3181658551714"
+      data-graph-x="909.9995597735984"
+      data-graph-y="1608.0740358764315"
+      data-graph-home-x="909.9995597735984"
+      data-graph-home-y="1608.0740358764315"
       data-graph-size="12"
       data-graph-label="add operations-support as third typed template family status: probe $.sections[5].data[9]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[9]&quot;,&quot;id&quot;:&quot;third-template-family-slice&quot;,&quot;title&quot;:&quot;Add operations-support as third typed template family&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(854.1179422935174, 1601.3181658551714)">
+      transform="translate(909.9995597735984, 1608.0740358764315)">
       <title>Add operations-support as third typed template family · $.sections[5].data[9]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27873,14 +28088,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-rendered-semantic-context-slice"
       data-graph-type="card"
-      data-graph-x="732.4208585653616"
-      data-graph-y="1630.426531682535"
-      data-graph-home-x="732.4208585653616"
-      data-graph-home-y="1630.426531682535"
+      data-graph-x="797.903010635305"
+      data-graph-y="1649.1941424873703"
+      data-graph-home-x="797.903010635305"
+      data-graph-home-y="1649.1941424873703"
       data-graph-size="12"
       data-graph-label="embed generated semantic context in rendered snapshots status: probe $.sections[5].data[10]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[10]&quot;,&quot;id&quot;:&quot;rendered-semantic-context-slice&quot;,&quot;title&quot;:&quot;Embed generated semantic context in rendered snapshots&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(732.4208585653616, 1630.426531682535)">
+      transform="translate(797.903010635305, 1649.1941424873703)">
       <title>Embed generated semantic context in rendered snapshots · $.sections[5].data[10]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27892,14 +28107,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-mcp-semantic-context-slice"
       data-graph-type="card"
-      data-graph-x="598.9100995912861"
-      data-graph-y="1635.5516884908402"
-      data-graph-home-x="598.9100995912861"
-      data-graph-home-y="1635.5516884908402"
+      data-graph-x="672.3223403960603"
+      data-graph-y="1669.9278584228118"
+      data-graph-home-x="672.3223403960603"
+      data-graph-home-y="1669.9278584228118"
       data-graph-size="12"
       data-graph-label="expose semantic context retrieval through mcp status: probe $.sections[5].data[11]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[11]&quot;,&quot;id&quot;:&quot;mcp-semantic-context-slice&quot;,&quot;title&quot;:&quot;Expose semantic context retrieval through MCP&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(598.9100995912861, 1635.5516884908402)">
+      transform="translate(672.3223403960603, 1669.9278584228118)">
       <title>Expose semantic context retrieval through MCP · $.sections[5].data[11]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27911,14 +28126,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-card-level-evidence-slice"
       data-graph-type="card"
-      data-graph-x="564.3050711443316"
-      data-graph-y="1475.679671189303"
-      data-graph-home-x="564.3050711443316"
-      data-graph-home-y="1475.679671189303"
+      data-graph-x="626.3699861847065"
+      data-graph-y="1517.8449729822855"
+      data-graph-home-x="626.3699861847065"
+      data-graph-home-y="1517.8449729822855"
       data-graph-size="12"
       data-graph-label="add first card-level relationship evidence rule status: probe $.sections[5].data[12]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[12]&quot;,&quot;id&quot;:&quot;card-level-evidence-slice&quot;,&quot;title&quot;:&quot;Add first card-level relationship evidence rule&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(564.3050711443316, 1475.679671189303)">
+      transform="translate(626.3699861847065, 1517.8449729822855)">
       <title>Add first card-level relationship evidence rule · $.sections[5].data[12]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27930,14 +28145,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-evidence-rules-across-template-families"
       data-graph-type="card"
-      data-graph-x="443.2562365299326"
-      data-graph-y="1443.9833498321932"
-      data-graph-home-x="443.2562365299326"
-      data-graph-home-y="1443.9833498321932"
+      data-graph-x="507.69646159841136"
+      data-graph-y="1504.6884514558783"
+      data-graph-home-x="507.69646159841136"
+      data-graph-home-y="1504.6884514558783"
       data-graph-size="12"
       data-graph-label="extend card-level evidence rules across template families status: probe $.sections[5].data[13]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[13]&quot;,&quot;id&quot;:&quot;evidence-rules-across-template-families&quot;,&quot;title&quot;:&quot;Extend card-level evidence rules across template families&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(443.2562365299326, 1443.9833498321932)">
+      transform="translate(507.69646159841136, 1504.6884514558783)">
       <title>Extend card-level evidence rules across template families · $.sections[5].data[13]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27949,14 +28164,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-relationship-repair-operations-slice"
       data-graph-type="card"
-      data-graph-x="323.0942769762503"
-      data-graph-y="1385.5667984930153"
-      data-graph-home-x="323.0942769762503"
-      data-graph-home-y="1385.5667984930153"
+      data-graph-x="386.03944304627294"
+      data-graph-y="1467.272391384912"
+      data-graph-home-x="386.03944304627294"
+      data-graph-home-y="1467.272391384912"
       data-graph-size="12"
       data-graph-label="attach repair operations to relationship gaps status: probe $.sections[5].data[14]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[14]&quot;,&quot;id&quot;:&quot;relationship-repair-operations-slice&quot;,&quot;title&quot;:&quot;Attach repair operations to relationship gaps&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(323.0942769762503, 1385.5667984930153)">
+      transform="translate(386.03944304627294, 1467.272391384912)">
       <title>Attach repair operations to relationship gaps · $.sections[5].data[14]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27968,14 +28183,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-relationship-gap-patch-draft-slice"
       data-graph-type="card"
-      data-graph-x="367.9385138012358"
-      data-graph-y="1228.2595693728567"
-      data-graph-home-x="367.9385138012358"
-      data-graph-home-y="1228.2595693728567"
+      data-graph-x="412.6937577029355"
+      data-graph-y="1310.6506482849659"
+      data-graph-home-x="412.6937577029355"
+      data-graph-home-y="1310.6506482849659"
       data-graph-size="12"
       data-graph-label="add patch drafts to relationship gaps status: probe $.sections[5].data[15]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[15]&quot;,&quot;id&quot;:&quot;relationship-gap-patch-draft-slice&quot;,&quot;title&quot;:&quot;Add patch drafts to relationship gaps&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(367.9385138012358, 1228.2595693728567)">
+      transform="translate(412.6937577029355, 1310.6506482849659)">
       <title>Add patch drafts to relationship gaps · $.sections[5].data[15]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -27987,19 +28202,38 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-attempts-generated-template-artifact-slice"
       data-graph-type="card"
-      data-graph-x="276.1245149873397"
-      data-graph-y="1143.2438839325848"
-      data-graph-home-x="276.1245149873397"
-      data-graph-home-y="1143.2438839325848"
+      data-graph-x="312.32594111048115"
+      data-graph-y="1245.9760714493018"
+      data-graph-home-x="312.32594111048115"
+      data-graph-home-y="1245.9760714493018"
       data-graph-size="12"
       data-graph-label="generate semantic blocks into selected template artifacts status: probe $.sections[5].data[16]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[16]&quot;,&quot;id&quot;:&quot;generated-template-artifact-slice&quot;,&quot;title&quot;:&quot;Generate semantic blocks into selected template artifacts&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
-      transform="translate(276.1245149873397, 1143.2438839325848)">
+      transform="translate(312.32594111048115, 1245.9760714493018)">
       <title>Generate semantic blocks into selected template artifacts · $.sections[5].data[16]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Generate semantic</tspan><tspan x="0" dy="12">blocks into selected</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Probe</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-attempts-skill-workflow-semantic-diagnostics-slice"
+      data-graph-type="card"
+      data-graph-x="220.1008170625738"
+      data-graph-y="1158.255388548531"
+      data-graph-home-x="220.1008170625738"
+      data-graph-home-y="1158.255388548531"
+      data-graph-size="12"
+      data-graph-label="route skills through generated semantic diagnostics status: probe $.sections[5].data[17]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[17]&quot;,&quot;id&quot;:&quot;skill-workflow-semantic-diagnostics-slice&quot;,&quot;title&quot;:&quot;Route skills through generated semantic diagnostics&quot;,&quot;section&quot;:&quot;Attempt Log&quot;,&quot;statuses&quot;:[&quot;Status: Probe&quot;]}"
+      transform="translate(220.1008170625738, 1158.255388548531)">
+      <title>Route skills through generated semantic diagnostics · $.sections[5].data[17]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Route skills through</tspan><tspan x="0" dy="12">generated semantic</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Probe</text>
     </g>
@@ -28441,16 +28675,35 @@ ${tmplLine}
       <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Scripts</text>
     </g>
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
-      data-graph-node="graph-source-code-file-tests-contract-mcp-server-spec-mjs"
+      data-graph-node="graph-source-code-file-tests-contract-skills-semantic-tools-spec-mjs"
       data-graph-type="source"
       data-graph-x="503.2953329051994"
       data-graph-y="243.1172710590473"
       data-graph-home-x="503.2953329051994"
       data-graph-home-y="243.1172710590473"
       data-graph-size="10"
+      data-graph-label="tests/contract/skills-semantic-tools.spec.mjs scripts $.sections[9].data[1].scriptpaths"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[9].data[1].scriptPaths&quot;,&quot;field&quot;:&quot;scriptPaths&quot;,&quot;entityType&quot;:&quot;code-file&quot;,&quot;label&quot;:&quot;tests/contract/skills-semantic-tools.spec.mjs&quot;}"
+      transform="translate(503.2953329051994, 243.1172710590473)">
+      <title>tests/contract/skills-semantic-tools.spec.mjs · $.sections[9].data[1].scriptPaths</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">tests/contract/skills-semantic-tools.spec.mjs</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Scripts</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-code-file-tests-contract-mcp-server-spec-mjs"
+      data-graph-type="source"
+      data-graph-x="563.0687687427519"
+      data-graph-y="127.81636782942849"
+      data-graph-home-x="563.0687687427519"
+      data-graph-home-y="127.81636782942849"
+      data-graph-size="10"
       data-graph-label="tests/contract/mcp-server.spec.mjs scripts $.sections[9].data[1].scriptpaths"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[9].data[1].scriptPaths&quot;,&quot;field&quot;:&quot;scriptPaths&quot;,&quot;entityType&quot;:&quot;code-file&quot;,&quot;label&quot;:&quot;tests/contract/mcp-server.spec.mjs&quot;}"
-      transform="translate(503.2953329051994, 243.1172710590473)">
+      transform="translate(563.0687687427519, 127.81636782942849)">
       <title>tests/contract/mcp-server.spec.mjs · $.sections[9].data[1].scriptPaths</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -28462,14 +28715,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-code-file-tests-contract-render-spec-mjs"
       data-graph-type="source"
-      data-graph-x="563.0687687427519"
-      data-graph-y="127.81636782942849"
-      data-graph-home-x="563.0687687427519"
-      data-graph-home-y="127.81636782942849"
+      data-graph-x="644.599171533338"
+      data-graph-y="17.36628672503798"
+      data-graph-home-x="644.599171533338"
+      data-graph-home-y="17.36628672503798"
       data-graph-size="10"
       data-graph-label="tests/contract/render.spec.mjs scripts $.sections[9].data[1].scriptpaths"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[9].data[1].scriptPaths&quot;,&quot;field&quot;:&quot;scriptPaths&quot;,&quot;entityType&quot;:&quot;code-file&quot;,&quot;label&quot;:&quot;tests/contract/render.spec.mjs&quot;}"
-      transform="translate(563.0687687427519, 127.81636782942849)">
+      transform="translate(644.599171533338, 17.36628672503798)">
       <title>tests/contract/render.spec.mjs · $.sections[9].data[1].scriptPaths</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -28509,7 +28762,7 @@ ${tmplLine}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="graph-info" data-graph-info>106 nodes · 175 edges · 100%</div>
+          <div class="graph-info" data-graph-info>110 nodes · 181 edges · 100%</div>
         </div>
         <aside class="json-graph-inspector" aria-live="polite">
           <span class="json-graph-inspector-kicker">Selected node</span>

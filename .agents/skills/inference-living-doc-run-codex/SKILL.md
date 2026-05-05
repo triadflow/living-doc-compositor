@@ -94,6 +94,7 @@ The living-doc toolchain is part of this skill. Use it directly.
 Required tool surfaces:
 
 - registry tools for selecting and explaining convergence types
+- generated semantic tools for retrieving template context, relationship gaps, stage diagnostics, valid stage operations, and validated patch drafts
 - scaffold tools for creating the run doc
 - source tools for adding, creating, and linking source material
 - coverage tools for mapping facets and finding gaps
@@ -151,9 +152,14 @@ Run:
 living_doc_registry_summary
 living_doc_registry_match_objective
 living_doc_registry_explain_type
+living_doc_semantic_context
+living_doc_template_graph
+living_doc_template_diagrams
 ```
 
 Explain every convergence type before adding cards to that section.
+
+If the selected structure or starter template matches generated semantic definitions, record the inferred template id, generated section roles, relationship graph, stage signals, and valid operations in the run doc. Do not recreate that shape from prose when MCP can expose the generated source.
 
 Decide and record:
 
@@ -301,6 +307,10 @@ Run:
 
 ```text
 living_doc_structure_reflect
+living_doc_semantic_context
+living_doc_relationship_gaps
+living_doc_stage_diagnostics
+living_doc_valid_stage_operations
 living_doc_coverage_find_gaps
 living_doc_governance_evaluate
 ```
@@ -310,8 +320,18 @@ Refine the structure when:
 - a facet has no carrier
 - a section mixes incompatible convergence types
 - source relationships do not match the type contract
+- generated relationship gaps show missing target cards, missing source cards, or missing/partial card-level evidence
+- generated stage diagnostics identify a stage-specific gap that has a valid operation
 - repeated source pressure cannot fit the selected structure
 - governance exposes status or source-boundary drift
+
+When `living_doc_relationship_gaps` returns a `patchDraft`, treat it as an operation proposal:
+
+- inspect the proposed card or field update against source material
+- confirm the linked source card and target section are correct
+- validate with `living_doc_patch_validate`
+- apply with `living_doc_patch_apply` only after review
+- render and checkpoint the result
 
 Run structural refinement only for real structural edits:
 
@@ -422,14 +442,18 @@ Use this sequence unless the objective requires a stricter ordering:
 11. `living_doc_sources_add`
 12. `living_doc_coverage_map`
 13. `living_doc_structure_reflect`
-14. `living_doc_governance_evaluate`
-15. render and checkpoint
-16. source commit, push, PR, and issue update when delivering code
-17. `living_doc_sources_create` and `living_doc_sources_link` for durable artifacts
-18. `living_doc_coverage_evaluate_success_condition`
-19. `living_doc_governance_evaluate`
-20. `living_doc_render`
-21. final checkpoint commit
+14. `living_doc_relationship_gaps`
+15. `living_doc_stage_diagnostics`
+16. `living_doc_valid_stage_operations`
+17. review, validate, and apply any relevant relationship-gap patch drafts
+18. `living_doc_governance_evaluate`
+19. render and checkpoint
+20. source commit, push, PR, and issue update when delivering code
+21. `living_doc_sources_create` and `living_doc_sources_link` for durable artifacts
+22. `living_doc_coverage_evaluate_success_condition`
+23. `living_doc_governance_evaluate`
+24. `living_doc_render`
+25. final checkpoint commit
 
 Do not treat tool success as objective completion. Tool success only means the harness state advanced.
 
