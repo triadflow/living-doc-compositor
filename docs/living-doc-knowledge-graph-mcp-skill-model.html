@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Knowledge Graph, MCP, and Skill Model</title>
+<meta name="description" content="Internal operating model for representing living-doc structure as a knowledge graph exposed through MCP while keeping domain judgment inside skills." />
+<style>
+  :root {
+    --bg: #f6f3ee;
+    --paper: #fffdf8;
+    --ink: #1f2528;
+    --muted: #667075;
+    --line: #d8d0c3;
+    --accent: #0f6b5f;
+    --accent-2: #8a4c1f;
+    --warn: #8d2f2f;
+    --code: #263236;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, 0.92);
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 720;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 54px 0 80px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 36px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  h1 {
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 76px);
+    line-height: .94;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 880px;
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.42;
+    color: #334044;
+  }
+
+  .summary-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .07);
+  }
+
+  .summary-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary-card ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary-card li + li { margin-top: 8px; }
+
+  section {
+    margin-top: 28px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    max-width: 940px;
+  }
+
+  .body { padding: 22px; }
+
+  code,
+  .code {
+    font-family: var(--mono);
+    color: var(--code);
+    background: #f0ece4;
+    border: 1px solid #ded6c9;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: .92em;
+  }
+
+  .callout {
+    background: #edf5f2;
+    border: 1px solid #c8ddd7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, .78fr);
+    gap: 18px;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: #fffefa;
+  }
+
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .card ul,
+  .dense-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+  }
+
+  li + li { margin-top: 6px; }
+
+  .matrix {
+    display: grid;
+    grid-template-columns: 220px repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .matrix > div {
+    padding: 12px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    min-height: 68px;
+    font-size: 14px;
+  }
+
+  .matrix > div:nth-child(4n) { border-right: 0; }
+  .matrix .head { background: #f3ede3; font-weight: 760; color: var(--ink); }
+  .matrix .rowhead { background: #fbf7ef; font-weight: 760; }
+  .matrix .last-row { border-bottom: 0; }
+
+  .diagram-block {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffefa;
+    padding: 16px;
+    margin: 16px 0;
+  }
+
+  .diagram-block h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .diagram-block p {
+    margin: 0 0 12px;
+    color: var(--muted);
+  }
+
+  pre.mermaid {
+    margin: 0;
+    padding: 14px;
+    border-radius: 8px;
+    background: #f5f1e9;
+    border: 1px solid #ded6c9;
+    overflow-x: auto;
+    color: var(--code);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  pre.mermaid svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .flow {
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f1eee8;
+    font-family: var(--mono);
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .warning {
+    border-color: #e0b8b8;
+    background: #fff4f2;
+  }
+
+  .warning strong,
+  .warning h3 {
+    color: var(--warn);
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 32px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  @media (max-width: 920px) {
+    .hero,
+    .split {
+      grid-template-columns: 1fr;
+    }
+
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .matrix {
+      display: block;
+      border: 0;
+    }
+
+    .matrix > div {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .matrix .head { display: none; }
+  }
+
+  @media (max-width: 620px) {
+    .shell { width: min(100% - 20px, 1180px); }
+    nav { display: none; }
+    main { padding-top: 34px; }
+    .cards { grid-template-columns: 1fr; }
+    .body,
+    .section-head {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="shell top">
+    <a class="brand" href="index.html">
+      <span class="mark">L</span>
+      <span>Living Doc Compositor</span>
+    </a>
+    <nav>
+      <a href="living-doc-stage-skill-operating-model.html">Stage Model</a>
+      <a href="living-doc-compositor.html">Compositor</a>
+      <a href="blog-glossary.html">Glossary</a>
+      <a href="https://github.com/triadflow/living-doc-compositor">Repo</a>
+    </nav>
+  </div>
+</header>
+
+<main class="shell">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Internal operating model</div>
+      <h1>Knowledge graph as inference-time substrate.</h1>
+      <p class="lede">
+        A living-doc skill should not carry every structural fact inside its prompt. The reusable structure can be represented as a knowledge graph and exposed through MCP, while the skill keeps the domain judgment needed to act in the concrete situation.
+      </p>
+    </div>
+
+    <aside class="summary-card">
+      <h2>Core split</h2>
+      <ol>
+        <li>The graph answers what is structurally true, expected, linked, stale, or valid.</li>
+        <li>The MCP server exposes that graph as inference-time tools.</li>
+        <li>The skill uses those tools to reason over the current doc state.</li>
+        <li>The skill still owns domain judgment and responsible action.</li>
+        <li>The result is a patch, operation, question, or decision that moves the doc toward its objective.</li>
+      </ol>
+    </aside>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>1. What We Are Representing</h2>
+      <p>The knowledge graph is not a second document format. It is the inference-time model of the living-doc system: templates, convergence types, relationships, stages, operations, diagnostics, and prior examples.</p>
+    </div>
+    <div class="body split">
+      <div>
+        <p>
+          The graph should represent the reusable structure that a skill would otherwise repeat in prose. It can say that a <code>surface-delivery</code> doc expects a chain from <code>design-code-spec-flow</code> to <code>design-implementation-alignment</code> to <code>verification-checkpoints</code>. It can say that weak links between those sections are a coherence signal. It can say that stale source timestamps suggest refresh. It can say which operations are valid in that stage.
+        </p>
+        <p>
+          The graph should not decide that a particular product surface is good enough to ship, that a competitor's move is strategically meaningful, or that a proof is persuasive for a specialized domain. Those decisions require domain judgment, source interpretation, and risk tolerance. They belong in the skill.
+        </p>
+        <div class="flow">living doc JSON + registry + templates + stage model + prior traces -> graph -> MCP tools -> skill reasoning</div>
+      </div>
+      <div class="callout">
+        <strong>Boundary principle</strong>
+        Put shared structure into the graph. Put situational judgment into the skill. If a fact is true across many docs of the same shape, it probably belongs in the graph. If the answer depends on domain evidence, user intent, or risk, it probably belongs in the skill.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>2. Graph Node Types</h2>
+      <p>The graph needs enough semantic granularity for a skill to ask useful questions without loading the whole repo or every skill file.</p>
+    </div>
+    <div class="body">
+      <div class="cards">
+        <article class="card">
+          <h3>Document</h3>
+          <p>A concrete living doc instance with objective, success condition, sections, cards, sources, render path, and freshness state.</p>
+        </article>
+        <article class="card">
+          <h3>Template</h3>
+          <p>A starting document shape, such as <code>surface-delivery</code>, <code>competitor-watcher</code>, or <code>design-system</code>.</p>
+        </article>
+        <article class="card">
+          <h3>Convergence Type</h3>
+          <p>A reusable semantic shape from the registry, with status fields, projection, source types, prompt guidance, and local role.</p>
+        </article>
+        <article class="card">
+          <h3>Section</h3>
+          <p>A concrete occurrence of a convergence type inside one document.</p>
+        </article>
+        <article class="card">
+          <h3>Card</h3>
+          <p>A concrete entity inside a section, ideally source-backed and typed by its section contract.</p>
+        </article>
+        <article class="card">
+          <h3>Relationship</h3>
+          <p>An expected or observed edge between types, sections, cards, sources, diagnostics, stages, or operations.</p>
+        </article>
+        <article class="card">
+          <h3>Stage</h3>
+          <p>A lifecycle state inferred from structural signals: Intent, Seeding, Composition, Coherence, Operation, Refresh, Judgment, Evolution, Archive.</p>
+        </article>
+        <article class="card">
+          <h3>Signal</h3>
+          <p>A structural observation such as sparse cards, weak links, stale status, overloaded section, unsupported claim, or source drift.</p>
+        </article>
+        <article class="card">
+          <h3>Operation</h3>
+          <p>A valid action: inspect, add card, link evidence, update status, preserve delta, record decision, split section, propose new type, render.</p>
+        </article>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Graph Schema Overview</h3>
+        <p>This is the reusable structural layer a skill can query at inference time.</p>
+        <pre class="mermaid">
+flowchart TB
+  Doc["Document"] -->|instantiates| Template["Template"]
+  Template -->|includes| Type["Convergence Type"]
+  Doc -->|has| Section["Section"]
+  Section -->|uses| Type
+  Section -->|contains| Card["Card"]
+  Card -->|points to| Source["Source"]
+  Type -->|expects relationship| TypeRel["Type Relationship"]
+  Section -->|observed relationship| SectionRel["Section Relationship"]
+  Card -->|observed relationship| CardRel["Card Relationship"]
+
+  Doc -->|has signal| Signal["Structural Signal"]
+  Signal -->|indicates| Stage["Stage"]
+  Stage -->|permits| Operation["Operation"]
+  Operation -->|produces| Patch["Patch / MCP Operation"]
+  Patch -->|changes| Doc
+
+  Prior["Prior session trace"] -->|provides example| Signal
+  Prior -->|provides example| Operation
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>3. Edge Types That Matter</h2>
+      <p>The value is not just nodes. Skills need relationship semantics so they can ask whether the doc structure is actually carrying the objective.</p>
+    </div>
+    <div class="body">
+      <div class="matrix">
+        <div class="head">Edge type</div>
+        <div class="head">Meaning</div>
+        <div class="head">Example</div>
+        <div class="head">Skill question enabled</div>
+
+        <div class="rowhead">instantiates</div>
+        <div>A concrete doc follows a template shape.</div>
+        <div><code>doc -> surface-delivery</code></div>
+        <div>Which expected chains should I inspect first?</div>
+
+        <div class="rowhead">uses-type</div>
+        <div>A section is an occurrence of a convergence type.</div>
+        <div><code>verification section -> verification-checkpoints</code></div>
+        <div>What contract should this section satisfy?</div>
+
+        <div class="rowhead">expects</div>
+        <div>A template or type expects a relationship to another type.</div>
+        <div><code>model-assertion -> proof-ladder</code></div>
+        <div>Which relationship is missing or weak?</div>
+
+        <div class="rowhead">supports</div>
+        <div>One card or section supports another.</div>
+        <div><code>proof card -> assertion card</code></div>
+        <div>Does the evidence support the actual claim?</div>
+
+        <div class="rowhead">constrains</div>
+        <div>One entity limits valid action on another.</div>
+        <div><code>maintainer-stance -> attempt-log</code></div>
+        <div>Which fix path is credible here?</div>
+
+        <div class="rowhead">depends-on</div>
+        <div>A state, operation, or conclusion depends on another entity.</div>
+        <div><code>ship judgment -> verification checkpoint</code></div>
+        <div>What blocker prevents objective readiness?</div>
+
+        <div class="rowhead">stale-relative-to</div>
+        <div>A doc entity no longer matches source state or time window.</div>
+        <div><code>indicator card -> source update</code></div>
+        <div>What must be refreshed before judging?</div>
+
+        <div class="rowhead last-row">derived-from</div>
+        <div>A card or conclusion is based on another artifact or session trace.</div>
+        <div><code>design primitive -> prior work</code></div>
+        <div>Is this derivation explicit enough to trust?</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>4. What the Graph Should Hold vs What the Skill Should Hold</h2>
+      <p>The graph is not an attempt to remove skill judgment. It is a way to keep reusable structure out of brittle prompt prose.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Responsibility Split</h3>
+        <p>The knowledge graph supplies structural context. The skill applies domain judgment and chooses a responsible operation.</p>
+        <pre class="mermaid">
+flowchart LR
+  subgraph Graph["Knowledge graph / MCP substrate"]
+    Templates["Templates"]
+    Types["Convergence types"]
+    Chains["Expected chains"]
+    Signals["Stage signals"]
+    Ops["Valid operations"]
+    Diagnostics["Diagnostics"]
+    Examples["Prior examples"]
+  end
+
+  subgraph Skill["Domain skill"]
+    Judgment["Domain judgment"]
+    SourceTrust["Source trust"]
+    Priority["Question priority"]
+    Risk["Risk and overclaim discipline"]
+    Stop["When to ask user"]
+  end
+
+  Graph -->|queried at inference time| Skill
+  Skill -->|chooses| Operation["Concrete operation"]
+  Operation --> Patch["Patch / decision / question / source action"]
+        </pre>
+      </div>
+
+      <div class="cards">
+        <article class="card">
+          <h3>Graph Holds</h3>
+          <ul>
+            <li>Template-to-type composition.</li>
+            <li>Expected type relationships.</li>
+            <li>Stage signal definitions.</li>
+            <li>Valid operations by stage.</li>
+            <li>Diagnostics from current doc state.</li>
+            <li>Prior examples and traces.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>Skill Holds</h3>
+          <ul>
+            <li>Domain-specific evidence standards.</li>
+            <li>Objective-ready judgment.</li>
+            <li>Source trust and source interpretation.</li>
+            <li>Question prioritization.</li>
+            <li>Risk, uncertainty, and stop conditions.</li>
+            <li>Voice and output discipline.</li>
+          </ul>
+        </article>
+
+        <article class="card warning">
+          <h3>Do Not Put in Graph</h3>
+          <ul>
+            <li>Hard-coded conclusions for a concrete situation.</li>
+            <li>Domain claims that require evidence reading.</li>
+            <li>User-specific preferences masquerading as structure.</li>
+            <li>Prompt text that belongs in a skill.</li>
+            <li>Overfitted lessons from one session.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>5. MCP Tool Surface</h2>
+      <p>MCP should expose graph questions as tools. The skill should not need to reconstruct the whole graph by reading files directly.</p>
+    </div>
+    <div class="body">
+      <div class="cards">
+        <article class="card">
+          <h3><code>doc_overview</code></h3>
+          <p>Return objective, success condition, template, sections, convergence types, source paths, rendered path, freshness metadata.</p>
+        </article>
+        <article class="card">
+          <h3><code>template_graph</code></h3>
+          <p>Return expected type bundle, relationship chains, required/optional sections, and known family relationships.</p>
+        </article>
+        <article class="card">
+          <h3><code>section_graph</code></h3>
+          <p>Return concrete section/card graph with observed links, source pointers, status fields, and unlinked cards.</p>
+        </article>
+        <article class="card">
+          <h3><code>stage_diagnostics</code></h3>
+          <p>Infer stage candidates with evidence: sparse sections, weak links, stale statuses, unsupported claims, overload, decision readiness.</p>
+        </article>
+        <article class="card">
+          <h3><code>valid_operations</code></h3>
+          <p>Return operations valid for this doc, stage, and patch contract: add card, update status, link evidence, split section, render.</p>
+        </article>
+        <article class="card">
+          <h3><code>similar_traces</code></h3>
+          <p>Return prior sessions, docs, or operations that match the current stage/type/signal pattern.</p>
+        </article>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Inference-Time Query Flow</h3>
+        <p>The skill queries structure first, then applies judgment. The operation is constrained by valid graph/MCP affordances.</p>
+        <pre class="mermaid">
+sequenceDiagram
+  participant Skill
+  participant MCP
+  participant Graph
+  participant Doc as Living Doc
+  participant User
+
+  Skill->>MCP: doc_overview(docId)
+  MCP->>Doc: read objective, sections, cards, sources
+  MCP-->>Skill: overview
+  Skill->>MCP: template_graph(templateId)
+  MCP->>Graph: query expected type chains
+  MCP-->>Skill: structural expectations
+  Skill->>MCP: stage_diagnostics(docId)
+  MCP->>Graph: compare expected vs observed
+  MCP->>Doc: inspect current state
+  MCP-->>Skill: stage candidates and signals
+  Skill->>MCP: valid_operations(docId, stage)
+  MCP-->>Skill: allowed operations
+  Skill->>Skill: apply domain judgment
+  Skill-->>User: proposed operation or missing question
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>6. Query Patterns a Skill Should Use</h2>
+      <p>These are the structural questions the graph should make cheap enough that skills can ask them every time.</p>
+    </div>
+    <div class="body">
+      <div class="matrix">
+        <div class="head">Skill question</div>
+        <div class="head">Graph query</div>
+        <div class="head">MCP result</div>
+        <div class="head">Skill judgment</div>
+
+        <div class="rowhead">What doc shape am I in?</div>
+        <div>Document -> template -> convergence-type bundle.</div>
+        <div>Template family, sections, expected chains.</div>
+        <div>Whether the user request matches this shape.</div>
+
+        <div class="rowhead">What stage is likely?</div>
+        <div>Observed structure -> signals -> stage candidates.</div>
+        <div>Ranked stage candidates with evidence.</div>
+        <div>Which stage should guide the next operation.</div>
+
+        <div class="rowhead">What relationship is broken?</div>
+        <div>Expected chains minus observed section/card links.</div>
+        <div>Missing, weak, stale, or contradictory edges.</div>
+        <div>Whether the break blocks objective reach.</div>
+
+        <div class="rowhead">What can I safely change?</div>
+        <div>Stage + patch schema + doc permissions -> valid operations.</div>
+        <div>Allowed operations and required fields.</div>
+        <div>Which operation is smallest and useful.</div>
+
+        <div class="rowhead last-row">Have we seen this pattern?</div>
+        <div class="last-row">Signal/stage/type similarity over prior traces.</div>
+        <div class="last-row">Comparable docs, operations, outcomes.</div>
+        <div class="last-row">Whether the analogy applies or misleads.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>7. Prior Sessions as Graph Evidence</h2>
+      <p>Sessions with users can generate examples, but they should enter the graph as traces with provenance and confidence, not as permanent rules by default.</p>
+    </div>
+    <div class="body split">
+      <div>
+        <p>
+          A user session can reveal a new stage signal, a recurring relationship failure, or a useful operation sequence. That should become a trace first. Later, repeated traces can become a graph rule or registry guidance. This keeps the graph from hardening one-off intuition too early.
+        </p>
+        <p>
+          The useful flow is:
+        </p>
+        <div class="flow">session observation -> trace -> candidate pattern -> repeated support -> graph rule or skill update</div>
+      </div>
+      <div class="callout">
+        <strong>Trace discipline</strong>
+        A session trace should record what was observed, what structure it involved, what operation was taken, what outcome followed, and whether the lesson is local, tentative, or reusable.
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="diagram-block">
+        <h3>From Session Trace to Reusable Pattern</h3>
+        <p>The graph can learn from work without pretending every session artifact is a universal rule.</p>
+        <pre class="mermaid">
+flowchart LR
+  Session["User session"] --> Observation["Observed structural situation"]
+  Observation --> Trace["Trace node<br/>doc, stage, types, signal, operation"]
+  Trace --> Candidate["Candidate pattern"]
+  Candidate --> Repeats{"Repeated across docs?"}
+  Repeats -->|no| Local["Keep as local example"]
+  Repeats -->|yes| Rule["Promote to graph rule"]
+  Rule --> MCP["Expose through MCP diagnostics"]
+  Candidate --> SkillUpdate["Optional skill refinement"]
+  SkillUpdate --> Skill["Domain skill"]
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>8. Example: Surface Delivery Through the Graph</h2>
+      <p>This shows the intended shape: the graph supplies the expected chain and diagnostics; the skill decides what the product surface needs.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Graph-Assisted Surface Delivery Skill</h3>
+        <p>The graph can detect that verification is not connected to implementation alignment. The skill decides whether that means blocked, not ready, or needs a specific test.</p>
+        <pre class="mermaid">
+flowchart TB
+  Doc["Current surface-delivery doc"] --> Overview["MCP: doc_overview"]
+  Overview --> Template["MCP: template_graph"]
+  Template --> Expected["Expected chain:<br/>status -> flow -> alignment -> verification -> tooling"]
+  Overview --> Observed["MCP: section_graph"]
+  Expected --> Compare["Graph compare"]
+  Observed --> Compare
+  Compare --> Signal["Signal:<br/>verification not linked to alignment"]
+  Signal --> Stage["Stage candidate:<br/>Coherence / Operation"]
+  Stage --> ValidOps["MCP: valid_operations"]
+  ValidOps --> Skill["surface-delivery skill judgment"]
+  Skill --> Choice{"Best next operation?"}
+  Choice --> AddCheck["Add verification checkpoint"]
+  Choice --> LinkEvidence["Link existing evidence"]
+  Choice --> LowerStatus["Lower delivery status"]
+  Choice --> AskUser["Ask for missing test context"]
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>9. Anti-Patterns</h2>
+      <p>The graph/MCP approach helps only if the boundary stays sharp.</p>
+    </div>
+    <div class="body">
+      <div class="cards">
+        <article class="card warning">
+          <h3>Graph as a Prompt Dump</h3>
+          <p>If the graph becomes a place to store prose instructions, it loses the advantage of queryable structure.</p>
+        </article>
+        <article class="card warning">
+          <h3>Skill as a Duplicate Graph</h3>
+          <p>If each skill repeats all expected chains and stage rules, the system drifts and MCP stops being the shared substrate.</p>
+        </article>
+        <article class="card warning">
+          <h3>Graph as Oracle</h3>
+          <p>If the graph produces domain conclusions instead of structural diagnostics, it will overclaim and hide judgment.</p>
+        </article>
+        <article class="card warning">
+          <h3>MCP as File Reader Only</h3>
+          <p>If MCP merely returns JSON blobs, skills still have to reconstruct the model manually. The tools should expose semantic queries.</p>
+        </article>
+        <article class="card warning">
+          <h3>Trace Overfitting</h3>
+          <p>If one good session becomes a permanent rule too soon, future skills inherit accidental behavior.</p>
+        </article>
+        <article class="card warning">
+          <h3>Judgment Evasion</h3>
+          <p>If the skill hides behind graph diagnostics and avoids making a domain call, the doc does not move toward its objective.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>10. Practical Build Order</h2>
+      <p>The graph should grow from real template/doc work, not from an abstract ontology exercise.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Incremental Implementation Path</h3>
+        <p>Start with template graphs and diagnostics for one or two concrete doc families, then generalize only what repeats.</p>
+        <pre class="mermaid">
+flowchart LR
+  Step1["1. Encode current templates as type chains"] --> Step2["2. Add doc_overview and template_graph MCP tools"]
+  Step2 --> Step3["3. Add section_graph for observed cards and links"]
+  Step3 --> Step4["4. Add stage_diagnostics for structural signals"]
+  Step4 --> Step5["5. Add valid_operations by stage and patch contract"]
+  Step5 --> Step6["6. Run one concrete domain skill against it"]
+  Step6 --> Step7["7. Capture traces from sessions"]
+  Step7 --> Step8["8. Promote repeated traces into graph rules"]
+        </pre>
+      </div>
+
+      <div class="cards">
+        <article class="card">
+          <h3>Best First Families</h3>
+          <ul>
+            <li><code>surface-delivery</code>: clear alignment and verification chain.</li>
+            <li><code>proof-canonicality</code>: crisp assertion/proof/decision discipline.</li>
+            <li><code>design-system</code>: distinctive taste/brief/derivation/surface relationship.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>First Diagnostics</h3>
+          <ul>
+            <li>Missing expected section.</li>
+            <li>Sparse objective-bearing section.</li>
+            <li>Unlinked evidence-bearing card.</li>
+            <li>Status stale relative to source timestamp.</li>
+            <li>Decision without supporting proof.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>First Operations</h3>
+          <ul>
+            <li>Suggest source-backed card.</li>
+            <li>Link evidence to claim or checkpoint.</li>
+            <li>Lower or qualify status.</li>
+            <li>Record decision with uncertainty.</li>
+            <li>Ask for missing canonical source.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Static internal model page. File: <code>docs/living-doc-knowledge-graph-mcp-skill-model.html</code>. Mermaid diagrams render client-side using the same CDN pattern as <code>docs/harness-playground.html</code>; the diagram source remains visible if rendering is unavailable.
+    </p>
+  </footer>
+</main>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    securityLevel: 'loose',
+    flowchart: {
+      curve: 'basis',
+      padding: 18,
+      useMaxWidth: true,
+      htmlLabels: true,
+      nodeSpacing: 34,
+      rankSpacing: 48
+    },
+    sequence: {
+      mirrorActors: false,
+      showSequenceNumbers: false
+    },
+    themeVariables: {
+      background: '#fffdf8',
+      primaryColor: '#edf5f2',
+      primaryTextColor: '#1f2528',
+      primaryBorderColor: '#83afa5',
+      lineColor: '#8a7f70',
+      secondaryColor: '#fff7e8',
+      tertiaryColor: '#f8eeee',
+      fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    }
+  });
+</script>
+</body>
+</html>

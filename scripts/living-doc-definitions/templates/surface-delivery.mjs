@@ -1,0 +1,142 @@
+import { defineTemplate } from '../define.mjs';
+
+export default defineTemplate({
+  id: 'surface-delivery',
+  name: 'Surface Delivery',
+  templatePath: 'docs/living-doc-template-surface-delivery.json',
+  objectiveRole: 'Make one product surface legible across intent, implementation state, verification readiness, and tooling.',
+  sections: [
+    {
+      id: 'status-snapshot',
+      convergenceType: 'status-snapshot',
+      role: 'Summarize delivery pressure and current readiness without carrying the detailed evidence.',
+    },
+    {
+      id: 'surface-flow',
+      convergenceType: 'design-code-spec-flow',
+      role: 'Hold the product surface as a joined design, code, spec, interaction, and ticket entity.',
+    },
+    {
+      id: 'alignment',
+      convergenceType: 'design-implementation-alignment',
+      role: 'Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.',
+    },
+    {
+      id: 'verification',
+      convergenceType: 'verification-checkpoints',
+      role: 'Track the checks that prove the aligned implementation is ready enough to ship or continue.',
+    },
+    {
+      id: 'tooling',
+      convergenceType: 'tooling-surface',
+      role: 'Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.',
+    },
+  ],
+  relationships: [
+    {
+      id: 'status-summarizes-flow',
+      from: 'status-snapshot',
+      to: 'design-code-spec-flow',
+      relation: 'summarizes',
+      rationale: 'Status is only meaningful when it summarizes the actual surface flow being delivered.',
+    },
+    {
+      id: 'flow-feeds-alignment',
+      from: 'design-code-spec-flow',
+      to: 'design-implementation-alignment',
+      relation: 'feeds',
+      rationale: 'Alignment rows should judge the design/code/spec entities named in the surface flow.',
+    },
+    {
+      id: 'alignment-requires-verification',
+      from: 'design-implementation-alignment',
+      to: 'verification-checkpoints',
+      relation: 'requires-verification',
+      rationale: 'Implementation alignment is not delivery readiness until checks exist for the aligned behavior.',
+    },
+    {
+      id: 'tooling-supports-verification',
+      from: 'tooling-surface',
+      to: 'verification-checkpoints',
+      relation: 'supports',
+      rationale: 'Verification checkpoints need an operational tool path so a future session can rerun or extend them.',
+    },
+  ],
+  stageSignals: [
+    {
+      id: 'seeding-missing-surface-flow',
+      stage: 'Seeding',
+      severity: 'high',
+      when: 'design-code-spec-flow has no source-backed cards',
+      question: 'What first real surface, spec, code path, and ticket make this delivery doc tangible?',
+    },
+    {
+      id: 'coherence-flow-not-aligned',
+      stage: 'Coherence',
+      severity: 'high',
+      when: 'design-code-spec-flow exists but design-implementation-alignment has no corresponding rows',
+      question: 'Which surface-flow cards lack an implementation-alignment judgment?',
+      relatedRelationships: ['flow-feeds-alignment'],
+    },
+    {
+      id: 'operation-alignment-not-verified',
+      stage: 'Operation',
+      severity: 'medium',
+      when: 'alignment rows are partial/current but verification-checkpoints do not cover the same surface concerns',
+      question: 'Which verification checkpoint would make the current implementation alignment actionable?',
+      relatedRelationships: ['alignment-requires-verification'],
+    },
+    {
+      id: 'refresh-status-drift',
+      stage: 'Refresh',
+      severity: 'medium',
+      when: 'status-snapshot or alignment state is older than source/code/check updates',
+      question: 'What changed since the last delivery pass, and which status should move?',
+    },
+    {
+      id: 'judgment-delivery-readiness',
+      stage: 'Judgment',
+      severity: 'high',
+      when: 'surface flow, alignment, verification, and tooling are all populated and linked',
+      question: 'Is the surface shippable, blocked, or only visually/partially complete?',
+      relatedRelationships: ['flow-feeds-alignment', 'alignment-requires-verification', 'tooling-supports-verification'],
+    },
+  ],
+  validOperations: [
+    {
+      id: 'add-surface-flow-card',
+      label: 'Add surface flow card',
+      stages: ['Seeding', 'Composition'],
+      description: 'Add the first source-backed surface card with design/spec/code/ticket references.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'add-alignment-row',
+      label: 'Add alignment row',
+      stages: ['Composition', 'Coherence'],
+      description: 'Add or update an alignment row for a surface-flow entity that lacks implementation judgment.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'add-verification-checkpoint',
+      label: 'Add verification checkpoint',
+      stages: ['Coherence', 'Operation'],
+      description: 'Add a check that proves or bounds a current alignment claim.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'lower-readiness-status',
+      label: 'Lower readiness status',
+      stages: ['Coherence', 'Refresh', 'Judgment'],
+      description: 'Lower or qualify status when verification does not support the delivery claim.',
+      patchKind: 'card-update',
+    },
+    {
+      id: 'link-tooling-to-check',
+      label: 'Link tooling to check',
+      stages: ['Operation', 'Refresh'],
+      description: 'Link the script, workflow, or local tool that can run or inspect a verification checkpoint.',
+      patchKind: 'card-update',
+    },
+  ],
+});

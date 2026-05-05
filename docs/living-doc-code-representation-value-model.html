@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Code Representation Value Model</title>
+<meta name="description" content="Internal model explaining why typed code representation can help living-doc semantic machinery while living doc instances remain JSON artifacts." />
+<style>
+  :root {
+    --bg: #f6f3ee;
+    --paper: #fffdf8;
+    --ink: #1f2528;
+    --muted: #667075;
+    --line: #d8d0c3;
+    --accent: #0f6b5f;
+    --accent-2: #8a4c1f;
+    --warn: #8d2f2f;
+    --code: #263236;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, 0.92);
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 720;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 54px 0 80px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 36px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  h1 {
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 76px);
+    line-height: .94;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 880px;
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.42;
+    color: #334044;
+  }
+
+  .summary-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .07);
+  }
+
+  .summary-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary-card ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary-card li + li { margin-top: 8px; }
+
+  section {
+    margin-top: 28px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    max-width: 940px;
+  }
+
+  .body { padding: 22px; }
+
+  code,
+  .code {
+    font-family: var(--mono);
+    color: var(--code);
+    background: #f0ece4;
+    border: 1px solid #ded6c9;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: .92em;
+  }
+
+  pre.codeblock {
+    margin: 14px 0 0;
+    padding: 14px;
+    border-radius: 8px;
+    background: #263236;
+    color: #f9f4e8;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, .78fr);
+    gap: 18px;
+  }
+
+  .callout {
+    background: #edf5f2;
+    border: 1px solid #c8ddd7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: #fffefa;
+  }
+
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .card ul,
+  .dense-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+  }
+
+  li + li { margin-top: 6px; }
+
+  .matrix {
+    display: grid;
+    grid-template-columns: 230px repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .matrix > div {
+    padding: 12px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    min-height: 70px;
+    font-size: 14px;
+  }
+
+  .matrix > div:nth-child(4n) { border-right: 0; }
+  .matrix .head { background: #f3ede3; font-weight: 760; color: var(--ink); }
+  .matrix .rowhead { background: #fbf7ef; font-weight: 760; }
+  .matrix .last-row { border-bottom: 0; }
+
+  .diagram-block {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffefa;
+    padding: 16px;
+    margin: 16px 0;
+  }
+
+  .diagram-block h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .diagram-block p {
+    margin: 0 0 12px;
+    color: var(--muted);
+  }
+
+  pre.mermaid {
+    margin: 0;
+    padding: 14px;
+    border-radius: 8px;
+    background: #f5f1e9;
+    border: 1px solid #ded6c9;
+    overflow-x: auto;
+    color: var(--code);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  pre.mermaid svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .flow {
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f1eee8;
+    font-family: var(--mono);
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .warning {
+    border-color: #e0b8b8;
+    background: #fff4f2;
+  }
+
+  .warning strong,
+  .warning h3 {
+    color: var(--warn);
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 32px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  @media (max-width: 920px) {
+    .hero,
+    .split {
+      grid-template-columns: 1fr;
+    }
+
+    .cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .matrix {
+      display: block;
+      border: 0;
+    }
+
+    .matrix > div {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .matrix .head { display: none; }
+  }
+
+  @media (max-width: 620px) {
+    .shell { width: min(100% - 20px, 1180px); }
+    nav { display: none; }
+    main { padding-top: 34px; }
+    .cards { grid-template-columns: 1fr; }
+    .body,
+    .section-head {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="shell top">
+    <a class="brand" href="index.html">
+      <span class="mark">L</span>
+      <span>Living Doc Compositor</span>
+    </a>
+    <nav>
+      <a href="living-doc-stage-skill-operating-model.html">Stage Model</a>
+      <a href="living-doc-knowledge-graph-mcp-skill-model.html">Graph/MCP Model</a>
+      <a href="living-doc-compositor.html">Compositor</a>
+      <a href="https://github.com/triadflow/living-doc-compositor">Repo</a>
+    </nav>
+  </div>
+</header>
+
+<main class="shell">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Internal operating model</div>
+      <h1>Why code representation helps.</h1>
+      <p class="lede">
+        The living doc itself should remain a JSON artifact. The value of code is elsewhere: the semantic machinery around living docs has behavior. Code can define that behavior once, then generate the registry, templates, MCP diagnostics, skill context, tests, and diagrams from the same source.
+      </p>
+    </div>
+
+    <aside class="summary-card">
+      <h2>Simple value</h2>
+      <ol>
+        <li>JSON is good for stored document state.</li>
+        <li>Code is better when structure has behavior.</li>
+        <li>Living-doc semantics have behavior: relationships, stages, diagnostics, operations.</li>
+        <li>Typed definitions can generate the JSON and the MCP behavior.</li>
+        <li>The result is less duplicated meaning and less drift.</li>
+      </ol>
+    </aside>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>1. The Problem Is Not JSON</h2>
+      <p>The problem is asking JSON to carry behavior that currently lives elsewhere.</p>
+    </div>
+    <div class="body split">
+      <div>
+        <p>
+          A living doc JSON file is useful because it is portable, reviewable, renderable, patchable, and archival. It should keep being the source of truth for one concrete document instance.
+        </p>
+        <p>
+          The friction appears around the machinery that interprets that instance. Convergence types, template chains, stage signals, relationship gaps, governance checks, valid operations, MCP diagnostics, and skill prompt context are all behavioral. They do not merely say what data is present. They say what the data means, what should be checked, what stage the doc may be in, and what operation is valid next.
+        </p>
+        <div class="flow">JSON stores state. Code defines behavior over state.</div>
+      </div>
+      <div class="callout">
+        <strong>Keep the artifact boundary</strong>
+        Do not turn every living doc into source code. Turn the reusable semantic machinery into typed definitions that can generate JSON artifacts and runtime behavior.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>2. What Is Currently Split Across Surfaces</h2>
+      <p>The same meaning now appears in several places: registry JSON, template JSON, MCP server code, skills, validation, rendered docs, and explanatory pages.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Current Drift Risk</h3>
+        <p>Each surface can be correct locally while the overall meaning drifts.</p>
+        <pre class="mermaid">
+flowchart TB
+  Meaning["Living-doc semantic meaning"]
+  Meaning --> Registry["registry JSON<br/>type fields and guidance"]
+  Meaning --> Templates["template JSON<br/>section bundles"]
+  Meaning --> MCP["MCP server code<br/>diagnostics and operations"]
+  Meaning --> Skills["skill instructions<br/>domain operating procedure"]
+  Meaning --> Validators["validators<br/>patch and governance checks"]
+  Meaning --> Docs["docs and diagrams<br/>human explanation"]
+
+  Registry -. "can drift from" .-> MCP
+  Templates -. "can drift from" .-> Skills
+  Skills -. "can drift from" .-> Validators
+  Docs -. "can drift from" .-> Registry
+        </pre>
+      </div>
+
+      <div class="matrix">
+        <div class="head">Surface</div>
+        <div class="head">What it knows today</div>
+        <div class="head">Why drift happens</div>
+        <div class="head">What code source could generate</div>
+
+        <div class="rowhead">Registry JSON</div>
+        <div>Convergence type fields, sources, statuses, prompt guidance.</div>
+        <div>It can describe a type without executable relationship or stage behavior.</div>
+        <div>Generated registry entries from typed type definitions.</div>
+
+        <div class="rowhead">Template JSON</div>
+        <div>Concrete section bundles for doc shapes.</div>
+        <div>Relationships between sections are mostly implicit or explained elsewhere.</div>
+        <div>Generated templates plus relationship graph metadata.</div>
+
+        <div class="rowhead">MCP server</div>
+        <div>Structure reflection, coverage, governance, patch, render operations.</div>
+        <div>Behavior is hand-coded separately from type/template definitions.</div>
+        <div>Diagnostics and valid operations compiled from typed definitions.</div>
+
+        <div class="rowhead">Skills</div>
+        <div>Procedures and domain heuristics.</div>
+        <div>They may repeat structural facts already present elsewhere.</div>
+        <div>Compact generated prompt context per doc/stage.</div>
+
+        <div class="rowhead last-row">Docs/diagrams</div>
+        <div class="last-row">Human explanation of stages and relationships.</div>
+        <div class="last-row">Explanations can fall behind runtime behavior.</div>
+        <div class="last-row">Generated diagrams and reference pages from the same graph.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>3. What Code Representation Adds</h2>
+      <p>Code does not add value because it is more fashionable than JSON. It adds value because it can define reusable behavior, compose definitions, run checks, and generate multiple outputs.</p>
+    </div>
+    <div class="body">
+      <div class="cards">
+        <article class="card">
+          <h3>Executable Relationships</h3>
+          <p>Expected chains can become testable rules, not prose.</p>
+          <pre class="codeblock">expects("proof-ladder")
+  .toSupport("model-assertion")</pre>
+        </article>
+
+        <article class="card">
+          <h3>Stage Signals</h3>
+          <p>Stage inference can become diagnostics over current document state.</p>
+          <pre class="codeblock">signal("coherence-risk")
+  .when(missingEdge("proof", "assertion"))</pre>
+        </article>
+
+        <article class="card">
+          <h3>Valid Operations</h3>
+          <p>Operations can be constrained by stage, type, patch schema, and source ownership.</p>
+          <pre class="codeblock">operation("link-evidence")
+  .validIn("coherence", "judgment")</pre>
+        </article>
+
+        <article class="card">
+          <h3>Generated Artifacts</h3>
+          <p>One definition can generate registry JSON, template JSON, MCP schemas, prompt fragments, tests, and diagrams.</p>
+        </article>
+
+        <article class="card">
+          <h3>Fail-Fast Evolution</h3>
+          <p>Adding or changing a type can fail tests if stage roles, relationships, or operations are missing.</p>
+        </article>
+
+        <article class="card">
+          <h3>Inference-Time Compression</h3>
+          <p>Skills can receive compact generated context instead of reading the entire registry and hand-authored explanations.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>4. Source Code as Semantic Definition</h2>
+      <p>This is the kind of code representation that would help: not arbitrary application code, but a typed semantic definition layer.</p>
+    </div>
+    <div class="body split">
+      <div>
+        <pre class="codeblock">defineTemplate("surface-delivery", {
+  objectiveRole: "make one product surface deliverable and inspectable",
+  sections: [
+    "status-snapshot",
+    "design-code-spec-flow",
+    "design-implementation-alignment",
+    "verification-checkpoints",
+    "tooling-surface"
+  ],
+})
+  .expects("design-code-spec-flow")
+  .toFeed("design-implementation-alignment")
+  .expects("design-implementation-alignment")
+  .toBeTestedBy("verification-checkpoints")
+  .stageSignal("coherence", missingExpectedRelationship())
+  .stageSignal("operation", blockerVisibleWithNextAction())
+  .operation("add-verification-checkpoint")
+  .operation("link-implementation-evidence")
+  .operation("lower-delivery-status");</pre>
+      </div>
+      <div>
+        <p>
+          The important part is that this definition is executable. It can validate a template, generate a diagram, answer an MCP query, and produce stage-specific skill context.
+        </p>
+        <p>
+          The definition is still declarative. It is not hand-writing the whole MCP server. It is making the relationships and stage rules first-class enough that tooling can use them.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>5. Generated Outputs From One Definition</h2>
+      <p>This is the main practical benefit: one authored semantic source can project into all the surfaces that currently need to stay aligned.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Code Source to Generated Surfaces</h3>
+        <p>The code source is not the living doc. It is the source of the living-doc operating machinery.</p>
+        <pre class="mermaid">
+flowchart TB
+  Code["Typed semantic definitions<br/>types, templates, relationships, stages, operations"] --> Registry["living-doc-registry.json"]
+  Code --> Templates["living-doc-template-*.json"]
+  Code --> Graph["relationship graph"]
+  Code --> MCP["MCP tool behavior<br/>diagnostics and valid operations"]
+  Code --> Prompts["skill prompt fragments"]
+  Code --> Tests["contract tests"]
+  Code --> Diagrams["Mermaid diagrams and docs"]
+  Code --> Schema["patch / operation schemas"]
+
+  Registry --> Doc["living doc JSON instances"]
+  Templates --> Doc
+  Graph --> MCP
+  MCP --> Skill["stage-aware skill"]
+  Prompts --> Skill
+  Skill --> Patch["patch / operation / question"]
+  Patch --> Doc
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>6. How This Makes Existing MCP Better</h2>
+      <p>The current MCP server already has a meaningful surface. Code representation helps by giving that surface a stronger source of truth for behavior.</p>
+    </div>
+    <div class="body">
+      <div class="matrix">
+        <div class="head">Existing tool area</div>
+        <div class="head">What it can do now</div>
+        <div class="head">What typed definitions add</div>
+        <div class="head">Resulting value</div>
+
+        <div class="rowhead">Structure reflection</div>
+        <div>Inspect sections, source coverage, type candidates, coverage, governance.</div>
+        <div>Template relationship chains and expected section edges.</div>
+        <div>Reflection can explain relationship gaps, not only local section health.</div>
+
+        <div class="rowhead">Governance evaluation</div>
+        <div>Check invariants, evidence, source ownership, stale snapshot risks.</div>
+        <div>Stage-specific invariant expectations and operation constraints.</div>
+        <div>Governance can say what rule matters at this life stage.</div>
+
+        <div class="rowhead">Coverage checks</div>
+        <div>Find uncovered objective facets and invalid coverage edges.</div>
+        <div>Facet-to-section role definitions and expected carrier types.</div>
+        <div>Coverage can distinguish missing evidence from missing decision or missing source.</div>
+
+        <div class="rowhead">Patch validation</div>
+        <div>Validate patch schema and doc consistency.</div>
+        <div>Operation-level semantics compiled to JSON edits.</div>
+        <div>Patches can be higher-level and safer.</div>
+
+        <div class="rowhead last-row">Registry explanation</div>
+        <div class="last-row">Explain one convergence type from registry fields.</div>
+        <div class="last-row">Local role, relational role, stage roles, valid operations.</div>
+        <div class="last-row">Skills receive a usable operating contract, not just a type description.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>7. The OpenUI Lesson, Translated Carefully</h2>
+      <p>OpenUI is not proof that every structure should become code. It shows a useful pattern: when a structure must generate prompts, validate output, render, stream, execute, and update, a passive JSON source becomes limiting.</p>
+    </div>
+    <div class="body">
+      <div class="cards">
+        <article class="card">
+          <h3>OpenUI Need</h3>
+          <p>Generated UI must stream, validate, render, execute queries/mutations, support state, and update incrementally.</p>
+        </article>
+        <article class="card">
+          <h3>Their Move</h3>
+          <p>Define component libraries and schemas in code; generate prompts and specs; use a compact language for model output.</p>
+        </article>
+        <article class="card">
+          <h3>Our Translation</h3>
+          <p>Keep living doc JSON as artifact; define registry/template/stage/operation machinery in typed code that generates runtime surfaces.</p>
+        </article>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Parallel Pattern</h3>
+        <p>The relevant pattern is not "JSON bad." It is "behavioral structure benefits from executable definition."</p>
+        <pre class="mermaid">
+flowchart LR
+  subgraph OpenUI["OpenUI"]
+    Components["Component definitions in code"] --> PromptA["Generated prompt"]
+    Components --> SchemaA["JSON schema / component spec"]
+    Components --> RuntimeA["Renderer behavior"]
+    RuntimeA --> UI["Generated UI runs"]
+  end
+
+  subgraph LivingDocs["Living Docs"]
+    Semantics["Semantic definitions in code"] --> Registry["Generated registry"]
+    Semantics --> Templates["Generated templates"]
+    Semantics --> MCP["MCP diagnostics"]
+    Semantics --> SkillContext["Generated skill context"]
+    MCP --> DocOps["Living doc operations"]
+  end
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>8. What Should Stay JSON vs Move to Code</h2>
+      <p>The split should be conservative. Move behavior, not content.</p>
+    </div>
+    <div class="body">
+      <div class="matrix">
+        <div class="head">Thing</div>
+        <div class="head">Best source</div>
+        <div class="head">Reason</div>
+        <div class="head">Generated or consumed output</div>
+
+        <div class="rowhead">Concrete living doc instance</div>
+        <div>JSON</div>
+        <div>Portable artifact, easy to diff, render, patch, archive, and share.</div>
+        <div>Rendered HTML, MCP current state, human review.</div>
+
+        <div class="rowhead">Convergence type definition</div>
+        <div>Typed code, generating JSON</div>
+        <div>Has fields plus behavior: source expectations, stage roles, valid operations.</div>
+        <div>Registry JSON, prompt context, validator rules.</div>
+
+        <div class="rowhead">Template section bundle</div>
+        <div>Typed code, generating JSON</div>
+        <div>Has ordered/expected relationships, not just a list of sections.</div>
+        <div>Template JSON, diagrams, relationship graph.</div>
+
+        <div class="rowhead">Stage rules</div>
+        <div>Typed code</div>
+        <div>Rules need predicates over document state.</div>
+        <div>MCP diagnostics, tests, skill context.</div>
+
+        <div class="rowhead">Valid operations</div>
+        <div>Typed code</div>
+        <div>Operations need preconditions, patch compilation, and validation.</div>
+        <div>Patch skeletons, MCP tool schemas, operation docs.</div>
+
+        <div class="rowhead last-row">Domain skill judgment</div>
+        <div class="last-row">Skill prose plus optional references</div>
+        <div class="last-row">Depends on domain evidence, user intent, and risk tolerance.</div>
+        <div class="last-row">Concrete decision, question, or patch proposal.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>9. The Value in One Example</h2>
+      <p>Without code representation, the relationship between assertion, proof, findings, and decision is described in several places. With code representation, it becomes an executable contract.</p>
+    </div>
+    <div class="body split">
+      <div>
+        <pre class="codeblock">defineTemplate("proof-canonicality")
+  .sections([
+    "status-snapshot",
+    "formal-model",
+    "model-assertion",
+    "proof-ladder",
+    "investigation-findings",
+    "decision-record",
+    "tooling-surface"
+  ])
+  .expects("formal-model").toFrame("model-assertion")
+  .expects("proof-ladder").toSupport("model-assertion")
+  .expects("investigation-findings").toInterpret("proof-ladder")
+  .expects("decision-record").toBeJustifiedBy("investigation-findings")
+  .stageSignal("coherence", missingExpectedRelationship())
+  .stageSignal("judgment", allCriticalRelationshipsSupported())
+  .operation("weaken-assertion")
+  .operation("link-proof-to-assertion")
+  .operation("record-decision-with-uncertainty");</pre>
+      </div>
+      <div>
+        <p>
+          From this one definition, MCP can diagnose: "The doc has a model assertion and proof ladder, but no proof card supports the assertion. Likely stage: Coherence. Valid operations: link proof, add proof, or weaken assertion."
+        </p>
+        <p>
+          The proof-canonicality skill then decides which operation is responsible in the actual domain. The skill does not need to rediscover the structural contract from scratch.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>10. Costs and Guardrails</h2>
+      <p>Code representation is not free. It is only worth it if it reduces duplicated behavior without making authoring painful.</p>
+    </div>
+    <div class="body">
+      <div class="cards">
+        <article class="card warning">
+          <h3>Risk: Over-Engineering</h3>
+          <p>A large abstract DSL can become harder to change than JSON. Start with one or two templates and only encode repeated behavior.</p>
+        </article>
+        <article class="card warning">
+          <h3>Risk: Losing Inspectability</h3>
+          <p>If generated JSON becomes opaque, contributors lose trust. Generated artifacts must remain readable and diffable.</p>
+        </article>
+        <article class="card warning">
+          <h3>Risk: Behavior Hidden in Code</h3>
+          <p>Definitions should generate docs and diagrams so the behavior stays visible to humans and agents.</p>
+        </article>
+        <article class="card">
+          <h3>Guardrail: JSON Artifacts Remain Canonical for Docs</h3>
+          <p>Concrete living docs stay JSON. Code defines the machinery, not the lived document content.</p>
+        </article>
+        <article class="card">
+          <h3>Guardrail: Round-Trip Tests</h3>
+          <p>Generated registry/templates should pass the existing renderer, compositor embed, MCP, and validation tests.</p>
+        </article>
+        <article class="card">
+          <h3>Guardrail: Progressive Adoption</h3>
+          <p>Begin by generating a template graph or diagnostics module, not replacing the whole registry at once.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>11. Practical First Step</h2>
+      <p>The smallest valuable experiment is not a full rewrite. It is an executable relationship definition for one template family.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Minimum Useful Experiment</h3>
+        <p>Pick one template, encode its relationships and stage signals, generate one MCP diagnostic, and compare that against the existing hand-coded reflection output.</p>
+        <pre class="mermaid">
+flowchart LR
+  Pick["Pick one template<br/>surface-delivery or proof-canonicality"] --> Define["Write typed relationship definition"]
+  Define --> Generate["Generate template graph JSON"]
+  Generate --> MCP["Add MCP diagnostic using generated graph"]
+  MCP --> Test["Run against existing docs"]
+  Test --> Compare["Compare with current structure_reflect"]
+  Compare --> Decide{"Value proven?"}
+  Decide -->|yes| Expand["Add second template family"]
+  Decide -->|no| Keep["Keep model as docs only"]
+        </pre>
+      </div>
+
+      <div class="callout">
+        <strong>Success condition</strong>
+        The experiment is valuable if the generated graph lets MCP identify a relationship or stage gap that the current local section diagnostics do not express clearly.
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Static internal model page. File: <code>docs/living-doc-code-representation-value-model.html</code>. Mermaid diagrams render client-side using the same CDN pattern as <code>docs/harness-playground.html</code>; the diagram source remains visible if rendering is unavailable.
+    </p>
+  </footer>
+</main>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    securityLevel: 'loose',
+    flowchart: {
+      curve: 'basis',
+      padding: 18,
+      useMaxWidth: true,
+      htmlLabels: true,
+      nodeSpacing: 34,
+      rankSpacing: 48
+    },
+    sequence: {
+      mirrorActors: false,
+      showSequenceNumbers: false
+    },
+    themeVariables: {
+      background: '#fffdf8',
+      primaryColor: '#edf5f2',
+      primaryTextColor: '#1f2528',
+      primaryBorderColor: '#83afa5',
+      lineColor: '#8a7f70',
+      secondaryColor: '#fff7e8',
+      tertiaryColor: '#f8eeee',
+      fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    }
+  });
+</script>
+</body>
+</html>

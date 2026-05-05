@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+
+const check = spawnSync(process.execPath, ['scripts/generate-living-doc-semantic-graph.mjs', '--check'], {
+  encoding: 'utf8',
+});
+assert.equal(check.status, 0, check.stderr || check.stdout);
+
+const registry = JSON.parse(await readFile('scripts/living-doc-registry.json', 'utf8'));
+const graph = JSON.parse(await readFile('scripts/generated/living-doc-template-graphs.json', 'utf8'));
+
+assert.equal(graph.schema, 'living-doc-semantic-graph/v1');
+assert.ok(graph.templates && typeof graph.templates === 'object', 'graph must define templates');
+
+for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
+  assert.equal(templateGraph.id, templateId, `${templateId} id mismatch`);
+  assert.ok(templateGraph.templatePath, `${templateId} missing templatePath`);
+  const template = JSON.parse(await readFile(templateGraph.templatePath, 'utf8'));
+  const templateSections = new Map((template.sections || []).map((section) => [section.id, section]));
+  const sectionTypes = new Set((template.sections || []).map((section) => section.convergenceType));
+  const graphSectionTypes = new Set(templateGraph.sections.map((section) => section.convergenceType));
+  const relationshipIds = new Set();
+
+  for (const section of templateGraph.sections) {
+    assert.ok(section.id, `${templateId} section missing id`);
+    assert.ok(section.convergenceType, `${templateId}.${section.id} missing convergenceType`);
+    assert.ok(
+      registry.convergenceTypes[section.convergenceType],
+      `${templateId}.${section.id} references unknown convergence type ${section.convergenceType}`,
+    );
+    assert.equal(
+      templateSections.get(section.id)?.convergenceType,
+      section.convergenceType,
+      `${templateId}.${section.id} does not match template section type`,
+    );
+  }
+
+  for (const relationship of templateGraph.relationships) {
+    assert.ok(relationship.id, `${templateId} relationship missing id`);
+    assert.ok(!relationshipIds.has(relationship.id), `${templateId} duplicate relationship ${relationship.id}`);
+    relationshipIds.add(relationship.id);
+    assert.ok(sectionTypes.has(relationship.from), `${templateId}.${relationship.id} from type not present in template`);
+    assert.ok(sectionTypes.has(relationship.to), `${templateId}.${relationship.id} to type not present in template`);
+    assert.ok(graphSectionTypes.has(relationship.from), `${templateId}.${relationship.id} from type not present in graph sections`);
+    assert.ok(graphSectionTypes.has(relationship.to), `${templateId}.${relationship.id} to type not present in graph sections`);
+    assert.ok(relationship.relation, `${templateId}.${relationship.id} missing relation`);
+  }
+
+  for (const signal of templateGraph.stageSignals) {
+    assert.ok(signal.id, `${templateId} stage signal missing id`);
+    assert.ok(signal.stage, `${templateId}.${signal.id} missing stage`);
+    for (const relationshipId of signal.relatedRelationships || []) {
+      assert.ok(relationshipIds.has(relationshipId), `${templateId}.${signal.id} references unknown relationship ${relationshipId}`);
+    }
+  }
+
+  for (const operation of templateGraph.validOperations) {
+    assert.ok(operation.id, `${templateId} operation missing id`);
+    assert.ok(Array.isArray(operation.stages), `${templateId}.${operation.id} stages must be an array`);
+    assert.ok(operation.description, `${templateId}.${operation.id} missing description`);
+  }
+}
+
+assert.ok(graph.templates['surface-delivery'], 'expected initial surface-delivery template graph');
+assert.ok(
+  graph.templates['surface-delivery'].relationships.some((relationship) => relationship.id === 'alignment-requires-verification'),
+  'surface-delivery should encode alignment -> verification relationship',
+);
+
+console.log(`template graph contract ok: ${Object.keys(graph.templates).length} templates`);

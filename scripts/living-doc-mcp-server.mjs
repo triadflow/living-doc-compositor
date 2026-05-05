@@ -11,6 +11,7 @@ import { validatePatch } from './validate-ai-patch.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const harnessCli = path.join(repoRoot, '.agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs');
+const semanticGraphPath = path.join(repoRoot, 'scripts/generated/living-doc-template-graphs.json');
 
 const protocolVersion = '2024-11-05';
 
@@ -56,6 +57,23 @@ const tools = [
     doc: stringProp('Living doc JSON path.'),
     registry: optionalString(),
   }, ['doc'])),
+  tool('living_doc_template_graph', 'Return generated semantic relationship graph metadata for a template or matching living doc.', objectSchema({
+    templateId: optionalString('Template id such as surface-delivery. If omitted with doc, inferred from the doc shape where possible.'),
+    doc: optionalString('Optional living doc JSON path used to infer the matching template graph.'),
+  })),
+  tool('living_doc_relationship_gaps', 'Compare a living doc against its generated template graph and return missing or weak expected relationships.', objectSchema({
+    doc: stringProp('Living doc JSON path.'),
+    templateId: optionalString('Optional template graph id. If omitted, inferred from the doc shape where possible.'),
+  }, ['doc'])),
+  tool('living_doc_stage_diagnostics', 'Infer stage candidates from generated template graph relationships and current section/card population.', objectSchema({
+    doc: stringProp('Living doc JSON path.'),
+    templateId: optionalString('Optional template graph id. If omitted, inferred from the doc shape where possible.'),
+  }, ['doc'])),
+  tool('living_doc_valid_stage_operations', 'Return generated valid operations for a template graph, optionally filtered by stage.', objectSchema({
+    templateId: optionalString('Template graph id. If omitted with doc, inferred from the doc shape where possible.'),
+    doc: optionalString('Optional living doc JSON path used to infer the matching template graph.'),
+    stage: optionalString('Optional stage name such as Seeding, Coherence, Operation, Refresh, or Judgment.'),
+  })),
   tool('living_doc_structure_refine', 'Apply conservative structural edits: add section, update section type/rationale/title, or remove empty section.', objectSchema({
     doc: stringProp(),
     changes: { type: 'array', items: { type: 'object' }, default: [] },
@@ -162,6 +180,10 @@ function tool(name, description, inputSchema) {
     'living_doc_objective_decompose',
     'living_doc_structure_select',
     'living_doc_structure_reflect',
+    'living_doc_template_graph',
+    'living_doc_relationship_gaps',
+    'living_doc_stage_diagnostics',
+    'living_doc_valid_stage_operations',
     'living_doc_coverage_find_gaps',
     'living_doc_coverage_evaluate_success_condition',
     'living_doc_governance_list_invariants',
@@ -236,6 +258,10 @@ async function writeJson(filePath, value) {
 
 async function loadRegistry(args = {}) {
   return JSON.parse(await readFile(registryPath(args), 'utf8'));
+}
+
+async function loadSemanticGraph() {
+  return JSON.parse(await readFile(semanticGraphPath, 'utf8'));
 }
 
 function slugify(value, fallback = 'item') {
@@ -527,11 +553,255 @@ async function structureReflect(args) {
     doc: resolvePath(args.doc),
     objective: doc.objective || '',
     structureStillFits: recommendations.filter((rec) => rec.severity === 'high' && ['fix-section-type', 'cover-facet', 'add-governance'].includes(rec.kind)).length === 0,
+    semanticGraph: await semanticGraphForDoc(doc),
     sectionDiagnostics,
     coverage,
     governance,
     recommendations,
   };
+}
+
+async function semanticGraphForDoc(doc) {
+  const graph = await loadSemanticGraph().catch(() => null);
+  const templates = graph?.templates || {};
+  const inferred = inferTemplateGraphForDoc(doc, templates);
+  if (!inferred) return null;
+  const template = templates[inferred.templateId];
+  if (!template) return null;
+  return {
+    schema: graph.schema,
+    templateId: inferred.templateId,
+    inferredFromDoc: inferred,
+    relationships: template.relationships || [],
+    stageSignals: template.stageSignals || [],
+    validOperations: template.validOperations || [],
+  };
+}
+
+async function templateGraphTool(args = {}) {
+  const graph = await loadSemanticGraph();
+  const templates = graph.templates || {};
+  const inferred = args.doc ? inferTemplateGraphForDoc(await readJson(args.doc), templates) : null;
+  const templateId = args.templateId || inferred?.templateId || '';
+
+  if (templateId) {
+    const template = templates[templateId];
+    if (!template) throw new McpError(-32602, `Unknown template graph: ${templateId}`);
+    return {
+      schema: graph.schema,
+      generatedFrom: graph.generatedFrom,
+      templateId,
+      inferredFromDoc: inferred || null,
+      template,
+    };
+  }
+
+  return {
+    schema: graph.schema,
+    generatedFrom: graph.generatedFrom,
+    templateIds: Object.keys(templates).sort(),
+    templates,
+  };
+}
+
+async function relationshipGapsTool(args = {}) {
+  const { graph, template, inferred } = await resolveTemplateGraphContext(args);
+  const doc = await readJson(args.doc);
+  const sectionStats = sectionStatsByType(doc);
+  const gaps = [];
+
+  for (const relationship of template.relationships || []) {
+    const fromStats = sectionStats.get(relationship.from);
+    const toStats = sectionStats.get(relationship.to);
+    const status = classifyRelationshipStatus(fromStats, toStats);
+    if (status.kind !== 'present') {
+      gaps.push({
+        relationshipId: relationship.id,
+        relation: relationship.relation,
+        from: relationship.from,
+        to: relationship.to,
+        severity: status.severity,
+        kind: status.kind,
+        reason: status.reason,
+        question: relationshipGapQuestion(relationship, status),
+      });
+    }
+  }
+
+  return {
+    schema: graph.schema,
+    doc: resolvePath(args.doc),
+    templateId: template.id,
+    inferredFromDoc: inferred,
+    sectionStats: Object.fromEntries([...sectionStats.entries()].map(([type, stats]) => [type, stats])),
+    gaps,
+  };
+}
+
+async function stageDiagnosticsTool(args = {}) {
+  const context = await resolveTemplateGraphContext(args);
+  const relationships = await relationshipGapsTool(args);
+  const doc = await readJson(args.doc);
+  const sectionStats = sectionStatsByType(doc);
+  const candidates = [];
+
+  for (const signal of context.template.stageSignals || []) {
+    const evaluation = evaluateStageSignal(signal, sectionStats, relationships.gaps);
+    if (evaluation.triggered) {
+      candidates.push({
+        stage: signal.stage,
+        signalId: signal.id,
+        severity: signal.severity,
+        question: signal.question,
+        reason: evaluation.reason,
+        relatedRelationships: signal.relatedRelationships || [],
+      });
+    }
+  }
+
+  candidates.sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+
+  return {
+    schema: context.graph.schema,
+    doc: resolvePath(args.doc),
+    templateId: context.template.id,
+    inferredFromDoc: context.inferred,
+    likelyStage: candidates[0]?.stage || null,
+    candidates,
+    relationshipGaps: relationships.gaps,
+  };
+}
+
+async function validStageOperationsTool(args = {}) {
+  const { graph, template, inferred } = await resolveTemplateGraphContext(args);
+  const stage = String(args.stage || '').trim();
+  const operations = (template.validOperations || []).filter((operation) => (
+    !stage || (operation.stages || []).includes(stage)
+  ));
+  return {
+    schema: graph.schema,
+    templateId: template.id,
+    inferredFromDoc: inferred,
+    stage: stage || null,
+    operations,
+  };
+}
+
+async function resolveTemplateGraphContext(args = {}) {
+  const graph = await loadSemanticGraph();
+  const templates = graph.templates || {};
+  const doc = args.doc ? await readJson(args.doc) : null;
+  const inferred = doc ? inferTemplateGraphForDoc(doc, templates) : null;
+  const templateId = args.templateId || inferred?.templateId || '';
+  if (!templateId) throw new McpError(-32602, 'Unable to infer template graph; pass templateId or a matching doc.');
+  const template = templates[templateId];
+  if (!template) throw new McpError(-32602, `Unknown template graph: ${templateId}`);
+  return { graph, template, inferred };
+}
+
+function sectionStatsByType(doc) {
+  const stats = new Map();
+  for (const section of doc.sections || []) {
+    const type = section.convergenceType;
+    if (!type) continue;
+    const cards = getCards(section);
+    const existing = stats.get(type) || { sectionIds: [], cardCount: 0 };
+    existing.sectionIds.push(section.id);
+    existing.cardCount += cards.length;
+    stats.set(type, existing);
+  }
+  return stats;
+}
+
+function classifyRelationshipStatus(fromStats, toStats) {
+  if (!fromStats) {
+    return { kind: 'missing-source-section', severity: 'high', reason: 'The source convergence type is not present in the document.' };
+  }
+  if (!toStats) {
+    return { kind: 'missing-target-section', severity: 'high', reason: 'The target convergence type is not present in the document.' };
+  }
+  if (fromStats.cardCount > 0 && toStats.cardCount === 0) {
+    return { kind: 'missing-target-cards', severity: 'high', reason: 'The source section has cards, but the target section has no cards to carry the expected relationship.' };
+  }
+  if (fromStats.cardCount === 0 && toStats.cardCount > 0) {
+    return { kind: 'missing-source-cards', severity: 'medium', reason: 'The target section has cards, but the source section has no cards to ground the relationship.' };
+  }
+  if (fromStats.cardCount === 0 && toStats.cardCount === 0) {
+    return { kind: 'unpopulated', severity: 'low', reason: 'Both sides of the expected relationship are still unpopulated.' };
+  }
+  return { kind: 'present', severity: 'none', reason: 'Both sides are populated. Card-level relationship quality is not checked yet.' };
+}
+
+function relationshipGapQuestion(relationship, status) {
+  if (status.kind === 'missing-target-cards') {
+    return `What ${relationship.to} card should carry the ${relationship.relation} relationship from ${relationship.from}?`;
+  }
+  if (status.kind === 'missing-source-cards') {
+    return `What ${relationship.from} card grounds the existing ${relationship.to} cards?`;
+  }
+  if (status.kind === 'unpopulated') {
+    return `What first real entities should populate ${relationship.from} and ${relationship.to}?`;
+  }
+  return `What structure is needed for ${relationship.from} to ${relationship.relation} ${relationship.to}?`;
+}
+
+function evaluateStageSignal(signal, sectionStats, gaps) {
+  const stage = signal.stage;
+  if (stage === 'Seeding') {
+    const flow = sectionStats.get('design-code-spec-flow');
+    if (!flow || flow.cardCount === 0) return { triggered: true, reason: 'The objective-bearing surface-flow section has no cards.' };
+  }
+  if (stage === 'Coherence') {
+    const hasRelatedGap = (signal.relatedRelationships || []).some((id) => gaps.some((gap) => gap.relationshipId === id));
+    if (hasRelatedGap) return { triggered: true, reason: 'An expected relationship needed for whole-doc coherence is missing or weak.' };
+  }
+  if (stage === 'Operation') {
+    const alignment = sectionStats.get('design-implementation-alignment');
+    const verification = sectionStats.get('verification-checkpoints');
+    if (alignment?.cardCount > 0 && (!verification || verification.cardCount === 0)) {
+      return { triggered: true, reason: 'Alignment exists, but no verification checkpoints make it actionable.' };
+    }
+  }
+  if (stage === 'Judgment') {
+    const requiredTypes = ['design-code-spec-flow', 'design-implementation-alignment', 'verification-checkpoints', 'tooling-surface'];
+    const populated = requiredTypes.every((type) => (sectionStats.get(type)?.cardCount || 0) > 0);
+    const highGaps = gaps.some((gap) => gap.severity === 'high');
+    if (populated && !highGaps) return { triggered: true, reason: 'All critical surface-delivery sections are populated and no high-severity relationship gaps were found.' };
+  }
+  return { triggered: false, reason: '' };
+}
+
+function severityRank(severity) {
+  return { high: 0, medium: 1, low: 2, none: 3 }[severity] ?? 4;
+}
+
+function inferTemplateGraphForDoc(doc, templates) {
+  const docId = String(doc.docId || '');
+  if (docId.startsWith('template:')) {
+    const templateId = docId.slice('template:'.length);
+    if (templates[templateId]) return { templateId, method: 'docId' };
+  }
+
+  const canonicalOrigin = String(doc.canonicalOrigin || '');
+  const filenameMatch = canonicalOrigin.match(/living-doc-template-([a-z0-9-]+)\.json$/);
+  if (filenameMatch?.[1] && templates[filenameMatch[1]]) {
+    return { templateId: filenameMatch[1], method: 'canonicalOrigin' };
+  }
+
+  const docTypes = (doc.sections || []).map((section) => section.convergenceType).filter(Boolean);
+  for (const [templateId, template] of Object.entries(templates)) {
+    const templateTypes = (template.sections || []).map((section) => section.convergenceType).filter(Boolean);
+    if (sameStringArray(docTypes, templateTypes)) {
+      return { templateId, method: 'sectionTypeSequence' };
+    }
+  }
+
+  return null;
+}
+
+function sameStringArray(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
 }
 
 async function structureRefine(args) {
@@ -933,6 +1203,14 @@ async function callTool(name, args = {}) {
       return parseJsonOutput(runNode([harnessCli, 'scaffold', ...toArgs(args, ['objective', 'out', 'success', 'title', 'template', 'registry'])]));
     case 'living_doc_structure_reflect':
       return structureReflect(args);
+    case 'living_doc_template_graph':
+      return templateGraphTool(args);
+    case 'living_doc_relationship_gaps':
+      return relationshipGapsTool(args);
+    case 'living_doc_stage_diagnostics':
+      return stageDiagnosticsTool(args);
+    case 'living_doc_valid_stage_operations':
+      return validStageOperationsTool(args);
     case 'living_doc_structure_refine':
       return structureRefine(args);
     case 'living_doc_sources_add':

@@ -1577,7 +1577,7 @@
   .gov-rationale-field textarea {
     font: inherit; font-size: 12.5px; padding: 6px 8px;
     border: 1px solid #e2e8f0; border-radius: 6px; background: #fff;
-    width: 100%; resize: vertical; min-height: 30px;
+    width: 100%; resize: none; min-height: 30px; max-height: 140px; overflow-y: auto;
   }
 </style>
 </head>
@@ -3127,6 +3127,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }));
       localStorage.setItem(STORAGE_ACTIVE_KEY, activeId);
     } catch {}
+  }
+
+  function fitTextareaToContent(el) {
+    if (!el || el.tagName !== 'TEXTAREA') return;
+    const styles = window.getComputedStyle(el);
+    const minHeight = parseFloat(styles.minHeight) || 0;
+    const maxHeight = parseFloat(styles.maxHeight) || Infinity;
+    el.style.height = 'auto';
+    const nextHeight = Math.min(Math.max(el.scrollHeight, minHeight), maxHeight);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }
+
+  function fitTextareasToContent(root = document) {
+    root.querySelectorAll('textarea[data-autofit], textarea.sel-rationale-input').forEach(fitTextareaToContent);
   }
 
   function autoLoad() {
@@ -13652,7 +13667,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
               <div class="sel-contract">${esc(def.structuralContract || def.description || '')}</div>
               <div class="gov-rationale-field">
                 <label>Rationale</label>
-                <textarea class="sel-rationale-input" data-idx="${i}" rows="1" placeholder="Why this convergence type here, in this doc's context.">${esc(s.rationale || '')}</textarea>
+                <textarea class="sel-rationale-input" data-idx="${i}" rows="1" data-autofit placeholder="Why this convergence type here, in this doc's context.">${esc(s.rationale || '')}</textarea>
               </div>
             </div>
           </div>`;
@@ -14219,7 +14234,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
 
       document.querySelectorAll('.sel-rationale-input').forEach(el => {
+        fitTextareaToContent(el);
         el.addEventListener('input', (e) => {
+          fitTextareaToContent(e.target);
           const idx = parseInt(e.target.dataset.idx);
           if (!state.sections[idx]) return;
           const value = e.target.value;

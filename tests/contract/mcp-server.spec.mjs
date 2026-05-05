@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -12,6 +12,10 @@ const expectedTools = [
   'living_doc_objective_decompose',
   'living_doc_structure_select',
   'living_doc_structure_reflect',
+  'living_doc_template_graph',
+  'living_doc_relationship_gaps',
+  'living_doc_stage_diagnostics',
+  'living_doc_valid_stage_operations',
   'living_doc_structure_refine',
   'living_doc_scaffold',
   'living_doc_sources_add',
@@ -148,6 +152,52 @@ try {
   assert.ok(reflect.sectionDiagnostics.length > 0);
   assert.ok(reflect.recommendations.some((rec) => rec.kind === 'create-source-material'));
   assert.ok(reflect.recommendations.some((rec) => rec.kind === 'add-source-links'));
+
+  const templateGraph = await client.callTool('living_doc_template_graph', { templateId: 'surface-delivery' });
+  assert.equal(templateGraph.templateId, 'surface-delivery');
+  assert.ok(templateGraph.template.relationships.some((relationship) => relationship.id === 'alignment-requires-verification'));
+  assert.ok(templateGraph.template.stageSignals.some((signal) => signal.stage === 'Coherence'));
+
+  const inferredGraph = await client.callTool('living_doc_template_graph', { doc: 'docs/living-doc-template-surface-delivery.json' });
+  assert.equal(inferredGraph.templateId, 'surface-delivery');
+  assert.equal(inferredGraph.inferredFromDoc.method, 'docId');
+
+  const reflectedTemplate = await client.callTool('living_doc_structure_reflect', { doc: 'docs/living-doc-template-surface-delivery.json' });
+  assert.equal(reflectedTemplate.semanticGraph.templateId, 'surface-delivery');
+  assert.ok(reflectedTemplate.semanticGraph.validOperations.some((operation) => operation.id === 'add-verification-checkpoint'));
+
+  const surfaceDocPath = path.join(tmpDir, 'surface-delivery-gap.json');
+  await writeFile(surfaceDocPath, JSON.stringify({
+    docId: 'doc:surface-delivery-gap',
+    title: 'Surface Delivery Gap',
+    objective: 'Make one product surface legible across implementation and verification.',
+    successCondition: 'Alignment and verification are connected.',
+    sections: [
+      { id: 'status-snapshot', title: 'Status Snapshot', convergenceType: 'status-snapshot', data: [] },
+      {
+        id: 'surface-flow',
+        title: 'Design-Code-Spec Flow',
+        convergenceType: 'design-code-spec-flow',
+        data: [{ id: 'primary-surface', name: 'Primary surface', status: 'ground-truth', codeStatus: 'partial', codeRefs: ['src/Surface.tsx'] }],
+      },
+      { id: 'alignment', title: 'Design-Implementation Alignment', convergenceType: 'design-implementation-alignment', data: [] },
+      { id: 'verification', title: 'Verification Checkpoints', convergenceType: 'verification-checkpoints', data: [] },
+      { id: 'tooling', title: 'Tooling Surface', convergenceType: 'tooling-surface', data: [] },
+    ],
+  }, null, 2));
+
+  const gaps = await client.callTool('living_doc_relationship_gaps', { doc: surfaceDocPath });
+  assert.equal(gaps.templateId, 'surface-delivery');
+  assert.ok(gaps.gaps.some((gap) => gap.relationshipId === 'flow-feeds-alignment' && gap.kind === 'missing-target-cards'));
+
+  const stages = await client.callTool('living_doc_stage_diagnostics', { doc: surfaceDocPath });
+  assert.equal(stages.templateId, 'surface-delivery');
+  assert.equal(stages.likelyStage, 'Coherence');
+  assert.ok(stages.candidates.some((candidate) => candidate.signalId === 'coherence-flow-not-aligned'));
+
+  const ops = await client.callTool('living_doc_valid_stage_operations', { doc: surfaceDocPath, stage: 'Coherence' });
+  assert.ok(ops.operations.some((operation) => operation.id === 'add-alignment-row'));
+  assert.ok(ops.operations.some((operation) => operation.id === 'add-verification-checkpoint'));
 
   const governance = await client.callTool('living_doc_governance_evaluate', { doc: docPath });
   assert.equal(governance.ok, false);

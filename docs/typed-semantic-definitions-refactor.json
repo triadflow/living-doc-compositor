@@ -1,0 +1,900 @@
+{
+  "docId": "doc:typed-semantic-definitions-refactor",
+  "title": "Typed Semantic Definitions Refactor",
+  "subtitle": "One-off refactor living doc for making living-doc structure and behavior executable without moving concrete docs out of JSON.",
+  "brand": "LD",
+  "scope": "Living Doc Compositor registry, templates, MCP diagnostics, skills, generated docs, and contract tests.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/typed-semantic-definitions-refactor.json",
+  "sourceCoverage": "Seeded from GitHub issue #163 and internal model pages created on 2026-05-05.",
+  "updated": "2026-05-05T09:40:34.158Z",
+  "pills": [
+    "Refactor",
+    "Semantic Definitions",
+    "MCP"
+  ],
+  "objective": "Integrate typed semantic definitions into Living Doc Compositor so living-doc structure and behavior have one executable source that generates the registry/template artifacts, relationship graphs, MCP diagnostics, tests, and reference diagrams while concrete living doc instances remain JSON.",
+  "successCondition": "The refactor is complete when typed definitions generate the selected semantic artifacts deterministically, existing JSON/HTML rendering and sync flows still work, MCP structure reflection uses generated relationship/stage diagnostics, contract tests prevent drift, and at least one template family proves the generated diagnostics add value over the current hand-coded behavior.",
+  "issueReferences": [
+    {
+      "id": "issue-163",
+      "issueNumber": "163",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163",
+      "title": "Add typed semantic definitions for living-doc structure and stage diagnostics"
+    }
+  ],
+  "sourceReferences": [
+    {
+      "id": "stage-model-page",
+      "path": "docs/living-doc-stage-skill-operating-model.html",
+      "title": "Living Doc Stage Skill Operating Model"
+    },
+    {
+      "id": "graph-mcp-model-page",
+      "path": "docs/living-doc-knowledge-graph-mcp-skill-model.html",
+      "title": "Living Doc Knowledge Graph, MCP, and Skill Model"
+    },
+    {
+      "id": "code-representation-page",
+      "path": "docs/living-doc-code-representation-value-model.html",
+      "title": "Living Doc Code Representation Value Model"
+    }
+  ],
+  "objectiveFacets": [
+    {
+      "id": "target-architecture",
+      "name": "Target architecture",
+      "description": "Typed definitions become the executable source for reusable semantic machinery while concrete living doc instances remain JSON artifacts."
+    },
+    {
+      "id": "migration-path",
+      "name": "Migration path",
+      "description": "The refactor lands through reversible implementation steps that begin with one template family and expand only after proof."
+    },
+    {
+      "id": "behavioral-proof",
+      "name": "Behavioral proof",
+      "description": "Generated diagnostics must prove they add relationship or stage insight beyond the current hand-coded local section diagnostics."
+    },
+    {
+      "id": "drift-control",
+      "name": "Drift control",
+      "description": "Generated artifacts, MCP behavior, rendered docs, and skill context stay aligned through deterministic generation and contract tests."
+    },
+    {
+      "id": "decision-trace",
+      "name": "Decision trace",
+      "description": "Key architecture decisions remain explicit while the refactor moves from additive graph metadata toward broader generated semantic machinery."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "target-architecture",
+      "sectionId": "formal-model",
+      "cardId": "semantic-machinery-source"
+    },
+    {
+      "facetId": "target-architecture",
+      "sectionId": "assertions",
+      "cardId": "json-remains-artifact"
+    },
+    {
+      "facetId": "migration-path",
+      "sectionId": "implementation-flow",
+      "cardId": "first-pr-surface-delivery"
+    },
+    {
+      "facetId": "behavioral-proof",
+      "sectionId": "proof-ladder",
+      "cardId": "relationship-gap-diagnostic"
+    },
+    {
+      "facetId": "drift-control",
+      "sectionId": "tooling",
+      "cardId": "template-graph-contract-test"
+    },
+    {
+      "facetId": "decision-trace",
+      "sectionId": "decisions",
+      "cardId": "do-not-move-doc-instances-out-of-json"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "doc-instances-stay-json",
+      "name": "Concrete docs stay JSON",
+      "statement": "Do not move concrete living doc instance content into code; code may define semantic machinery and generate artifacts, but living docs remain portable JSON artifacts.",
+      "appliesTo": [
+        "*"
+      ]
+    },
+    {
+      "id": "prove-before-expanding",
+      "name": "Prove before expanding",
+      "statement": "Do not migrate broad registry or template authorship until one generated template graph improves MCP diagnostics beyond existing structure reflection.",
+      "appliesTo": [
+        "proof-ladder",
+        "implementation-flow",
+        "decisions"
+      ]
+    },
+    {
+      "id": "generated-artifacts-readable",
+      "name": "Generated artifacts stay readable",
+      "statement": "Generated JSON and docs must remain committed, readable, deterministic, and compatible with the compositor and GitHub Pages workflow.",
+      "appliesTo": [
+        "tooling",
+        "code-anchors"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "rationale": "Shows the current stage of the refactor at a glance so the integration objective does not disappear behind detailed architecture, proof, and tooling sections.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "stats": [
+        {
+          "label": "Issue",
+          "value": "#163"
+        },
+        {
+          "label": "Model pages",
+          "value": "3"
+        },
+        {
+          "label": "First PR target",
+          "value": "surface-delivery"
+        },
+        {
+          "label": "Stage",
+          "value": "Intent / Seeding"
+        }
+      ],
+      "callout": {
+        "tone": "info",
+        "title": "Current stage",
+        "items": [
+          "The full refactor objective is now integration: typed definitions should become the executable source for semantic machinery while JSON remains the concrete document artifact.",
+          "The current stage is still Intent / Seeding because the target is clear but the typed definition source, generated graph, MCP adoption, and proof rungs do not exist yet."
+        ]
+      },
+      "data": []
+    },
+    {
+      "id": "formal-model",
+      "title": "Formal Model",
+      "convergenceType": "formal-model",
+      "rationale": "Defines the target semantic model for the refactor: what becomes executable typed machinery, what remains generated artifact, and what remains concrete JSON document state.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "semantic-machinery-source",
+          "name": "Typed semantic definitions as source of machinery",
+          "status": "specified",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "primitiveRefs": [
+            "convergence-type",
+            "template",
+            "relationship",
+            "stage-signal",
+            "valid-operation"
+          ],
+          "invariantRefs": [
+            "doc-instances-stay-json",
+            "generated-artifacts-readable"
+          ],
+          "authorityRefs": [
+            "issue-163",
+            "code-representation-page"
+          ],
+          "codePaths": [
+            "scripts/living-doc-registry.json",
+            "docs/living-doc-template-surface-delivery.json",
+            "scripts/living-doc-mcp-server.mjs",
+            "scripts/sync-compositor-embeds.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "definition": "Reusable living-doc semantic machinery is authored as typed definitions for types, templates, expected relationships, stage signals, diagnostics, and operations; generated JSON/metadata remain the artifacts consumed by the compositor, renderer, MCP server, tests, and docs.",
+          "authorityScope": "Registry/template semantics, template relationship graphs, MCP stage diagnostics, valid operations, generated prompt context, and generated diagrams.",
+          "notes": [
+            "This model does not replace concrete living doc JSON instances.",
+            "The first definition source should be additive and prove value on one template family."
+          ],
+          "violations": [
+            "Moving concrete doc content into code would break the artifact boundary.",
+            "Generating artifacts that are not deterministic, readable, or compatible with the compositor would fail the refactor objective."
+          ]
+        },
+        {
+          "id": "generated-template-graph",
+          "name": "Generated template relationship graph",
+          "status": "specified",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "primitiveRefs": [
+            "template",
+            "relationship",
+            "stage-signal",
+            "valid-operation"
+          ],
+          "invariantRefs": [
+            "prove-before-expanding"
+          ],
+          "authorityRefs": [
+            "graph-mcp-model-page",
+            "issue-163"
+          ],
+          "codePaths": [
+            "scripts/generated/living-doc-template-graphs.json",
+            "scripts/generate-living-doc-semantic-graph.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "definition": "A generated graph captures template section order, expected type relationships, stage signals, and valid operations so MCP can reason over relationships rather than only local section shape.",
+          "authorityScope": "Read-only MCP diagnostics and generated documentation for template relationship maps.",
+          "notes": [
+            "The graph is initially additive; existing template JSON remains committed and consumed normally."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "assertions",
+      "title": "Model Assertions",
+      "convergenceType": "model-assertion",
+      "rationale": "Keeps the core claims of the refactor explicit so implementation does not proceed on hidden assumptions about JSON, code representation, MCP value, or proof requirements.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "json-remains-artifact",
+          "name": "Living doc instances remain JSON artifacts",
+          "status": "canonical",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "primitiveRefs": [
+            "living-doc-json",
+            "generated-artifact"
+          ],
+          "invariantRefs": [
+            "doc-instances-stay-json"
+          ],
+          "authorityRefs": [
+            "code-representation-page"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "JSON is still the correct representation for stored living doc state because it is portable, inspectable, patchable, renderable, and archival."
+          ]
+        },
+        {
+          "id": "code-defines-behavior-over-state",
+          "name": "Code defines behavior over living-doc state",
+          "status": "specified",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "primitiveRefs": [
+            "relationship",
+            "stage-signal",
+            "valid-operation"
+          ],
+          "invariantRefs": [
+            "prove-before-expanding"
+          ],
+          "authorityRefs": [
+            "code-representation-page"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "The value of code representation is one canonical source for semantic behavior that can generate registry metadata, template graphs, MCP diagnostics, skill context, tests, and diagrams."
+          ]
+        },
+        {
+          "id": "mcp-benefit-must-be-proven",
+          "name": "MCP diagnostic benefit must be proven before broad migration",
+          "status": "specified",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "primitiveRefs": [
+            "stage-diagnostic",
+            "relationship-gap"
+          ],
+          "invariantRefs": [
+            "prove-before-expanding"
+          ],
+          "authorityRefs": [
+            "issue-163"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "The first experiment succeeds only if generated graph diagnostics identify relationship or stage gaps that current section-local diagnostics do not express clearly."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "implementation-flow",
+      "title": "Design-Code-Spec Flow",
+      "convergenceType": "design-code-spec-flow",
+      "rationale": "Tracks the planned implementation path from typed definitions to generated artifacts and MCP adoption, keeping design intent, code targets, and issue scope connected.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "first-pr-surface-delivery",
+          "name": "First PR: additive surface-delivery template graph",
+          "feature": "Typed semantic definitions",
+          "kind": "refactor-step",
+          "status": "ground-truth",
+          "codeStatus": "partial",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "codeRefs": [
+            "scripts/living-doc-definitions/define.mjs",
+            "scripts/living-doc-definitions/templates/surface-delivery.mjs",
+            "scripts/generate-living-doc-semantic-graph.mjs",
+            "scripts/generated/living-doc-template-graphs.json",
+            "tests/contract/template-graphs.spec.mjs",
+            "scripts/living-doc-mcp-server.mjs"
+          ],
+          "specRefIds": [
+            "issue-163",
+            "code-representation-page",
+            "graph-mcp-model-page"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Initial implementation slice landed: typed definitions for surface-delivery, generated template graph artifact, contract test, MCP template graph tool, and semanticGraph metadata in structure reflection.",
+            "Still partial because relationship-gap and stage-diagnostic tools are not implemented yet, and only one template family is covered."
+          ]
+        },
+        {
+          "id": "structure-reflect-extension",
+          "name": "Extend structure reflection with generated semantic graph",
+          "feature": "MCP diagnostics",
+          "kind": "mcp-extension",
+          "status": "ground-truth",
+          "codeStatus": "partial",
+          "updated": "2026-05-05T09:40:34.158Z",
+          "codeRefs": [
+            "scripts/living-doc-mcp-server.mjs",
+            "scripts/generated/living-doc-template-graphs.json"
+          ],
+          "specRefIds": [
+            "graph-mcp-model-page"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`living_doc_structure_reflect` includes generated semantic graph metadata when the doc matches a known template graph.",
+            "Dedicated MCP tools now expose relationship gaps, stage diagnostics, and valid operations for generated template graphs.",
+            "Still partial because diagnostics are conservative section/card-population checks; they do not yet inspect rich card-level edges."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-anchors",
+      "title": "Code Anchors",
+      "convergenceType": "code-anchor",
+      "rationale": "Pins the refactor to the concrete files that currently own registry, templates, MCP behavior, tests, and publishing so the migration stays source-grounded.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "registry-json",
+          "name": "Current registry JSON",
+          "status": "current",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "path": "scripts/living-doc-registry.json",
+          "range": "whole file",
+          "revision": "working tree",
+          "what_it_does": "Defines convergence types, entity types, status sets, prompt guidance, source keys, text fields, and rendering metadata.",
+          "why_it_matters": [
+            "This remains the committed artifact consumed by renderer, compositor, MCP, and GitHub Pages.",
+            "Typed definitions may eventually generate selected registry fields, but not in the first implementation step."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "template-surface-delivery",
+          "name": "Surface delivery template",
+          "status": "current",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "path": "docs/living-doc-template-surface-delivery.json",
+          "range": "whole file",
+          "revision": "working tree",
+          "what_it_does": "Provides the first candidate template family for generated relationship graph proof.",
+          "why_it_matters": [
+            "The template has a clear expected chain: status -> design/code/spec flow -> alignment -> verification -> tooling.",
+            "That chain is currently described in docs and examples but not executable as generated semantic graph metadata."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "mcp-server",
+          "name": "Living doc MCP server",
+          "status": "current",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "path": "scripts/living-doc-mcp-server.mjs",
+          "range": "tools array and structureReflect implementation",
+          "revision": "working tree",
+          "what_it_does": "Exposes registry, objective, structure, source, coverage, governance, patch, and render tools to inference-time agents.",
+          "why_it_matters": [
+            "The MCP surface already has behavior; the refactor should feed it generated relationship/stage metadata rather than inventing a parallel tool surface."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "sync-embeds",
+          "name": "Compositor embed sync",
+          "status": "current",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "path": "scripts/sync-compositor-embeds.mjs",
+          "range": "loadEmbeddedTemplates and syncCompositorEmbeds",
+          "revision": "working tree",
+          "what_it_does": "Embeds registry, templates, profiles, renderer, and helper scripts into the standalone compositor and mirrored docs/scripts assets.",
+          "why_it_matters": [
+            "Generated artifacts must preserve this publishing path; changing source authorship must not break rendered docs or GitHub Pages."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "typed-definition-source",
+          "name": "Typed definition source",
+          "status": "current",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "path": "scripts/living-doc-definitions/templates/surface-delivery.mjs",
+          "range": "whole file",
+          "revision": "working tree",
+          "what_it_does": "Defines the surface-delivery semantic graph source: section roles, expected relationships, stage signals, and valid operations.",
+          "why_it_matters": [
+            "This is the first executable semantic definition that generates graph metadata instead of hand-maintaining that relationship model only in prose."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "template-graph-artifact",
+          "name": "Generated template graph artifact",
+          "status": "current",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "path": "scripts/generated/living-doc-template-graphs.json",
+          "range": "whole file",
+          "revision": "working tree",
+          "what_it_does": "Stores the generated semantic graph consumed by MCP and contract tests.",
+          "why_it_matters": [
+            "Keeps the generated relationship/stage/operation graph inspectable and committed while code remains the source."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "relationship-stage-tools",
+          "name": "Relationship and stage MCP tools",
+          "status": "current",
+          "updated": "2026-05-05T09:40:34.158Z",
+          "path": "scripts/living-doc-mcp-server.mjs",
+          "range": "living_doc_relationship_gaps / living_doc_stage_diagnostics / living_doc_valid_stage_operations",
+          "revision": "working tree",
+          "what_it_does": "Compares living docs to generated template graph metadata and exposes relationship gaps, likely stage candidates, and valid operations.",
+          "why_it_matters": [
+            "This is the first point where typed semantic definitions produce inference-time behavior rather than only a generated artifact."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attempts",
+      "title": "Attempt Log",
+      "convergenceType": "attempt-log",
+      "rationale": "Records probes and migration attempts as they happen so learning accumulates without prematurely turning every experiment into a decision or reusable template.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "model-pages",
+          "name": "Externalize the operating model into three internal pages",
+          "status": "probe",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "low",
+          "what_tried": [
+            "Created detailed static pages for stage-aware skills, graph/MCP substrate, and code representation value."
+          ],
+          "what_proved": [
+            "The concept can be explained coherently enough to seed a refactor issue and this one-off living doc."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "This is a thinking artifact, not proof that the implementation path works."
+          ]
+        },
+        {
+          "id": "issue-creation",
+          "name": "Capture refactor as GitHub issue #163",
+          "status": "probe",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "shipped_in": "https://github.com/triadflow/living-doc-compositor/issues/163",
+          "cost_to_apply": "low",
+          "what_tried": [
+            "Created a phased refactor ticket with first PR scope, MCP additions, generated graph artifact, and validation plan."
+          ],
+          "what_proved": [
+            "There is a concrete enough implementation plan to track outside conversation."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "living-doc-specialization",
+          "name": "Create one-off refactor living doc before making a template",
+          "status": "probe",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "shipped_in": "docs/typed-semantic-definitions-refactor.json",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Represented the refactor with existing convergence types rather than adding a reusable refactor template prematurely."
+          ],
+          "what_proved": [
+            "Pending: whether this doc shape stays useful during implementation."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ]
+        },
+        {
+          "id": "initial-typed-definition-slice",
+          "name": "Implement additive typed definition and template graph slice",
+          "status": "probe",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Added typed definition source for surface-delivery, generated graph artifact, contract test, MCP template graph tool, and semantic graph metadata in structure reflection."
+          ],
+          "what_proved": [
+            "A typed definition can generate a deterministic relationship/stage/operation graph and expose it through the existing MCP surface without replacing living doc JSON artifacts."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "This proves additive integration, not the full relationship-gap diagnostic value yet."
+          ]
+        },
+        {
+          "id": "relationship-stage-mcp-slice",
+          "name": "Expose relationship gaps and stage diagnostics through MCP",
+          "status": "probe",
+          "updated": "2026-05-05T09:40:34.158Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Added MCP tools for relationship gaps, stage diagnostics, and valid stage operations over generated template graphs."
+          ],
+          "what_proved": [
+            "The generated surface-delivery graph can drive inference-time diagnostics beyond raw graph lookup: a synthetic doc now triggers a Coherence-stage gap from flow to alignment."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "This is still structural diagnostics, not full semantic edge validation."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "rationale": "Defines the safety and value proof needed before expanding the refactor beyond an additive template graph and one template family.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "deterministic-generation",
+          "name": "Generated template graph is deterministic",
+          "status": "ready",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`node scripts/generate-living-doc-semantic-graph.mjs --check` is covered by `tests/contract/template-graphs.spec.mjs`."
+          ]
+        },
+        {
+          "id": "relationship-gap-diagnostic",
+          "name": "Generated graph finds a relationship gap current reflection does not name",
+          "status": "ready",
+          "updated": "2026-05-05T09:40:34.158Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`living_doc_relationship_gaps` detects missing or weak expected relationships from generated template graph metadata.",
+            "The contract test proves a surface-delivery-shaped doc with a populated flow section and empty alignment section reports `flow-feeds-alignment` as `missing-target-cards`."
+          ]
+        },
+        {
+          "id": "existing-suite-remains-green",
+          "name": "Existing contract and render tests remain green",
+          "status": "partial",
+          "updated": "2026-05-05T09:40:34.158Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Targeted MCP contract passes with generated graph lookup, relationship gap diagnostics, stage diagnostics, and valid stage operations.",
+            "Full contract suite still needs to be run after this doc update."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "findings",
+      "title": "Investigation Findings",
+      "convergenceType": "investigation-findings",
+      "rationale": "Separates observed facts about the current system from implementation claims and decisions, especially where the existing MCP surface already solves part of the problem.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "mcp-surface-already-rich",
+          "name": "The MCP surface is already richer than raw JSON reads",
+          "status": "ground-truth",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "`scripts/living-doc-mcp-server.mjs` already exposes registry, structure, sources, coverage, governance, patch, and render tools.",
+            "The refactor should improve the existing MCP behavior with generated relationship/stage metadata rather than create a replacement surface."
+          ]
+        },
+        {
+          "id": "current-gap-is-relational-stage-awareness",
+          "name": "The current gap is relational and stage awareness",
+          "status": "ground-truth",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Current reflection checks sections locally and governance broadly, but template relationship chains and stage inference are not yet first-class generated machinery."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decisions",
+      "title": "Decision Record",
+      "convergenceType": "decision-record",
+      "rationale": "Preserves architecture decisions that should constrain the refactor, including the JSON artifact boundary and the additive-first migration strategy.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "do-not-move-doc-instances-out-of-json",
+          "name": "Do not move living doc instances out of JSON",
+          "status": "ground-truth",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Typed code definitions are for semantic machinery; concrete living docs remain JSON artifacts."
+          ]
+        },
+        {
+          "id": "start-additive",
+          "name": "Start with additive generated graph metadata",
+          "status": "ground-truth",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "The first PR should not rewrite the registry or existing template JSON."
+          ]
+        },
+        {
+          "id": "first-family-surface-delivery",
+          "name": "Use surface-delivery as the first proof family unless implementation reveals a better fit",
+          "status": "reference",
+          "updated": "2026-05-05T08:10:51.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "notes": [
+            "Surface delivery has a clear relationship chain and should expose whether generated graph diagnostics add practical value."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tooling",
+      "title": "Tooling Surface",
+      "convergenceType": "tooling-surface",
+      "rationale": "Tracks the generator, contract tests, MCP commands, and render/sync tools that must exist or remain stable for the refactor to be operational.",
+      "updated": "2026-05-05T09:40:34.158Z",
+      "data": [
+        {
+          "id": "semantic-graph-generator",
+          "name": "Semantic graph generator",
+          "status": "prototype",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "scriptPaths": [
+            "scripts/generate-living-doc-semantic-graph.mjs",
+            "scripts/living-doc-definitions/define.mjs",
+            "scripts/living-doc-definitions/templates/surface-delivery.mjs"
+          ],
+          "artifactPaths": [
+            "scripts/generated/living-doc-template-graphs.json"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "purpose": "Generate template relationship graph metadata from typed semantic definitions.",
+          "whenToUse": "Run after changing typed definitions, and in contract tests to verify generated artifact determinism.",
+          "invocation": "node scripts/generate-living-doc-semantic-graph.mjs",
+          "caveats": [
+            "Covers only surface-delivery so far.",
+            "Generates additive graph metadata only; it does not generate registry or template JSON yet."
+          ]
+        },
+        {
+          "id": "template-graph-contract-test",
+          "name": "Template graph contract test",
+          "status": "trusted",
+          "updated": "2026-05-05T08:33:11.218Z",
+          "scriptPaths": [
+            "tests/contract/template-graphs.spec.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "purpose": "Ensure generated graph metadata is deterministic and references valid registry/template types.",
+          "whenToUse": "Run as part of `npm run test:contract` after the generator exists.",
+          "invocation": "node tests/contract/template-graphs.spec.mjs",
+          "caveats": [
+            "Validates deterministic generation and registry/template references for the current graph coverage.",
+            "Will need stronger assertions as more template families and diagnostics are added."
+          ]
+        },
+        {
+          "id": "existing-mcp-server",
+          "name": "Existing living-doc MCP server",
+          "status": "usable-with-caveats",
+          "updated": "2026-05-05T09:40:34.158Z",
+          "scriptPaths": [
+            "scripts/living-doc-mcp-server.mjs"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "163",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/163"
+            }
+          ],
+          "purpose": "Expose living-doc registry, structure, source, coverage, governance, patch, and render operations to inference-time agents.",
+          "whenToUse": "Use as the integration point for generated relationship/stage metadata.",
+          "invocation": "npm run ldoc:mcp",
+          "caveats": [
+            "Now exposes `living_doc_template_graph`, `living_doc_relationship_gaps`, `living_doc_stage_diagnostics`, and `living_doc_valid_stage_operations`.",
+            "`living_doc_structure_reflect` includes semantic graph metadata for matching docs.",
+            "Relationship diagnostics are intentionally conservative and do not yet validate card-level semantic edges."
+          ]
+        }
+      ]
+    }
+  ]
+}

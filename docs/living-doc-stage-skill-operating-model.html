@@ -1,0 +1,1407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Stage Skill Operating Model</title>
+<meta name="description" content="Internal operating model for skills that help living documents reach their objective across life stages shaped by convergence types and their relationships." />
+<style>
+  :root {
+    --bg: #f6f3ee;
+    --paper: #fffdf8;
+    --ink: #1f2528;
+    --muted: #667075;
+    --line: #d8d0c3;
+    --soft: #ece5da;
+    --accent: #0f6b5f;
+    --accent-2: #8a4c1f;
+    --warn: #8d2f2f;
+    --code: #263236;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, 0.92);
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 720;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a {
+    text-decoration: none;
+  }
+
+  main {
+    padding: 54px 0 80px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 36px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  h1 {
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 76px);
+    line-height: .94;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 860px;
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.42;
+    color: #334044;
+  }
+
+  .summary-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .07);
+  }
+
+  .summary-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary-card ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary-card li + li {
+    margin-top: 8px;
+  }
+
+  section {
+    margin-top: 28px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    max-width: 900px;
+  }
+
+  .body {
+    padding: 22px;
+  }
+
+  .principle {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, .72fr);
+    gap: 18px;
+  }
+
+  .callout {
+    background: #edf5f2;
+    border: 1px solid #c8ddd7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .stages {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .stage {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: #fffefa;
+  }
+
+  .stage h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .stage .q {
+    margin: 0 0 10px;
+    color: var(--accent-2);
+    font-weight: 680;
+  }
+
+  .stage p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .stage ul,
+  .rel-card ul,
+  .dense-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+  }
+
+  li + li {
+    margin-top: 6px;
+  }
+
+  code,
+  .code {
+    font-family: var(--mono);
+    color: var(--code);
+    background: #f0ece4;
+    border: 1px solid #ded6c9;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: .92em;
+  }
+
+  .matrix {
+    display: grid;
+    grid-template-columns: 220px repeat(4, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .matrix > div {
+    padding: 12px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    min-height: 74px;
+    font-size: 14px;
+  }
+
+  .matrix > div:nth-child(5n) {
+    border-right: 0;
+  }
+
+  .matrix .head {
+    background: #f3ede3;
+    font-weight: 760;
+    color: var(--ink);
+  }
+
+  .matrix .rowhead {
+    background: #fbf7ef;
+    font-weight: 760;
+  }
+
+  .matrix .last-row {
+    border-bottom: 0;
+  }
+
+  .relationships {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .rel-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 15px;
+    background: #fffefa;
+  }
+
+  .rel-card h3 {
+    margin: 0 0 8px;
+  }
+
+  .rel-card p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .flow {
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f1eee8;
+    font-family: var(--mono);
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .diagram-block {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffefa;
+    padding: 16px;
+    margin: 16px 0;
+  }
+
+  .diagram-block h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .diagram-block p {
+    margin: 0 0 12px;
+    color: var(--muted);
+  }
+
+  pre.mermaid {
+    margin: 0;
+    padding: 14px;
+    border-radius: 8px;
+    background: #f5f1e9;
+    border: 1px solid #ded6c9;
+    overflow-x: auto;
+    color: var(--code);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  pre.mermaid svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .diagram-note {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .skill-loop {
+    counter-reset: step;
+    display: grid;
+    gap: 10px;
+  }
+
+  .loop-step {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffefa;
+  }
+
+  .loop-step::before {
+    counter-increment: step;
+    content: counter(step);
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .loop-step h3 {
+    margin: 0 0 5px;
+    font-size: 17px;
+  }
+
+  .loop-step p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .example-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .example {
+    border-left: 4px solid var(--accent);
+    background: #fffefa;
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+
+  .example h3 {
+    margin: 0 0 8px;
+  }
+
+  .example p {
+    margin: 0 0 8px;
+    color: var(--muted);
+  }
+
+  .warning {
+    border-color: #e0b8b8;
+    background: #fff4f2;
+  }
+
+  .warning strong {
+    color: var(--warn);
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 32px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  @media (max-width: 920px) {
+    .hero,
+    .principle,
+    .relationships,
+    .example-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stages {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .matrix {
+      display: block;
+      border: 0;
+    }
+
+    .matrix > div {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .matrix .head {
+      display: none;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .shell {
+      width: min(100% - 20px, 1180px);
+    }
+
+    nav {
+      display: none;
+    }
+
+    main {
+      padding-top: 34px;
+    }
+
+    .stages {
+      grid-template-columns: 1fr;
+    }
+
+    .body,
+    .section-head {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="shell top">
+    <a class="brand" href="index.html">
+      <span class="mark">L</span>
+      <span>Living Doc Compositor</span>
+    </a>
+    <nav>
+      <a href="living-doc-compositor.html">Compositor</a>
+      <a href="blog.html">Writing</a>
+      <a href="blog-glossary.html">Glossary</a>
+      <a href="https://github.com/triadflow/living-doc-compositor">Repo</a>
+    </nav>
+  </div>
+</header>
+
+<main class="shell">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Internal operating model</div>
+      <h1>Skills for living docs in motion.</h1>
+      <p class="lede">
+        A living doc is not merely populated or empty. It passes through recognizable stages while it tries to reach its objective. Those stages are not decorative labels; they emerge from the convergence types present in the document, the cards inside them, and the relationships between those cards.
+      </p>
+    </div>
+
+    <aside class="summary-card">
+      <h2>Core claim</h2>
+      <ol>
+        <li>A living doc has an objective.</li>
+        <li>Its convergence types define the shapes that can carry that objective.</li>
+        <li>The current state of those shapes reveals the doc's stage.</li>
+        <li>A useful skill asks stage-specific questions against that structure.</li>
+        <li>The answer becomes an operation that moves the doc closer to objective-ready.</li>
+      </ol>
+    </aside>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>1. What a Skill Is Assisting</h2>
+      <p>The skill is not assisting a template. It is assisting a concrete living doc as it tries to make something possible.</p>
+    </div>
+    <div class="body principle">
+      <div>
+        <p>
+          The template gives a starting structure. The objective gives direction. The convergence types define what kinds of things can be held, compared, proven, decided, tracked, or surfaced. The skill's job is to read the current document state and decide what operation would make the represented thing clearer, more current, more defensible, or more actionable.
+        </p>
+        <p>
+          The useful unit is:
+        </p>
+        <div class="flow">objective + convergence-type bundle + current relationships -> next useful operation</div>
+        <p>
+          This is why a skill cannot be only a prompt recipe. It needs stage sense. A <code>proof-ladder</code> section in a fresh claim doc needs evidence discovery. The same <code>proof-ladder</code> in a judgment-stage doc needs confidence discipline and overclaim prevention.
+        </p>
+      </div>
+      <div class="callout">
+        <strong>Operational test</strong>
+        A skill is valuable when it can answer: "Given this objective and this current structure, what is the next operation that would make the living doc more capable of reaching its objective?"
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>2. Life Stages of a Living Doc</h2>
+      <p>These are the initial stages. A doc can straddle stages, but one stage usually names the dominant kind of work needed next.</p>
+    </div>
+    <div class="body">
+      <div class="stages">
+        <article class="stage">
+          <h3>Intent</h3>
+          <p class="q">What is this doc trying to make possible?</p>
+          <p>The objective exists, but the shape is not yet stable.</p>
+          <ul>
+            <li>Clarify objective and success condition.</li>
+            <li>Choose the first convergence-type bundle.</li>
+            <li>Name scope boundaries and exclusions.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Seeding</h3>
+          <p class="q">What first real entities must this doc hold?</p>
+          <p>The shape exists, but the document is not yet tangible.</p>
+          <ul>
+            <li>Find source-backed initial cards.</li>
+            <li>Avoid generic filler.</li>
+            <li>Make the first real source links explicit.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Composition</h3>
+          <p class="q">Where does each thing belong, and what must stay distinct?</p>
+          <p>Material is entering the doc, but placement and separation are still active work.</p>
+          <ul>
+            <li>Classify entities by convergence type.</li>
+            <li>Keep evidence, claim, status, decision, and inference distinct.</li>
+            <li>Preserve source ownership.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Coherence</h3>
+          <p class="q">Do the sections together support the objective?</p>
+          <p>The doc has material, but the whole structure may not yet hold.</p>
+          <ul>
+            <li>Find contradictions and orphan cards.</li>
+            <li>Check whether required relationships exist.</li>
+            <li>Identify missing bridge cards or sections.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Operation</h3>
+          <p class="q">What does this doc make actionable now?</p>
+          <p>The doc is being used to move the underlying work.</p>
+          <ul>
+            <li>Surface blockers and next actions.</li>
+            <li>Update statuses based on evidence.</li>
+            <li>Expose decisions waiting on structure.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Refresh</h3>
+          <p class="q">What moved since the last pass?</p>
+          <p>The represented world changed or time passed.</p>
+          <ul>
+            <li>Add new evidence and source events.</li>
+            <li>Preserve prior state where deltas matter.</li>
+            <li>Resolve stale claims, statuses, and predictions.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Judgment</h3>
+          <p class="q">What can responsibly be decided from this state?</p>
+          <p>The doc is ready to support a decision, conclusion, or handoff judgment.</p>
+          <ul>
+            <li>Separate fact, inference, and decision.</li>
+            <li>Name uncertainty and proof strength.</li>
+            <li>Record rationale and residual risk.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Evolution</h3>
+          <p class="q">Does the document need to change shape?</p>
+          <p>The current convergence-type bundle no longer fits the represented thing.</p>
+          <ul>
+            <li>Add, remove, or split sections.</li>
+            <li>Propose a new convergence type if the registry lacks the shape.</li>
+            <li>Split one doc into multiple docs when the objective bifurcates.</li>
+          </ul>
+        </article>
+
+        <article class="stage">
+          <h3>Archive / Handoff</h3>
+          <p class="q">What must remain understandable later?</p>
+          <p>The doc has served a period, reached closure, or needs another owner.</p>
+          <ul>
+            <li>Lock decisions and final state.</li>
+            <li>Preserve canonical links.</li>
+            <li>Expose unresolved residue without reopening the whole doc.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>3. Stages Are Inferred From Structure</h2>
+      <p>The stage is not a free-text field the skill blindly trusts. It is inferred from the state of the convergence types and their internal relationships.</p>
+    </div>
+    <div class="body">
+      <div class="matrix">
+        <div class="head">Structural signal</div>
+        <div class="head">Early-stage meaning</div>
+        <div class="head">Middle-stage meaning</div>
+        <div class="head">Late-stage meaning</div>
+        <div class="head">Skill response</div>
+
+        <div class="rowhead">Sections exist but cards are sparse</div>
+        <div>Seeding: the doc has a chosen shape but not yet real entities.</div>
+        <div>Possible composition gap if only one section is populated.</div>
+        <div>Possible archive gap if final state is missing.</div>
+        <div>Ask for or discover the minimum source-backed cards.</div>
+
+        <div class="rowhead">Cards exist but relationships are weak</div>
+        <div>Composition: entities were imported but not connected.</div>
+        <div>Coherence: the doc may be readable locally but not objective-ready.</div>
+        <div>Judgment blocker if proof/decision chains are broken.</div>
+        <div>Add relationship-bearing cards, links, or bridge notes.</div>
+
+        <div class="rowhead">Claims outrun evidence</div>
+        <div>Composition error: inference collapsed into fact.</div>
+        <div>Coherence risk: proof and assertion are mismatched.</div>
+        <div>Judgment risk: decision would be overclaimed.</div>
+        <div>Lower status, add uncertainty, or request stronger evidence.</div>
+
+        <div class="rowhead">Statuses stale relative to sources</div>
+        <div>Not usually an early-stage signal.</div>
+        <div>Operation: work moved but doc state did not.</div>
+        <div>Refresh: external world changed after last pass.</div>
+        <div>Update status with evidence and preserve the prior state when relevant.</div>
+
+        <div class="rowhead last-row">Section is overloaded</div>
+        <div class="last-row">Intent may have chosen too narrow a shape.</div>
+        <div class="last-row">Evolution: one convergence type is carrying multiple roles.</div>
+        <div class="last-row">Archive risk: future readers cannot recover the structure.</div>
+        <div class="last-row">Split cards, add section, or propose a new convergence type.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>3A. Stage Mechanics as a Living Loop</h2>
+      <p>The stage model is cyclic, but not a simple maturity ladder. A document can move forward, loop back, or branch when the represented thing changes.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Primary Stage Transitions</h3>
+        <p>This diagram shows the dominant movement pattern. Evolution can redirect the doc at almost any point because shape mismatch is not a late-only event.</p>
+        <pre class="mermaid">
+flowchart LR
+  Intent["Intent<br/>objective and success condition"] --> Seeding["Seeding<br/>first real entities"]
+  Seeding --> Composition["Composition<br/>entities placed into types"]
+  Composition --> Coherence["Coherence<br/>relationships tested"]
+  Coherence --> Operation["Operation<br/>doc guides work"]
+  Operation --> Refresh["Refresh<br/>world changed"]
+  Refresh --> Operation
+  Operation --> Judgment["Judgment<br/>decision or conclusion"]
+  Judgment --> Archive["Archive / Handoff<br/>state preserved"]
+
+  Coherence -->|shape does not hold| Evolution["Evolution<br/>change the doc shape"]
+  Operation -->|objective changed| Evolution
+  Refresh -->|new source class appears| Evolution
+  Judgment -->|cannot decide within current shape| Evolution
+  Evolution --> Intent
+  Evolution --> Seeding
+  Evolution --> Composition
+
+  classDef early fill:#edf5f2,stroke:#83afa5,color:#1f2528
+  classDef middle fill:#fff7e8,stroke:#d4a658,color:#1f2528
+  classDef late fill:#f8eeee,stroke:#cc8d8d,color:#1f2528
+  classDef shape fill:#eef0f7,stroke:#8f9ac3,color:#1f2528
+  class Intent,Seeding,Composition early
+  class Coherence,Operation,Refresh middle
+  class Judgment,Archive late
+  class Evolution shape
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>How Structure Produces Stage</h3>
+        <p>A skill should infer stage from structural signals: population, source backing, relationship quality, status freshness, proof strength, and shape fit.</p>
+        <pre class="mermaid">
+flowchart TB
+  Objective["Doc objective"] --> Bundle["Convergence-type bundle"]
+  Bundle --> Sections["Sections present"]
+  Sections --> Cards["Cards and source pointers"]
+  Cards --> Local["Local type health"]
+  Cards --> Edges["Relationships between types"]
+  Local --> Signals["Structural signals"]
+  Edges --> Signals
+
+  Signals --> Sparse["Sparse but shaped"]
+  Signals --> Unlinked["Populated but weakly linked"]
+  Signals --> Working["Actionable current state"]
+  Signals --> Stale["Source drift or stale status"]
+  Signals --> Strong["Decision-grade chain"]
+  Signals --> Mismatch["Shape mismatch"]
+
+  Sparse --> Seeding["Stage: Seeding"]
+  Unlinked --> Coherence["Stage: Composition / Coherence"]
+  Working --> Operation["Stage: Operation"]
+  Stale --> Refresh["Stage: Refresh"]
+  Strong --> Judgment["Stage: Judgment"]
+  Mismatch --> Evolution["Stage: Evolution"]
+
+  Seeding --> Question1["Skill asks: what real entities are missing?"]
+  Coherence --> Question2["Skill asks: which relationships fail the objective?"]
+  Operation --> Question3["Skill asks: what action is now visible?"]
+  Refresh --> Question4["Skill asks: what moved since last pass?"]
+  Judgment --> Question5["Skill asks: what can be responsibly decided?"]
+  Evolution --> Question6["Skill asks: what shape must change?"]
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>4. Convergence Types as Stage-Defining Shapes</h2>
+      <p>Each convergence type has a local role and a relational role. The stage depends on whether both roles are being carried well enough for the objective.</p>
+    </div>
+    <div class="body relationships">
+      <article class="rel-card">
+        <h3>Local Role</h3>
+        <p>What a section means by itself. A <code>model-assertion</code> holds claims. A <code>proof-ladder</code> holds evidence strength. A <code>decision-record</code> holds decisions. A <code>tooling-surface</code> holds the tools that support the work.</p>
+        <ul>
+          <li>Local completeness asks whether the section has valid cards.</li>
+          <li>Local quality asks whether those cards match the type contract.</li>
+          <li>Local freshness asks whether the section reflects current source truth.</li>
+        </ul>
+      </article>
+
+      <article class="rel-card">
+        <h3>Relational Role</h3>
+        <p>What a section must connect to for the whole doc to reach the objective. A proof section only matters if it supports assertions. A tooling section only matters if it supports operations or verification. A citation feed only matters if it grounds positions, indicators, or moves.</p>
+        <ul>
+          <li>Relational completeness asks whether required edges exist.</li>
+          <li>Relational quality asks whether the edge is meaningful, not decorative.</li>
+          <li>Relational freshness asks whether linked state still agrees.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>5. Relationship Chains Produce Stage Questions</h2>
+      <p>A skill becomes operational when it knows the expected chains for the doc shape and asks stage-specific questions against those chains.</p>
+    </div>
+    <div class="body">
+      <div class="example-grid">
+        <article class="example">
+          <h3>OSS Issue Deep-Dive</h3>
+          <p>Expected chain:</p>
+          <div class="flow">symptom-observation -> code-anchor -> investigation-findings -> attempt-log -> maintainer-stance</div>
+          <ul class="dense-list">
+            <li><strong>Seeding:</strong> What is the first real symptom, and where is it reported?</li>
+            <li><strong>Composition:</strong> Which code anchors plausibly explain the symptom?</li>
+            <li><strong>Coherence:</strong> Do findings explain the symptom, or merely describe nearby code?</li>
+            <li><strong>Operation:</strong> What attempt should be tried next, and what would count as signal?</li>
+            <li><strong>Judgment:</strong> Is there a credible fix path that fits maintainer stance?</li>
+          </ul>
+        </article>
+
+        <article class="example">
+          <h3>Surface Delivery</h3>
+          <p>Expected chain:</p>
+          <div class="flow">status-snapshot -> design-code-spec-flow -> design-implementation-alignment -> verification-checkpoints -> tooling-surface</div>
+          <ul class="dense-list">
+            <li><strong>Seeding:</strong> What surface, spec, implementation path, and verification path exist?</li>
+            <li><strong>Composition:</strong> Which design/spec/code items correspond to the same surface concern?</li>
+            <li><strong>Coherence:</strong> Does the implementation actually satisfy the design intent?</li>
+            <li><strong>Operation:</strong> Which blocker prevents delivery readiness?</li>
+            <li><strong>Judgment:</strong> Is the surface shippable, blocked, or only visually complete?</li>
+          </ul>
+        </article>
+
+        <article class="example">
+          <h3>Proof and Canonicality</h3>
+          <p>Expected chain:</p>
+          <div class="flow">formal-model -> model-assertion -> proof-ladder -> investigation-findings -> decision-record</div>
+          <ul class="dense-list">
+            <li><strong>Intent:</strong> What truth-bearing thing is being modeled?</li>
+            <li><strong>Composition:</strong> Are assertions separated from evidence and decisions?</li>
+            <li><strong>Coherence:</strong> Does the proof ladder test the actual assertion?</li>
+            <li><strong>Judgment:</strong> What confidence is justified, and what remains unproven?</li>
+            <li><strong>Archive:</strong> What decision became canonical, and what evidence backs it?</li>
+          </ul>
+        </article>
+
+        <article class="example">
+          <h3>Competitor Watcher</h3>
+          <p>Expected chain:</p>
+          <div class="flow">competitor-stance-track -> strategic-move-log -> indicator-trace -> proof-ladder -> position-cluster-map -> decision-record</div>
+          <ul class="dense-list">
+            <li><strong>Seeding:</strong> Which competitors, indicators, and source feeds are in scope?</li>
+            <li><strong>Refresh:</strong> What moved this period, and what is only noise?</li>
+            <li><strong>Coherence:</strong> Do strategic moves support the claimed posture shift?</li>
+            <li><strong>Judgment:</strong> What strategic conclusion is responsible from the evidence?</li>
+            <li><strong>Evolution:</strong> Did a new competitor, category, or indicator change the doc shape?</li>
+          </ul>
+        </article>
+
+        <article class="example">
+          <h3>Design System</h3>
+          <p>Expected chain:</p>
+          <div class="flow">taste-signature -> brief-to-system-alignment -> design-system-derivation -> design-system-surface</div>
+          <ul class="dense-list">
+            <li><strong>Intent:</strong> What client, brief, and taste problem is the system solving?</li>
+            <li><strong>Seeding:</strong> What first primitives or surfaces make the system tangible?</li>
+            <li><strong>Composition:</strong> Which choices derive from taste, prior work, or brief constraints?</li>
+            <li><strong>Coherence:</strong> Does the surface express the claimed taste and answer the brief?</li>
+            <li><strong>Operation:</strong> What primitive, pattern, or rule should be built next?</li>
+          </ul>
+        </article>
+
+        <article class="example">
+          <h3>Monitoring Tracker</h3>
+          <p>Expected chain:</p>
+          <div class="flow">expert-stance-track -> citation-feed -> indicator-trace -> proof-ladder -> position-cluster-map -> decision-record</div>
+          <ul class="dense-list">
+            <li><strong>Seeding:</strong> Which named positions and indicators define the topic?</li>
+            <li><strong>Refresh:</strong> What changed since the last period?</li>
+            <li><strong>Coherence:</strong> Do citations, indicators, and stance changes agree?</li>
+            <li><strong>Judgment:</strong> Which predictions or positions can be resolved?</li>
+            <li><strong>Archive:</strong> What was true for this period, and what carries forward?</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>5A. Current Template Relationship Maps</h2>
+      <p>These diagrams translate the current templates into expected convergence-type chains. They are not universal laws. They are the working assumptions a skill can use to ask better questions for each doc shape.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Shipping and Surface Delivery Family</h3>
+        <p>Feature and surface docs become useful when status, design/spec/code flow, alignment, verification, and tooling can explain each other.</p>
+        <pre class="mermaid">
+flowchart LR
+  subgraph StarterShip["starter-ship-feature"]
+    SSStatus["status-snapshot"] --> SSFlow["design-code-spec-flow"]
+    SSFlow --> SSTools["tooling-surface"]
+  end
+
+  subgraph SurfaceDelivery["surface-delivery"]
+    SDStatus["status-snapshot"] --> SDFlow["design-code-spec-flow"]
+    SDFlow --> SDAlign["design-implementation-alignment"]
+    SDAlign --> SDVerify["verification-checkpoints"]
+    SDVerify --> SDTools["tooling-surface"]
+  end
+
+  SSFlow -. "matures into" .-> SDFlow
+  SSTools -. "supports" .-> SDTools
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Proof, Claim, and Issue Deep-Dive Family</h3>
+        <p>Proof docs become operational when claims, evidence, findings, attempts, decisions, and external stance do not collapse into each other.</p>
+        <pre class="mermaid">
+flowchart TB
+  subgraph Claim["starter-prove-claim"]
+    CStatus["status-snapshot"] --> CAssert["model-assertion"]
+    CAssert --> CProof["proof-ladder"]
+  end
+
+  subgraph Canon["proof-canonicality"]
+    PStatus["status-snapshot"] --> Model["formal-model"]
+    Model --> Assert["model-assertion"]
+    Assert --> Proof["proof-ladder"]
+    Proof --> Findings["investigation-findings"]
+    Findings --> Decision["decision-record"]
+    Tools["tooling-surface"] --> Proof
+    Tools --> Findings
+  end
+
+  subgraph OSS["oss-issue-deep-dive"]
+    Symptom["symptom-observation"] --> Code["code-anchor"]
+    Code --> IFinding["investigation-findings"]
+    IFinding --> Attempt["attempt-log"]
+    Orbit["issue-orbit"] --> Symptom
+    Orbit --> IFinding
+    Stance["maintainer-stance"] --> Attempt
+  end
+
+  CAssert -. "upgrades to modeled assertion" .-> Assert
+  CProof -. "upgrades to evidence chain" .-> Proof
+  IFinding -. "can feed canonical findings" .-> Findings
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Operations and Support Family</h3>
+        <p>Support docs become runnable when request flow, operating surface, enablers, and tools form an inspectable operating system.</p>
+        <pre class="mermaid">
+flowchart LR
+  subgraph StarterOps["starter-run-support-ops"]
+    RSStatus["status-snapshot"] --> RSOperation["operation"]
+    RSOperation --> RSTools["tooling-surface"]
+  end
+
+  subgraph FullOps["operations-support"]
+    OStatus["status-snapshot"] --> Operation["operation"]
+    Operation --> Surface["operating-surface"]
+    Surface --> Enablers["enabler-catalog"]
+    Enablers --> Tools["tooling-surface"]
+    Tools --> Operation
+  end
+
+  RSOperation -. "expands into" .-> Operation
+  RSTools -. "expands into" .-> Tools
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Monitoring and Competitor Watcher Family</h3>
+        <p>Tracker docs become valuable when period changes can be grounded in citations, indicators, posture shifts, evidence strength, clusters, and decisions.</p>
+        <pre class="mermaid">
+flowchart TB
+  subgraph Monitoring["monitoring-tracker"]
+    Expert["expert-stance-track"] --> CitationA["citation-feed"]
+    CitationA --> IndicatorA["indicator-trace"]
+    IndicatorA --> ProofA["proof-ladder"]
+    ProofA --> ClusterA["position-cluster-map"]
+    ClusterA --> DecisionA["decision-record"]
+  end
+
+  subgraph Competitor["competitor-watcher"]
+    CompetitorStance["competitor-stance-track"] --> Moves["strategic-move-log"]
+    Moves --> CitationB["citation-feed"]
+    CitationB --> IndicatorB["indicator-trace"]
+    IndicatorB --> ProofB["proof-ladder"]
+    ProofB --> ClusterB["position-cluster-map"]
+    ClusterB --> DecisionB["decision-record"]
+  end
+
+  Expert -. "topic position" .-> CompetitorStance
+  ProofA -. "same evidence discipline" .-> ProofB
+  DecisionA -. "period note / judgment" .-> DecisionB
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Book and Manuscript Family</h3>
+        <p>Writing docs become useful when production, structure, dependencies, continuity, themes, storylines, and character surfaces can be inspected separately and together.</p>
+        <pre class="mermaid">
+flowchart TB
+  subgraph StarterBook["starter-write-book"]
+    BStatus["status-snapshot"] --> Production["content-production"]
+    Production --> BTools["tooling-surface"]
+  end
+
+  subgraph Architect["architect-manuscript"]
+    AStatus["status-snapshot"] --> Outline["content-outline"]
+    Outline --> SceneDeps["scene-dependency-map"]
+    SceneDeps --> Continuity["continuity-watchlist"]
+    ATools["tooling-surface"] --> Outline
+    ATools --> SceneDeps
+    ATools --> Continuity
+  end
+
+  subgraph Themes["map-themes-storylines"]
+    TStatus["status-snapshot"] --> ThemeMap["theme-thread-map"]
+    ThemeMap --> StoryArc["storyline-arc-map"]
+    StoryArc --> Character["character-surface"]
+    Character --> ThemeMap
+  end
+
+  Production -. "material becomes structure" .-> Outline
+  Outline -. "structure carries meaning" .-> ThemeMap
+  Continuity -. "constrains arcs" .-> StoryArc
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Design System Family</h3>
+        <p>The design-system template is distinctive because the objective is carried by a relationship between taste, brief, derivation, and concrete system surface.</p>
+        <pre class="mermaid">
+flowchart LR
+  Status["status-snapshot"] --> Taste["taste-signature"]
+  Taste --> Brief["brief-to-system-alignment"]
+  Brief --> Derivation["design-system-derivation"]
+  Derivation --> Surface["design-system-surface"]
+  Surface --> Brief
+  Surface --> Taste
+
+  Prior["prior work / references"] --> Derivation
+  Client["client brief"] --> Brief
+  Primitives["tokens, components, patterns"] --> Surface
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>6. How a Skill Operates on Stages</h2>
+      <p>The skill loop is not generic maintenance. It is an objective-directed pass over a concrete doc structure.</p>
+    </div>
+    <div class="body">
+      <div class="skill-loop">
+        <article class="loop-step">
+          <div>
+            <h3>Read the objective and success condition.</h3>
+            <p>The skill starts with what the doc is trying to make possible. If the objective is unclear, the doc is in Intent no matter how many cards it has.</p>
+          </div>
+        </article>
+
+        <article class="loop-step">
+          <div>
+            <h3>Read the convergence-type bundle.</h3>
+            <p>The section types define the available shapes. The skill identifies which sections are objective-bearing, which are evidence-bearing, which are decision-bearing, and which are support surfaces.</p>
+          </div>
+        </article>
+
+        <article class="loop-step">
+          <div>
+            <h3>Infer the current stage from structure.</h3>
+            <p>The skill looks at population, evidence, relationships, status freshness, unresolved blockers, and overloaded sections. It does not assume the stage from the template name.</p>
+          </div>
+        </article>
+
+        <article class="loop-step">
+          <div>
+            <h3>Ask stage-specific structural questions.</h3>
+            <p>In Seeding, ask what real entities are missing. In Coherence, ask whether relationships support the objective. In Judgment, ask what conclusion is justified.</p>
+          </div>
+        </article>
+
+        <article class="loop-step">
+          <div>
+            <h3>Choose the smallest operation that improves objective reach.</h3>
+            <p>Possible operations include adding cards, linking evidence, lowering a status, recording a decision, splitting an overloaded section, adding a source pointer, or requesting missing context.</p>
+          </div>
+        </article>
+
+        <article class="loop-step">
+          <div>
+            <h3>Represent the change through the doc's operation channel.</h3>
+            <p>The operation should land as a reviewable patch, MCP operation, or direct source edit according to the environment. The skill should preserve source ownership and avoid inventing canonical truth.</p>
+          </div>
+        </article>
+
+        <article class="loop-step">
+          <div>
+            <h3>Run the stage completion test.</h3>
+            <p>The skill finishes by naming whether the doc moved stages, stayed in the same stage with a clearer blocker, or needs evolution because the current shape no longer fits.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>7. What Skills Need to Contain</h2>
+      <p>A domain skill should be built around stage operation, not around filling fields.</p>
+    </div>
+    <div class="body relationships">
+      <article class="rel-card">
+        <h3>Required Contents</h3>
+        <ul>
+          <li><strong>Trigger:</strong> when this concrete doc shape is being used.</li>
+          <li><strong>Objective reading:</strong> what fields establish the doc's purpose.</li>
+          <li><strong>Type bundle map:</strong> what each convergence type contributes locally and relationally.</li>
+          <li><strong>Stage detection:</strong> how structural signals map to Intent, Seeding, Composition, Coherence, Operation, Refresh, Judgment, Evolution, or Archive.</li>
+          <li><strong>Stage questions:</strong> the questions the skill asks at each stage.</li>
+          <li><strong>Allowed operations:</strong> what the skill may propose or execute.</li>
+          <li><strong>Completion test:</strong> how to tell whether the doc moved closer to objective-ready.</li>
+        </ul>
+      </article>
+
+      <article class="rel-card">
+        <h3>Discipline Rules</h3>
+        <ul>
+          <li>Do not treat every sparse section as a writing problem; it may be a source discovery problem.</li>
+          <li>Do not treat every populated doc as coherent; relationship quality matters.</li>
+          <li>Do not strengthen status beyond evidence.</li>
+          <li>Do not collapse observed fact, inference, and decision.</li>
+          <li>Do not copy canonical truth when a pointer is the right representation.</li>
+          <li>Do not keep operating inside the old shape when the relationships prove the doc needs evolution.</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>7A. From User Session to On-The-Fly Skill Behavior</h2>
+      <p>A stage-aware skill does not need every possible question prewritten. It can generate the right questions during the session from the objective, current stage, and convergence-type relationships.</p>
+    </div>
+    <div class="body">
+      <div class="diagram-block">
+        <h3>Session-Derived Question Generation</h3>
+        <p>The skill starts with the user's concrete session context, reads the doc structure, infers the stage, then generates the questions that matter now.</p>
+        <pre class="mermaid">
+sequenceDiagram
+  participant User
+  participant Skill
+  participant Doc as Living Doc
+  participant Registry
+  participant MCP as MCP / Operation Surface
+
+  User->>Skill: Work on this living doc objective
+  Skill->>Doc: Read objective, success condition, sections, cards
+  Skill->>Registry: Read convergence type contracts
+  Skill->>Skill: Infer stage from structure and relationships
+  Skill->>Skill: Generate stage-specific questions
+  Skill->>MCP: Inspect sources, diagnostics, or valid operations
+  MCP-->>Skill: Current state and operation affordances
+  Skill->>Skill: Select smallest objective-moving operation
+  Skill->>MCP: Propose patch / source edit / diagnostic request
+  MCP-->>Skill: Validation result
+  Skill-->>User: Stage, gap, operation, residual blocker
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Skill Contents as an Operating Stack</h3>
+        <p>The reusable part is not a parent skill. It is the stack of contracts the domain skill reads and acts through.</p>
+        <pre class="mermaid">
+flowchart TB
+  Trigger["Trigger<br/>which doc shape or domain"] --> Objective["Objective reading<br/>what the doc must make possible"]
+  Objective --> TypeMap["Type bundle map<br/>local and relational roles"]
+  TypeMap --> StageDetect["Stage detection<br/>signals from structure"]
+  StageDetect --> Questions["Stage questions<br/>generated for this session"]
+  Questions --> Ops["Allowed operations<br/>patch, source pointer, status update, decision, split"]
+  Ops --> Discipline["Source discipline<br/>fact vs inference vs decision"]
+  Discipline --> Complete["Completion test<br/>closer to objective-ready?"]
+
+  Contracts["MCP tools / schemas / validators"] --> Ops
+  Registry["Registry convergence types"] --> TypeMap
+  CurrentDoc["Current living doc state"] --> StageDetect
+        </pre>
+      </div>
+
+      <div class="diagram-block">
+        <h3>Question Shape by Stage</h3>
+        <p>The same structural chain produces different questions depending on the stage inferred during the session.</p>
+        <pre class="mermaid">
+flowchart LR
+  Chain["Expected type relationship chain"] --> Stage{"Inferred stage"}
+
+  Stage --> IntentQ["Intent questions<br/>Is the objective precise enough?<br/>Does this bundle fit?"]
+  Stage --> SeedQ["Seeding questions<br/>Which first real entities are missing?<br/>Where are their sources?"]
+  Stage --> CompQ["Composition questions<br/>What belongs where?<br/>What must stay distinct?"]
+  Stage --> CohQ["Coherence questions<br/>Which relationship is weak?<br/>Which card is orphaned?"]
+  Stage --> OpQ["Operation questions<br/>What action is now visible?<br/>What blocker is structural?"]
+  Stage --> RefreshQ["Refresh questions<br/>What changed?<br/>Which prior state must be preserved?"]
+  Stage --> JudgeQ["Judgment questions<br/>What conclusion is justified?<br/>What uncertainty remains?"]
+  Stage --> EvoQ["Evolution questions<br/>What shape no longer fits?<br/>What section or doc split is needed?"]
+
+  IntentQ --> Operation["Objective-moving operation"]
+  SeedQ --> Operation
+  CompQ --> Operation
+  CohQ --> Operation
+  OpQ --> Operation
+  RefreshQ --> Operation
+  JudgeQ --> Operation
+  EvoQ --> Operation
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>8. Example: Stage-Specific Meaning of One Type</h2>
+      <p>The same convergence type changes operational meaning by stage. This is why skills need both type knowledge and stage knowledge.</p>
+    </div>
+    <div class="body">
+      <div class="matrix">
+        <div class="head">Stage</div>
+        <div class="head">Question for <code>proof-ladder</code></div>
+        <div class="head">Weak answer</div>
+        <div class="head">Useful answer</div>
+        <div class="head">Likely operation</div>
+
+        <div class="rowhead">Seeding</div>
+        <div>What evidence sources exist at all?</div>
+        <div>General claims with no source.</div>
+        <div>Named source, artifact, test, citation, or observation.</div>
+        <div>Add source-backed evidence cards.</div>
+
+        <div class="rowhead">Composition</div>
+        <div>Which evidence supports which claim?</div>
+        <div>Evidence listed beside claims without linkage.</div>
+        <div>Evidence explicitly attached to a target assertion.</div>
+        <div>Add links, split mixed cards, clarify support relation.</div>
+
+        <div class="rowhead">Coherence</div>
+        <div>Does the proof test the actual assertion?</div>
+        <div>Proof supports a nearby but different claim.</div>
+        <div>Proof scope matches assertion scope.</div>
+        <div>Revise claim, revise evidence, or name the gap.</div>
+
+        <div class="rowhead">Judgment</div>
+        <div>What confidence is justified?</div>
+        <div>Decision language stronger than proof.</div>
+        <div>Decision records proof strength and uncertainty.</div>
+        <div>Lower confidence, record decision, or request more proof.</div>
+
+        <div class="rowhead last-row">Refresh</div>
+        <div class="last-row">Did new evidence strengthen, weaken, or obsolete the proof?</div>
+        <div class="last-row">New source appended without delta.</div>
+        <div class="last-row">Delta explained against prior proof state.</div>
+        <div class="last-row">Update proof status and preserve prior state.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>9. Skill Value by Stage</h2>
+      <p>The skill's value changes with the life stage. Good skills make that explicit.</p>
+    </div>
+    <div class="body">
+      <div class="relationships">
+        <article class="rel-card">
+          <h3>Early Stages</h3>
+          <p><strong>Intent, Seeding, Composition</strong></p>
+          <ul>
+            <li>Prevent vague objectives.</li>
+            <li>Find the first real entities.</li>
+            <li>Place material in the right convergence types.</li>
+            <li>Keep distinctions clean before synthesis hardens.</li>
+          </ul>
+        </article>
+
+        <article class="rel-card">
+          <h3>Middle Stages</h3>
+          <p><strong>Coherence, Operation, Refresh</strong></p>
+          <ul>
+            <li>Test whether the doc works as a whole.</li>
+            <li>Surface actionable blockers and next moves.</li>
+            <li>Update current state from source changes.</li>
+            <li>Preserve history where deltas matter.</li>
+          </ul>
+        </article>
+
+        <article class="rel-card">
+          <h3>Late Stages</h3>
+          <p><strong>Judgment, Archive / Handoff</strong></p>
+          <ul>
+            <li>Support responsible conclusions.</li>
+            <li>Record decisions and residual uncertainty.</li>
+            <li>Make the doc understandable to a later reader or agent.</li>
+            <li>Prevent last-mile overclaiming.</li>
+          </ul>
+        </article>
+
+        <article class="rel-card">
+          <h3>Shape-Change Stage</h3>
+          <p><strong>Evolution</strong></p>
+          <ul>
+            <li>Detect when the current convergence bundle is no longer enough.</li>
+            <li>Split overloaded sections or documents.</li>
+            <li>Propose registry additions only when the missing shape is real.</li>
+            <li>Keep the objective from being trapped in yesterday's structure.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>10. Failure Modes This Model Prevents</h2>
+      <p>These are the mistakes that happen when a skill does not understand stage and convergence-type relationships.</p>
+    </div>
+    <div class="body relationships">
+      <article class="rel-card warning">
+        <h3>Filling Instead of Operating</h3>
+        <p>The skill treats the doc as a form and tries to fill every section. Result: generic prose, weak cards, and no objective movement.</p>
+      </article>
+
+      <article class="rel-card warning">
+        <h3>Local Correctness Without Whole-Doc Coherence</h3>
+        <p>Each section looks plausible, but assertions do not connect to proof, findings do not connect to decisions, and tools do not connect to operations.</p>
+      </article>
+
+      <article class="rel-card warning">
+        <h3>Stage Confusion</h3>
+        <p>The skill asks judgment-stage questions while the doc is still seeding, or keeps adding source material when the real need is a decision.</p>
+      </article>
+
+      <article class="rel-card warning">
+        <h3>Shape Blindness</h3>
+        <p>The skill keeps working inside the current template even when the represented thing has changed enough that the doc needs to evolve.</p>
+      </article>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Static internal model page. File: <code>docs/living-doc-stage-skill-operating-model.html</code>. Mermaid diagrams render client-side using the same CDN pattern as <code>docs/harness-playground.html</code>; the diagram source remains visible if rendering is unavailable.
+    </p>
+  </footer>
+</main>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    securityLevel: 'loose',
+    flowchart: {
+      curve: 'basis',
+      padding: 18,
+      useMaxWidth: true,
+      htmlLabels: true,
+      nodeSpacing: 34,
+      rankSpacing: 48
+    },
+    sequence: {
+      mirrorActors: false,
+      showSequenceNumbers: false
+    },
+    themeVariables: {
+      background: '#fffdf8',
+      primaryColor: '#edf5f2',
+      primaryTextColor: '#1f2528',
+      primaryBorderColor: '#83afa5',
+      lineColor: '#8a7f70',
+      secondaryColor: '#fff7e8',
+      tertiaryColor: '#f8eeee',
+      fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    }
+  });
+</script>
+</body>
+</html>
