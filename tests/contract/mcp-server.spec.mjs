@@ -93,6 +93,10 @@ function createMcpClient() {
   };
 }
 
+function findGap(gaps, relationshipId, kind) {
+  return gaps.gaps.find((gap) => gap.relationshipId === relationshipId && gap.kind === kind);
+}
+
 const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'living-doc-mcp-contract-'));
 const client = createMcpClient();
 
@@ -212,7 +216,12 @@ try {
 
   const gaps = await client.callTool('living_doc_relationship_gaps', { doc: surfaceDocPath });
   assert.equal(gaps.templateId, 'surface-delivery');
-  assert.ok(gaps.gaps.some((gap) => gap.relationshipId === 'flow-feeds-alignment' && gap.kind === 'missing-target-cards'));
+  const surfaceTargetGap = findGap(gaps, 'flow-feeds-alignment', 'missing-target-cards');
+  assert.ok(surfaceTargetGap);
+  assert.equal(surfaceTargetGap.patchDraft.patch.changes[0].kind, 'card-create');
+  assert.equal(surfaceTargetGap.patchDraft.patch.changes[0].sectionId, 'alignment');
+  assert.deepEqual(surfaceTargetGap.patchDraft.patch.changes[0].card.sourceCardIds, ['primary-surface']);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: surfaceDocPath, patch: surfaceTargetGap.patchDraft.patch })).ok, true);
 
   const stages = await client.callTool('living_doc_stage_diagnostics', { doc: surfaceDocPath });
   assert.equal(stages.templateId, 'surface-delivery');
@@ -249,12 +258,12 @@ try {
   }, null, 2));
 
   const evidenceGaps = await client.callTool('living_doc_relationship_gaps', { doc: surfaceEvidenceGapPath });
-  assert.ok(evidenceGaps.gaps.some((gap) => (
-    gap.relationshipId === 'flow-feeds-alignment'
-    && gap.kind === 'missing-card-evidence'
-    && gap.unmatchedSourceCards.some((card) => card.cardId === 'primary-surface')
-    && gap.repairOperations.some((operation) => operation.id === 'add-alignment-row')
-  )));
+  const surfaceEvidenceGap = findGap(evidenceGaps, 'flow-feeds-alignment', 'missing-card-evidence');
+  assert.ok(surfaceEvidenceGap);
+  assert.ok(surfaceEvidenceGap.unmatchedSourceCards.some((card) => card.cardId === 'primary-surface'));
+  assert.ok(surfaceEvidenceGap.repairOperations.some((operation) => operation.id === 'add-alignment-row'));
+  assert.deepEqual(surfaceEvidenceGap.patchDraft.patch.changes[0].card.sourceCardIds, ['primary-surface']);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: surfaceEvidenceGapPath, patch: surfaceEvidenceGap.patchDraft.patch })).ok, true);
 
   const proofGraph = await client.callTool('living_doc_template_graph', { templateId: 'proof-canonicality' });
   assert.equal(proofGraph.templateId, 'proof-canonicality');
@@ -283,7 +292,10 @@ try {
 
   const proofGaps = await client.callTool('living_doc_relationship_gaps', { doc: proofDocPath });
   assert.equal(proofGaps.templateId, 'proof-canonicality');
-  assert.ok(proofGaps.gaps.some((gap) => gap.relationshipId === 'assertion-requires-proof' && gap.kind === 'missing-target-cards'));
+  const proofTargetGap = findGap(proofGaps, 'assertion-requires-proof', 'missing-target-cards');
+  assert.ok(proofTargetGap);
+  assert.deepEqual(proofTargetGap.patchDraft.patch.changes[0].card.assertionIds, ['claim']);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: proofDocPath, patch: proofTargetGap.patchDraft.patch })).ok, true);
 
   const proofStages = await client.callTool('living_doc_stage_diagnostics', { doc: proofDocPath });
   assert.equal(proofStages.likelyStage, 'Coherence');
@@ -307,12 +319,12 @@ try {
   }, null, 2));
 
   const proofEvidenceGaps = await client.callTool('living_doc_relationship_gaps', { doc: proofEvidenceGapPath });
-  assert.ok(proofEvidenceGaps.gaps.some((gap) => (
-    gap.relationshipId === 'assertion-requires-proof'
-    && gap.kind === 'missing-card-evidence'
-    && gap.unmatchedSourceCards.some((card) => card.cardId === 'claim')
-    && gap.repairOperations.some((operation) => operation.id === 'add-proof-rung')
-  )));
+  const proofEvidenceGap = findGap(proofEvidenceGaps, 'assertion-requires-proof', 'missing-card-evidence');
+  assert.ok(proofEvidenceGap);
+  assert.ok(proofEvidenceGap.unmatchedSourceCards.some((card) => card.cardId === 'claim'));
+  assert.ok(proofEvidenceGap.repairOperations.some((operation) => operation.id === 'add-proof-rung'));
+  assert.deepEqual(proofEvidenceGap.patchDraft.patch.changes[0].card.assertionIds, ['claim']);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: proofEvidenceGapPath, patch: proofEvidenceGap.patchDraft.patch })).ok, true);
 
   const opsGraph = await client.callTool('living_doc_template_graph', { templateId: 'operations-support' });
   assert.equal(opsGraph.templateId, 'operations-support');
@@ -339,7 +351,10 @@ try {
 
   const opsGaps = await client.callTool('living_doc_relationship_gaps', { doc: opsDocPath });
   assert.equal(opsGaps.templateId, 'operations-support');
-  assert.ok(opsGaps.gaps.some((gap) => gap.relationshipId === 'operation-routes-surface' && gap.kind === 'missing-target-cards'));
+  const opsTargetGap = findGap(opsGaps, 'operation-routes-surface', 'missing-target-cards');
+  assert.ok(opsTargetGap);
+  assert.deepEqual(opsTargetGap.patchDraft.patch.changes[0].card.operationIds, ['intake']);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: opsDocPath, patch: opsTargetGap.patchDraft.patch })).ok, true);
 
   const opsStages = await client.callTool('living_doc_stage_diagnostics', { doc: opsDocPath });
   assert.equal(opsStages.likelyStage, 'Coherence');
@@ -361,12 +376,12 @@ try {
   }, null, 2));
 
   const opsEvidenceGaps = await client.callTool('living_doc_relationship_gaps', { doc: opsEvidenceGapPath });
-  assert.ok(opsEvidenceGaps.gaps.some((gap) => (
-    gap.relationshipId === 'operation-routes-surface'
-    && gap.kind === 'missing-card-evidence'
-    && gap.unmatchedSourceCards.some((card) => card.cardId === 'intake')
-    && gap.repairOperations.some((operation) => operation.id === 'add-operating-surface-card')
-  )));
+  const opsEvidenceGap = findGap(opsEvidenceGaps, 'operation-routes-surface', 'missing-card-evidence');
+  assert.ok(opsEvidenceGap);
+  assert.ok(opsEvidenceGap.unmatchedSourceCards.some((card) => card.cardId === 'intake'));
+  assert.ok(opsEvidenceGap.repairOperations.some((operation) => operation.id === 'add-operating-surface-card'));
+  assert.deepEqual(opsEvidenceGap.patchDraft.patch.changes[0].card.operationIds, ['intake']);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: opsEvidenceGapPath, patch: opsEvidenceGap.patchDraft.patch })).ok, true);
 
   const governance = await client.callTool('living_doc_governance_evaluate', { doc: docPath });
   assert.equal(governance.ok, false);

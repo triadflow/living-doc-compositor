@@ -659,6 +659,16 @@ async function relationshipGapsTool(args = {}) {
       );
     }
     if (status.kind !== 'present') {
+      const repairOperations = (relationship.repairOperationIds || [])
+        .map((operationId) => operationsById.get(operationId))
+        .filter(Boolean);
+      const patchDraft = buildRelationshipGapPatchDraft({
+        doc,
+        relationship,
+        status,
+        repairOperations,
+        sourceEntries: sectionCards.get(relationship.from) || [],
+      });
       gaps.push({
         relationshipId: relationship.id,
         relation: relationship.relation,
@@ -671,9 +681,8 @@ async function relationshipGapsTool(args = {}) {
         ...(status.unmatchedSourceCards ? { unmatchedSourceCards: status.unmatchedSourceCards } : {}),
         ...(status.matchedSourceCount !== undefined ? { matchedSourceCount: status.matchedSourceCount } : {}),
         ...(status.totalSourceCount !== undefined ? { totalSourceCount: status.totalSourceCount } : {}),
-        repairOperations: (relationship.repairOperationIds || [])
-          .map((operationId) => operationsById.get(operationId))
-          .filter(Boolean),
+        repairOperations,
+        ...(patchDraft ? { patchDraft } : {}),
         question: relationshipGapQuestion(relationship, status),
       });
     }
@@ -820,6 +829,7 @@ function evaluateRelationshipEvidence(relationship, sourceEntries, targetEntries
         sectionId,
         cardId: String(card?.id || card?.name || card?.title || '').trim(),
         name: String(card?.name || card?.title || card?.id || '').trim(),
+        sourceValues: valuesByField(card, sourceFields),
         expectedEvidence: {
           sourceFields,
           targetFields,
@@ -850,6 +860,104 @@ function evaluateRelationshipEvidence(relationship, sourceEntries, targetEntries
     matchedSourceCount,
     totalSourceCount: sourceEntries.length,
   };
+}
+
+function buildRelationshipGapPatchDraft({ doc, relationship, status, repairOperations, sourceEntries }) {
+  const operation = repairOperations.find((item) => item?.patchKind === 'card-create') || repairOperations[0];
+  if (!operation || operation.patchKind !== 'card-create') return null;
+
+  const targetSection = (doc.sections || []).find((section) => section?.convergenceType === relationship.to);
+  if (!targetSection?.id) return null;
+
+  const sourceRef = firstPatchableSourceRef(status, sourceEntries);
+  if (!sourceRef?.cardId) return null;
+
+  const targetCards = getCards(targetSection);
+  const cardId = uniqueCardId(
+    targetCards,
+    slugify(`${sourceRef.cardId}-${relationship.relation}`, `${relationship.to}-repair`),
+  );
+  const link = relationshipEvidenceLink(relationship, sourceRef);
+  if (!link) return null;
+
+  return {
+    kind: 'living-doc-ai-patch/v1-draft',
+    repairOperationId: operation.id,
+    repairOperation: operation,
+    note: 'Draft only; review and edit the card name and fields before applying.',
+    patch: {
+      schema: 'living-doc-ai-patch/v1',
+      requestId: `relationship-gap:${relationship.id}:${sourceRef.cardId}`,
+      summary: `Draft repair for ${relationship.id}`,
+      proposedBy: {
+        engine: 'codex',
+        action: 'relationship-gap-draft',
+      },
+      changes: [
+        {
+          changeId: `repair-${slugify(relationship.id)}-${slugify(sourceRef.cardId)}`,
+          kind: 'card-create',
+          sectionId: targetSection.id,
+          card: {
+            id: cardId,
+            name: `Evidence for ${sourceRef.name || sourceRef.cardId}`,
+            [link.field]: link.value,
+          },
+        },
+      ],
+    },
+  };
+}
+
+function firstPatchableSourceRef(status, sourceEntries) {
+  const unmatched = (status.unmatchedSourceCards || []).find((entry) => entry?.cardId);
+  if (unmatched) return unmatched;
+  const firstSource = (sourceEntries || []).find(({ card }) => card?.id || card?.name || card?.title);
+  if (!firstSource) return null;
+  const sourceFields = Array.isArray(status.evidence?.sourceFields) ? status.evidence.sourceFields : ['id'];
+  return {
+    sectionId: firstSource.sectionId,
+    cardId: String(firstSource.card?.id || firstSource.card?.name || firstSource.card?.title || '').trim(),
+    name: String(firstSource.card?.name || firstSource.card?.title || firstSource.card?.id || '').trim(),
+    sourceValues: valuesByField(firstSource.card, sourceFields),
+  };
+}
+
+function relationshipEvidenceLink(relationship, sourceRef) {
+  const targetFields = Array.isArray(relationship.evidence?.targetFields) ? relationship.evidence.targetFields : [];
+  if (targetFields.length === 0) return null;
+
+  const preferred = ['sourceCardIds', 'assertionIds', 'operationIds'].find((field) => targetFields.includes(field));
+  if (preferred) {
+    return { field: preferred, value: [sourceRef.cardId] };
+  }
+
+  const field = targetFields[0];
+  const values = Object.values(sourceRef.sourceValues || {}).flat().filter(Boolean);
+  const value = values[0] || sourceRef.cardId;
+  return { field, value: arrayishField(field) ? [value] : value };
+}
+
+function uniqueCardId(cards, baseId) {
+  const used = new Set((cards || []).map((card) => card?.id).filter(Boolean));
+  if (!used.has(baseId)) return baseId;
+  for (let i = 2; i < 1000; i += 1) {
+    const candidate = `${baseId}-${i}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  return `${baseId}-${Date.now()}`;
+}
+
+function arrayishField(field) {
+  return /(?:Ids|Refs|Paths)$/.test(field);
+}
+
+function valuesByField(card, fields) {
+  const out = {};
+  for (const field of fields || []) {
+    out[field] = [...valuesForFields(card, [field])];
+  }
+  return out;
 }
 
 function valuesForFields(card, fields) {
