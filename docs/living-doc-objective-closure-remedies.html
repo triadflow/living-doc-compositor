@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remedies for Objective Closure Drift</title>
+<meta name="description" content="Solution-space model for preventing objective closure drift in living-doc work through custodian layers, hostile completion stages, drift diagnostics, and explicit pivot protocols." />
+<style>
+  :root {
+    --bg: #f5f2ec;
+    --paper: #fffdf8;
+    --ink: #1e2528;
+    --muted: #667176;
+    --line: #d7d0c4;
+    --soft: #eee7dc;
+    --accent: #0c6b5e;
+    --accent-2: #7b4b1f;
+    --danger: #8d2f2f;
+    --danger-bg: #fff1ef;
+    --warn: #9a6517;
+    --warn-bg: #fff7e6;
+    --good: #28664f;
+    --good-bg: #edf8f2;
+    --blue: #2f5f8f;
+    --blue-bg: #edf4fb;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, .92);
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-weight: 750;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 54px 0 84px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.28fr) minmax(300px, .72fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 34px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    font-weight: 800;
+  }
+
+  h1 {
+    max-width: 920px;
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 74px);
+    line-height: .95;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 880px;
+    margin: 0;
+    color: #334044;
+    font-size: 21px;
+    line-height: 1.42;
+  }
+
+  .summary-card,
+  section {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .07);
+  }
+
+  .summary-card { padding: 18px; }
+
+  .summary-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary-card ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary-card li + li { margin-top: 8px; }
+
+  .principle-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 28px 0;
+  }
+
+  .principle {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 14px;
+  }
+
+  .principle span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .principle strong {
+    display: block;
+    font-size: 21px;
+    line-height: 1.18;
+  }
+
+  section {
+    margin-top: 28px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    max-width: 920px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .body { padding: 22px; }
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 16px;
+  }
+
+  .panel h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+  }
+
+  .panel p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .panel.good { background: var(--good-bg); border-color: #c5e5d2; }
+  .panel.warn { background: var(--warn-bg); border-color: #ead49c; }
+  .panel.danger { background: var(--danger-bg); border-color: #efc9c4; }
+  .panel.blue { background: var(--blue-bg); border-color: #c8dced; }
+
+  .architecture {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .layer {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 16px;
+    min-height: 190px;
+  }
+
+  .layer .tag {
+    display: inline-flex;
+    margin-bottom: 12px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--soft);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .layer h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .layer ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .layer li + li { margin-top: 6px; }
+
+  .flow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) 42px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .node {
+    min-height: 132px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 15px;
+  }
+
+  .node strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 16px;
+  }
+
+  .node p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .node.good { background: var(--good-bg); border-color: #c5e5d2; }
+  .node.warn { background: var(--warn-bg); border-color: #ead49c; }
+  .node.blue { background: var(--blue-bg); border-color: #c8dced; }
+
+  .arrow {
+    display: grid;
+    place-items: center;
+    color: var(--accent-2);
+    font-size: 28px;
+    font-weight: 800;
+  }
+
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stage {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 14px;
+  }
+
+  .stage strong {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 15px;
+  }
+
+  .stage p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .skill-card {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 16px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 15px;
+  }
+
+  .skill-card + .skill-card { margin-top: 10px; }
+
+  .skill-card .name {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .skill-card h3 {
+    margin: 0 0 5px;
+    font-size: 16px;
+  }
+
+  .skill-card p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .decision-table {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .decision {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 15px;
+    background: var(--paper);
+  }
+
+  .decision h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+  }
+
+  .decision p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .rule {
+    margin: 0;
+    padding: 18px 20px;
+    border-left: 4px solid var(--accent);
+    background: var(--good-bg);
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1.42;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: .94em;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  footer {
+    padding: 36px 0 48px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 960px) {
+    .hero,
+    .split,
+    .architecture,
+    .decision-table {
+      grid-template-columns: 1fr;
+    }
+
+    .principle-strip,
+    .stage-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .flow {
+      grid-template-columns: 1fr;
+    }
+
+    .arrow {
+      min-height: 28px;
+      transform: rotate(90deg);
+    }
+
+    .skill-card {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./index.html">
+        <span class="mark">LD</span>
+        <span>Living Doc Compositor</span>
+      </a>
+      <nav aria-label="Page navigation">
+        <a href="#custodian">Custodian</a>
+        <a href="#closure">Closure Stage</a>
+        <a href="#skills">Skills</a>
+        <a href="#pivot">Pivot Protocol</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Solution space / objective work</div>
+        <h1>Remedies for Objective Closure Drift</h1>
+        <p class="lede">
+          The remedy is not asking agents to try harder. The living-doc method needs built-in counter-pressure: objective custody, hostile completion review, closure-drift diagnostics, and an explicit distinction between finishing, deferring, and pivoting.
+        </p>
+      </div>
+      <aside class="summary-card">
+        <h2>Four moves</h2>
+        <ol>
+          <li>Add an objective custodian layer.</li>
+          <li>Make closure a hostile review stage.</li>
+          <li>Give skills drift-signal diagnostics.</li>
+          <li>Separate pivot, deferral, and completion.</li>
+        </ol>
+      </aside>
+    </div>
+
+    <div class="principle-strip">
+      <div class="principle"><span>Guard</span><strong>objective loyalty</strong></div>
+      <div class="principle"><span>Challenge</span><strong>closure claims</strong></div>
+      <div class="principle"><span>Detect</span><strong>drift signals</strong></div>
+      <div class="principle"><span>Name</span><strong>pivot vs finish</strong></div>
+    </div>
+
+    <section id="custodian">
+      <div class="section-head">
+        <h2>1. Add an Objective Custodian Layer</h2>
+        <p>This layer is not another proof ladder. It guards whether the work is still proving the same objective.</p>
+      </div>
+      <div class="body">
+        <div class="architecture">
+          <div class="layer">
+            <span class="tag">Current doc</span>
+            <h3>Content and proof layers</h3>
+            <ul>
+              <li>sections</li>
+              <li>convergence types</li>
+              <li>attempt logs</li>
+              <li>proof ladders</li>
+              <li>decisions</li>
+            </ul>
+          </div>
+          <div class="layer">
+            <span class="tag">New layer</span>
+            <h3>Objective custody</h3>
+            <ul>
+              <li>original objective</li>
+              <li>current interpretation</li>
+              <li>completion claim</li>
+              <li>rejection reasons</li>
+              <li>blockers and deferrals</li>
+            </ul>
+          </div>
+          <div class="layer">
+            <span class="tag">Purpose</span>
+            <h3>Prevent substitution</h3>
+            <ul>
+              <li>proof does not replace objective</li>
+              <li>tickets do not redefine done</li>
+              <li>deferral requires rationale</li>
+              <li>pivot requires explicit decision</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Objective Custodian Fields</h2>
+        <p>A minimal data shape could live at the doc root or as a typed section. The important part is that it is inspectable and refreshed near closure.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="panel blue">
+            <h3>Core fields</h3>
+            <p><code>originalObjective</code>, <code>currentObjectiveInterpretation</code>, <code>completionClaim</code>, <code>userRejectionReasons</code>, <code>objectiveBlockers</code>, <code>deferrals</code>, <code>pivotStatus</code>.</p>
+          </div>
+          <div class="panel warn">
+            <h3>Operating rule</h3>
+            <p>When completion is claimed, the custodian layer must be newer than the proof layer. Otherwise the proof may be stale relative to the objective.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="closure">
+      <div class="section-head">
+        <h2>2. Make Closure a Hostile Stage</h2>
+        <p>The final stage should try to break the completion claim. If it cannot break it, closure becomes more credible.</p>
+      </div>
+      <div class="body">
+        <div class="stage-grid">
+          <div class="stage">
+            <strong>Completion Claim</strong>
+            <p>What exactly are we saying is done?</p>
+          </div>
+          <div class="stage">
+            <strong>Objective Challenge</strong>
+            <p>What still contradicts the original objective?</p>
+          </div>
+          <div class="stage">
+            <strong>Deferral Audit</strong>
+            <p>Which unresolved parts are truly out of scope?</p>
+          </div>
+          <div class="stage">
+            <strong>Residual Risk</strong>
+            <p>What remains true but acceptable?</p>
+          </div>
+          <div class="stage">
+            <strong>Close / Reopen</strong>
+            <p>Close only if the challenge fails honestly.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Closure Should Ask the Opposite Question</h2>
+        <p>The current pattern asks “can we justify closing?” The remedy asks “why would closing be false?”</p>
+      </div>
+      <div class="body">
+        <blockquote class="rule">
+          If a plausible user rejection still exists, the living doc is not complete. It is either still open, explicitly pivoted, or narrowed by a documented deferral decision.
+        </blockquote>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="section-head">
+        <h2>3. Add Closure-Drift Skills</h2>
+        <p>Skills should not automatically rewrite the objective. They should detect drift, force the decision, and write the correct state back into the living doc.</p>
+      </div>
+      <div class="body">
+        <div class="skill-card">
+          <div class="name">objective-custodian</div>
+          <div>
+            <h3>Refresh the objective custody layer.</h3>
+            <p>Compares original objective, current interpretation, completion claim, blockers, and deferrals. Outputs a concise “objective still open / narrowed / pivoted / ready to challenge” state.</p>
+          </div>
+        </div>
+        <div class="skill-card">
+          <div class="name">closure-drift-audit</div>
+          <div>
+            <h3>Detect when closure signals outrun the objective.</h3>
+            <p>Looks for checked subtickets, final-proof language, broad objective terms, vague deferrals, unresolved source-of-truth surfaces, and proof cards that do not attempt disconfirmation.</p>
+          </div>
+        </div>
+        <div class="skill-card">
+          <div class="name">hostile-final-proof</div>
+          <div>
+            <h3>Run adversarial completion review.</h3>
+            <p>Requires completed, blocking, deferred, explicitly out-of-scope, residual-risk, and user-rejection sections before closure can be recommended.</p>
+          </div>
+        </div>
+        <div class="skill-card">
+          <div class="name">pivot-protocol</div>
+          <div>
+            <h3>Change the objective without pretending it was completed.</h3>
+            <p>Writes a pivot record: what was learned, why the original objective cannot close, what the new objective is, what carries over, and what becomes follow-up.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Skill Trigger Signals</h2>
+        <p>These signals should cause a skill to pause normal implementation and inspect objective fidelity.</p>
+      </div>
+      <div class="body">
+        <div class="flow">
+          <div class="node warn">
+            <strong>Closure signals spike</strong>
+            <p>Many subtickets close, tests pass, rendered docs update, and final-proof language appears.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node blue">
+            <strong>Objective language weakens</strong>
+            <p>Recent cards mention artifacts more than the original objective terms.</p>
+          </div>
+          <div class="arrow">→</div>
+          <div class="node good">
+            <strong>Run drift audit</strong>
+            <p>The skill forces a state: continue, narrow, pivot, or close with hostile proof.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pivot">
+      <div class="section-head">
+        <h2>4. Separate Pivot, Deferral, and Completion</h2>
+        <p>These are different actions. Blurring them is the core failure mode.</p>
+      </div>
+      <div class="body">
+        <div class="decision-table">
+          <div class="decision">
+            <h3>Completion</h3>
+            <p>The original objective is reached. Remaining risk is acceptable and does not contradict the objective.</p>
+          </div>
+          <div class="decision">
+            <h3>Deferral</h3>
+            <p>A part is not done, but the living doc proves why it is outside the current objective and records the trigger for revisiting it.</p>
+          </div>
+          <div class="decision">
+            <h3>Pivot</h3>
+            <p>The objective changes because the work revealed a better or necessary target. This requires an explicit pivot record, not a completion claim.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Pivot Protocol Shape</h2>
+        <p>When the living doc needs to change direction, the transition should be recorded as its own structured event.</p>
+      </div>
+      <div class="body">
+        <div class="architecture">
+          <div class="layer">
+            <span class="tag">Before</span>
+            <h3>Original objective</h3>
+            <ul>
+              <li>exact wording</li>
+              <li>success condition</li>
+              <li>why it cannot close honestly</li>
+            </ul>
+          </div>
+          <div class="layer">
+            <span class="tag">Learning</span>
+            <h3>What changed</h3>
+            <ul>
+              <li>new constraints</li>
+              <li>new evidence</li>
+              <li>wrong assumptions</li>
+            </ul>
+          </div>
+          <div class="layer">
+            <span class="tag">After</span>
+            <h3>New objective</h3>
+            <ul>
+              <li>replacement objective</li>
+              <li>carried-over work</li>
+              <li>follow-up tickets</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Method Change for Living Docs</h2>
+        <p>The living-doc approach should treat objective fidelity as its own operational surface, not as an implicit property of proof cards.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="panel good">
+            <h3>What changes</h3>
+            <p>Final stages become adversarial. Skills can detect closure drift. Pivots are named. Deferrals require triggers. Completion claims must survive user-rejection tests.</p>
+          </div>
+          <div class="panel danger">
+            <h3>What stops</h3>
+            <p>Closing by checklist. Treating rendered proof artifacts as completion. Narrowing the objective after implementation. Calling unresolved integration surfaces future work without proving the boundary.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    Internal solution-space model. Companion to <a href="./living-doc-objective-closure-drift.html">Objective Closure Drift</a>.
+  </footer>
+</body>
+</html>

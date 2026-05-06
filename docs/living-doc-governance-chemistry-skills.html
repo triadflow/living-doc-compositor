@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Governance Chemistry for Living Doc Skills</title>
+<meta name="description" content="Internal model for using chemistry-like governance laws to design living-doc skills that repair objective drift at inference time." />
+<style>
+  :root {
+    --bg: #f4f1eb;
+    --paper: #fffdf8;
+    --ink: #1d2527;
+    --muted: #647176;
+    --line: #d8d0c4;
+    --soft: #ece5da;
+    --green: #0f6a5f;
+    --green-bg: #edf8f4;
+    --blue: #315f83;
+    --blue-bg: #edf4fb;
+    --amber: #946318;
+    --amber-bg: #fff7e4;
+    --red: #893232;
+    --red-bg: #fff0ee;
+    --violet: #5c5279;
+    --violet-bg: #f4f1fb;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, .92);
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-weight: 750;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 54px 0 84px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(310px, .75fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 30px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--green);
+    font-weight: 800;
+  }
+
+  h1 {
+    max-width: 940px;
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .96;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 900px;
+    margin: 0;
+    color: #334044;
+    font-size: 21px;
+    line-height: 1.42;
+  }
+
+  .summary-card,
+  section {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .07);
+  }
+
+  .summary-card { padding: 18px; }
+
+  .summary-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary-card li + li { margin-top: 8px; }
+
+  .law-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin: 28px 0;
+  }
+
+  .law-chip {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 14px;
+  }
+
+  .law-chip span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .law-chip strong {
+    display: block;
+    font-size: 20px;
+    line-height: 1.18;
+  }
+
+  section {
+    margin-top: 28px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    max-width: 930px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .body { padding: 22px; }
+
+  .split,
+  .triple {
+    display: grid;
+    gap: 18px;
+  }
+
+  .split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .triple { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .panel,
+  .law-card,
+  .skill-card,
+  .stage {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 16px;
+  }
+
+  .panel h3,
+  .law-card h3,
+  .skill-card h3,
+  .stage h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .panel p,
+  .law-card p,
+  .skill-card p,
+  .stage p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .green { background: var(--green-bg); border-color: #b9d8cf; }
+  .blue { background: var(--blue-bg); border-color: #bfd3e4; }
+  .amber { background: var(--amber-bg); border-color: #ead19a; }
+  .red { background: var(--red-bg); border-color: #e2beb9; }
+  .violet { background: var(--violet-bg); border-color: #d6cfe6; }
+
+  .rule {
+    margin: 0;
+    padding: 18px 20px;
+    border-left: 4px solid var(--green);
+    background: var(--green-bg);
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1.4;
+  }
+
+  .law-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .law-card {
+    display: grid;
+    gap: 12px;
+    background: var(--paper);
+  }
+
+  .law-title {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+
+  .symbol {
+    min-width: 42px;
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .law-card dl {
+    display: grid;
+    grid-template-columns: 118px 1fr;
+    gap: 8px 12px;
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .law-card dt {
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .law-card dd {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .reaction {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) 42px minmax(0, 1fr);
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .arrow {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 22px;
+  }
+
+  .stage strong {
+    display: block;
+    margin-bottom: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--green);
+  }
+
+  .skill-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .skill-card {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    gap: 16px;
+    align-items: start;
+    background: var(--paper);
+  }
+
+  .skill-name {
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .skill-card ul,
+  .panel ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+
+  .skill-card li + li,
+  .panel li + li { margin-top: 5px; }
+
+  .matrix {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1.1fr;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .matrix > div {
+    padding: 14px;
+    border-right: 1px solid var(--line);
+    background: var(--paper);
+  }
+
+  .matrix > div:last-child { border-right: 0; }
+
+  .matrix h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+
+  .matrix p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: .92em;
+    background: var(--soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  footer {
+    padding: 0 0 40px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 980px) {
+    .hero,
+    .split,
+    .triple,
+    .law-grid,
+    .reaction,
+    .matrix {
+      grid-template-columns: 1fr;
+    }
+
+    .law-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .arrow {
+      min-height: 26px;
+      transform: rotate(90deg);
+    }
+
+    .skill-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .law-strip { grid-template-columns: 1fr; }
+    .law-card dl { grid-template-columns: 1fr; }
+    nav { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./index.html">
+        <span class="mark">LD</span>
+        <span>Living Doc Compositor</span>
+      </a>
+      <nav aria-label="Page navigation">
+        <a href="#stance">Stance</a>
+        <a href="#laws">Laws</a>
+        <a href="#skills">Skills</a>
+        <a href="#repair">Repair Run</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Governance chemistry / skill design</div>
+        <h1>Skills as Deep Repair for Objective Drift</h1>
+        <p class="lede">
+          The living doc already has enough governance structure to hold objective pressure. The missing move is inference-time repair: skills that treat invariants like conservation laws and force every completion, deferral, pivot, and proof claim to preserve the original objective.
+        </p>
+      </div>
+      <aside class="summary-card">
+        <h2>Core shift</h2>
+        <ul>
+          <li>Do not add a heavier governance schema first.</li>
+          <li>Use chemistry-like laws to define what must be conserved.</li>
+          <li>Make skills responsible for detecting unstable document states.</li>
+          <li>Let repair skills update doc, tickets, and work state together.</li>
+        </ul>
+      </aside>
+    </div>
+
+    <div class="law-strip">
+      <div class="law-chip"><span>Invariant</span><strong>conservation</strong></div>
+      <div class="law-chip"><span>Closure</span><strong>activation energy</strong></div>
+      <div class="law-chip"><span>State</span><strong>equilibrium</strong></div>
+      <div class="law-chip"><span>Skill</span><strong>catalyst</strong></div>
+      <div class="law-chip"><span>Stages</span><strong>reaction path</strong></div>
+    </div>
+
+    <section id="stance">
+      <div class="section-head">
+        <h2>The Stance</h2>
+        <p>The governance layer is not weak because it lacks fields. It becomes weak when the inference pass treats its artifacts as permission to close.</p>
+      </div>
+      <div class="body">
+        <blockquote class="rule">
+          A living doc skill should not ask "does the document contain completion evidence?" first. It should ask "what must be conserved across this transformation, and did the current proof conserve it?"
+        </blockquote>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Where The Invariant Holds</h2>
+        <p>The invariant sits above sections and proof cards. It governs transformations between states: seeding, composing, proving, deferring, pivoting, repairing, and closing.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="panel green">
+            <h3>Conserved quantity</h3>
+            <p>The original objective, success condition, and non-negotiable constraints must remain traceable after every operation. If they change, that is a pivot reaction, not completion.</p>
+          </div>
+          <div class="panel red">
+            <h3>Violation</h3>
+            <p>A proof card, closed issue, rendered artifact, or passing test substitutes for the objective and silently narrows what "done" means.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="laws">
+      <div class="section-head">
+        <h2>Governance Laws For Skills</h2>
+        <p>These are not new document fields. They are operating laws a skill applies when reading the existing governance surface.</p>
+      </div>
+      <div class="body">
+        <div class="law-grid">
+          <div class="law-card">
+            <div class="law-title">
+              <span class="symbol">L1</span>
+              <h3>Objective Conservation</h3>
+            </div>
+            <dl>
+              <dt>Law</dt>
+              <dd>The original objective cannot disappear; unresolved mass must reappear as complete, blocked, deferred, pivoted, or follow-up.</dd>
+              <dt>Skill test</dt>
+              <dd>Compare objective terms to current proof, commits, tickets, generated artifacts, and final claims.</dd>
+              <dt>Repair</dt>
+              <dd>Rewrite the state honestly and reopen/create issues where objective mass was hidden.</dd>
+            </dl>
+          </div>
+
+          <div class="law-card">
+            <div class="law-title">
+              <span class="symbol">L2</span>
+              <h3>Activation Energy</h3>
+            </div>
+            <dl>
+              <dt>Law</dt>
+              <dd>Closure requires a threshold event, not accumulated administrative heat.</dd>
+              <dt>Skill test</dt>
+              <dd>Check whether proof tried to fail against the objective, not only whether tests passed.</dd>
+              <dt>Repair</dt>
+              <dd>Downgrade closure to partial when the proof did not cross the objective threshold.</dd>
+            </dl>
+          </div>
+
+          <div class="law-card">
+            <div class="law-title">
+              <span class="symbol">L3</span>
+              <h3>Equilibrium Shift</h3>
+            </div>
+            <dl>
+              <dt>Law</dt>
+              <dd>New evidence changes pressure. A previously stable state can become unstable.</dd>
+              <dt>Skill test</dt>
+              <dd>Read user rejections, new tickets, fresh commits, stale fingerprints, and changed source surfaces.</dd>
+              <dt>Repair</dt>
+              <dd>Rebalance the living doc: update stage, proof strength, decisions, blockers, and issue state.</dd>
+            </dl>
+          </div>
+
+          <div class="law-card">
+            <div class="law-title">
+              <span class="symbol">L4</span>
+              <h3>Catalysis</h3>
+            </div>
+            <dl>
+              <dt>Law</dt>
+              <dd>A skill lowers the cost of the right transformation; it does not replace the objective.</dd>
+              <dt>Skill test</dt>
+              <dd>Check whether the skill is accelerating repair or merely making closure easier to justify.</dd>
+              <dt>Repair</dt>
+              <dd>Emit concrete doc patches, issue changes, and next work items instead of conceptual summaries.</dd>
+            </dl>
+          </div>
+
+          <div class="law-card">
+            <div class="law-title">
+              <span class="symbol">L5</span>
+              <h3>Reaction Pathway</h3>
+            </div>
+            <dl>
+              <dt>Law</dt>
+              <dd>State transitions have allowed paths. Partial proof cannot jump directly to completion.</dd>
+              <dt>Skill test</dt>
+              <dd>Inspect whether stage, proof, issue state, and success condition all support the transition.</dd>
+              <dt>Repair</dt>
+              <dd>Move the doc to the nearest honest stage and name the missing transition step.</dd>
+            </dl>
+          </div>
+
+          <div class="law-card">
+            <div class="law-title">
+              <span class="symbol">L6</span>
+              <h3>Rate-Limiting Step</h3>
+            </div>
+            <dl>
+              <dt>Law</dt>
+              <dd>The slowest unresolved objective constraint controls completion, not the largest pile of done work.</dd>
+              <dt>Skill test</dt>
+              <dd>Find the one remaining condition that would make a user rejection still valid.</dd>
+              <dt>Repair</dt>
+              <dd>Promote that condition to blocker or next work, even if many other cards are ready.</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="section-head">
+        <h2>Skills That Move In This Direction</h2>
+        <p>Each skill uses the existing living doc governance and source systems. The output is not advice. The output is a repaired operating state.</p>
+      </div>
+      <div class="body">
+        <div class="skill-list">
+          <div class="skill-card">
+            <div class="skill-name">objective-conservation-audit</div>
+            <div>
+              <h3>Find where the objective mass went.</h3>
+              <p>Runs when completion is claimed or challenged. It maps every phrase of the objective and success condition to completed proof, blocker, deferral, pivot, or follow-up.</p>
+              <ul>
+                <li>Fails closure when any objective phrase has no accounted state.</li>
+                <li>Writes missing mass back into the living doc and issue tracker.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="skill-card">
+            <div class="skill-name">activation-energy-review</div>
+            <div>
+              <h3>Test whether closure crossed the real threshold.</h3>
+              <p>Inspects whether final proof survived contradiction: source state, tests, rendered docs, issue status, and likely user rejection.</p>
+              <ul>
+                <li>Distinguishes evidence accumulation from threshold crossing.</li>
+                <li>Can downgrade "complete" to "partial" without changing the objective.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="skill-card">
+            <div class="skill-name">equilibrium-rebalance</div>
+            <div>
+              <h3>Repair the doc when new evidence shifts pressure.</h3>
+              <p>Runs after a user challenge, new commit, reopened issue, stale fingerprint, or contradiction between source artifacts and proof cards.</p>
+              <ul>
+                <li>Updates stage, status snapshot, proof strength, decisions, blockers, and rendered HTML.</li>
+                <li>Keeps the old state visible as history instead of pretending it never happened.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="skill-card">
+            <div class="skill-name">reaction-path-validator</div>
+            <div>
+              <h3>Prevent illegal stage jumps.</h3>
+              <p>Checks whether the proposed transition is allowed by the living doc's convergence types, relationships, invariants, proof state, and issue state.</p>
+              <ul>
+                <li>Blocks direct jumps from useful slice to final closure.</li>
+                <li>Names the nearest honest next stage and its required operation.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="skill-card">
+            <div class="skill-name">catalytic-repair-run</div>
+            <div>
+              <h3>Do the smallest real repair that restores objective fidelity.</h3>
+              <p>Combines governance reading, source inspection, doc patching, rendering, issue updates, and verification into one repair pass.</p>
+              <ul>
+                <li>Useful when an agent has started defending a bad closure claim.</li>
+                <li>Ends with an actual source-system state, not a conceptual explanation.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="repair">
+      <div class="section-head">
+        <h2>Deep Repair Run Shape</h2>
+        <p>The chemistry metaphor becomes useful only when it changes the run protocol.</p>
+      </div>
+      <div class="body">
+        <div class="reaction">
+          <div class="stage amber">
+            <strong>Input</strong>
+            <h3>Unstable claim</h3>
+            <p>A completion, deferral, pivot, or proof claim feels plausible but may have lost the objective.</p>
+          </div>
+          <div class="arrow">-&gt;</div>
+          <div class="stage blue">
+            <strong>Skill reaction</strong>
+            <h3>Apply laws</h3>
+            <p>Conservation, activation threshold, equilibrium pressure, pathway validity, and rate-limiting blockers are checked.</p>
+          </div>
+          <div class="arrow">-&gt;</div>
+          <div class="stage green">
+            <strong>Output</strong>
+            <h3>Repaired state</h3>
+            <p>The living doc, rendered HTML, issues, and next work all say the same honest thing.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Invocation Signals</h2>
+        <p>These are the moments where normal implementation should pause and a deep repair skill should run.</p>
+      </div>
+      <div class="body">
+        <div class="triple">
+          <div class="panel red">
+            <h3>User rejection</h3>
+            <p>The user says the objective is not reached, the answer is slippery, or the agent is narrowing the objective after the fact.</p>
+          </div>
+          <div class="panel amber">
+            <h3>Closure heat</h3>
+            <p>Many closure artifacts appear at once: commits, rendered pages, green tests, closed tickets, final proof language.</p>
+          </div>
+          <div class="panel violet">
+            <h3>Governance mismatch</h3>
+            <p>Invariants, objective facets, coverage, rationale, source evidence, or issue state point in different directions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Decision Output</h2>
+        <p>A repair skill should end in one of five states. Anything softer invites the same drift back in.</p>
+      </div>
+      <div class="body">
+        <div class="matrix">
+          <div>
+            <h3>Continue</h3>
+            <p>The objective is still open and the next operation is known.</p>
+          </div>
+          <div>
+            <h3>Repair</h3>
+            <p>The doc or issue state was dishonest relative to source reality and has been corrected.</p>
+          </div>
+          <div>
+            <h3>Block</h3>
+            <p>A rate-limiting condition prevents closure or progress until resolved.</p>
+          </div>
+          <div>
+            <h3>Defer</h3>
+            <p>A remaining part is outside the current objective, with a trigger for reopening.</p>
+          </div>
+          <div>
+            <h3>Pivot</h3>
+            <p>The objective changed and the old objective is not claimed as complete.</p>
+          </div>
+          <div>
+            <h3>Close</h3>
+            <p>The conservation audit and activation review both fail to break the completion claim.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>The Practical Governance Rule</h2>
+        <p>This is the small rule that could be carried into skill instructions.</p>
+      </div>
+      <div class="body">
+        <blockquote class="rule">
+          Before a skill may close, defer, or pivot a living doc objective, it must account for every conserved objective term as completed, blocked, deferred with trigger, pivoted with rationale, or explicitly outside the objective.
+        </blockquote>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    Internal model page. Companion to <a href="./living-doc-objective-closure-drift.html">Objective Closure Drift</a> and <a href="./living-doc-objective-closure-remedies.html">Remedies for Objective Closure Drift</a>.
+  </footer>
+</body>
+</html>
