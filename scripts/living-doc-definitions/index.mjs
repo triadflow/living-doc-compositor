@@ -12,6 +12,9 @@ import starterShipFeature from './templates/starter-ship-feature.mjs';
 import starterTinyExperiment from './templates/starter-tiny-experiment.mjs';
 import starterWriteBook from './templates/starter-write-book.mjs';
 import surfaceDelivery from './templates/surface-delivery.mjs';
+import acceptanceCriteria from './convergence-types/acceptance-criteria.mjs';
+
+export { defineTemplate, defineConvergenceType } from './define.mjs';
 
 export const templateDefinitions = [
   architectManuscript,
@@ -28,4 +31,8 @@ export const templateDefinitions = [
   starterTinyExperiment,
   starterWriteBook,
   surfaceDelivery,
+];
+
+export const convergenceTypeDefinitions = [
+  acceptanceCriteria,
 ];

@@ -1,0 +1,994 @@
+{
+  "docId": "doc:convergence-type-code-source-refactor",
+  "title": "Convergence Type Code Source Refactor",
+  "subtitle": "Make convergence types, not templates, the executable canonical source for living-doc semantics.",
+  "brand": "LD",
+  "scope": "Living Doc Compositor convergence type registry, code definitions, template compositions, generated JSON, MCP diagnostics, skills, rendered docs, and contracts.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/convergence-type-code-source-refactor.json",
+  "sourceCoverage": "Created from the agreed verbatim objective after identifying that current executable semantics are template-centered while convergence types remain JSON-authored. GitHub epic #177 and subtickets #178-#184 now hold the implementation plan.",
+  "updated": "2026-05-06T13:53:24.000Z",
+  "pills": [
+    "Refactor",
+    "Convergence Types",
+    "Canonical Source"
+  ],
+  "objective": "Refactor Living Doc Compositor so convergence types, not templates, become the executable canonical source for living-doc semantics. Define convergence types in code, generate the registry JSON from those definitions, and make templates compose those convergence-type definitions instead of re-owning ground-level semantics. The refactor is complete when the current registry can be regenerated deterministically from code-defined convergence types, existing rendered docs and compositor flows still work, generated template semantics continue to derive from the same source, MCP diagnostics and skill context can query convergence-type contracts directly, and contract tests prevent drift between code definitions, registry JSON, templates, rendered HTML, and MCP behavior.",
+  "successCondition": "Every acceptance criterion in this living doc is satisfied or explicitly blocked with a source-grounded reason; no completion claim is valid from template-code generation alone.",
+  "objectiveFacets": [
+    {
+      "id": "convergence-types-canonical-source",
+      "name": "Convergence types are canonical",
+      "description": "Convergence types become the executable semantic ground level instead of remaining JSON-authored vocabulary while templates own executable behavior."
+    },
+    {
+      "id": "registry-generation",
+      "name": "Registry JSON generation",
+      "description": "The current registry JSON can be regenerated deterministically from code-defined convergence types."
+    },
+    {
+      "id": "template-composition",
+      "name": "Templates compose type definitions",
+      "description": "Templates become compositions over convergence-type definitions instead of re-owning ground-level semantics."
+    },
+    {
+      "id": "runtime-preservation",
+      "name": "Runtime behavior preserved",
+      "description": "Existing rendered docs, compositor flows, generated template semantics, and sync flows keep working during and after the refactor."
+    },
+    {
+      "id": "inference-access",
+      "name": "Inference-time access",
+      "description": "MCP diagnostics and skills can query convergence-type contracts directly."
+    },
+    {
+      "id": "drift-control",
+      "name": "Drift control",
+      "description": "Contract tests prevent drift between code definitions, registry JSON, templates, rendered HTML, and MCP behavior."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "convergence-types-canonical-source",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-code-defined-convergence-types"
+    },
+    {
+      "facetId": "registry-generation",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-generated-registry-json"
+    },
+    {
+      "facetId": "template-composition",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-templates-compose-type-definitions"
+    },
+    {
+      "facetId": "runtime-preservation",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-runtime-behavior-preserved"
+    },
+    {
+      "facetId": "inference-access",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-mcp-skill-type-contract-access"
+    },
+    {
+      "facetId": "drift-control",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-drift-prevention-contracts"
+    },
+    {
+      "facetId": "convergence-types-canonical-source",
+      "sectionId": "formal-model",
+      "cardId": "convergence-type-ground-level"
+    },
+    {
+      "facetId": "template-composition",
+      "sectionId": "formal-model",
+      "cardId": "template-as-composition"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "objective-verbatim",
+      "name": "Objective wording is fixed",
+      "statement": "The objective text is the agreed verbatim objective and must not be narrowed to fit completed implementation slices.",
+      "appliesTo": [
+        "*"
+      ]
+    },
+    {
+      "id": "convergence-types-ground-level",
+      "name": "Convergence types are the ground level",
+      "statement": "Do not treat template definitions as the canonical semantic source when the accountable objective says convergence types are the source.",
+      "appliesTo": [
+        "formal-model",
+        "acceptance-criteria",
+        "proof-ladder"
+      ]
+    },
+    {
+      "id": "json-registry-is-generated-artifact",
+      "name": "Registry JSON becomes generated artifact",
+      "statement": "The target state is not code plus hand-maintained equivalent registry JSON; registry JSON must be reproducible from code-defined convergence types.",
+      "appliesTo": [
+        "code-anchors",
+        "proof-ladder",
+        "tooling"
+      ]
+    },
+    {
+      "id": "preserve-public-artifacts",
+      "name": "Preserve public artifacts",
+      "statement": "Existing JSON, rendered HTML, compositor, docs/scripts mirrors, and GitHub Pages output must continue to work unless an explicit migration and compatibility proof is recorded.",
+      "appliesTo": [
+        "proof-ladder",
+        "tooling"
+      ]
+    }
+  ],
+  "metaFingerprint": "sha256:c5d2336de99a0ab3ba08242b1e4c2cfbec6c3b21b440c9963f3e332fd2d990a4",
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "rationale": "Keeps the objective state visible: this is a new refactor living doc, not the completed template-semantics refactor.",
+      "updated": "2026-05-06T13:53:24.000Z",
+      "stats": [
+        {
+          "label": "Epic",
+          "value": "#177"
+        },
+        {
+          "label": "State",
+          "value": "#178 API proof implemented"
+        },
+        {
+          "label": "Subtickets",
+          "value": "7"
+        },
+        {
+          "label": "Ground level",
+          "value": "Convergence types"
+        },
+        {
+          "label": "Closure gate",
+          "value": "Acceptance criteria"
+        }
+      ],
+      "callout": {
+        "tone": "info",
+        "title": "Definition API proof added",
+        "items": [
+          "defineConvergenceType now normalizes authored convergence-type contracts in code.",
+          "acceptance-criteria is the first real code-defined type and matches its current registry entry by contract test.",
+          "This does not close the full objective: registry generation and full type migration remain open."
+        ]
+      },
+      "data": []
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "rationale": "Defines objective-tight closure gates. Each criterion preserves a phrase from the verbatim objective and states the proof needed before completion can be accepted.",
+      "updated": "2026-05-06T13:53:24.000Z",
+      "data": [
+        {
+          "id": "criterion-code-defined-convergence-types",
+          "name": "Convergence types become executable canonical source",
+          "status": "required",
+          "updated": "2026-05-06T13:53:24.000Z",
+          "facetIds": [
+            "convergence-types-canonical-source"
+          ],
+          "objectiveTerm": "convergence types, not templates, become the executable canonical source for living-doc semantics",
+          "criterion": "Every current convergence type has an executable code definition that is treated as the authored semantic source for its reusable contract.",
+          "proofRequired": "Code definitions exist for the current convergence type registry surface, and the system no longer requires hand-authored registry JSON as the canonical source for those type contracts.",
+          "acceptanceTest": "A reviewer can point at the code definition for any current convergence type and identify the source for its name, category, kind, projection, fields, status contract, prompt guidance, structural contract, and operational metadata.",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            }
+          ],
+          "codeRefs": [
+            {
+              "path": "scripts/living-doc-definitions/define.mjs",
+              "range": "defineConvergenceType"
+            },
+            {
+              "path": "scripts/living-doc-definitions/convergence-types/acceptance-criteria.mjs",
+              "range": "module default export"
+            },
+            {
+              "path": "tests/contract/convergence-type-definitions.spec.mjs",
+              "range": "acceptance-criteria fixture contract"
+            }
+          ],
+          "notes": [
+            "#178 proves the API shape and one real type fixture only.",
+            "The criterion remains required until every current convergence type has moved into code and the registry no longer depends on hand-authored JSON as canonical source."
+          ]
+        },
+        {
+          "id": "criterion-generated-registry-json",
+          "name": "Registry JSON regenerates deterministically",
+          "status": "required",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "facetIds": [
+            "registry-generation"
+          ],
+          "objectiveTerm": "generate the registry JSON from those definitions",
+          "criterion": "The committed registry JSON is generated from code-defined convergence types and can be reproduced deterministically.",
+          "proofRequired": "A generator command writes scripts/living-doc-registry.json from convergence-type code definitions, and a check command fails when the JSON drifts from code.",
+          "acceptanceTest": "Running the generator followed by its check leaves scripts/living-doc-registry.json, docs/scripts/living-doc-registry.json, and embedded compositor registry data up to date.",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            }
+          ]
+        },
+        {
+          "id": "criterion-templates-compose-type-definitions",
+          "name": "Templates compose convergence-type definitions",
+          "status": "required",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "facetIds": [
+            "template-composition"
+          ],
+          "objectiveTerm": "make templates compose those convergence-type definitions instead of re-owning ground-level semantics",
+          "criterion": "Template definitions reference and compose convergence-type contracts rather than duplicating the ground-level semantics owned by those types.",
+          "proofRequired": "Template definition code shows composition over convergence-type definitions, with template-specific relationships and roles kept distinct from type-owned fields, statuses, structural contracts, and prompt guidance.",
+          "acceptanceTest": "Changing a convergence-type definition flows into affected template generation without manually duplicating that change inside each template.",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
+        },
+        {
+          "id": "criterion-runtime-behavior-preserved",
+          "name": "Rendered docs and compositor flows still work",
+          "status": "required",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "facetIds": [
+            "runtime-preservation"
+          ],
+          "objectiveTerm": "existing rendered docs and compositor flows still work, generated template semantics continue to derive from the same source",
+          "criterion": "Existing render, compositor, sync, generated template semantic, and registry overview flows remain compatible after convergence types move into code.",
+          "proofRequired": "Contract, render, sync, and focused e2e checks pass after regenerating registry JSON, template semantic artifacts, rendered docs, and embedded compositor data.",
+          "acceptanceTest": "The standard render/sync/test commands pass and the generated template semantic graph still derives from the code-defined convergence-type source through template composition.",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "182",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/182",
+              "title": "Preserve rendered docs and compositor flows during convergence-type migration"
+            }
+          ]
+        },
+        {
+          "id": "criterion-mcp-skill-type-contract-access",
+          "name": "MCP and skills query type contracts directly",
+          "status": "required",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "facetIds": [
+            "inference-access"
+          ],
+          "objectiveTerm": "MCP diagnostics and skill context can query convergence-type contracts directly",
+          "criterion": "Inference-time tooling exposes convergence-type contracts as direct queryable surfaces for diagnostics and skills.",
+          "proofRequired": "MCP tools and skill instructions can retrieve or use generated convergence-type contracts without reconstructing them from rendered prose or template-local duplication.",
+          "acceptanceTest": "A skill can ask for a convergence type's executable contract and use it to reason about fields, status logic, structural contract, relationship participation, and valid repair behavior.",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "183",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/183",
+              "title": "Expose convergence-type contracts to MCP diagnostics and skills"
+            }
+          ]
+        },
+        {
+          "id": "criterion-drift-prevention-contracts",
+          "name": "Contracts prevent cross-surface drift",
+          "status": "required",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "facetIds": [
+            "drift-control"
+          ],
+          "objectiveTerm": "contract tests prevent drift between code definitions, registry JSON, templates, rendered HTML, and MCP behavior",
+          "criterion": "Drift between the code-defined convergence types and every generated/consuming surface is caught by tests or check commands.",
+          "proofRequired": "Contracts cover code definitions, generated registry JSON, template compositions, generated template artifacts, rendered HTML context, compositor embeds, docs/scripts mirrors, and MCP behavior.",
+          "acceptanceTest": "A deliberate mismatch between a convergence-type code definition and generated registry/template/MCP artifacts causes a deterministic check or contract test to fail.",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "184",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/184",
+              "title": "Add drift-prevention contracts for code-defined convergence types"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "formal-model",
+      "title": "Formal Model",
+      "convergenceType": "formal-model",
+      "rationale": "Defines the architecture distinction this refactor must preserve: convergence types are ground-level semantic atoms; templates are compositions over those atoms.",
+      "updated": "2026-05-06T13:17:46.000Z",
+      "data": [
+        {
+          "id": "convergence-type-ground-level",
+          "name": "Convergence type as semantic atom",
+          "status": "specified",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "primitiveRefs": [
+            "convergence-type",
+            "field-contract",
+            "status-set",
+            "projection",
+            "prompt-guidance",
+            "structural-contract"
+          ],
+          "invariantRefs": [
+            "convergence-types-ground-level",
+            "json-registry-is-generated-artifact"
+          ],
+          "codePaths": [
+            "scripts/living-doc-registry.json",
+            "scripts/living-doc-definitions"
+          ],
+          "definition": "A convergence type is the reusable semantic atom of a living doc. Its executable definition should own the type contract that the registry currently carries as JSON.",
+          "authorityScope": "Name, category, kind, projection, fields, sources, statuses, structural contract, prompt guidance, and generated operational metadata for each convergence type.",
+          "violations": [
+            "Leaving convergence types as hand-authored JSON while claiming code is the canonical semantic source.",
+            "Duplicating type-owned semantics inside template definitions."
+          ],
+          "notes": [
+            "The current registry JSON is the source artifact to migrate from, not the target canonical source.",
+            "This model does not require concrete living doc instances to move out of JSON."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            }
+          ]
+        },
+        {
+          "id": "template-as-composition",
+          "name": "Template as composition over types",
+          "status": "specified",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "primitiveRefs": [
+            "template",
+            "convergence-type",
+            "relationship",
+            "stage-signal",
+            "valid-operation"
+          ],
+          "invariantRefs": [
+            "convergence-types-ground-level"
+          ],
+          "codePaths": [
+            "scripts/living-doc-definitions/templates"
+          ],
+          "definition": "A template is a document-shape composition over convergence types. It may define section order, section role, template-specific relationships, and stage pressures, but it must not become the ground-level type source.",
+          "authorityScope": "Template identity, selected convergence type sequence, template-specific relationships, stage signals, valid operations, and generated template semantic artifacts.",
+          "violations": [
+            "Treating templates as the canonical unit of semantic truth.",
+            "Copying field/status/prompt contracts from convergence types into every template that uses them."
+          ],
+          "notes": [
+            "The previous template-definition refactor is useful proof of the derivation path, but it is not the final canonical source architecture."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-anchors",
+      "title": "Code Anchors",
+      "convergenceType": "code-anchor",
+      "rationale": "Pins the refactor to the current files that prove the mismatch and the future files expected to close it.",
+      "updated": "2026-05-06T13:53:24.000Z",
+      "data": [
+        {
+          "id": "registry-json-current-source",
+          "name": "Current convergence-type registry JSON",
+          "status": "current",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "path": "scripts/living-doc-registry.json",
+          "range": "convergenceTypes",
+          "revision": "working tree",
+          "what_it_does": "Currently holds all convergence type definitions as JSON.",
+          "why_it_matters": [
+            "This is the ground-level source today.",
+            "The objective requires this source to become generated from code-defined convergence types."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            }
+          ]
+        },
+        {
+          "id": "template-definitions-current-code",
+          "name": "Current executable template definitions",
+          "status": "current",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "path": "scripts/living-doc-definitions/templates",
+          "range": "all template modules",
+          "revision": "working tree",
+          "what_it_does": "Defines executable semantics for template compositions.",
+          "why_it_matters": [
+            "This proves code-based derivation works for template compositions.",
+            "It also shows the current mismatch: templates have executable semantics while convergence types remain JSON-authored."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
+        },
+        {
+          "id": "convergence-type-definitions-current-code",
+          "name": "Convergence-type code definition API and fixture",
+          "status": "current",
+          "updated": "2026-05-06T13:53:24.000Z",
+          "path": "scripts/living-doc-definitions",
+          "range": "defineConvergenceType; convergence-types/acceptance-criteria.mjs; convergenceTypeDefinitions export",
+          "revision": "working tree",
+          "what_it_does": "Defines the code-side convergence-type API, exports code-defined types, and provides acceptance-criteria as the first real proof fixture.",
+          "why_it_matters": [
+            "This starts the convergence-type-first source layer rather than adding more template-owned semantics.",
+            "The fixture proves one current registry type can be represented in code without losing its authored registry contract.",
+            "The full migration is still open because the registry generator and remaining convergence-type modules are not implemented yet."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            }
+          ]
+        },
+        {
+          "id": "convergence-type-definition-contract-test",
+          "name": "Convergence-type definition contract test",
+          "status": "current",
+          "updated": "2026-05-06T13:53:24.000Z",
+          "path": "tests/contract/convergence-type-definitions.spec.mjs",
+          "range": "full file",
+          "revision": "working tree",
+          "what_it_does": "Checks that the code definition API covers the current registry field boundary, validates entity/status references, keeps generated semanticUses out of authored type definitions, and proves the acceptance-criteria fixture matches the registry.",
+          "why_it_matters": [
+            "This gives #178 a deterministic proof instead of only a proposed API shape.",
+            "It also records the generated metadata boundary before registry generation is implemented."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            }
+          ]
+        },
+        {
+          "id": "registry-generation-script",
+          "name": "Target registry generation script",
+          "status": "not-started",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "path": "scripts/generate-living-doc-registry-from-definitions.mjs",
+          "range": "future script",
+          "revision": "not-created",
+          "what_it_does": "Expected generator that writes registry JSON from code-defined convergence types.",
+          "why_it_matters": [
+            "Without a generator and check mode, the registry JSON cannot become a deterministic artifact."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attempts",
+      "title": "Attempt Log",
+      "convergenceType": "attempt-log",
+      "rationale": "Tracks implementation attempts without letting a useful slice become a false completion claim.",
+      "updated": "2026-05-06T13:53:24.000Z",
+      "data": [
+        {
+          "id": "initial-objective-crystallization",
+          "name": "Crystallize the real objective after template-centered drift",
+          "status": "ready",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "shipped_in": "docs/convergence-type-code-source-refactor.json",
+          "cost_to_apply": "low",
+          "what_tried": [
+            "Recorded the verbatim objective selected in conversation.",
+            "Added an acceptance-criteria section using the new convergence type.",
+            "Separated current template-code proof from the deeper convergence-type-code objective.",
+            "Created GitHub epic #177 and implementation subtickets #178-#184.",
+            "Mapped each subticket back to the objective-bound acceptance criteria."
+          ],
+          "what_proved": [
+            "The objective is now explicit enough that template-level code generation alone cannot satisfy it.",
+            "The living doc has closure gates before implementation begins.",
+            "The implementation plan now has a source-system spine instead of remaining only in prose."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            },
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            },
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            },
+            {
+              "issueNumber": "182",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/182",
+              "title": "Preserve rendered docs and compositor flows during convergence-type migration"
+            },
+            {
+              "issueNumber": "183",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/183",
+              "title": "Expose convergence-type contracts to MCP diagnostics and skills"
+            },
+            {
+              "issueNumber": "184",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/184",
+              "title": "Add drift-prevention contracts for code-defined convergence types"
+            }
+          ]
+        },
+        {
+          "id": "define-convergence-type-api",
+          "name": "Define the convergence-type code API and first fixture",
+          "status": "ready",
+          "updated": "2026-05-06T13:53:24.000Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Added defineConvergenceType beside defineTemplate in scripts/living-doc-definitions/define.mjs.",
+            "Covered the authored registry field boundary, including card-grid and edge-table shapes, status fields, entity sources, AI actions/profiles, column headers, edge notes, and nestable flags.",
+            "Made generatedFields explicit so generated semanticUses is not authored into convergence-type modules.",
+            "Added scripts/living-doc-definitions/convergence-types/acceptance-criteria.mjs as the first real type fixture.",
+            "Exported convergenceTypeDefinitions from scripts/living-doc-definitions/index.mjs.",
+            "Added tests/contract/convergence-type-definitions.spec.mjs and included it in npm run test:contract."
+          ],
+          "what_proved": [
+            "A real current convergence type can be represented in code and compared to its registry entry without semantic loss.",
+            "#178 has a concrete API surface and validation path.",
+            "The full objective remains open because registry generation, full migration, template composition, MCP exposure, and cross-surface drift tests are not complete."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "rationale": "Will hold increasing proof that the refactor crossed from useful code generation to convergence-type-grounded canonical source.",
+      "updated": "2026-05-06T13:53:24.000Z",
+      "data": [
+        {
+          "id": "objective-and-criteria-recorded",
+          "name": "Objective and acceptance criteria recorded",
+          "status": "ready",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "notes": [
+            "The objective is present verbatim.",
+            "The acceptance criteria map directly to accountable phrases in the objective.",
+            "Epic #177 and subtickets #178-#184 now hold the implementation plan.",
+            "No code implementation is claimed complete by this proof rung."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            }
+          ]
+        },
+        {
+          "id": "definition-api-and-first-fixture",
+          "name": "Definition API and first convergence-type fixture",
+          "status": "ready",
+          "updated": "2026-05-06T13:53:24.000Z",
+          "notes": [
+            "defineConvergenceType exists and is exported from the definition layer.",
+            "acceptance-criteria is code-defined and contract-checked against the current registry entry.",
+            "tests/contract/convergence-type-definitions.spec.mjs is part of npm run test:contract.",
+            "This proof is intentionally narrower than the main acceptance criterion; it closes #178 but not the full refactor objective."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            }
+          ]
+        },
+        {
+          "id": "registry-generated-from-code",
+          "name": "Registry generated from convergence-type code",
+          "status": "planned",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "notes": [
+            "Planned proof: generator and check mode make scripts/living-doc-registry.json reproducible from code-defined convergence types."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            }
+          ]
+        },
+        {
+          "id": "mcp-and-skills-query-type-contracts",
+          "name": "MCP and skills use convergence-type contracts",
+          "status": "planned",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "notes": [
+            "Planned proof: inference-time tools retrieve convergence-type contracts directly rather than reconstructing them from prose or template-local definitions."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "183",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/183",
+              "title": "Expose convergence-type contracts to MCP diagnostics and skills"
+            }
+          ]
+        },
+        {
+          "id": "cross-surface-drift-prevented",
+          "name": "Cross-surface drift is contract-blocked",
+          "status": "planned",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "notes": [
+            "Planned proof: deliberate drift between code definitions, registry JSON, templates, rendered HTML, and MCP behavior fails deterministic checks."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "184",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/184",
+              "title": "Add drift-prevention contracts for code-defined convergence types"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decisions",
+      "title": "Decision Record",
+      "convergenceType": "decision-record",
+      "rationale": "Preserves settled direction so future implementation does not recenter the objective around templates again.",
+      "updated": "2026-05-06T13:17:46.000Z",
+      "data": [
+        {
+          "id": "objective-verbatim-selected",
+          "name": "Use the selected objective verbatim",
+          "status": "ground-truth",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "notes": [
+            "The objective field must remain the long objective selected verbatim in conversation.",
+            "Edits may add acceptance criteria, proof, and implementation detail, but must not narrow the objective."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            }
+          ]
+        },
+        {
+          "id": "template-refactor-is-prior-proof-not-closure",
+          "name": "Template refactor is prior proof, not closure",
+          "status": "ground-truth",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "notes": [
+            "The previous template semantic definition work proves derivation is useful.",
+            "It does not satisfy this objective because convergence types still live as authored JSON."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            }
+          ]
+        },
+        {
+          "id": "github-epic-is-implementation-spine",
+          "name": "GitHub epic is the implementation spine",
+          "status": "ground-truth",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "ticketIds": [
+            {
+              "issueNumber": "177",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+              "title": "Epic: Make convergence types the executable canonical source"
+            },
+            {
+              "issueNumber": "178",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+              "title": "Define the convergence-type code definition API"
+            },
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            },
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            },
+            {
+              "issueNumber": "182",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/182",
+              "title": "Preserve rendered docs and compositor flows during convergence-type migration"
+            },
+            {
+              "issueNumber": "183",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/183",
+              "title": "Expose convergence-type contracts to MCP diagnostics and skills"
+            },
+            {
+              "issueNumber": "184",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/184",
+              "title": "Add drift-prevention contracts for code-defined convergence types"
+            }
+          ],
+          "notes": [
+            "Epic #177 holds the objective and coordinates subtickets #178-#184.",
+            "Acceptance criteria remain the closure gate; closed tickets alone are not proof."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tooling",
+      "title": "Tooling Surface",
+      "convergenceType": "tooling-surface",
+      "rationale": "Lists current and target commands that will operate the code-defined convergence-type source and its generated artifacts.",
+      "updated": "2026-05-06T13:17:46.000Z",
+      "data": [
+        {
+          "id": "current-template-generation-chain",
+          "name": "Current template generation chain",
+          "status": "trusted",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "scriptPaths": [
+            "scripts/generate-living-doc-semantic-graph.mjs",
+            "scripts/generate-living-doc-semantic-diagrams.mjs",
+            "scripts/generate-living-doc-template-artifacts.mjs",
+            "scripts/generate-living-doc-registry-semantics.mjs",
+            "scripts/sync-compositor-embeds.mjs"
+          ],
+          "purpose": "Generate current template semantic artifacts and generated registry semantic-use annotations.",
+          "whenToUse": "Use as the baseline proof that generation already works above the convergence-type layer.",
+          "invocation": "node scripts/generate-living-doc-semantic-graph.mjs && node scripts/generate-living-doc-semantic-diagrams.mjs && node scripts/generate-living-doc-template-artifacts.mjs && node scripts/generate-living-doc-registry-semantics.mjs && node scripts/sync-compositor-embeds.mjs",
+          "caveats": [
+            "This chain does not generate the registry JSON from code-defined convergence types yet."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            },
+            {
+              "issueNumber": "182",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/182",
+              "title": "Preserve rendered docs and compositor flows during convergence-type migration"
+            }
+          ]
+        },
+        {
+          "id": "target-registry-generation-chain",
+          "name": "Target registry generation chain",
+          "status": "missing",
+          "updated": "2026-05-06T13:17:46.000Z",
+          "scriptPaths": [
+            "scripts/generate-living-doc-registry-from-definitions.mjs"
+          ],
+          "purpose": "Generate registry JSON from code-defined convergence types.",
+          "whenToUse": "Required before the registry-generation acceptance criterion can be satisfied.",
+          "invocation": "not implemented",
+          "caveats": [
+            "The exact script name can change, but the generator/check capability cannot be skipped."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "179",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+              "title": "Generate registry JSON from convergence-type definitions"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "issueReferences": [
+    {
+      "id": "issue-177",
+      "issueNumber": "177",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/177",
+      "title": "Epic: Make convergence types the executable canonical source"
+    },
+    {
+      "id": "issue-178",
+      "issueNumber": "178",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
+      "title": "Define the convergence-type code definition API"
+    },
+    {
+      "id": "issue-179",
+      "issueNumber": "179",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
+      "title": "Generate registry JSON from convergence-type definitions"
+    },
+    {
+      "id": "issue-180",
+      "issueNumber": "180",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+      "title": "Migrate current convergence types into code definitions"
+    },
+    {
+      "id": "issue-181",
+      "issueNumber": "181",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+      "title": "Refactor templates to compose convergence-type definitions"
+    },
+    {
+      "id": "issue-182",
+      "issueNumber": "182",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/182",
+      "title": "Preserve rendered docs and compositor flows during convergence-type migration"
+    },
+    {
+      "id": "issue-183",
+      "issueNumber": "183",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/183",
+      "title": "Expose convergence-type contracts to MCP diagnostics and skills"
+    },
+    {
+      "id": "issue-184",
+      "issueNumber": "184",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/184",
+      "title": "Add drift-prevention contracts for code-defined convergence types"
+    }
+  ]
+}
