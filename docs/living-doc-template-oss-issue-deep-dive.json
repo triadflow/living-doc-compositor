@@ -9,7 +9,11 @@
   "canonicalOrigin": "docs/living-doc-template-oss-issue-deep-dive.json",
   "sourceCoverage": "Template only; the /oss-issue-deep-dive skill fills in real issue content.",
   "updated": "2026-04-18T00:00:00.000Z",
-  "pills": ["Template", "OSS", "Deep-dive"],
+  "pills": [
+    "Template",
+    "OSS",
+    "Deep-dive"
+  ],
   "templateMeta": {
     "level": "workflow",
     "order": 10,
@@ -45,7 +49,273 @@
       "greenfield feature design in a repo you own",
       "decision records for your own team's choices",
       "generic bug reports without archaeology"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "oss-issue-deep-dive",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  symptom_observation[\"symptom-observation<br/>Hold reproducible observed behavior with environment, witness, and repro steps.\"]\n  investigation_findings[\"investigation-findings<br/>Record synthesized facts learned during investigation that are not themselves repro steps.\"]\n  code_anchor[\"code-anchor<br/>Pin the code locations, revisions, and mechanics that can plausibly explain or repair the issue.\"]\n  attempt_log[\"attempt-log<br/>Track probes, rejected fixes, shipped workarounds, and what each attempt proved.\"]\n  issue_orbit[\"issue-orbit<br/>Map sibling issues and PRs that share root cause, constraints, or prior resolution evidence.\"]\n  maintainer_stance[\"maintainer-stance<br/>Preserve stakeholder positions that constrain what fix is acceptable or what uncertainty remains.\"]\n\n  symptom_observation -- \"localized-by\" --> code_anchor\n  code_anchor -- \"tested-by\" --> attempt_log\n  attempt_log -- \"produces-finding\" --> investigation_findings\n  issue_orbit -- \"contextualizes\" --> symptom_observation\n  maintainer_stance -- \"constrains\" --> attempt_log\n"
+      },
+      "objectiveRole": "Make one stuck open-source issue operational by preserving symptoms, source anchors, attempts, related issue orbit, and maintainer stances as a handoff surface.",
+      "templateObjective": "Replace with the objective of the focal issue — the one sentence that captures what would be different after the fix.",
+      "templateSuccessCondition": "A fresh agent (or human) can load this doc into a session and start engineering work on the issue without walking the archaeology again.",
+      "sections": [
+        {
+          "id": "symptoms",
+          "convergenceType": "symptom-observation",
+          "role": "Hold reproducible observed behavior with environment, witness, and repro steps.",
+          "required": true
+        },
+        {
+          "id": "findings",
+          "convergenceType": "investigation-findings",
+          "role": "Record synthesized facts learned during investigation that are not themselves repro steps.",
+          "required": true
+        },
+        {
+          "id": "mechanics",
+          "convergenceType": "code-anchor",
+          "role": "Pin the code locations, revisions, and mechanics that can plausibly explain or repair the issue.",
+          "required": true
+        },
+        {
+          "id": "attempts",
+          "convergenceType": "attempt-log",
+          "role": "Track probes, rejected fixes, shipped workarounds, and what each attempt proved.",
+          "required": true
+        },
+        {
+          "id": "related",
+          "convergenceType": "issue-orbit",
+          "role": "Map sibling issues and PRs that share root cause, constraints, or prior resolution evidence.",
+          "required": true
+        },
+        {
+          "id": "debate",
+          "convergenceType": "maintainer-stance",
+          "role": "Preserve stakeholder positions that constrain what fix is acceptable or what uncertainty remains.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "symptom-localized-by-anchor",
+          "from": "symptom-observation",
+          "to": "code-anchor",
+          "relation": "localized-by",
+          "rationale": "A deep-dive is not actionable until observed symptoms are tied to revision-pinned code mechanics.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "name"
+            ],
+            "targetFields": [
+              "symptomIds",
+              "sourceSymptomIds"
+            ],
+            "description": "A code anchor should identify the symptom card it explains, bounds, or makes inspectable."
+          },
+          "repairOperationIds": [
+            "add-code-anchor"
+          ],
+          "required": true
+        },
+        {
+          "id": "anchor-tested-by-attempt",
+          "from": "code-anchor",
+          "to": "attempt-log",
+          "relation": "tested-by",
+          "rationale": "Anchors become useful when an attempt probes, modifies, or rules out the mechanics they identify.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "path"
+            ],
+            "targetFields": [
+              "codeAnchorIds",
+              "codeRefs",
+              "pathsTouched"
+            ],
+            "description": "An attempt should name the anchor, code path, or touched path it is testing."
+          },
+          "repairOperationIds": [
+            "add-attempt"
+          ],
+          "required": true
+        },
+        {
+          "id": "attempt-produces-finding",
+          "from": "attempt-log",
+          "to": "investigation-findings",
+          "relation": "produces-finding",
+          "rationale": "Attempt outcomes should be captured as findings before they become final recommendations or future work.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "orbit-contextualizes-symptom",
+          "from": "issue-orbit",
+          "to": "symptom-observation",
+          "relation": "contextualizes",
+          "rationale": "Related issues and PRs should explain whether the symptom is isolated, recurring, duplicated, or already partly fixed.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "stance-constrains-attempt",
+          "from": "maintainer-stance",
+          "to": "attempt-log",
+          "relation": "constrains",
+          "rationale": "Maintainer and contributor positions should shape which repair attempts are acceptable, blocked, or worth avoiding.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-symptom",
+          "stage": "Seeding",
+          "when": "symptom-observation has no repro-backed symptom cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "symptom-observation"
+          },
+          "severity": "high",
+          "question": "What observed behavior, witness, environment, and repro path make this issue tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-symptom-not-anchored",
+          "stage": "Coherence",
+          "when": "symptoms exist but code-anchor has no corresponding mechanics",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which symptom lacks a revision-pinned code anchor or mechanical explanation?",
+          "relatedRelationships": [
+            "symptom-localized-by-anchor"
+          ]
+        },
+        {
+          "id": "operation-anchor-not-tested",
+          "stage": "Operation",
+          "when": "code anchors exist but attempt-log has no probes against them",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "medium",
+          "question": "Which code anchor still needs a probe, rejected attempt, or shipped workaround?",
+          "relatedRelationships": [
+            "anchor-tested-by-attempt"
+          ]
+        },
+        {
+          "id": "refresh-stance-or-orbit-drift",
+          "stage": "Refresh",
+          "when": "issue orbit or maintainer stance may have shifted since the last deep-dive pass",
+          "condition": {
+            "kind": "manual-review"
+          },
+          "severity": "medium",
+          "question": "What changed in related issues, PRs, or stakeholder positions since this doc was last updated?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "judgment-handoff-ready",
+          "stage": "Judgment",
+          "when": "symptoms, anchors, attempts, issue orbit, and maintainer stances are populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "symptom-observation",
+              "code-anchor",
+              "attempt-log",
+              "issue-orbit",
+              "maintainer-stance"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a fresh contributor start engineering work from this doc without repeating the issue archaeology?",
+          "relatedRelationships": [
+            "symptom-localized-by-anchor",
+            "anchor-tested-by-attempt",
+            "orbit-contextualizes-symptom",
+            "stance-constrains-attempt"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-symptom",
+          "label": "Add symptom",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a repro-backed symptom card with environment, witness, and reproduction steps.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-code-anchor",
+          "label": "Add code anchor",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a revision-pinned code anchor that explains, bounds, or makes a symptom inspectable.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-attempt",
+          "label": "Add attempt",
+          "stages": [
+            "Coherence",
+            "Operation"
+          ],
+          "description": "Add a probe, rejected fix, or shipped workaround against a code anchor.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-finding",
+          "label": "Record finding",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Record the factual finding produced by an attempt before using it as handoff guidance.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "refresh-issue-orbit",
+          "label": "Refresh issue orbit",
+          "stages": [
+            "Refresh",
+            "Judgment"
+          ],
+          "description": "Refresh related issues, PRs, and maintainer stances before treating the handoff as current.",
+          "patchKind": "card-update"
+        }
+      ],
+      "counts": {
+        "sections": 6,
+        "relationships": 5,
+        "stageSignals": 5,
+        "validOperations": 5
+      }
+    }
   },
   "objective": "Replace with the objective of the focal issue — the one sentence that captures what would be different after the fix.",
   "successCondition": "A fresh agent (or human) can load this doc into a session and start engineering work on the issue without walking the archaeology again.",
@@ -80,9 +350,18 @@
           "environment": "<OS, framework version, terminal, other relevant env>",
           "witness": "<@handle, YYYY-MM-DD, link to comment>",
           "repro_steps": [
-            { "type": "info", "text": "1. <first step>" },
-            { "type": "info", "text": "2. <second step>" },
-            { "type": "info", "text": "3. <what should not happen but does, or vice versa>" }
+            {
+              "type": "info",
+              "text": "1. <first step>"
+            },
+            {
+              "type": "info",
+              "text": "2. <second step>"
+            },
+            {
+              "type": "info",
+              "text": "3. <what should not happen but does, or vice versa>"
+            }
           ]
         }
       ]
@@ -111,7 +390,10 @@
           "revision": "<commit SHA or tag>",
           "what_it_does": "<one line describing the code>",
           "why_it_matters": [
-            { "type": "info", "text": "<why this location matters for the focal issue>" }
+            {
+              "type": "info",
+              "text": "<why this location matters for the focal issue>"
+            }
           ]
         }
       ]
@@ -130,10 +412,16 @@
           "cost_to_apply": "<LOC, invasiveness, or similar estimate>",
           "shipped_in": "<commit or PR URL, or omit if not shipped>",
           "what_tried": [
-            { "type": "info", "text": "<describe the action taken>" }
+            {
+              "type": "info",
+              "text": "<describe the action taken>"
+            }
           ],
           "what_proved": [
-            { "type": "info", "text": "<what the outcome revealed>" }
+            {
+              "type": "info",
+              "text": "<what the outcome revealed>"
+            }
           ]
         }
       ]

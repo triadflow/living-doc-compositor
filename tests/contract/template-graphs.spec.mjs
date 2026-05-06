@@ -111,5 +111,14 @@ assert.ok(
   graph.templates['operations-support'].relationships.some((relationship) => relationship.id === 'operation-routes-surface' && relationship.evidence?.kind === 'shared-field-value'),
   'operations-support should encode card-level evidence for operation -> operating surface',
 );
+assert.ok(graph.templates['oss-issue-deep-dive'], 'expected oss-issue-deep-dive template graph');
+assert.ok(
+  graph.templates['oss-issue-deep-dive'].relationships.some((relationship) => relationship.id === 'symptom-localized-by-anchor'),
+  'oss-issue-deep-dive should encode symptom -> code anchor relationship',
+);
+assert.ok(
+  graph.templates['oss-issue-deep-dive'].relationships.some((relationship) => relationship.id === 'symptom-localized-by-anchor' && relationship.evidence?.kind === 'shared-field-value'),
+  'oss-issue-deep-dive should encode card-level evidence for symptom -> code anchor',
+);
 
 console.log(`template graph contract ok: ${Object.keys(graph.templates).length} templates`);

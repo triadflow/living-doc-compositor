@@ -39,5 +39,9 @@ assert.ok(
   diagrams.templates['operations-support'].mermaid.includes('operation -- "routes-to" --> operating_surface'),
   'operations-support diagram should include operation -> operating surface edge',
 );
+assert.ok(
+  diagrams.templates['oss-issue-deep-dive'].mermaid.includes('symptom_observation -- "localized-by" --> code_anchor'),
+  'oss-issue-deep-dive diagram should include symptom -> code anchor edge',
+);
 
 console.log(`template diagram contract ok: ${Object.keys(diagrams.templates).length} templates`);

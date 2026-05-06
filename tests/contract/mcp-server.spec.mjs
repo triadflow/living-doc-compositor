@@ -399,6 +399,56 @@ try {
   assert.equal(opsEvidenceGap.patchDraft.validation.ok, true);
   assert.equal((await client.callTool('living_doc_patch_validate', { doc: opsEvidenceGapPath, patch: opsEvidenceGap.patchDraft.patch })).ok, true);
 
+  const ossGraph = await client.callTool('living_doc_template_graph', { templateId: 'oss-issue-deep-dive' });
+  assert.equal(ossGraph.templateId, 'oss-issue-deep-dive');
+  assert.ok(ossGraph.template.relationships.some((relationship) => relationship.id === 'symptom-localized-by-anchor'));
+
+  const ossDiagram = await client.callTool('living_doc_template_diagrams', { templateId: 'oss-issue-deep-dive' });
+  assert.equal(ossDiagram.templateId, 'oss-issue-deep-dive');
+  assert.match(ossDiagram.template.mermaid, /symptom_observation -- "localized-by" --> code_anchor/);
+
+  const ossDocPath = path.join(tmpDir, 'oss-issue-deep-dive-gap.json');
+  await writeFile(ossDocPath, JSON.stringify({
+    docId: 'doc:oss-issue-deep-dive-gap',
+    title: 'OSS Issue Deep-Dive Gap',
+    objective: 'Make a stuck OSS issue actionable for a fresh contributor.',
+    successCondition: 'Symptoms are localized to code anchors and tested by attempts.',
+    sections: [
+      {
+        id: 'symptoms',
+        title: 'Symptoms',
+        convergenceType: 'symptom-observation',
+        data: [{ id: 'render-glitch', name: 'Render glitch', status: 'reproduced', environment: 'macOS terminal', witness: '@reporter' }],
+      },
+      { id: 'findings', title: 'Findings', convergenceType: 'investigation-findings', data: [] },
+      { id: 'mechanics', title: 'Code anchors', convergenceType: 'code-anchor', data: [] },
+      { id: 'attempts', title: 'Attempts', convergenceType: 'attempt-log', data: [] },
+      { id: 'related', title: 'Issue orbit', convergenceType: 'issue-orbit', data: [] },
+      { id: 'debate', title: 'Stances', convergenceType: 'maintainer-stance', data: [] },
+    ],
+  }, null, 2));
+
+  const ossGaps = await client.callTool('living_doc_relationship_gaps', { doc: ossDocPath });
+  assert.equal(ossGaps.templateId, 'oss-issue-deep-dive');
+  const ossTargetGap = findGap(ossGaps, 'symptom-localized-by-anchor', 'missing-target-cards');
+  assert.ok(ossTargetGap);
+  assert.deepEqual(ossTargetGap.patchDraft.patch.changes[0].card.symptomIds, ['render-glitch']);
+  assert.equal(ossTargetGap.patchDraft.validation.ok, true);
+  assert.equal((await client.callTool('living_doc_patch_validate', { doc: ossDocPath, patch: ossTargetGap.patchDraft.patch })).ok, true);
+  assert.equal((await client.callTool('living_doc_patch_apply', { doc: ossDocPath, patch: ossTargetGap.patchDraft.patch })).ok, true);
+  const repairedOssGaps = await client.callTool('living_doc_relationship_gaps', { doc: ossDocPath });
+  assert.equal(findGap(repairedOssGaps, 'symptom-localized-by-anchor', 'missing-target-cards'), undefined);
+  assert.equal(findGap(repairedOssGaps, 'symptom-localized-by-anchor', 'missing-card-evidence'), undefined);
+
+  const ossStages = await client.callTool('living_doc_stage_diagnostics', { doc: ossDocPath });
+  assert.equal(ossStages.templateId, 'oss-issue-deep-dive');
+  assert.equal(ossStages.likelyStage, 'Operation');
+  assert.ok(ossStages.candidates.some((candidate) => candidate.signalId === 'operation-anchor-not-tested'));
+
+  const ossOps = await client.callTool('living_doc_valid_stage_operations', { doc: ossDocPath, stage: 'Coherence' });
+  assert.ok(ossOps.operations.some((operation) => operation.id === 'add-code-anchor'));
+  assert.ok(ossOps.operations.some((operation) => operation.id === 'add-attempt'));
+
   const governance = await client.callTool('living_doc_governance_evaluate', { doc: docPath });
   assert.equal(governance.ok, false);
   assert.ok(governance.violations.some((violation) => violation.kind === 'status-needs-evidence'));
