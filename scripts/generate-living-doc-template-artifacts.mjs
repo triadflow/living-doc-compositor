@@ -97,6 +97,7 @@ export function buildTemplateSemanticDefinition({ templateId, templateGraph, dia
     templateObjective: templateGraph.templateObjective || '',
     templateSuccessCondition: templateGraph.templateSuccessCondition || '',
     sections: templateGraph.sections || [],
+    convergenceTypes: templateGraph.convergenceTypes || {},
     relationships: templateGraph.relationships || [],
     stageSignals: templateGraph.stageSignals || [],
     validOperations: templateGraph.validOperations || [],

@@ -3,18 +3,18 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { templateDefinitions } from './living-doc-definitions/index.mjs';
+import { convergenceTypeDefinitions, templateDefinitions } from './living-doc-definitions/index.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const defaultOut = path.join(repoRoot, 'scripts/generated/living-doc-template-graphs.json');
 
 export async function buildSemanticGraph() {
-  const registry = JSON.parse(await readFile(path.join(repoRoot, 'scripts/living-doc-registry.json'), 'utf8'));
+  const convergenceTypes = new Map(convergenceTypeDefinitions.map((definition) => [definition.id, definition]));
   const templates = {};
 
   for (const definition of [...templateDefinitions].sort((a, b) => a.id.localeCompare(b.id))) {
-    templates[definition.id] = await buildTemplateGraph(definition, registry);
+    templates[definition.id] = await buildTemplateGraph(definition, convergenceTypes);
   }
 
   return {
@@ -24,16 +24,18 @@ export async function buildSemanticGraph() {
   };
 }
 
-async function buildTemplateGraph(definition, registry) {
+async function buildTemplateGraph(definition, convergenceTypes) {
   const templatePath = path.join(repoRoot, definition.templatePath);
   const template = JSON.parse(await readFile(templatePath, 'utf8'));
   const templateSections = new Map((template.sections || []).map((section) => [section.id, section]));
   const templateTypes = new Set((template.sections || []).map((section) => section.convergenceType));
+  const usedConvergenceTypes = new Set();
 
   for (const section of definition.sections) {
-    if (!registry.convergenceTypes?.[section.convergenceType]) {
+    if (!convergenceTypes.has(section.convergenceType)) {
       throw new Error(`${definition.id}.${section.id} references unknown convergence type ${section.convergenceType}`);
     }
+    usedConvergenceTypes.add(section.convergenceType);
     const templateSection = templateSections.get(section.id);
     if (!templateSection) {
       throw new Error(`${definition.id}.${section.id} missing from ${definition.templatePath}`);
@@ -71,10 +73,20 @@ async function buildTemplateGraph(definition, registry) {
     objectiveRole: definition.objectiveRole,
     templateObjective: definition.objective,
     templateSuccessCondition: definition.successCondition,
+    convergenceTypes: Object.fromEntries([...usedConvergenceTypes].sort().map((typeId) => (
+      [typeId, convergenceTypeContract(convergenceTypes.get(typeId))]
+    ))),
     sections: definition.sections,
     relationships: definition.relationships,
     stageSignals: definition.stageSignals,
     validOperations: definition.validOperations,
+  };
+}
+
+function convergenceTypeContract(definition) {
+  return {
+    ...JSON.parse(JSON.stringify(definition.registryEntry)),
+    generatedFields: [...(definition.generatedFields || [])],
   };
 }
 

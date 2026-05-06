@@ -109,6 +109,476 @@
           "required": true
         }
       ],
+      "convergenceTypes": {
+        "brief-to-system-alignment": {
+          "id": "brief-to-system-alignment",
+          "name": "Brief to System Alignment",
+          "category": "design-system",
+          "kind": "act",
+          "description": "The thinking-action of mapping a client brief to design responses. Each card is one paired move — a brief constraint or aspiration on one side, a design move on the other, with rationale.",
+          "structuralContract": "Two-column card grid of paired moves. Each card carries a constraint, a response, a state from the alignment-state set, and a brief reference. Cards are not authored once and forgotten — alignment shifts as the system gets built.",
+          "notFor": [
+            "settled architecture decisions with no live tension (use decision-record)",
+            "inventories of what was built (use design-system-surface)",
+            "brief documents themselves (those are referenced, not authored here)"
+          ],
+          "promptGuidance": {
+            "operatingThesis": "Treat each card as one explicit translation from brief to design. The pairing is the unit — a constraint without a response is a question, not an alignment.",
+            "keepDistinct": [
+              "constraint (what the brief asks for)",
+              "response (the design move that answers it)",
+              "alignment state (aligned, partial, deferred, conflicting)",
+              "rationale (why this response, not another)"
+            ],
+            "inspect": [
+              "Check that every card has both a constraint and a response — neither side alone is alignment.",
+              "Look for partial and conflicting cards that have not moved in a long time — that is unresolved tension, not stable state."
+            ],
+            "update": [
+              "Promote partial to aligned only when the response actually closes the constraint.",
+              "Use conflicting honestly — do not paper over a tension that the brief and the design have not resolved."
+            ],
+            "avoid": [
+              "Do not collapse partial and conflicting into aligned.",
+              "Do not use this for decisions that have no brief constraint (use decision-record instead)."
+            ]
+          },
+          "icon": "<rect x='3' y='8' width='7' height='8' rx='1' opacity='.45'/><rect x='14' y='8' width='7' height='8' rx='1'/><rect x='10' y='11.25' width='4' height='1.5' opacity='.7'/>",
+          "iconColor": "#d97706",
+          "projection": "card-grid",
+          "domain": "design",
+          "entityShape": [
+            "paired-move"
+          ],
+          "columns": 2,
+          "sources": [
+            {
+              "key": "briefIds",
+              "entityType": "client-brief",
+              "label": "Brief",
+              "resolve": true
+            },
+            {
+              "key": "tokenRefs",
+              "entityType": "design-token",
+              "label": "Token refs"
+            },
+            {
+              "key": "componentRefs",
+              "entityType": "design-component",
+              "label": "Component refs"
+            },
+            {
+              "key": "ticketIds",
+              "entityType": "ticket",
+              "label": "Tickets"
+            },
+            {
+              "key": "notes",
+              "entityType": null,
+              "label": null
+            }
+          ],
+          "statusFields": [
+            {
+              "key": "status",
+              "statusSet": "alignment-state"
+            }
+          ],
+          "textFields": [
+            {
+              "key": "constraint",
+              "label": "Constraint"
+            },
+            {
+              "key": "response",
+              "label": "Response"
+            }
+          ],
+          "detailsFields": [
+            {
+              "key": "rationale",
+              "label": "Rationale"
+            }
+          ],
+          "aiActions": [
+            {
+              "id": "extract-constraints-from-brief",
+              "name": "Extract constraints from brief",
+              "description": "Read the linked client-brief and propose alignment cards for each constraint, with placeholder response fields the author then fills."
+            },
+            {
+              "id": "flag-unresolved-tension",
+              "name": "Flag unresolved tension",
+              "description": "Surface partial and conflicting cards older than 14 days; propose escalation to a decision-record if the tension is structural."
+            }
+          ],
+          "generatedFields": [
+            "semanticUses"
+          ]
+        },
+        "design-system-derivation": {
+          "id": "design-system-derivation",
+          "name": "Design System Derivation",
+          "category": "design-system",
+          "kind": "act",
+          "description": "The thinking-action of deriving a new system from prior systems plus a brief. Each card is one derivation move — kept, swapped, inverted, scaled, or dropped — with pointers to the prior system and to the new one.",
+          "structuralContract": "Two-column card grid of derivation moves. Each card carries a prior-system pointer, a move from the derivation-move set, a target pointer, and a rationale. Move and rationale are paired — a move without rationale loses the data the derivation was built on.",
+          "notFor": [
+            "brief-driven choices that are not derivations (use brief-to-system-alignment)",
+            "inventories of the resulting system (use design-system-surface)",
+            "generic probes against a problem (use attempt-log)"
+          ],
+          "promptGuidance": {
+            "operatingThesis": "Treat the section as the chain from prior work to the new system. Every card has a priorSystemRef; derivation that does not point at a prior system is a fresh decision, not a derivation.",
+            "keepDistinct": [
+              "prior system pointer (where the move started)",
+              "move (kept, swapped, inverted, scaled, dropped)",
+              "target (where it landed in the new system)",
+              "rationale (why this move from this prior, against this brief)"
+            ],
+            "inspect": [
+              "Check that every card has a priorSystemRef.",
+              "kept cards still need rationale — kept without rationale loses the data the derivation was built on.",
+              "swapped and inverted cards should reference what they were swapped or inverted against."
+            ],
+            "update": [
+              "When the target ships in design-system-surface, link target back to that primitive's id.",
+              "If a kept move later gets swapped under pressure, supersede the original card rather than overwrite — the prior move is data."
+            ],
+            "avoid": [
+              "Do not collapse kept/swapped/inverted/scaled/dropped into a binary kept/changed.",
+              "Do not derive from systems with no pointer — anonymous influence is not a derivation."
+            ]
+          },
+          "icon": "<rect x='3' y='3' width='5' height='5' rx='1' opacity='.4'/><rect x='16' y='3' width='5' height='5' rx='1' opacity='.6'/><rect x='9' y='16' width='6' height='5' rx='1'/><path opacity='.45' d='M5.5 8l5 7.5h-1.5l-4.5-7.5zm13 0l-5 7.5h1.5l4.5-7.5z'/>",
+          "iconColor": "#15803d",
+          "projection": "card-grid",
+          "domain": "design",
+          "entityShape": [
+            "derivation-move"
+          ],
+          "columns": 2,
+          "sources": [
+            {
+              "key": "priorSystemRefs",
+              "entityType": "design-system-ref",
+              "label": "Prior system",
+              "resolve": true
+            },
+            {
+              "key": "briefIds",
+              "entityType": "client-brief",
+              "label": "Brief",
+              "resolve": true
+            },
+            {
+              "key": "tokenRefs",
+              "entityType": "design-token",
+              "label": "Tokens"
+            },
+            {
+              "key": "componentRefs",
+              "entityType": "design-component",
+              "label": "Components"
+            },
+            {
+              "key": "motifRefs",
+              "entityType": "design-motif",
+              "label": "Motifs"
+            },
+            {
+              "key": "notes",
+              "entityType": null,
+              "label": null
+            }
+          ],
+          "statusFields": [
+            {
+              "key": "status",
+              "statusSet": "derivation-move"
+            }
+          ],
+          "textFields": [
+            {
+              "key": "targetRef",
+              "label": "Target"
+            }
+          ],
+          "detailsFields": [
+            {
+              "key": "rationale",
+              "label": "Rationale"
+            }
+          ],
+          "aiActions": [
+            {
+              "id": "propose-derivation-moves",
+              "name": "Propose derivation moves from prior system",
+              "description": "Given a priorSystemRef and the current brief, propose candidate kept/swapped/inverted/scaled/dropped moves with placeholder rationale the author then sharpens."
+            },
+            {
+              "id": "link-target-to-surface",
+              "name": "Link derivation target to surface card",
+              "description": "When a derivation card's target lands in design-system-surface, link the target field to that primitive's id."
+            }
+          ],
+          "generatedFields": [
+            "semanticUses"
+          ]
+        },
+        "design-system-surface": {
+          "id": "design-system-surface",
+          "name": "Design System Surface",
+          "category": "design-system",
+          "kind": "surface",
+          "description": "Current state of a design system, expressed as pointers. Each card is one primitive — a token, a component, or a motif — surfaced from where it actually lives (Figma variable, tokens.json key, CSS custom property, repo path).",
+          "structuralContract": "Two-column card grid where each card is one design primitive. The card never owns the value; it points at where the primitive lives. Status reflects implementation state across the design-primitive lifecycle.",
+          "notFor": [
+            "per-feature design-implementation alignment (use design-code-spec-flow)",
+            "evidence of design decisions (use decision-record)",
+            "inventories of system-consuming product surfaces"
+          ],
+          "promptGuidance": {
+            "operatingThesis": "Treat the section as the design system itself, surfaced as pointers. Tokens, components, and motifs each live in Figma / tokens.json / a code repo; this section reveals them and tracks their lifecycle.",
+            "keepDistinct": [
+              "primitive kind (token, component, motif)",
+              "pointer (where the primitive actually lives)",
+              "implementation status",
+              "provenance (which derivation move produced it, if any)"
+            ],
+            "inspect": [
+              "Check that every card has a pointer, not a duplicated value.",
+              "Recheck status against the actual source (Figma file, tokens.json, repo) before marking shipped.",
+              "Flag any primitive stuck in proposed for more than 14 days — that is itself a signal."
+            ],
+            "update": [
+              "Refresh status from the canonical source, not from memory.",
+              "When a primitive ships, link the commit or PR if there is one.",
+              "Set primitiveKind on every card so the renderer chooses the right chip."
+            ],
+            "avoid": [
+              "Do not author values here — the card is a pointer.",
+              "Do not turn this into a per-feature implementation board (that is design-code-spec-flow)."
+            ]
+          },
+          "icon": "<rect x='4' y='4' width='6' height='6' rx='1' opacity='.4'/><rect x='14' y='4' width='6' height='6' rx='1' opacity='.6'/><rect x='4' y='14' width='6' height='6' rx='1' opacity='.6'/><rect x='14' y='14' width='6' height='6' rx='1'/>",
+          "iconColor": "#0ea5e9",
+          "projection": "card-grid",
+          "domain": "design",
+          "entityShape": [
+            "pointer-card"
+          ],
+          "columns": 2,
+          "sources": [
+            {
+              "key": "tokenRefs",
+              "entityType": "design-token",
+              "label": "Token refs"
+            },
+            {
+              "key": "componentRefs",
+              "entityType": "design-component",
+              "label": "Component refs"
+            },
+            {
+              "key": "motifRefs",
+              "entityType": "design-motif",
+              "label": "Motif refs"
+            },
+            {
+              "key": "derivedFrom",
+              "entityType": "design-system-ref",
+              "label": "Derived from",
+              "resolve": true
+            },
+            {
+              "key": "ticketIds",
+              "entityType": "ticket",
+              "label": "Tickets"
+            },
+            {
+              "key": "notes",
+              "entityType": null,
+              "label": null
+            }
+          ],
+          "statusFields": [
+            {
+              "key": "status",
+              "statusSet": "design-primitive-status"
+            }
+          ],
+          "textFields": [
+            {
+              "key": "primitiveKind",
+              "label": "Kind"
+            },
+            {
+              "key": "pointerSystem",
+              "label": "Source system"
+            }
+          ],
+          "aiActions": [
+            {
+              "id": "refresh-from-source",
+              "name": "Refresh status from source",
+              "description": "For each card with a Figma or tokens.json pointer, check the canonical source and propose status updates."
+            },
+            {
+              "id": "flag-stale-proposals",
+              "name": "Flag stale proposals",
+              "description": "Surface primitives that have been in proposed for more than 14 days; propose either promotion or downgrade."
+            }
+          ],
+          "generatedFields": [
+            "semanticUses"
+          ]
+        },
+        "status-snapshot": {
+          "id": "status-snapshot",
+          "name": "Status Snapshot",
+          "category": "overview",
+          "kind": "surface",
+          "description": "A summary section that compresses the current document into top-level counts and distribution signals.",
+          "structuralContract": "Stats-first section with snapshot cards and no item grid requirement. Use for high-level totals and state distribution, not for individual entities.",
+          "notFor": [
+            "component or capability inventories",
+            "decision or finding sections",
+            "verification surfaces"
+          ],
+          "promptGuidance": {
+            "operatingThesis": "Treat the section as document-wide compression, not as an item inventory.",
+            "keepDistinct": [
+              "top-level counts",
+              "distribution signals",
+              "document-wide callouts"
+            ],
+            "inspect": [
+              "Read the rest of the document before changing snapshot stats."
+            ],
+            "update": [
+              "Recompute stats and callout language from the current section set and payload."
+            ],
+            "avoid": [
+              "Do not add individual work items here."
+            ]
+          },
+          "icon": "<rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/>",
+          "iconColor": "#475569",
+          "projection": "card-grid",
+          "domain": "ops",
+          "entityShape": [],
+          "columns": 2,
+          "sources": [],
+          "statusFields": [],
+          "generatedFields": [
+            "semanticUses"
+          ]
+        },
+        "taste-signature": {
+          "id": "taste-signature",
+          "name": "Taste Signature",
+          "category": "design-system",
+          "kind": "surface",
+          "description": "The designer's recurring identity, surfaced across prior systems. Each card is one trait — a colour relationship, a spacing rhythm, a motion preference, a typographic axis, a compositional habit — with pointers to the prior systems where it appears.",
+          "structuralContract": "Two-column card grid of traits. Each trait points at one or more prior design-system-ref entries as evidence. Recurrence status reflects how many systems the trait has been observed in.",
+          "notFor": [
+            "external actors' positions (use expert-stance-track or competitor-stance-track)",
+            "per-system inventory (use design-system-surface)",
+            "individual decisions inside one engagement (use decision-record)"
+          ],
+          "promptGuidance": {
+            "operatingThesis": "Treat the section as the designer's idiom made visible. Taste lives in the prior systems; this section reveals it. Each trait is evidenced, not asserted.",
+            "keepDistinct": [
+              "trait (the recurring choice)",
+              "evidence (prior systems where it appears)",
+              "recurrence status (recurring vs emerging vs abandoned)"
+            ],
+            "inspect": [
+              "Check that every recurring card has at least two prior-system pointers — one is anecdotal.",
+              "Look for emerging traits that have stalled at one pointer for a long time — they are candidates for abandoned."
+            ],
+            "update": [
+              "Promote emerging to recurring only when a second prior-system pointer exists.",
+              "Mark a trait abandoned when older systems carry it but the most recent ones have moved on — that is data, not failure."
+            ],
+            "avoid": [
+              "Do not assert taste without prior-system pointers.",
+              "Do not collapse multiple distinct traits into one card."
+            ]
+          },
+          "icon": "<circle cx='12' cy='12' r='9' opacity='.25'/><circle cx='12' cy='12' r='6.5' opacity='.5'/><circle cx='12' cy='12' r='4'/><circle cx='12' cy='12' r='1.5' opacity='.7'/>",
+          "iconColor": "#be185d",
+          "projection": "card-grid",
+          "domain": "design",
+          "entityShape": [
+            "evidenced-pattern"
+          ],
+          "columns": 2,
+          "sources": [
+            {
+              "key": "priorSystemRefs",
+              "entityType": "design-system-ref",
+              "label": "Prior systems",
+              "resolve": true
+            },
+            {
+              "key": "tokenRefs",
+              "entityType": "design-token",
+              "label": "Token examples"
+            },
+            {
+              "key": "componentRefs",
+              "entityType": "design-component",
+              "label": "Component examples"
+            },
+            {
+              "key": "motifRefs",
+              "entityType": "design-motif",
+              "label": "Motif examples"
+            },
+            {
+              "key": "notes",
+              "entityType": null,
+              "label": null
+            }
+          ],
+          "statusFields": [
+            {
+              "key": "status",
+              "statusSet": "taste-recurrence"
+            }
+          ],
+          "textFields": [
+            {
+              "key": "trait",
+              "label": "Trait"
+            }
+          ],
+          "detailsFields": [
+            {
+              "key": "evidence",
+              "label": "Evidence"
+            }
+          ],
+          "aiActions": [
+            {
+              "id": "find-recurring-traits",
+              "name": "Find recurring traits across prior systems",
+              "description": "Read the priorSystems collection and propose candidate taste traits with the prior-system pointers as evidence."
+            },
+            {
+              "id": "promote-recurrence",
+              "name": "Propose recurrence promotion",
+              "description": "For emerging traits with a newly-added prior-system pointer (now two or more), propose promotion to recurring."
+            }
+          ],
+          "generatedFields": [
+            "semanticUses"
+          ]
+        }
+      },
       "relationships": [
         {
           "id": "status-summarizes-system-surface",

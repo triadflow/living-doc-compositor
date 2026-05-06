@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/convergence-type-code-source-refactor.json",
   "sourceCoverage": "Created from the agreed verbatim objective after identifying that current executable semantics are template-centered while convergence types remain JSON-authored. GitHub epic #177 and subtickets #178-#184 now hold the implementation plan.",
-  "updated": "2026-05-06T14:01:51.000Z",
+  "updated": "2026-05-06T14:05:04.000Z",
   "pills": [
     "Refactor",
     "Convergence Types",
@@ -129,14 +129,14 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:a3ce42765a377c31fe40b9811d53cefa4b4fd680a67333d691d381bda18a9f13",
+  "metaFingerprint": "sha256:3d6bee2c7daf7669d760d515a0b7345c933a346ac2b39b6a5ff1e0b1b1d1b987",
   "sections": [
     {
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Keeps the objective state visible: this is a new refactor living doc, not the completed template-semantics refactor.",
-      "updated": "2026-05-06T14:01:51.000Z",
+      "updated": "2026-05-06T14:05:04.000Z",
       "stats": [
         {
           "label": "Epic",
@@ -144,7 +144,7 @@
         },
         {
           "label": "State",
-          "value": "#180 strict registry generation clean"
+          "value": "#181 template composition implemented"
         },
         {
           "label": "Subtickets",
@@ -161,11 +161,11 @@
       ],
       "callout": {
         "tone": "positive",
-        "title": "Convergence-type source layer migrated",
+        "title": "Templates now compose type contracts",
         "items": [
-          "All 48 current convergence types now have code definitions under scripts/living-doc-definitions/convergence-types/.",
-          "node scripts/generate-living-doc-registry-from-definitions.mjs --check --strict passes with 0 legacy types.",
-          "The objective is still open because template composition, runtime preservation proof, MCP exposure, and final drift contracts remain."
+          "Template semantic graphs are built against convergenceTypeDefinitions, not registry JSON lookup as the source of type contracts.",
+          "Generated template artifacts now include convergenceTypes contract context derived from code-defined types.",
+          "Runtime preservation, MCP exposure, and final drift contracts still remain before objective closure."
         ]
       },
       "data": []
@@ -175,7 +175,7 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates. Each criterion preserves a phrase from the verbatim objective and states the proof needed before completion can be accepted.",
-      "updated": "2026-05-06T14:01:51.000Z",
+      "updated": "2026-05-06T14:05:04.000Z",
       "data": [
         {
           "id": "criterion-code-defined-convergence-types",
@@ -277,8 +277,8 @@
         {
           "id": "criterion-templates-compose-type-definitions",
           "name": "Templates compose convergence-type definitions",
-          "status": "required",
-          "updated": "2026-05-06T13:17:46.000Z",
+          "status": "satisfied",
+          "updated": "2026-05-06T14:05:04.000Z",
           "facetIds": [
             "template-composition"
           ],
@@ -297,6 +297,33 @@
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
               "title": "Refactor templates to compose convergence-type definitions"
             }
+          ],
+          "codeRefs": [
+            {
+              "path": "scripts/generate-living-doc-semantic-graph.mjs",
+              "range": "buildSemanticGraph"
+            },
+            {
+              "path": "scripts/generate-living-doc-template-artifacts.mjs",
+              "range": "buildTemplateSemanticDefinition"
+            },
+            {
+              "path": "tests/contract/template-graphs.spec.mjs",
+              "range": "composed convergence type assertions"
+            },
+            {
+              "path": "tests/contract/template-artifacts.spec.mjs",
+              "range": "semanticDefinition.convergenceTypes assertion"
+            },
+            {
+              "path": "scripts/generated/living-doc-template-graphs.json",
+              "range": "templates.*.convergenceTypes"
+            }
+          ],
+          "notes": [
+            "Template graph generation now composes section type contracts from code-defined convergenceTypeDefinitions.",
+            "Template source modules still own section ordering, roles, relationships, stage signals, and valid operations only.",
+            "Generated template artifacts carry convergenceTypes context from the code source, so type contract changes flow through generation."
           ]
         },
         {
@@ -479,7 +506,7 @@
       "title": "Code Anchors",
       "convergenceType": "code-anchor",
       "rationale": "Pins the refactor to the current files that prove the mismatch and the future files expected to close it.",
-      "updated": "2026-05-06T14:01:51.000Z",
+      "updated": "2026-05-06T14:05:04.000Z",
       "data": [
         {
           "id": "registry-json-current-source",
@@ -628,6 +655,49 @@
               "title": "Generate registry JSON from convergence-type definitions"
             }
           ]
+        },
+        {
+          "id": "template-composition-generator",
+          "name": "Template semantic graph composes convergence-type definitions",
+          "status": "current",
+          "updated": "2026-05-06T14:05:04.000Z",
+          "path": "scripts/generate-living-doc-semantic-graph.mjs",
+          "range": "buildSemanticGraph; buildTemplateGraph; convergenceTypeContract",
+          "revision": "working tree",
+          "what_it_does": "Builds template graphs by resolving each section convergenceType against code-defined convergenceTypeDefinitions and emitting composed convergenceTypes contract context.",
+          "why_it_matters": [
+            "This moves template generation off registry JSON as the type contract authority.",
+            "Templates remain composition definitions while convergence types own reusable contracts.",
+            "A code-defined type contract change now flows into generated template artifacts through graph generation."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
+        },
+        {
+          "id": "template-artifact-composed-contracts",
+          "name": "Template artifacts embed generated type contract context",
+          "status": "current",
+          "updated": "2026-05-06T14:05:04.000Z",
+          "path": "docs/living-doc-template-*.json",
+          "range": "templateMeta.semanticDefinition.convergenceTypes",
+          "revision": "working tree",
+          "what_it_does": "Stores generated convergenceTypes contract context inside each template semantic definition artifact.",
+          "why_it_matters": [
+            "This is generated composition, not template-authored duplication.",
+            "The compositor and skills can inspect template context while the source remains the convergence-type modules."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
         }
       ]
     },
@@ -636,7 +706,7 @@
       "title": "Attempt Log",
       "convergenceType": "attempt-log",
       "rationale": "Tracks implementation attempts without letting a useful slice become a false completion claim.",
-      "updated": "2026-05-06T14:01:51.000Z",
+      "updated": "2026-05-06T14:05:04.000Z",
       "data": [
         {
           "id": "initial-objective-crystallization",
@@ -780,6 +850,33 @@
               "title": "Migrate current convergence types into code definitions"
             }
           ]
+        },
+        {
+          "id": "compose-templates-from-convergence-types",
+          "name": "Compose template artifacts from convergence-type contracts",
+          "status": "ready",
+          "updated": "2026-05-06T14:05:04.000Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "medium",
+          "what_tried": [
+            "Changed semantic graph generation to import convergenceTypeDefinitions and validate template sections against the code-defined type map.",
+            "Added generated convergenceTypes contract context to each template graph.",
+            "Propagated that context into templateMeta.semanticDefinition in every generated template artifact.",
+            "Added contract assertions that graph/artifact convergenceTypes match the code-defined source layer.",
+            "Regenerated template graphs, diagrams, template JSON artifacts, and compositor embeds."
+          ],
+          "what_proved": [
+            "Templates compose convergence-type definitions instead of relying on registry JSON as the type authority.",
+            "A type contract change has a generated path into affected template artifacts.",
+            "Template-owned semantics remain section role/order, relationships, stage signals, valid operations, and evidence rules."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
         }
       ]
     },
@@ -788,7 +885,7 @@
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
       "rationale": "Will hold increasing proof that the refactor crossed from useful code generation to convergence-type-grounded canonical source.",
-      "updated": "2026-05-06T14:01:51.000Z",
+      "updated": "2026-05-06T14:05:04.000Z",
       "data": [
         {
           "id": "objective-and-criteria-recorded",
@@ -920,6 +1017,24 @@
               "title": "Migrate current convergence types into code definitions"
             }
           ]
+        },
+        {
+          "id": "template-composition-through-type-contracts",
+          "name": "Template composition through convergence-type contracts",
+          "status": "ready",
+          "updated": "2026-05-06T14:05:04.000Z",
+          "notes": [
+            "scripts/generated/living-doc-template-graphs.json includes templates.*.convergenceTypes from code-defined convergence types.",
+            "docs/living-doc-template-*.json include templateMeta.semanticDefinition.convergenceTypes from the graph.",
+            "template graph and artifact contracts assert those generated contracts match convergenceTypeDefinitions."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "181",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
+              "title": "Refactor templates to compose convergence-type definitions"
+            }
+          ]
         }
       ]
     },
@@ -1023,13 +1138,13 @@
       "title": "Tooling Surface",
       "convergenceType": "tooling-surface",
       "rationale": "Lists current and target commands that will operate the code-defined convergence-type source and its generated artifacts.",
-      "updated": "2026-05-06T14:01:51.000Z",
+      "updated": "2026-05-06T14:05:04.000Z",
       "data": [
         {
           "id": "current-template-generation-chain",
           "name": "Current template generation chain",
           "status": "trusted",
-          "updated": "2026-05-06T13:17:46.000Z",
+          "updated": "2026-05-06T14:05:04.000Z",
           "scriptPaths": [
             "scripts/generate-living-doc-semantic-graph.mjs",
             "scripts/generate-living-doc-semantic-diagrams.mjs",
@@ -1037,22 +1152,18 @@
             "scripts/generate-living-doc-registry-semantics.mjs",
             "scripts/sync-compositor-embeds.mjs"
           ],
-          "purpose": "Generate current template semantic artifacts and generated registry semantic-use annotations.",
+          "purpose": "Generate template semantic artifacts by composing template definitions with code-defined convergence-type contracts.",
           "whenToUse": "Use as the baseline proof that generation already works above the convergence-type layer.",
           "invocation": "node scripts/generate-living-doc-semantic-graph.mjs && node scripts/generate-living-doc-semantic-diagrams.mjs && node scripts/generate-living-doc-template-artifacts.mjs && node scripts/generate-living-doc-registry-semantics.mjs && node scripts/sync-compositor-embeds.mjs",
           "caveats": [
-            "This chain does not generate the registry JSON from code-defined convergence types yet."
+            "This chain now depends on convergenceTypeDefinitions for type contracts.",
+            "MCP tools still need direct convergence-type contract access in #183."
           ],
           "ticketIds": [
             {
               "issueNumber": "181",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/181",
               "title": "Refactor templates to compose convergence-type definitions"
-            },
-            {
-              "issueNumber": "182",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/182",
-              "title": "Preserve rendered docs and compositor flows during convergence-type migration"
             }
           ]
         },

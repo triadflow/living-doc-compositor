@@ -35,6 +35,7 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates || {}))
   assert.equal(semanticDefinition.templateObjective, template.objective || '');
   assert.equal(semanticDefinition.templateSuccessCondition, template.successCondition || '');
   assert.deepEqual(semanticDefinition.sections, templateGraph.sections);
+  assert.deepEqual(semanticDefinition.convergenceTypes, templateGraph.convergenceTypes || {});
   for (const graphSection of templateGraph.sections) {
     const templateSection = template.sections.find((section) => section.id === graphSection.id);
     assert.ok(templateSection, `${templateId}.${graphSection.id} missing from template`);

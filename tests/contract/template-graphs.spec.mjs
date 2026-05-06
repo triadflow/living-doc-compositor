@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { convergenceTypeDefinitions } from '../../scripts/living-doc-definitions/index.mjs';
 
 const check = spawnSync(process.execPath, ['scripts/generate-living-doc-semantic-graph.mjs', '--check'], {
   encoding: 'utf8',
@@ -9,6 +10,7 @@ assert.equal(check.status, 0, check.stderr || check.stdout);
 
 const registry = JSON.parse(await readFile('scripts/living-doc-registry.json', 'utf8'));
 const graph = JSON.parse(await readFile('scripts/generated/living-doc-template-graphs.json', 'utf8'));
+const convergenceTypes = new Map(convergenceTypeDefinitions.map((definition) => [definition.id, definition]));
 const conditionKinds = new Set([
   'section-empty',
   'related-relationship-gap',
@@ -30,6 +32,7 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
   const templateSections = new Map((template.sections || []).map((section) => [section.id, section]));
   const sectionTypes = new Set((template.sections || []).map((section) => section.convergenceType));
   const graphSectionTypes = new Set(templateGraph.sections.map((section) => section.convergenceType));
+  const composedTypes = templateGraph.convergenceTypes || {};
   const relationshipIds = new Set();
   const operationIds = new Set((templateGraph.validOperations || []).map((operation) => operation.id));
 
@@ -44,6 +47,20 @@ for (const [templateId, templateGraph] of Object.entries(graph.templates)) {
       templateSections.get(section.id)?.convergenceType,
       section.convergenceType,
       `${templateId}.${section.id} does not match template section type`,
+    );
+    assert.ok(composedTypes[section.convergenceType], `${templateId}.${section.id} missing composed convergence type contract`);
+  }
+
+  for (const [typeId, contract] of Object.entries(composedTypes)) {
+    const definition = convergenceTypes.get(typeId);
+    assert.ok(definition, `${templateId} composes unknown convergence type ${typeId}`);
+    assert.deepEqual(
+      contract,
+      {
+        ...definition.registryEntry,
+        generatedFields: definition.generatedFields,
+      },
+      `${templateId}.${typeId} composed contract drifted from code-defined convergence type`,
     );
   }
 
