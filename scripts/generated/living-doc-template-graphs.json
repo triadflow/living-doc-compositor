@@ -2,6 +2,1148 @@
   "schema": "living-doc-semantic-graph/v1",
   "generatedFrom": "scripts/living-doc-definitions",
   "templates": {
+    "architect-manuscript": {
+      "id": "architect-manuscript",
+      "name": "Architect the Manuscript",
+      "title": "Architect the Manuscript",
+      "subtitle": "A structural template for acts, scene dependencies, continuity risk, and the tools that keep the manuscript coherent.",
+      "scope": "One manuscript where pacing, causality, and continuity need to be controlled explicitly.",
+      "templatePath": "docs/living-doc-template-architect-manuscript.json",
+      "objectiveRole": "Make manuscript structure operational by linking acts, scene dependencies, continuity risks, and tooling.",
+      "templateObjective": "Make the manuscript structurally defensible by surfacing major acts, scene dependencies, continuity risks, and the tools used to inspect them.",
+      "templateSuccessCondition": "A reader can see what each act is doing, which scenes depend on earlier setup, and what continuity risks still threaten the manuscript.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize manuscript architecture pressure without carrying the structural evidence.",
+          "rationale": "This section compresses manuscript readiness while acts, dependencies, continuity risks, and tooling remain inspectable in their own layers.",
+          "required": true
+        },
+        {
+          "id": "act-structure",
+          "title": "Act / Part Structure",
+          "convergenceType": "content-outline",
+          "role": "Hold the ordered act or part structure that defines the manuscript path.",
+          "rationale": "The manuscript needs an ordered outline before dependencies and continuity risks can be located meaningfully.",
+          "required": true
+        },
+        {
+          "id": "scene-dependencies",
+          "title": "Scene Dependency Map",
+          "convergenceType": "scene-dependency-map",
+          "role": "Map setup and payoff dependencies between scenes.",
+          "rationale": "Scene relationships need edge-table shape because causality lives between setup and dependent scenes rather than inside one card.",
+          "required": true
+        },
+        {
+          "id": "continuity",
+          "title": "Continuity Watchlist",
+          "convergenceType": "continuity-watchlist",
+          "role": "Track unresolved contradictions and continuity risks across scenes, characters, and storylines.",
+          "rationale": "Continuity risks must stay visible until checked because unresolved contradictions can invalidate manuscript structure.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "title": "Tooling Surface",
+          "convergenceType": "tooling-surface",
+          "role": "Expose the tools used to inspect, verify, and evolve the manuscript structure.",
+          "rationale": "Structural and continuity claims need tool paths so the manuscript can be rechecked instead of reread from scratch.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-outline",
+          "from": "status-snapshot",
+          "to": "content-outline",
+          "relation": "summarizes",
+          "rationale": "Manuscript status should summarize the actual act structure being controlled.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "outline-frames-dependencies",
+          "from": "content-outline",
+          "to": "scene-dependency-map",
+          "relation": "frames",
+          "rationale": "Scene dependencies are meaningful only against the manuscript sequence and act structure they support.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "dependencies-surface-continuity",
+          "from": "scene-dependency-map",
+          "to": "continuity-watchlist",
+          "relation": "surfaces-risk",
+          "rationale": "Setup/payoff dependencies expose the continuity risks that need to remain visible until checked.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-continuity",
+          "from": "tooling-surface",
+          "to": "continuity-watchlist",
+          "relation": "supports",
+          "rationale": "Continuity checks need an operational tool path so the watchlist can be verified or refreshed.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-act-structure",
+          "stage": "Seeding",
+          "when": "content-outline has no act or part cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "content-outline"
+          },
+          "severity": "high",
+          "question": "What first act, part, or structural unit makes this manuscript tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-outline-without-dependencies",
+          "stage": "Coherence",
+          "when": "act structure exists but scene-dependency-map has no dependency rows",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "content-outline",
+            "targetType": "scene-dependency-map"
+          },
+          "severity": "high",
+          "question": "Which scene setup or payoff dependency should be made explicit?",
+          "relatedRelationships": [
+            "outline-frames-dependencies"
+          ]
+        },
+        {
+          "id": "operation-dependencies-without-continuity",
+          "stage": "Operation",
+          "when": "scene dependencies exist but continuity-watchlist has no risks or checks",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "scene-dependency-map",
+            "targetType": "continuity-watchlist"
+          },
+          "severity": "medium",
+          "question": "Which continuity risk follows from the current scene dependencies?",
+          "relatedRelationships": [
+            "dependencies-surface-continuity"
+          ]
+        },
+        {
+          "id": "judgment-manuscript-architecture-ready",
+          "stage": "Judgment",
+          "when": "act structure, dependencies, continuity, and tooling are all populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "content-outline",
+              "scene-dependency-map",
+              "continuity-watchlist",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Is the manuscript structurally defensible, or does a dependency or continuity risk still control the next pass?",
+          "relatedRelationships": [
+            "outline-frames-dependencies",
+            "dependencies-surface-continuity",
+            "tooling-supports-continuity"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-act-structure-card",
+          "label": "Add act structure card",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add an act, part, or structural unit with source references and notes.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-scene-dependency",
+          "label": "Add scene dependency",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a setup-to-dependent scene relationship that makes causality explicit.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-continuity-risk",
+          "label": "Add continuity risk",
+          "stages": [
+            "Coherence",
+            "Operation"
+          ],
+          "description": "Add a continuity risk tied to scenes, characters, or storylines.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "link-tooling-to-continuity",
+          "label": "Link tooling to continuity",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Link a script, workflow, or artifact used to inspect manuscript structure or continuity.",
+          "patchKind": "card-update"
+        }
+      ]
+    },
+    "competitor-watcher": {
+      "id": "competitor-watcher",
+      "name": "Competitor Watcher",
+      "title": "Competitor Watcher",
+      "subtitle": "A living doc shape for tracking competitors across monitoring periods — strategic posture, discrete moves, indicators, and a market-position map. Each check-in lands as a delta, so the picture accumulates rather than restarts.",
+      "scope": "One market, one set of named competitors, tracked over time. Strategic posture revealed through behavior. Discrete moves logged with intent and outcome. Indicators refreshed on a cadence. A two-axis map showing where each competitor sits and how they moved.",
+      "templatePath": "docs/living-doc-template-competitor-watcher.json",
+      "objectiveRole": "Track competitive posture over time by separating competitors, moves, predictions, indicators, positions, sources, and period notes.",
+      "templateObjective": "Track the evolution of <market>'s competitive landscape so any reader at any period check-in sees current strategic posture per competitor, the moves they made this period, live indicator values, predictions still pending, and where each player sits on the map vs. where they used to sit.",
+      "templateSuccessCondition": "A reader opening the doc at the end of any monitoring period knows (1) each tracked competitor's current posture and how it shifted, (2) the discrete moves each one made in the period with intent and outcome, (3) the latest indicator values with dated sources, and (4) which competitors moved on the position map and in which direction.",
+      "sections": [
+        {
+          "id": "competitors",
+          "title": "Tracked competitors",
+          "convergenceType": "competitor-stance-track",
+          "role": "Track named competitors and their current strategic posture.",
+          "rationale": "The named organizations whose strategic posture we watch over time. One card per competitor, with current bet and evolution surfaced as first-class fields.",
+          "required": true
+        },
+        {
+          "id": "moves",
+          "title": "Strategic moves this period",
+          "convergenceType": "strategic-move-log",
+          "role": "Log discrete competitor actions with intent and observed outcome.",
+          "rationale": "Discrete actions taken by tracked competitors with observable consequences. Moves are events; citations are what you read about them. Keep separate.",
+          "required": true
+        },
+        {
+          "id": "predictions",
+          "title": "What comes next",
+          "convergenceType": "proof-ladder",
+          "role": "Track predictions about competitor moves or market outcomes.",
+          "rationale": "Predictions about future competitor moves or market outcomes. Each rung resolves as evidence accumulates.",
+          "required": true
+        },
+        {
+          "id": "indicators",
+          "title": "Indicator dashboard",
+          "convergenceType": "indicator-trace",
+          "role": "Track numeric or categorical indicators that show competitive movement.",
+          "rationale": "Numeric indicators tracked across periods. Carry the value as text; carry direction as a categorical trend.",
+          "required": true
+        },
+        {
+          "id": "positions",
+          "title": "Market position map",
+          "convergenceType": "position-cluster-map",
+          "role": "Map competitor position and movement between periods.",
+          "rationale": "Two-axis placement of tracked competitors. Movement between periods is the primary signal; prior positions are preserved per card.",
+          "required": true
+        },
+        {
+          "id": "sources",
+          "title": "Sources this period",
+          "convergenceType": "citation-feed",
+          "role": "Preserve the sources consumed during the current competitive monitoring period.",
+          "rationale": "Articles, earnings transcripts, analyst reports, interviews you consumed this period. Sources are what you READ; moves are what HAPPENED. Keep them in their own sections.",
+          "required": true
+        },
+        {
+          "id": "period-notes",
+          "title": "Period notes",
+          "convergenceType": "decision-record",
+          "role": "Summarize what moved, resolved, and matters for the next period.",
+          "rationale": "One card per monitoring period summarising what moved, what resolved, and what matters for the next period.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "sources-inform-competitor-posture",
+          "from": "citation-feed",
+          "to": "competitor-stance-track",
+          "relation": "informs",
+          "rationale": "Competitor posture should be inferred from dated sources and observed behavior.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "competitors-make-moves",
+          "from": "competitor-stance-track",
+          "to": "strategic-move-log",
+          "relation": "makes",
+          "rationale": "Strategic moves must identify which tracked competitor made the move.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "name"
+            ],
+            "targetFields": [
+              "byCompany",
+              "competitorIds",
+              "companyIds"
+            ],
+            "description": "A move should identify the competitor or company that made it."
+          },
+          "repairOperationIds": [
+            "add-strategic-move"
+          ],
+          "required": true
+        },
+        {
+          "id": "moves-drive-indicators",
+          "from": "strategic-move-log",
+          "to": "indicator-trace",
+          "relation": "drives",
+          "rationale": "Discrete moves should connect to indicator changes when their effect is observable.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "competitors-positioned-on-map",
+          "from": "competitor-stance-track",
+          "to": "position-cluster-map",
+          "relation": "positioned-on",
+          "rationale": "Tracked competitors should appear on the market position map so movement is visible.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "indicators-resolve-predictions",
+          "from": "indicator-trace",
+          "to": "proof-ladder",
+          "relation": "resolves",
+          "rationale": "Indicator movement and strategic moves resolve or weaken predictions.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "period-notes-summarize-competitive-landscape",
+          "from": "decision-record",
+          "to": "competitor-stance-track",
+          "relation": "summarizes",
+          "rationale": "Period notes should summarize posture shifts, moves, indicators, predictions, and map movement.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-competitors",
+          "stage": "Seeding",
+          "when": "competitor-stance-track has no tracked competitors",
+          "condition": {
+            "kind": "section-empty",
+            "type": "competitor-stance-track"
+          },
+          "severity": "high",
+          "question": "Which competitors define this market watch?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "composition-competitors-without-sources",
+          "stage": "Composition",
+          "when": "competitors exist but citation-feed has no sources",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "competitor-stance-track",
+            "targetType": "citation-feed"
+          },
+          "severity": "medium",
+          "question": "Which source supports the current competitor posture?",
+          "relatedRelationships": [
+            "sources-inform-competitor-posture"
+          ]
+        },
+        {
+          "id": "coherence-competitor-without-moves",
+          "stage": "Coherence",
+          "when": "competitors exist but strategic-move-log lacks corresponding moves",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which tracked competitor made a discrete strategic move this period?",
+          "relatedRelationships": [
+            "competitors-make-moves"
+          ]
+        },
+        {
+          "id": "operation-competitors-without-position-map",
+          "stage": "Operation",
+          "when": "competitors exist but position-cluster-map is empty",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "competitor-stance-track",
+            "targetType": "position-cluster-map"
+          },
+          "severity": "medium",
+          "question": "Where does each competitor sit on the market position map this period?",
+          "relatedRelationships": [
+            "competitors-positioned-on-map"
+          ]
+        },
+        {
+          "id": "judgment-competitor-period-ready",
+          "stage": "Judgment",
+          "when": "competitors, moves, predictions, indicators, positions, sources, and notes are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "competitor-stance-track",
+              "strategic-move-log",
+              "proof-ladder",
+              "indicator-trace",
+              "position-cluster-map",
+              "citation-feed",
+              "decision-record"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader see each competitor posture, moves, indicators, and map movement for this period?",
+          "relatedRelationships": [
+            "competitors-make-moves",
+            "competitors-positioned-on-map",
+            "indicators-resolve-predictions"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-competitor",
+          "label": "Add competitor",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a tracked competitor with posture, current bet, and evolution.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-strategic-move",
+          "label": "Add strategic move",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a dated strategic move by a tracked competitor.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-competitor-indicator",
+          "label": "Record competitor indicator",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Add or update an indicator value connected to competitive movement.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "update-market-position",
+          "label": "Update market position",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Add or update a competitor position and movement on the map.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "write-competitor-period-note",
+          "label": "Write competitor period note",
+          "stages": [
+            "Judgment"
+          ],
+          "description": "Record what moved, resolved, and matters for next period.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "design-system": {
+      "id": "design-system",
+      "name": "Design a System",
+      "title": "Design a System — your taste, one client at a time",
+      "subtitle": "A small starting shape for designers building a client design system while keeping their own taste-signature visible and evidenced across prior work.",
+      "scope": "The designer's recurring taste across prior systems, plus the system being built for the current client engagement — alignment to the brief, derivation moves from prior systems, and the current state of the new system as pointers.",
+      "templatePath": "docs/living-doc-template-design-system.json",
+      "objectiveRole": "Make design-system work legible by connecting taste evidence, brief alignment, derivation moves, and surface pointers.",
+      "templateObjective": "Make the design system you are building visible end-to-end: where each primitive lives, why it answers the brief, what it inherits from your prior work, and what about it is uniquely you.",
+      "templateSuccessCondition": "Every primitive in the surface has a pointer (not a duplicated value). Every alignment card has both a constraint and a response. Every derivation card has a prior-system pointer and a one-or-two-sentence rationale. Every recurring taste card has at least two prior-system pointers as evidence.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize design-system readiness without carrying the design evidence.",
+          "rationale": "This section keeps client-system status visible while taste, alignment, derivation, and surface pointers stay distinct.",
+          "required": true
+        },
+        {
+          "id": "taste-signature",
+          "title": "Taste Signature",
+          "convergenceType": "taste-signature",
+          "role": "Expose recurring designer traits evidenced by prior systems.",
+          "rationale": "Taste has to be evidenced through prior systems so it becomes an inspectable design input rather than a vague personal claim.",
+          "required": true
+        },
+        {
+          "id": "brief-alignment",
+          "title": "Brief to System Alignment",
+          "convergenceType": "brief-to-system-alignment",
+          "role": "Translate client constraints into concrete system responses.",
+          "rationale": "Each alignment card pairs a brief constraint with a design response so the client system can be judged against the actual engagement.",
+          "required": true
+        },
+        {
+          "id": "derivation",
+          "title": "Design System Derivation",
+          "convergenceType": "design-system-derivation",
+          "role": "Track what the new system inherits or transforms from prior work.",
+          "rationale": "Derivation cards keep inherited taste moves explicit and grounded in prior-system references.",
+          "required": true
+        },
+        {
+          "id": "surface",
+          "title": "Design System Surface",
+          "convergenceType": "design-system-surface",
+          "role": "Expose the current design system as pointers to tokens, components, and motifs.",
+          "rationale": "The system surface should point to primitives where they live instead of duplicating token or component values inside the doc.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-system-surface",
+          "from": "status-snapshot",
+          "to": "design-system-surface",
+          "relation": "summarizes",
+          "rationale": "Design-system status should summarize the actual primitive surface being built.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "taste-feeds-derivation",
+          "from": "taste-signature",
+          "to": "design-system-derivation",
+          "relation": "feeds",
+          "rationale": "Derivation moves should be grounded in evidenced taste from prior systems.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "priorSystemRefs",
+              "tokenRefs",
+              "componentRefs",
+              "motifRefs"
+            ],
+            "targetFields": [
+              "priorSystemRefs",
+              "tokenRefs",
+              "componentRefs",
+              "motifRefs"
+            ],
+            "description": "A derivation card should identify prior systems, tokens, components, or motifs that evidence the taste move."
+          },
+          "repairOperationIds": [
+            "add-derivation-card"
+          ],
+          "required": true
+        },
+        {
+          "id": "brief-feeds-alignment",
+          "from": "brief-to-system-alignment",
+          "to": "design-system-surface",
+          "relation": "constrains",
+          "rationale": "System primitives should be traceable to brief constraints and responses.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "derivation-produces-surface",
+          "from": "design-system-derivation",
+          "to": "design-system-surface",
+          "relation": "produces",
+          "rationale": "Derivation moves become useful when they point at actual tokens, components, or motifs in the system surface.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-system-surface",
+          "stage": "Seeding",
+          "when": "design-system-surface has no primitive pointers",
+          "condition": {
+            "kind": "section-empty",
+            "type": "design-system-surface"
+          },
+          "severity": "high",
+          "question": "What first token, component, or motif pointer makes this client system tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-taste-not-derived",
+          "stage": "Coherence",
+          "when": "taste-signature exists but design-system-derivation has no corresponding derivation moves",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which taste trait still needs a derivation move into the client system?",
+          "relatedRelationships": [
+            "taste-feeds-derivation"
+          ]
+        },
+        {
+          "id": "operation-surface-without-brief-alignment",
+          "stage": "Operation",
+          "when": "system surface exists but brief-to-system-alignment has no cards",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "design-system-surface",
+            "targetType": "brief-to-system-alignment"
+          },
+          "severity": "medium",
+          "question": "Which brief constraint does the current primitive answer?",
+          "relatedRelationships": [
+            "brief-feeds-alignment"
+          ]
+        },
+        {
+          "id": "judgment-design-system-ready",
+          "stage": "Judgment",
+          "when": "taste, alignment, derivation, and surface are all populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "taste-signature",
+              "brief-to-system-alignment",
+              "design-system-derivation",
+              "design-system-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Can the system be defended as client-aligned, pointer-based, and distinctively grounded in prior taste?",
+          "relatedRelationships": [
+            "taste-feeds-derivation",
+            "brief-feeds-alignment",
+            "derivation-produces-surface"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-system-surface-primitive",
+          "label": "Add system surface primitive",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a token, component, or motif pointer that belongs to the client system.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-taste-trait",
+          "label": "Add taste trait",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a taste-signature trait evidenced by prior systems.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-brief-alignment",
+          "label": "Add brief alignment",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a constraint/response card that ties the system to the client brief.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-derivation-card",
+          "label": "Add derivation card",
+          "stages": [
+            "Coherence",
+            "Operation"
+          ],
+          "description": "Add a derivation move from prior system evidence to a current primitive.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "map-themes-storylines": {
+      "id": "map-themes-storylines",
+      "name": "Map Themes and Storylines",
+      "title": "Map Themes and Storylines",
+      "subtitle": "A narrative mapping shape for when the manuscript exists enough that themes, arcs, and characters need their own structure.",
+      "scope": "One manuscript where themes, storylines, and character carriers need to be tracked together.",
+      "templatePath": "docs/living-doc-template-map-themes-storylines.json",
+      "objectiveRole": "Map narrative meaning by linking themes, storylines, characters, and manuscript pressure.",
+      "templateObjective": "Make the manuscript's meaning threads explicit so a reader can see which themes, storylines, and characters are actually carrying the book.",
+      "templateSuccessCondition": "A reader can identify the major themes, how each storyline moves them, which characters carry the pressure, and where the manuscript is thin or overloaded.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize narrative-thread health without carrying the thread evidence.",
+          "rationale": "This section compresses thread health while themes, storylines, and character carriers remain distinct.",
+          "required": true
+        },
+        {
+          "id": "themes",
+          "title": "Theme Thread Map",
+          "convergenceType": "theme-thread-map",
+          "role": "Track deliberate themes and the story material carrying them.",
+          "rationale": "Themes need their own thread map so meaning pressure can be traced through storylines, characters, and scenes.",
+          "required": true
+        },
+        {
+          "id": "storylines",
+          "title": "Storyline Arc Map",
+          "convergenceType": "storyline-arc-map",
+          "role": "Track named arcs, trajectories, beats, and open loops.",
+          "rationale": "Storylines show how themes move over time and where arcs are thin, overloaded, or unresolved.",
+          "required": true
+        },
+        {
+          "id": "characters",
+          "title": "Character Surface",
+          "convergenceType": "character-surface",
+          "role": "Track which characters carry theme and storyline pressure.",
+          "rationale": "Characters are structural carriers of theme and arc pressure, so their role must remain visible.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-theme-map",
+          "from": "status-snapshot",
+          "to": "theme-thread-map",
+          "relation": "summarizes",
+          "rationale": "Narrative status should summarize the actual theme thread map.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "themes-carried-by-storylines",
+          "from": "theme-thread-map",
+          "to": "storyline-arc-map",
+          "relation": "carried-by",
+          "rationale": "Themes become manuscript structure when storylines carry them through arcs and beats.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "storylineRefs",
+              "sceneRefs",
+              "sourceRefs"
+            ],
+            "targetFields": [
+              "themeRefs",
+              "sceneRefs",
+              "sourceRefs"
+            ],
+            "description": "A storyline should identify the theme, scene, or source material it carries."
+          },
+          "repairOperationIds": [
+            "add-storyline-arc"
+          ],
+          "required": true
+        },
+        {
+          "id": "storylines-carried-by-characters",
+          "from": "storyline-arc-map",
+          "to": "character-surface",
+          "relation": "carried-by",
+          "rationale": "Storylines become concrete when characters carry their pressure and continuity concerns.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "characterRefs",
+              "sceneRefs",
+              "sourceRefs"
+            ],
+            "targetFields": [
+              "storylineRefs",
+              "sceneRefs",
+              "sourceRefs"
+            ],
+            "description": "A character should identify the storyline, scene, or source material it carries."
+          },
+          "repairOperationIds": [
+            "add-character-surface"
+          ],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-theme",
+          "stage": "Seeding",
+          "when": "theme-thread-map has no theme cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "theme-thread-map"
+          },
+          "severity": "high",
+          "question": "What first theme thread makes the manuscript meaning tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-theme-not-carried",
+          "stage": "Coherence",
+          "when": "themes exist but storyline-arc-map lacks corresponding arcs",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which theme needs a storyline arc that carries it?",
+          "relatedRelationships": [
+            "themes-carried-by-storylines"
+          ]
+        },
+        {
+          "id": "operation-storyline-without-character",
+          "stage": "Operation",
+          "when": "storylines exist but character-surface has no carriers",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "medium",
+          "question": "Which character carries the current storyline pressure?",
+          "relatedRelationships": [
+            "storylines-carried-by-characters"
+          ]
+        },
+        {
+          "id": "judgment-theme-map-ready",
+          "stage": "Judgment",
+          "when": "themes, storylines, and characters are populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "theme-thread-map",
+              "storyline-arc-map",
+              "character-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader see which themes, storylines, and characters are carrying the book?",
+          "relatedRelationships": [
+            "themes-carried-by-storylines",
+            "storylines-carried-by-characters"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-theme-thread",
+          "label": "Add theme thread",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a theme with articulation, why it matters, and pressure points.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-storyline-arc",
+          "label": "Add storyline arc",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a storyline arc that carries a theme through beats and scenes.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-character-surface",
+          "label": "Add character surface",
+          "stages": [
+            "Coherence",
+            "Operation"
+          ],
+          "description": "Add a character card that carries storyline and theme pressure.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "monitoring-tracker": {
+      "id": "monitoring-tracker",
+      "name": "Monitoring Tracker",
+      "title": "Monitoring Tracker",
+      "subtitle": "A living doc shape for topics that don't end — track named voices, empirical predictions, and numeric indicators every check-in, with each period visible as a delta.",
+      "scope": "One topic or domain, tracked over time. Named experts whose stances evolve; predictions whose resolution accumulates evidence; indicators whose values print on a cadence; a consensus map where movement between periods is the signal.",
+      "templatePath": "docs/living-doc-template-monitoring-tracker.json",
+      "objectiveRole": "Track an evolving topic across periods by separating voices, predictions, indicators, map movement, sources, and period notes.",
+      "templateObjective": "Track the evolution of <topic> as evidence accumulates and named positions shift, so any reader at any period check-in sees current stance, live prediction resolutions, latest indicator values, and what moved since the prior period — without re-reading the underlying sources.",
+      "templateSuccessCondition": "A reader opening the doc at the end of any monitoring period knows (1) each expert's current stance and how it shifted, (2) which predictions moved toward resolution, (3) the latest indicator values with dated sources, and (4) where the consensus has tightened or widened on the map.",
+      "sections": [
+        {
+          "id": "experts",
+          "title": "Tracked voices",
+          "convergenceType": "expert-stance-track",
+          "role": "Track named voices and how their stances evolve over monitoring periods.",
+          "rationale": "The named voices whose public-intellectual stance evolves over time. One card per voice.",
+          "required": true
+        },
+        {
+          "id": "predictions",
+          "title": "Empirical predictions",
+          "convergenceType": "proof-ladder",
+          "role": "Track what-to-watch claims as evidence accumulates.",
+          "rationale": "The 'what to watch' claims rendered as a proof ladder. Each rung resolves as evidence accumulates across periods.",
+          "required": true
+        },
+        {
+          "id": "indicators",
+          "title": "Indicator dashboard",
+          "convergenceType": "indicator-trace",
+          "role": "Track numeric indicators and their direction across periods.",
+          "rationale": "Numeric indicators tracked across periods. Latest value is text; trend is categorical (rising/stable/falling/resolved).",
+          "required": true
+        },
+        {
+          "id": "divergence",
+          "title": "Consensus & divergence map",
+          "convergenceType": "position-cluster-map",
+          "role": "Map current and prior positions so movement between periods is visible.",
+          "rationale": "Two-axis placement of tracked voices. Movement between monitoring periods is the primary signal. Prior-period position is preserved on each card.",
+          "required": true
+        },
+        {
+          "id": "sources",
+          "title": "Sources this period",
+          "convergenceType": "citation-feed",
+          "role": "Preserve the dated sources consumed during the current monitoring period.",
+          "rationale": "Period-grouped citation feed. Each source added in the current period lives here; retroactive additions to prior periods are allowed but should be flagged in notes.",
+          "required": true
+        },
+        {
+          "id": "period-notes",
+          "title": "Period notes",
+          "convergenceType": "decision-record",
+          "role": "Summarize what shifted, resolved, and matters for the next period.",
+          "rationale": "One card per monitoring period summarising what shifted, what resolved, and what matters for next.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "sources-inform-expert-stances",
+          "from": "citation-feed",
+          "to": "expert-stance-track",
+          "relation": "informs",
+          "rationale": "Expert stance updates should be grounded in sources read during the monitoring period.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "sources-inform-indicators",
+          "from": "citation-feed",
+          "to": "indicator-trace",
+          "relation": "informs",
+          "rationale": "Indicator values need dated source backing so period movement can be audited.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "experts-positioned-on-map",
+          "from": "expert-stance-track",
+          "to": "position-cluster-map",
+          "relation": "positioned-on",
+          "rationale": "The consensus map should place tracked voices and preserve their movement between periods.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "indicators-resolve-predictions",
+          "from": "indicator-trace",
+          "to": "proof-ladder",
+          "relation": "resolves",
+          "rationale": "Predictions move toward resolution when indicators change or new values arrive.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "period-notes-summarize-tracker",
+          "from": "decision-record",
+          "to": "expert-stance-track",
+          "relation": "summarizes",
+          "rationale": "Period notes should summarize stance shifts, prediction movement, indicator changes, and map movement.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-voices",
+          "stage": "Seeding",
+          "when": "expert-stance-track has no tracked voices",
+          "condition": {
+            "kind": "section-empty",
+            "type": "expert-stance-track"
+          },
+          "severity": "high",
+          "question": "Which named voices define this monitoring topic?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "composition-voices-without-sources",
+          "stage": "Composition",
+          "when": "expert stances exist but citation-feed has no sources",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "expert-stance-track",
+            "targetType": "citation-feed"
+          },
+          "severity": "medium",
+          "question": "Which dated source supports the current stance update?",
+          "relatedRelationships": [
+            "sources-inform-expert-stances"
+          ]
+        },
+        {
+          "id": "coherence-stances-without-map",
+          "stage": "Coherence",
+          "when": "expert stances exist but position-cluster-map is empty",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "expert-stance-track",
+            "targetType": "position-cluster-map"
+          },
+          "severity": "high",
+          "question": "Where do the tracked voices sit on the consensus map this period?",
+          "relatedRelationships": [
+            "experts-positioned-on-map"
+          ]
+        },
+        {
+          "id": "operation-indicators-without-prediction-movement",
+          "stage": "Operation",
+          "when": "indicators exist but proof-ladder has no prediction rungs",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "indicator-trace",
+            "targetType": "proof-ladder"
+          },
+          "severity": "medium",
+          "question": "Which prediction did the indicator value move toward resolution?",
+          "relatedRelationships": [
+            "indicators-resolve-predictions"
+          ]
+        },
+        {
+          "id": "judgment-monitoring-period-ready",
+          "stage": "Judgment",
+          "when": "voices, predictions, indicators, map, sources, and period notes are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "expert-stance-track",
+              "proof-ladder",
+              "indicator-trace",
+              "position-cluster-map",
+              "citation-feed",
+              "decision-record"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader understand what shifted this period without rereading the sources?",
+          "relatedRelationships": [
+            "sources-inform-expert-stances",
+            "experts-positioned-on-map",
+            "indicators-resolve-predictions"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-tracked-voice",
+          "label": "Add tracked voice",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a named expert or voice with current stance and evolution.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-period-source",
+          "label": "Add period source",
+          "stages": [
+            "Composition",
+            "Refresh"
+          ],
+          "description": "Add a dated source consumed during the current monitoring period.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "update-position-map",
+          "label": "Update position map",
+          "stages": [
+            "Coherence",
+            "Refresh"
+          ],
+          "description": "Add or update the consensus/divergence map position for a tracked voice.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-indicator-value",
+          "label": "Record indicator value",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Add or update a dated numeric indicator value and trend.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "write-period-note",
+          "label": "Write period note",
+          "stages": [
+            "Judgment"
+          ],
+          "description": "Record what shifted, resolved, and matters for the next monitoring period.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
     "operations-support": {
       "id": "operations-support",
       "name": "Operations and Support",
@@ -747,6 +1889,665 @@
             "Judgment"
           ],
           "description": "Record a decision justified by the model, proof ladder, and findings.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "starter-prove-claim": {
+      "id": "starter-prove-claim",
+      "name": "Prove a Claim",
+      "title": "Prove a Claim",
+      "subtitle": "A small starting shape for work where a single assertion and the strength of its proof need to stay explicit.",
+      "scope": "One truth claim, model claim, or parser claim that needs to be defended with staged evidence.",
+      "templatePath": "docs/living-doc-template-starter-prove-claim.json",
+      "objectiveRole": "Seed a proof doc by separating the claim from its proof ladder.",
+      "templateObjective": "Make the main claim and its current proof strength visible without collapsing claim, evidence, and conclusions together.",
+      "templateSuccessCondition": "A reader can say what is being claimed, what evidence currently supports it, and what stronger proof would look like next.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize proof posture without carrying the claim or evidence itself.",
+          "rationale": "This section keeps claim readiness visible while the assertion and proof ladder remain distinct.",
+          "required": true
+        },
+        {
+          "id": "assertion",
+          "title": "Model Assertion",
+          "convergenceType": "model-assertion",
+          "role": "State the claim being defended or weakened.",
+          "rationale": "The claim needs its own card so proof strength can change without rewriting what is being claimed.",
+          "required": true
+        },
+        {
+          "id": "proof-ladder",
+          "title": "Proof Ladder",
+          "convergenceType": "proof-ladder",
+          "role": "Track the evidence rungs that support or weaken the assertion.",
+          "rationale": "Proof strength needs staged rungs so current evidence and next proof are visible separately from the assertion.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-claim",
+          "from": "status-snapshot",
+          "to": "model-assertion",
+          "relation": "summarizes",
+          "rationale": "Proof status should summarize the actual claim under review.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "claim-requires-proof",
+          "from": "model-assertion",
+          "to": "proof-ladder",
+          "relation": "requires-proof",
+          "rationale": "A claim cannot be treated as operational truth without staged proof strength.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "primitiveRefs",
+              "invariantRefs",
+              "authorityRefs"
+            ],
+            "targetFields": [
+              "assertionIds",
+              "primitiveRefs",
+              "invariantRefs",
+              "authorityRefs"
+            ],
+            "description": "A proof rung should identify the claim, primitive, invariant, or authority it supports or challenges."
+          },
+          "repairOperationIds": [
+            "add-proof-rung"
+          ],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-assertion",
+          "stage": "Seeding",
+          "when": "model-assertion has no claim card",
+          "condition": {
+            "kind": "section-empty",
+            "type": "model-assertion"
+          },
+          "severity": "high",
+          "question": "What exact claim should this proof doc defend or weaken?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-claim-not-proven",
+          "stage": "Coherence",
+          "when": "model-assertion exists but proof-ladder has no corresponding proof rungs",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which proof rung directly supports or challenges the claim?",
+          "relatedRelationships": [
+            "claim-requires-proof"
+          ]
+        },
+        {
+          "id": "judgment-claim-proof-ready",
+          "stage": "Judgment",
+          "when": "assertion and proof ladder are populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "model-assertion",
+              "proof-ladder"
+            ]
+          },
+          "severity": "high",
+          "question": "What stronger proof would move this claim beyond its current status?",
+          "relatedRelationships": [
+            "claim-requires-proof"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-assertion",
+          "label": "Add assertion",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add the claim being defended, with primitives, invariants, or authorities if known.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-proof-rung",
+          "label": "Add proof rung",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add evidence that supports, weakens, or scopes the assertion.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "starter-run-support-ops": {
+      "id": "starter-run-support-ops",
+      "name": "Run Support Ops",
+      "title": "Run Support Ops",
+      "subtitle": "A small starting shape for support work where request flow and operator tooling matter first.",
+      "scope": "One support or operations domain where requests enter through a mediated path and operators need a clear tool layer.",
+      "templatePath": "docs/living-doc-template-starter-run-support-ops.json",
+      "objectiveRole": "Seed an operations doc with request flow and the operator tooling that supports it.",
+      "templateObjective": "Make the request path and operator tool layer legible enough that someone can quickly understand how the support domain currently runs.",
+      "templateSuccessCondition": "A reader can see how a request enters the system, who or what fulfills it, and which tools the operators trust.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize support readiness without carrying request-flow details.",
+          "rationale": "This section keeps operational status visible while request flow and tool support remain inspectable.",
+          "required": true
+        },
+        {
+          "id": "operations",
+          "title": "Mediated Operation",
+          "convergenceType": "operation",
+          "role": "Describe how requests enter and move through the support domain.",
+          "rationale": "The mediated operation is the core of the support domain because it names how work enters, is fulfilled, and moves next.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "title": "Tooling Surface",
+          "convergenceType": "tooling-surface",
+          "role": "Expose trusted tools used by operators to run or inspect the request flow.",
+          "rationale": "Operators need visible tooling so the support flow can be run without rediscovering scripts or workflows.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-operation",
+          "from": "status-snapshot",
+          "to": "operation",
+          "relation": "summarizes",
+          "rationale": "Support status should summarize the actual mediated operation.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-operation",
+          "from": "tooling-surface",
+          "to": "operation",
+          "relation": "supports",
+          "rationale": "A request flow is operational only when operators can see the trusted tools that support it.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-operation",
+          "stage": "Seeding",
+          "when": "operation has no request-flow cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "operation"
+          },
+          "severity": "high",
+          "question": "What first request path or mediated operation makes this support domain tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "operation-without-tooling",
+          "stage": "Operation",
+          "when": "operation exists but tooling-surface has no trusted tool card",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "operation",
+            "targetType": "tooling-surface"
+          },
+          "severity": "medium",
+          "question": "Which tool does the operator trust to run, inspect, or update this support flow?",
+          "relatedRelationships": [
+            "tooling-supports-operation"
+          ]
+        },
+        {
+          "id": "judgment-support-starter-ready",
+          "stage": "Judgment",
+          "when": "operation and tooling are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "operation",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader understand how requests enter and which tools operators trust?",
+          "relatedRelationships": [
+            "tooling-supports-operation"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-operation-card",
+          "label": "Add operation card",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a request-flow card naming the intake path, current support, and next step.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-operator-tooling",
+          "label": "Add operator tooling",
+          "stages": [
+            "Composition",
+            "Operation"
+          ],
+          "description": "Add the trusted script, workflow, or tool used by operators.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "starter-ship-feature": {
+      "id": "starter-ship-feature",
+      "name": "Ship a Feature",
+      "title": "Ship a Feature",
+      "subtitle": "A small starting shape for one feature that needs intent, delivery focus, and a tool layer.",
+      "scope": "One feature or product surface that needs to move from idea into working behavior.",
+      "templatePath": "docs/living-doc-template-starter-ship-feature.json",
+      "objectiveRole": "Seed a feature delivery doc with a primary surface and the tooling needed to work on it.",
+      "templateObjective": "Make the main feature legible enough that a teammate can see what it is, what matters most, and how to work on it.",
+      "templateSuccessCondition": "A reader can name the primary surface, the current delivery target, and the tools used to update or render the doc.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize feature delivery readiness without replacing the surface or tooling cards.",
+          "rationale": "This section gives a small feature doc a quick readiness signal while the actual feature and tool evidence stays separate.",
+          "required": true
+        },
+        {
+          "id": "surface-flow",
+          "title": "Design–Code–Spec Flow",
+          "convergenceType": "design-code-spec-flow",
+          "role": "Name the primary feature surface as a joined design, code, spec, interaction, and ticket entity.",
+          "rationale": "A feature needs one concrete surface card before delivery work can be understood or handed off.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "title": "Tooling Surface",
+          "convergenceType": "tooling-surface",
+          "role": "Expose the scripts, workflows, and artifacts used to update or render the feature doc.",
+          "rationale": "A teammate needs an operational tool path to keep the feature doc current instead of only reading the feature card.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-feature",
+          "from": "status-snapshot",
+          "to": "design-code-spec-flow",
+          "relation": "summarizes",
+          "rationale": "Feature status should summarize the real surface being shipped.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-feature-flow",
+          "from": "tooling-surface",
+          "to": "design-code-spec-flow",
+          "relation": "supports",
+          "rationale": "The feature surface is operational only when the update/render tools are visible.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-feature-surface",
+          "stage": "Seeding",
+          "when": "design-code-spec-flow has no feature card",
+          "condition": {
+            "kind": "section-empty",
+            "type": "design-code-spec-flow"
+          },
+          "severity": "high",
+          "question": "What primary feature surface should this starter doc make tangible first?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "operation-feature-without-tooling",
+          "stage": "Operation",
+          "when": "feature surface exists but tooling-surface has no tool path",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "design-code-spec-flow",
+            "targetType": "tooling-surface"
+          },
+          "severity": "medium",
+          "question": "Which script, workflow, or artifact lets a teammate update or render this feature doc?",
+          "relatedRelationships": [
+            "tooling-supports-feature-flow"
+          ]
+        },
+        {
+          "id": "judgment-feature-starter-ready",
+          "stage": "Judgment",
+          "when": "feature surface and tooling are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "design-code-spec-flow",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a teammate name the feature, current delivery target, and tools from this doc?",
+          "relatedRelationships": [
+            "tooling-supports-feature-flow"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-feature-surface",
+          "label": "Add feature surface",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add the primary design-code-spec feature card.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-feature-tooling",
+          "label": "Add feature tooling",
+          "stages": [
+            "Composition",
+            "Operation"
+          ],
+          "description": "Add a tool card that explains how to update, render, or inspect the feature doc.",
+          "patchKind": "card-create"
+        }
+      ]
+    },
+    "starter-tiny-experiment": {
+      "id": "starter-tiny-experiment",
+      "name": "Run Tiny Experiments",
+      "title": "Run Tiny Experiments",
+      "subtitle": "A small starting shape for work where personal, time-bounded experiments need an explicit hypothesis, window, and persist/pause/pivot closure.",
+      "scope": "A small set of running and recently-closed pacts, treated as the unit of learning rather than the unit of finishing.",
+      "templatePath": "docs/living-doc-template-starter-tiny-experiment.json",
+      "objectiveRole": "Make time-bounded pacts operational by separating hypotheses, signals, attempts, and closure decisions.",
+      "templateObjective": "Make the experiments you are actually running visible — their hypotheses, their windows, and the closure decision waiting at the end of each.",
+      "templateSuccessCondition": "Every running pact has an end date and at least one trackable signal. Every closed pact has an outcome (persist / pause / pivot) and a one-or-two-sentence rationale.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize experiment pressure without carrying pact details.",
+          "rationale": "This section keeps current experiment pressure visible while pact hypotheses and attempts stay inspectable.",
+          "required": true
+        },
+        {
+          "id": "experiments",
+          "title": "Tiny Experiments",
+          "convergenceType": "tiny-experiment",
+          "role": "Track each pact with hypothesis, window, signals, and closure state.",
+          "rationale": "Each experiment is a pact: hypothesis, time window, signals, and closure decision are the unit of learning.",
+          "required": true
+        },
+        {
+          "id": "attempts",
+          "title": "Attempts",
+          "convergenceType": "attempt-log",
+          "role": "Record actions tried during or around the experiments and what they proved.",
+          "rationale": "Attempts preserve what was tried so pact outcomes are grounded in behavior rather than memory.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-experiments",
+          "from": "status-snapshot",
+          "to": "tiny-experiment",
+          "relation": "summarizes",
+          "rationale": "Experiment status should summarize actual running or recently closed pacts.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "attempts-inform-experiments",
+          "from": "attempt-log",
+          "to": "tiny-experiment",
+          "relation": "informs",
+          "rationale": "Pact closure should be informed by what was tried and what it proved.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-experiment",
+          "stage": "Seeding",
+          "when": "tiny-experiment has no pact cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "tiny-experiment"
+          },
+          "severity": "high",
+          "question": "What first pact, hypothesis, window, and signal should be tracked?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "operation-experiment-without-attempts",
+          "stage": "Operation",
+          "when": "tiny experiments exist but attempt-log has no attempts",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "tiny-experiment",
+            "targetType": "attempt-log"
+          },
+          "severity": "medium",
+          "question": "What action has been tried, and what did it prove for the pact?",
+          "relatedRelationships": [
+            "attempts-inform-experiments"
+          ]
+        },
+        {
+          "id": "judgment-experiment-closure-ready",
+          "stage": "Judgment",
+          "when": "experiments and attempts are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "tiny-experiment",
+              "attempt-log"
+            ]
+          },
+          "severity": "high",
+          "question": "Which pacts should persist, pause, or pivot based on the tracked signals?",
+          "relatedRelationships": [
+            "attempts-inform-experiments"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-experiment-pact",
+          "label": "Add experiment pact",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a tiny experiment with hypothesis, window, and signals.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-experiment-attempt",
+          "label": "Record experiment attempt",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Record what was tried and what it proved for the pact.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "close-experiment-pact",
+          "label": "Close experiment pact",
+          "stages": [
+            "Judgment"
+          ],
+          "description": "Set an outcome and rationale for a pact at the end of its window.",
+          "patchKind": "card-update"
+        }
+      ]
+    },
+    "starter-write-book": {
+      "id": "starter-write-book",
+      "name": "Write a Book",
+      "title": "Write a Book",
+      "subtitle": "A small starting shape for drafting a book without losing chapter focus, momentum, and the tool layer.",
+      "scope": "One manuscript or book project moving from outline into drafted chapters.",
+      "templatePath": "docs/living-doc-template-starter-write-book.json",
+      "objectiveRole": "Seed a book drafting doc with chapter production state and tooling.",
+      "templateObjective": "Make the manuscript legible enough that someone can see what the book is, which chapters are moving, and how the work is being supported.",
+      "templateSuccessCondition": "A reader can identify the current chapter set, the state of each major drafting unit, and the tools used to keep the manuscript moving.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize manuscript drafting momentum without carrying chapter details.",
+          "rationale": "This section keeps drafting status visible while chapters and tooling remain inspectable.",
+          "required": true
+        },
+        {
+          "id": "chapter-flow",
+          "title": "Chapter Flow",
+          "convergenceType": "content-production",
+          "role": "Track major chapter or drafting units as production cards.",
+          "rationale": "A book draft needs chapter-level production cards so momentum and dependencies are visible.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "title": "Tooling Surface",
+          "convergenceType": "tooling-surface",
+          "role": "Expose tools used to keep drafting work moving.",
+          "rationale": "Drafting claims need an operational tool layer so chapter state can be updated and inspected.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-chapters",
+          "from": "status-snapshot",
+          "to": "content-production",
+          "relation": "summarizes",
+          "rationale": "Book status should summarize the current chapter production state.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-chapter-flow",
+          "from": "tooling-surface",
+          "to": "content-production",
+          "relation": "supports",
+          "rationale": "Chapter production needs tools for drafting, tracking, or rendering the manuscript.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-chapters",
+          "stage": "Seeding",
+          "when": "content-production has no chapter cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "content-production"
+          },
+          "severity": "high",
+          "question": "What first chapter or drafting unit makes this book project tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "operation-chapters-without-tooling",
+          "stage": "Operation",
+          "when": "chapter flow exists but tooling-surface has no tool cards",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "content-production",
+            "targetType": "tooling-surface"
+          },
+          "severity": "medium",
+          "question": "Which tool keeps the chapter work moving or inspectable?",
+          "relatedRelationships": [
+            "tooling-supports-chapter-flow"
+          ]
+        },
+        {
+          "id": "judgment-book-starter-ready",
+          "stage": "Judgment",
+          "when": "chapter flow and tooling are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "content-production",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader identify the chapter set, their state, and the tools supporting the draft?",
+          "relatedRelationships": [
+            "tooling-supports-chapter-flow"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-chapter-card",
+          "label": "Add chapter card",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a chapter or drafting unit with synopsis, target, and dependencies.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-drafting-tooling",
+          "label": "Add drafting tooling",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Add a tool used to draft, render, or inspect manuscript progress.",
           "patchKind": "card-create"
         }
       ]

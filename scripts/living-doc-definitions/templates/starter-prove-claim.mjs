@@ -1,0 +1,106 @@
+import { defineTemplate } from '../define.mjs';
+
+export default defineTemplate({
+  id: 'starter-prove-claim',
+  name: 'Prove a Claim',
+  title: 'Prove a Claim',
+  subtitle: 'A small starting shape for work where a single assertion and the strength of its proof need to stay explicit.',
+  scope: 'One truth claim, model claim, or parser claim that needs to be defended with staged evidence.',
+  objective: 'Make the main claim and its current proof strength visible without collapsing claim, evidence, and conclusions together.',
+  successCondition: 'A reader can say what is being claimed, what evidence currently supports it, and what stronger proof would look like next.',
+  templatePath: 'docs/living-doc-template-starter-prove-claim.json',
+  objectiveRole: 'Seed a proof doc by separating the claim from its proof ladder.',
+  sections: [
+    {
+      id: 'status-snapshot',
+      title: 'Status Snapshot',
+      convergenceType: 'status-snapshot',
+      role: 'Summarize proof posture without carrying the claim or evidence itself.',
+      rationale: 'This section keeps claim readiness visible while the assertion and proof ladder remain distinct.',
+    },
+    {
+      id: 'assertion',
+      title: 'Model Assertion',
+      convergenceType: 'model-assertion',
+      role: 'State the claim being defended or weakened.',
+      rationale: 'The claim needs its own card so proof strength can change without rewriting what is being claimed.',
+    },
+    {
+      id: 'proof-ladder',
+      title: 'Proof Ladder',
+      convergenceType: 'proof-ladder',
+      role: 'Track the evidence rungs that support or weaken the assertion.',
+      rationale: 'Proof strength needs staged rungs so current evidence and next proof are visible separately from the assertion.',
+    },
+  ],
+  relationships: [
+    {
+      id: 'status-summarizes-claim',
+      from: 'status-snapshot',
+      to: 'model-assertion',
+      relation: 'summarizes',
+      rationale: 'Proof status should summarize the actual claim under review.',
+    },
+    {
+      id: 'claim-requires-proof',
+      from: 'model-assertion',
+      to: 'proof-ladder',
+      relation: 'requires-proof',
+      rationale: 'A claim cannot be treated as operational truth without staged proof strength.',
+      evidence: {
+        kind: 'shared-field-value',
+        sourceFields: ['id', 'primitiveRefs', 'invariantRefs', 'authorityRefs'],
+        targetFields: ['assertionIds', 'primitiveRefs', 'invariantRefs', 'authorityRefs'],
+        description: 'A proof rung should identify the claim, primitive, invariant, or authority it supports or challenges.',
+      },
+      repairOperationIds: ['add-proof-rung'],
+    },
+  ],
+  stageSignals: [
+    {
+      id: 'seeding-missing-assertion',
+      stage: 'Seeding',
+      severity: 'high',
+      when: 'model-assertion has no claim card',
+      condition: { kind: 'section-empty', type: 'model-assertion' },
+      question: 'What exact claim should this proof doc defend or weaken?',
+    },
+    {
+      id: 'coherence-claim-not-proven',
+      stage: 'Coherence',
+      severity: 'high',
+      when: 'model-assertion exists but proof-ladder has no corresponding proof rungs',
+      condition: { kind: 'related-relationship-gap' },
+      question: 'Which proof rung directly supports or challenges the claim?',
+      relatedRelationships: ['claim-requires-proof'],
+    },
+    {
+      id: 'judgment-claim-proof-ready',
+      stage: 'Judgment',
+      severity: 'high',
+      when: 'assertion and proof ladder are populated and linked',
+      condition: {
+        kind: 'all-populated-no-high-gaps',
+        types: ['model-assertion', 'proof-ladder'],
+      },
+      question: 'What stronger proof would move this claim beyond its current status?',
+      relatedRelationships: ['claim-requires-proof'],
+    },
+  ],
+  validOperations: [
+    {
+      id: 'add-assertion',
+      label: 'Add assertion',
+      stages: ['Seeding', 'Composition'],
+      description: 'Add the claim being defended, with primitives, invariants, or authorities if known.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'add-proof-rung',
+      label: 'Add proof rung',
+      stages: ['Composition', 'Coherence'],
+      description: 'Add evidence that supports, weakens, or scopes the assertion.',
+      patchKind: 'card-create',
+    },
+  ],
+});

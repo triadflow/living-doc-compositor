@@ -9,7 +9,11 @@
   "canonicalOrigin": "docs/living-doc-template-competitor-watcher.json",
   "sourceCoverage": "Template only; replace placeholder competitors, moves, predictions, and indicators with real material for the market you track.",
   "updated": "2026-04-19T00:00:00.000Z",
-  "pills": ["Template", "Monitoring", "Competitor watcher"],
+  "pills": [
+    "Template",
+    "Monitoring",
+    "Competitor watcher"
+  ],
   "templateMeta": {
     "level": "full",
     "order": 11,
@@ -47,7 +51,299 @@
       "your own company's strategy docs (use ship-feature or similar)",
       "one-off competitive snapshot reports (they go stale the day after)",
       "individual public-intellectual tracking (use monitoring-tracker, not this)"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "competitor-watcher",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  competitor_stance_track[\"competitor-stance-track<br/>Track named competitors and their current strategic posture.\"]\n  strategic_move_log[\"strategic-move-log<br/>Log discrete competitor actions with intent and observed outcome.\"]\n  proof_ladder[\"proof-ladder<br/>Track predictions about competitor moves or market outcomes.\"]\n  indicator_trace[\"indicator-trace<br/>Track numeric or categorical indicators that show competitive movement.\"]\n  position_cluster_map[\"position-cluster-map<br/>Map competitor position and movement between periods.\"]\n  citation_feed[\"citation-feed<br/>Preserve the sources consumed during the current competitive monitoring period.\"]\n  decision_record[\"decision-record<br/>Summarize what moved, resolved, and matters for the next period.\"]\n\n  citation_feed -- \"informs\" --> competitor_stance_track\n  competitor_stance_track -- \"makes\" --> strategic_move_log\n  strategic_move_log -- \"drives\" --> indicator_trace\n  competitor_stance_track -- \"positioned-on\" --> position_cluster_map\n  indicator_trace -- \"resolves\" --> proof_ladder\n  decision_record -- \"summarizes\" --> competitor_stance_track\n"
+      },
+      "objectiveRole": "Track competitive posture over time by separating competitors, moves, predictions, indicators, positions, sources, and period notes.",
+      "templateTitle": "Competitor Watcher",
+      "templateSubtitle": "A living doc shape for tracking competitors across monitoring periods — strategic posture, discrete moves, indicators, and a market-position map. Each check-in lands as a delta, so the picture accumulates rather than restarts.",
+      "templateScope": "One market, one set of named competitors, tracked over time. Strategic posture revealed through behavior. Discrete moves logged with intent and outcome. Indicators refreshed on a cadence. A two-axis map showing where each competitor sits and how they moved.",
+      "templateObjective": "Track the evolution of <market>'s competitive landscape so any reader at any period check-in sees current strategic posture per competitor, the moves they made this period, live indicator values, predictions still pending, and where each player sits on the map vs. where they used to sit.",
+      "templateSuccessCondition": "A reader opening the doc at the end of any monitoring period knows (1) each tracked competitor's current posture and how it shifted, (2) the discrete moves each one made in the period with intent and outcome, (3) the latest indicator values with dated sources, and (4) which competitors moved on the position map and in which direction.",
+      "sections": [
+        {
+          "id": "competitors",
+          "title": "Tracked competitors",
+          "convergenceType": "competitor-stance-track",
+          "role": "Track named competitors and their current strategic posture.",
+          "rationale": "The named organizations whose strategic posture we watch over time. One card per competitor, with current bet and evolution surfaced as first-class fields.",
+          "required": true
+        },
+        {
+          "id": "moves",
+          "title": "Strategic moves this period",
+          "convergenceType": "strategic-move-log",
+          "role": "Log discrete competitor actions with intent and observed outcome.",
+          "rationale": "Discrete actions taken by tracked competitors with observable consequences. Moves are events; citations are what you read about them. Keep separate.",
+          "required": true
+        },
+        {
+          "id": "predictions",
+          "title": "What comes next",
+          "convergenceType": "proof-ladder",
+          "role": "Track predictions about competitor moves or market outcomes.",
+          "rationale": "Predictions about future competitor moves or market outcomes. Each rung resolves as evidence accumulates.",
+          "required": true
+        },
+        {
+          "id": "indicators",
+          "title": "Indicator dashboard",
+          "convergenceType": "indicator-trace",
+          "role": "Track numeric or categorical indicators that show competitive movement.",
+          "rationale": "Numeric indicators tracked across periods. Carry the value as text; carry direction as a categorical trend.",
+          "required": true
+        },
+        {
+          "id": "positions",
+          "title": "Market position map",
+          "convergenceType": "position-cluster-map",
+          "role": "Map competitor position and movement between periods.",
+          "rationale": "Two-axis placement of tracked competitors. Movement between periods is the primary signal; prior positions are preserved per card.",
+          "required": true
+        },
+        {
+          "id": "sources",
+          "title": "Sources this period",
+          "convergenceType": "citation-feed",
+          "role": "Preserve the sources consumed during the current competitive monitoring period.",
+          "rationale": "Articles, earnings transcripts, analyst reports, interviews you consumed this period. Sources are what you READ; moves are what HAPPENED. Keep them in their own sections.",
+          "required": true
+        },
+        {
+          "id": "period-notes",
+          "title": "Period notes",
+          "convergenceType": "decision-record",
+          "role": "Summarize what moved, resolved, and matters for the next period.",
+          "rationale": "One card per monitoring period summarising what moved, what resolved, and what matters for the next period.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "sources-inform-competitor-posture",
+          "from": "citation-feed",
+          "to": "competitor-stance-track",
+          "relation": "informs",
+          "rationale": "Competitor posture should be inferred from dated sources and observed behavior.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "competitors-make-moves",
+          "from": "competitor-stance-track",
+          "to": "strategic-move-log",
+          "relation": "makes",
+          "rationale": "Strategic moves must identify which tracked competitor made the move.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "name"
+            ],
+            "targetFields": [
+              "byCompany",
+              "competitorIds",
+              "companyIds"
+            ],
+            "description": "A move should identify the competitor or company that made it."
+          },
+          "repairOperationIds": [
+            "add-strategic-move"
+          ],
+          "required": true
+        },
+        {
+          "id": "moves-drive-indicators",
+          "from": "strategic-move-log",
+          "to": "indicator-trace",
+          "relation": "drives",
+          "rationale": "Discrete moves should connect to indicator changes when their effect is observable.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "competitors-positioned-on-map",
+          "from": "competitor-stance-track",
+          "to": "position-cluster-map",
+          "relation": "positioned-on",
+          "rationale": "Tracked competitors should appear on the market position map so movement is visible.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "indicators-resolve-predictions",
+          "from": "indicator-trace",
+          "to": "proof-ladder",
+          "relation": "resolves",
+          "rationale": "Indicator movement and strategic moves resolve or weaken predictions.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "period-notes-summarize-competitive-landscape",
+          "from": "decision-record",
+          "to": "competitor-stance-track",
+          "relation": "summarizes",
+          "rationale": "Period notes should summarize posture shifts, moves, indicators, predictions, and map movement.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-competitors",
+          "stage": "Seeding",
+          "when": "competitor-stance-track has no tracked competitors",
+          "condition": {
+            "kind": "section-empty",
+            "type": "competitor-stance-track"
+          },
+          "severity": "high",
+          "question": "Which competitors define this market watch?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "composition-competitors-without-sources",
+          "stage": "Composition",
+          "when": "competitors exist but citation-feed has no sources",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "competitor-stance-track",
+            "targetType": "citation-feed"
+          },
+          "severity": "medium",
+          "question": "Which source supports the current competitor posture?",
+          "relatedRelationships": [
+            "sources-inform-competitor-posture"
+          ]
+        },
+        {
+          "id": "coherence-competitor-without-moves",
+          "stage": "Coherence",
+          "when": "competitors exist but strategic-move-log lacks corresponding moves",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which tracked competitor made a discrete strategic move this period?",
+          "relatedRelationships": [
+            "competitors-make-moves"
+          ]
+        },
+        {
+          "id": "operation-competitors-without-position-map",
+          "stage": "Operation",
+          "when": "competitors exist but position-cluster-map is empty",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "competitor-stance-track",
+            "targetType": "position-cluster-map"
+          },
+          "severity": "medium",
+          "question": "Where does each competitor sit on the market position map this period?",
+          "relatedRelationships": [
+            "competitors-positioned-on-map"
+          ]
+        },
+        {
+          "id": "judgment-competitor-period-ready",
+          "stage": "Judgment",
+          "when": "competitors, moves, predictions, indicators, positions, sources, and notes are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "competitor-stance-track",
+              "strategic-move-log",
+              "proof-ladder",
+              "indicator-trace",
+              "position-cluster-map",
+              "citation-feed",
+              "decision-record"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader see each competitor posture, moves, indicators, and map movement for this period?",
+          "relatedRelationships": [
+            "competitors-make-moves",
+            "competitors-positioned-on-map",
+            "indicators-resolve-predictions"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-competitor",
+          "label": "Add competitor",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a tracked competitor with posture, current bet, and evolution.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-strategic-move",
+          "label": "Add strategic move",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add a dated strategic move by a tracked competitor.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-competitor-indicator",
+          "label": "Record competitor indicator",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Add or update an indicator value connected to competitive movement.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "update-market-position",
+          "label": "Update market position",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Add or update a competitor position and movement on the map.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "write-competitor-period-note",
+          "label": "Write competitor period note",
+          "stages": [
+            "Judgment"
+          ],
+          "description": "Record what moved, resolved, and matters for next period.",
+          "patchKind": "card-create"
+        }
+      ],
+      "counts": {
+        "sections": 7,
+        "relationships": 6,
+        "stageSignals": 5,
+        "validOperations": 5
+      }
+    }
   },
   "objective": "Track the evolution of <market>'s competitive landscape so any reader at any period check-in sees current strategic posture per competitor, the moves they made this period, live indicator values, predictions still pending, and where each player sits on the map vs. where they used to sit.",
   "successCondition": "A reader opening the doc at the end of any monitoring period knows (1) each tracked competitor's current posture and how it shifted, (2) the discrete moves each one made in the period with intent and outcome, (3) the latest indicator values with dated sources, and (4) which competitors moved on the position map and in which direction.",
@@ -95,43 +391,57 @@
       "id": "posture-cites-signal",
       "name": "Posture must cite a signal",
       "statement": "Every competitor card must cite at least one signal (press, earnings, product page, hire, pricing change) dated in the current or prior period.",
-      "appliesTo": ["competitors"]
+      "appliesTo": [
+        "competitors"
+      ]
     },
     {
       "id": "move-has-date-and-company",
       "name": "Every move has a dateOf and byCompany",
       "statement": "Every strategic-move-log card must carry a dateOf and a byCompany reference to a tracked competitor.",
-      "appliesTo": ["moves"]
+      "appliesTo": [
+        "moves"
+      ]
     },
     {
       "id": "prediction-resolution",
       "name": "Every prediction carries a resolution status",
       "statement": "Every prediction rung must carry a resolution (planned / partial / ready / blocked) with rationale.",
-      "appliesTo": ["predictions"]
+      "appliesTo": [
+        "predictions"
+      ]
     },
     {
       "id": "indicator-dated",
       "name": "Every indicator is dated",
       "statement": "Every indicator card must have a latestValue with an as-of date and a source.",
-      "appliesTo": ["indicators"]
+      "appliesTo": [
+        "indicators"
+      ]
     },
     {
       "id": "map-complete",
       "name": "Map covers every tracked competitor",
       "statement": "The position map must include a card for every competitor in the competitors section.",
-      "appliesTo": ["positions"]
+      "appliesTo": [
+        "positions"
+      ]
     },
     {
       "id": "source-dated",
       "name": "Every source has a publication date",
       "statement": "Every citation card must carry a publishedAt field.",
-      "appliesTo": ["sources"]
+      "appliesTo": [
+        "sources"
+      ]
     },
     {
       "id": "period-note-closed",
       "name": "Period note exists when period closes",
       "statement": "When the current monitoring period has closed, the period note for that period must exist.",
-      "appliesTo": ["period-notes"]
+      "appliesTo": [
+        "period-notes"
+      ]
     }
   ],
   "callouts": [
@@ -182,7 +492,10 @@
             "<second>"
           ],
           "notes": [
-            { "role": "reference", "text": "<Primary signal grounding the current bet, e.g. 'Q1 earnings call: CEO named X as top priority'>" }
+            {
+              "role": "reference",
+              "text": "<Primary signal grounding the current bet, e.g. 'Q1 earnings call: CEO named X as top priority'>"
+            }
           ],
           "lastUpdatedInPeriod": "P1"
         },
@@ -220,7 +533,10 @@
             "<indicator id this move is expected to affect>"
           ],
           "notes": [
-            { "role": "reference", "text": "<Primary source — press release, product page, earnings commentary.>" }
+            {
+              "role": "reference",
+              "text": "<Primary source — press release, product page, earnings commentary.>"
+            }
           ],
           "lastUpdatedInPeriod": "P1"
         }
@@ -238,8 +554,14 @@
           "name": "<Predictive claim about the market, e.g. 'Competitor X acquires Y before Q4'>",
           "status": "planned",
           "notes": [
-            { "role": "reference", "text": "<Baseline evidence or expected direction>" },
-            { "role": "paragraph", "text": "Resolution criterion: <what would confirm this, what would refute it>." }
+            {
+              "role": "reference",
+              "text": "<Baseline evidence or expected direction>"
+            },
+            {
+              "role": "paragraph",
+              "text": "Resolution criterion: <what would confirm this, what would refute it>."
+            }
           ],
           "lastUpdatedInPeriod": "P1"
         }
@@ -261,7 +583,10 @@
           "forecast": "<expected direction>",
           "deltaVsLastPeriod": "baseline",
           "notes": [
-            { "role": "reference", "text": "<Source of this print>" }
+            {
+              "role": "reference",
+              "text": "<Source of this print>"
+            }
           ],
           "lastUpdatedInPeriod": "P1"
         }
@@ -300,7 +625,9 @@
           "venue": "<Publication / analyst firm / company IR>",
           "publishedAt": "<YYYY-MM>",
           "url": "https://example.com/source",
-          "cardsReferenced": ["competitors/competitor-example-1"],
+          "cardsReferenced": [
+            "competitors/competitor-example-1"
+          ],
           "lastUpdatedInPeriod": "P1"
         }
       ]
@@ -317,12 +644,20 @@
           "name": "Period P1 — baseline",
           "status": "ground-truth",
           "notes": [
-            { "role": "paragraph", "text": "<Summary of what P1 captured: competitors tracked, moves logged, predictions opened, indicators dashboarded.>" },
-            { "role": "callout", "tone": "info", "title": "Focus for next period", "items": [
-              "<Specific thing to watch>",
-              "<Specific thing to watch>",
-              "<Specific thing to watch>"
-            ]}
+            {
+              "role": "paragraph",
+              "text": "<Summary of what P1 captured: competitors tracked, moves logged, predictions opened, indicators dashboarded.>"
+            },
+            {
+              "role": "callout",
+              "tone": "info",
+              "title": "Focus for next period",
+              "items": [
+                "<Specific thing to watch>",
+                "<Specific thing to watch>",
+                "<Specific thing to watch>"
+              ]
+            }
           ],
           "lastUpdatedInPeriod": "P1"
         }

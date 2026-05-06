@@ -9,7 +9,11 @@
   "canonicalOrigin": "docs/living-doc-template-starter-prove-claim.json",
   "sourceCoverage": "Template only; replace placeholder primitives, evidence, and tickets with real proof sources.",
   "updated": "2026-04-14T12:00:00.000Z",
-  "pills": ["Template", "Starter", "Proof"],
+  "pills": [
+    "Template",
+    "Starter",
+    "Proof"
+  ],
   "templateMeta": {
     "level": "starter",
     "order": 2,
@@ -40,7 +44,164 @@
       "broad multi-claim model inventories",
       "final canonical decision logs",
       "general operational tracking"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "starter-prove-claim",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize proof posture without carrying the claim or evidence itself.\"]\n  model_assertion[\"model-assertion<br/>State the claim being defended or weakened.\"]\n  proof_ladder[\"proof-ladder<br/>Track the evidence rungs that support or weaken the assertion.\"]\n\n  status_snapshot -- \"summarizes\" --> model_assertion\n  model_assertion -- \"requires-proof\" --> proof_ladder\n"
+      },
+      "objectiveRole": "Seed a proof doc by separating the claim from its proof ladder.",
+      "templateTitle": "Prove a Claim",
+      "templateSubtitle": "A small starting shape for work where a single assertion and the strength of its proof need to stay explicit.",
+      "templateScope": "One truth claim, model claim, or parser claim that needs to be defended with staged evidence.",
+      "templateObjective": "Make the main claim and its current proof strength visible without collapsing claim, evidence, and conclusions together.",
+      "templateSuccessCondition": "A reader can say what is being claimed, what evidence currently supports it, and what stronger proof would look like next.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize proof posture without carrying the claim or evidence itself.",
+          "rationale": "This section keeps claim readiness visible while the assertion and proof ladder remain distinct.",
+          "required": true
+        },
+        {
+          "id": "assertion",
+          "title": "Model Assertion",
+          "convergenceType": "model-assertion",
+          "role": "State the claim being defended or weakened.",
+          "rationale": "The claim needs its own card so proof strength can change without rewriting what is being claimed.",
+          "required": true
+        },
+        {
+          "id": "proof-ladder",
+          "title": "Proof Ladder",
+          "convergenceType": "proof-ladder",
+          "role": "Track the evidence rungs that support or weaken the assertion.",
+          "rationale": "Proof strength needs staged rungs so current evidence and next proof are visible separately from the assertion.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-claim",
+          "from": "status-snapshot",
+          "to": "model-assertion",
+          "relation": "summarizes",
+          "rationale": "Proof status should summarize the actual claim under review.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "claim-requires-proof",
+          "from": "model-assertion",
+          "to": "proof-ladder",
+          "relation": "requires-proof",
+          "rationale": "A claim cannot be treated as operational truth without staged proof strength.",
+          "evidence": {
+            "kind": "shared-field-value",
+            "sourceFields": [
+              "id",
+              "primitiveRefs",
+              "invariantRefs",
+              "authorityRefs"
+            ],
+            "targetFields": [
+              "assertionIds",
+              "primitiveRefs",
+              "invariantRefs",
+              "authorityRefs"
+            ],
+            "description": "A proof rung should identify the claim, primitive, invariant, or authority it supports or challenges."
+          },
+          "repairOperationIds": [
+            "add-proof-rung"
+          ],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-assertion",
+          "stage": "Seeding",
+          "when": "model-assertion has no claim card",
+          "condition": {
+            "kind": "section-empty",
+            "type": "model-assertion"
+          },
+          "severity": "high",
+          "question": "What exact claim should this proof doc defend or weaken?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "coherence-claim-not-proven",
+          "stage": "Coherence",
+          "when": "model-assertion exists but proof-ladder has no corresponding proof rungs",
+          "condition": {
+            "kind": "related-relationship-gap"
+          },
+          "severity": "high",
+          "question": "Which proof rung directly supports or challenges the claim?",
+          "relatedRelationships": [
+            "claim-requires-proof"
+          ]
+        },
+        {
+          "id": "judgment-claim-proof-ready",
+          "stage": "Judgment",
+          "when": "assertion and proof ladder are populated and linked",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "model-assertion",
+              "proof-ladder"
+            ]
+          },
+          "severity": "high",
+          "question": "What stronger proof would move this claim beyond its current status?",
+          "relatedRelationships": [
+            "claim-requires-proof"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-assertion",
+          "label": "Add assertion",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add the claim being defended, with primitives, invariants, or authorities if known.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-proof-rung",
+          "label": "Add proof rung",
+          "stages": [
+            "Composition",
+            "Coherence"
+          ],
+          "description": "Add evidence that supports, weakens, or scopes the assertion.",
+          "patchKind": "card-create"
+        }
+      ],
+      "counts": {
+        "sections": 3,
+        "relationships": 2,
+        "stageSignals": 3,
+        "validOperations": 2
+      }
+    }
   },
   "objective": "Make the main claim and its current proof strength visible without collapsing claim, evidence, and conclusions together.",
   "successCondition": "A reader can say what is being claimed, what evidence currently supports it, and what stronger proof would look like next.",
@@ -61,8 +222,14 @@
       "convergenceType": "status-snapshot",
       "updated": "2026-04-14T12:00:00.000Z",
       "stats": [
-        { "label": "Assertions", "value": "1" },
-        { "label": "Proof rungs", "value": "2" }
+        {
+          "label": "Assertions",
+          "value": "1"
+        },
+        {
+          "label": "Proof rungs",
+          "value": "2"
+        }
       ],
       "callout": {
         "tone": "info",
@@ -72,7 +239,8 @@
           "Let the sections below carry the actual evidence structure."
         ]
       },
-      "data": []
+      "data": [],
+      "rationale": "This section keeps claim readiness visible while the assertion and proof ladder remain distinct."
     },
     {
       "id": "assertion",
@@ -85,9 +253,15 @@
           "name": "Canonical truth path",
           "status": "canonical",
           "updated": "2026-04-14T11:30:00.000Z",
-          "primitiveRefs": ["canonical-output"],
-          "invariantRefs": ["same-input-same-meaning"],
-          "authorityRefs": ["proof-overview"],
+          "primitiveRefs": [
+            "canonical-output"
+          ],
+          "invariantRefs": [
+            "same-input-same-meaning"
+          ],
+          "authorityRefs": [
+            "proof-overview"
+          ],
           "ticketIds": [
             {
               "issueNumber": "211",
@@ -98,7 +272,8 @@
             "Write the one claim the rest of the document is trying to defend."
           ]
         }
-      ]
+      ],
+      "rationale": "The claim needs its own card so proof strength can change without rewriting what is being claimed."
     },
     {
       "id": "proof-ladder",
@@ -124,7 +299,8 @@
             "Reserve higher rungs for evidence that gets closer to live operational truth."
           ]
         }
-      ]
+      ],
+      "rationale": "Proof strength needs staged rungs so current evidence and next proof are visible separately from the assertion."
     }
   ]
 }

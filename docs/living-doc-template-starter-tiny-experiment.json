@@ -9,7 +9,11 @@
   "canonicalOrigin": "docs/living-doc-template-starter-tiny-experiment.json",
   "sourceCoverage": "Template only; replace example experiments with your own pacts.",
   "updated": "2026-05-01T22:30:00.000Z",
-  "pills": ["Template", "Starter", "Experiments"],
+  "pills": [
+    "Template",
+    "Starter",
+    "Experiments"
+  ],
   "templateMeta": {
     "level": "starter",
     "order": 5,
@@ -44,7 +48,158 @@
       "open-ended task lists with no question being asked",
       "outcome-locked goals (use a milestone tracker)",
       "post-hoc journaling with no prior bet"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "starter-tiny-experiment",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize experiment pressure without carrying pact details.\"]\n  tiny_experiment[\"tiny-experiment<br/>Track each pact with hypothesis, window, signals, and closure state.\"]\n  attempt_log[\"attempt-log<br/>Record actions tried during or around the experiments and what they proved.\"]\n\n  status_snapshot -- \"summarizes\" --> tiny_experiment\n  attempt_log -- \"informs\" --> tiny_experiment\n"
+      },
+      "objectiveRole": "Make time-bounded pacts operational by separating hypotheses, signals, attempts, and closure decisions.",
+      "templateTitle": "Run Tiny Experiments",
+      "templateSubtitle": "A small starting shape for work where personal, time-bounded experiments need an explicit hypothesis, window, and persist/pause/pivot closure.",
+      "templateScope": "A small set of running and recently-closed pacts, treated as the unit of learning rather than the unit of finishing.",
+      "templateObjective": "Make the experiments you are actually running visible — their hypotheses, their windows, and the closure decision waiting at the end of each.",
+      "templateSuccessCondition": "Every running pact has an end date and at least one trackable signal. Every closed pact has an outcome (persist / pause / pivot) and a one-or-two-sentence rationale.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize experiment pressure without carrying pact details.",
+          "rationale": "This section keeps current experiment pressure visible while pact hypotheses and attempts stay inspectable.",
+          "required": true
+        },
+        {
+          "id": "experiments",
+          "title": "Tiny Experiments",
+          "convergenceType": "tiny-experiment",
+          "role": "Track each pact with hypothesis, window, signals, and closure state.",
+          "rationale": "Each experiment is a pact: hypothesis, time window, signals, and closure decision are the unit of learning.",
+          "required": true
+        },
+        {
+          "id": "attempts",
+          "title": "Attempts",
+          "convergenceType": "attempt-log",
+          "role": "Record actions tried during or around the experiments and what they proved.",
+          "rationale": "Attempts preserve what was tried so pact outcomes are grounded in behavior rather than memory.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-experiments",
+          "from": "status-snapshot",
+          "to": "tiny-experiment",
+          "relation": "summarizes",
+          "rationale": "Experiment status should summarize actual running or recently closed pacts.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "attempts-inform-experiments",
+          "from": "attempt-log",
+          "to": "tiny-experiment",
+          "relation": "informs",
+          "rationale": "Pact closure should be informed by what was tried and what it proved.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-experiment",
+          "stage": "Seeding",
+          "when": "tiny-experiment has no pact cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "tiny-experiment"
+          },
+          "severity": "high",
+          "question": "What first pact, hypothesis, window, and signal should be tracked?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "operation-experiment-without-attempts",
+          "stage": "Operation",
+          "when": "tiny experiments exist but attempt-log has no attempts",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "tiny-experiment",
+            "targetType": "attempt-log"
+          },
+          "severity": "medium",
+          "question": "What action has been tried, and what did it prove for the pact?",
+          "relatedRelationships": [
+            "attempts-inform-experiments"
+          ]
+        },
+        {
+          "id": "judgment-experiment-closure-ready",
+          "stage": "Judgment",
+          "when": "experiments and attempts are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "tiny-experiment",
+              "attempt-log"
+            ]
+          },
+          "severity": "high",
+          "question": "Which pacts should persist, pause, or pivot based on the tracked signals?",
+          "relatedRelationships": [
+            "attempts-inform-experiments"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-experiment-pact",
+          "label": "Add experiment pact",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a tiny experiment with hypothesis, window, and signals.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "record-experiment-attempt",
+          "label": "Record experiment attempt",
+          "stages": [
+            "Operation",
+            "Refresh"
+          ],
+          "description": "Record what was tried and what it proved for the pact.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "close-experiment-pact",
+          "label": "Close experiment pact",
+          "stages": [
+            "Judgment"
+          ],
+          "description": "Set an outcome and rationale for a pact at the end of its window.",
+          "patchKind": "card-update"
+        }
+      ],
+      "counts": {
+        "sections": 3,
+        "relationships": 2,
+        "stageSignals": 3,
+        "validOperations": 3
+      }
+    }
   },
   "objective": "Make the experiments you are actually running visible — their hypotheses, their windows, and the closure decision waiting at the end of each.",
   "successCondition": "Every running pact has an end date and at least one trackable signal. Every closed pact has an outcome (persist / pause / pivot) and a one-or-two-sentence rationale.",
@@ -74,9 +229,18 @@
       "convergenceType": "status-snapshot",
       "updated": "2026-05-01T22:30:00.000Z",
       "stats": [
-        { "label": "Running", "value": "1" },
-        { "label": "Closed", "value": "2" },
-        { "label": "Persist / Pause / Pivot", "value": "1 / 0 / 1" }
+        {
+          "label": "Running",
+          "value": "1"
+        },
+        {
+          "label": "Closed",
+          "value": "2"
+        },
+        {
+          "label": "Persist / Pause / Pivot",
+          "value": "1 / 0 / 1"
+        }
       ],
       "callout": {
         "tone": "info",
@@ -86,7 +250,8 @@
           "Let the section below carry the actual experiments."
         ]
       },
-      "data": []
+      "data": [],
+      "rationale": "This section keeps current experiment pressure visible while pact hypotheses and attempts stay inspectable."
     },
     {
       "id": "experiments",
@@ -110,15 +275,30 @@
           "windowStart": "2026-04-30",
           "windowEnd": "2026-05-14",
           "hypothesis": [
-            { "type": "info", "text": "If I add a required kind: act | surface to every convergence type and update /convergence-advisor to ask the kind question first, new types entering the registry will declare kind cleanly and the advisor's first dialog turn will sharpen." }
+            {
+              "type": "info",
+              "text": "If I add a required kind: act | surface to every convergence type and update /convergence-advisor to ask the kind question first, new types entering the registry will declare kind cleanly and the advisor's first dialog turn will sharpen."
+            }
           ],
           "signals": [
-            { "type": "info", "text": "Number of new types proposed via the advisor in the next two weeks." },
-            { "type": "info", "text": "Whether each new proposal cleanly answers act vs surface in its first turn." },
-            { "type": "info", "text": "Subjective sharpness when adding sections to existing docs." }
+            {
+              "type": "info",
+              "text": "Number of new types proposed via the advisor in the next two weeks."
+            },
+            {
+              "type": "info",
+              "text": "Whether each new proposal cleanly answers act vs surface in its first turn."
+            },
+            {
+              "type": "info",
+              "text": "Subjective sharpness when adding sections to existing docs."
+            }
           ],
           "ticketIds": [
-            { "issueNumber": "156", "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/156" }
+            {
+              "issueNumber": "156",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/156"
+            }
           ],
           "notes": [
             "This is the inaugural pact for this template — the act/surface split itself, retro-fitted as a tiny experiment.",
@@ -134,14 +314,26 @@
           "windowStart": "2026-04-01",
           "windowEnd": "2026-04-14",
           "hypothesis": [
-            { "type": "info", "text": "If I read one living doc end-to-end every morning for 14 days, drift catches will increase and recall in working sessions will sharpen." }
+            {
+              "type": "info",
+              "text": "If I read one living doc end-to-end every morning for 14 days, drift catches will increase and recall in working sessions will sharpen."
+            }
           ],
           "signals": [
-            { "type": "info", "text": "Drift catches per week — cards discovered to be stale." },
-            { "type": "info", "text": "Subjective recall when entering a session cold." }
+            {
+              "type": "info",
+              "text": "Drift catches per week — cards discovered to be stale."
+            },
+            {
+              "type": "info",
+              "text": "Subjective recall when entering a session cold."
+            }
           ],
           "rationale": [
-            { "type": "info", "text": "Drift catches went from ~1/week to ~4/week; cold-session recall measurably faster. Persisting as standing morning practice." }
+            {
+              "type": "info",
+              "text": "Drift catches went from ~1/week to ~4/week; cold-session recall measurably faster. Persisting as standing morning practice."
+            }
           ],
           "notes": [
             "Example of a clean persist outcome — the practice produced what the hypothesis predicted.",
@@ -157,15 +349,30 @@
           "windowStart": "2026-03-15",
           "windowEnd": "2026-04-01",
           "hypothesis": [
-            { "type": "info", "text": "If I draft each period dossier from the change-log plus current living-doc state, prose quality will match hand-written within three cycles." }
+            {
+              "type": "info",
+              "text": "If I draft each period dossier from the change-log plus current living-doc state, prose quality will match hand-written within three cycles."
+            }
           ],
           "signals": [
-            { "type": "info", "text": "Editorial pass count needed before publish." },
-            { "type": "info", "text": "Subjective tone match against hand-written reference dossiers." },
-            { "type": "info", "text": "Time saved per dossier." }
+            {
+              "type": "info",
+              "text": "Editorial pass count needed before publish."
+            },
+            {
+              "type": "info",
+              "text": "Subjective tone match against hand-written reference dossiers."
+            },
+            {
+              "type": "info",
+              "text": "Time saved per dossier."
+            }
           ],
           "rationale": [
-            { "type": "info", "text": "Quality close on monitoring dossiers (3-4 edit passes) but tone fell flat on argumentative pieces (8+ passes). Pivoting to a hand-AI loop where the AI drafts only the structural skeleton." }
+            {
+              "type": "info",
+              "text": "Quality close on monitoring dossiers (3-4 edit passes) but tone fell flat on argumentative pieces (8+ passes). Pivoting to a hand-AI loop where the AI drafts only the structural skeleton."
+            }
           ],
           "nextPact": "hand-ai-dossier-loop",
           "notes": [
@@ -173,7 +380,8 @@
             "Pivoting created a new pact (hand-ai-dossier-loop) that would live in this same section once it's running."
           ]
         }
-      ]
+      ],
+      "rationale": "Each experiment is a pact: hypothesis, time window, signals, and closure decision are the unit of learning."
     },
     {
       "id": "attempts",
@@ -195,10 +403,16 @@
           "status": "workaround-shipped",
           "updated": "2026-05-01T15:00:00.000Z",
           "what_tried": [
-            { "type": "info", "text": "Restructured step 3 of the skill to lead with 'is each card a unit of thinking-action or a projection of state?' before asking about sources/projection/derivation." }
+            {
+              "type": "info",
+              "text": "Restructured step 3 of the skill to lead with 'is each card a unit of thinking-action or a projection of state?' before asking about sources/projection/derivation."
+            }
           ],
           "what_proved": [
-            { "type": "info", "text": "Skill landed; first observation window is open. Serves the act-surface-split experiment above." }
+            {
+              "type": "info",
+              "text": "Skill landed; first observation window is open. Serves the act-surface-split experiment above."
+            }
           ],
           "shipped_in": "https://github.com/triadflow/living-doc-compositor/commit/325c8f9",
           "cost_to_apply": "Two edits, one in .claude and one in .agents.",
@@ -206,7 +420,8 @@
             "This card belongs to the act-surface-split experiment — it's one of the actions inside that pact, not the pact itself."
           ]
         }
-      ]
+      ],
+      "rationale": "Attempts preserve what was tried so pact outcomes are grounded in behavior rather than memory."
     }
   ]
 }

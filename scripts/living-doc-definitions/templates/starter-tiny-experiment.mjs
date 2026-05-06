@@ -1,0 +1,110 @@
+import { defineTemplate } from '../define.mjs';
+
+export default defineTemplate({
+  id: 'starter-tiny-experiment',
+  name: 'Run Tiny Experiments',
+  title: 'Run Tiny Experiments',
+  subtitle: 'A small starting shape for work where personal, time-bounded experiments need an explicit hypothesis, window, and persist/pause/pivot closure.',
+  scope: 'A small set of running and recently-closed pacts, treated as the unit of learning rather than the unit of finishing.',
+  objective: 'Make the experiments you are actually running visible — their hypotheses, their windows, and the closure decision waiting at the end of each.',
+  successCondition: 'Every running pact has an end date and at least one trackable signal. Every closed pact has an outcome (persist / pause / pivot) and a one-or-two-sentence rationale.',
+  templatePath: 'docs/living-doc-template-starter-tiny-experiment.json',
+  objectiveRole: 'Make time-bounded pacts operational by separating hypotheses, signals, attempts, and closure decisions.',
+  sections: [
+    {
+      id: 'status-snapshot',
+      title: 'Status Snapshot',
+      convergenceType: 'status-snapshot',
+      role: 'Summarize experiment pressure without carrying pact details.',
+      rationale: 'This section keeps current experiment pressure visible while pact hypotheses and attempts stay inspectable.',
+    },
+    {
+      id: 'experiments',
+      title: 'Tiny Experiments',
+      convergenceType: 'tiny-experiment',
+      role: 'Track each pact with hypothesis, window, signals, and closure state.',
+      rationale: 'Each experiment is a pact: hypothesis, time window, signals, and closure decision are the unit of learning.',
+    },
+    {
+      id: 'attempts',
+      title: 'Attempts',
+      convergenceType: 'attempt-log',
+      role: 'Record actions tried during or around the experiments and what they proved.',
+      rationale: 'Attempts preserve what was tried so pact outcomes are grounded in behavior rather than memory.',
+    },
+  ],
+  relationships: [
+    {
+      id: 'status-summarizes-experiments',
+      from: 'status-snapshot',
+      to: 'tiny-experiment',
+      relation: 'summarizes',
+      rationale: 'Experiment status should summarize actual running or recently closed pacts.',
+    },
+    {
+      id: 'attempts-inform-experiments',
+      from: 'attempt-log',
+      to: 'tiny-experiment',
+      relation: 'informs',
+      rationale: 'Pact closure should be informed by what was tried and what it proved.',
+    },
+  ],
+  stageSignals: [
+    {
+      id: 'seeding-missing-experiment',
+      stage: 'Seeding',
+      severity: 'high',
+      when: 'tiny-experiment has no pact cards',
+      condition: { kind: 'section-empty', type: 'tiny-experiment' },
+      question: 'What first pact, hypothesis, window, and signal should be tracked?',
+    },
+    {
+      id: 'operation-experiment-without-attempts',
+      stage: 'Operation',
+      severity: 'medium',
+      when: 'tiny experiments exist but attempt-log has no attempts',
+      condition: {
+        kind: 'source-populated-target-empty',
+        sourceType: 'tiny-experiment',
+        targetType: 'attempt-log',
+      },
+      question: 'What action has been tried, and what did it prove for the pact?',
+      relatedRelationships: ['attempts-inform-experiments'],
+    },
+    {
+      id: 'judgment-experiment-closure-ready',
+      stage: 'Judgment',
+      severity: 'high',
+      when: 'experiments and attempts are populated',
+      condition: {
+        kind: 'all-populated-no-high-gaps',
+        types: ['tiny-experiment', 'attempt-log'],
+      },
+      question: 'Which pacts should persist, pause, or pivot based on the tracked signals?',
+      relatedRelationships: ['attempts-inform-experiments'],
+    },
+  ],
+  validOperations: [
+    {
+      id: 'add-experiment-pact',
+      label: 'Add experiment pact',
+      stages: ['Seeding', 'Composition'],
+      description: 'Add a tiny experiment with hypothesis, window, and signals.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'record-experiment-attempt',
+      label: 'Record experiment attempt',
+      stages: ['Operation', 'Refresh'],
+      description: 'Record what was tried and what it proved for the pact.',
+      patchKind: 'card-create',
+    },
+    {
+      id: 'close-experiment-pact',
+      label: 'Close experiment pact',
+      stages: ['Judgment'],
+      description: 'Set an outcome and rationale for a pact at the end of its window.',
+      patchKind: 'card-update',
+    },
+  ],
+});

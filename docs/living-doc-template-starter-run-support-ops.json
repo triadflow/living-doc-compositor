@@ -9,7 +9,11 @@
   "canonicalOrigin": "docs/living-doc-template-starter-run-support-ops.json",
   "sourceCoverage": "Template only; replace placeholder request paths, workflow references, and tooling paths with real support sources.",
   "updated": "2026-04-14T12:00:00.000Z",
-  "pills": ["Template", "Starter", "Operations"],
+  "pills": [
+    "Template",
+    "Starter",
+    "Operations"
+  ],
   "templateMeta": {
     "level": "starter",
     "order": 3,
@@ -38,7 +42,149 @@
       "full support-program inventories on day one",
       "enabler-heavy catalogs without request flow",
       "component status maps"
-    ]
+    ],
+    "semanticDefinition": {
+      "schema": "living-doc-template-semantic-definition/v1",
+      "definitionId": "starter-run-support-ops",
+      "generatedFrom": "scripts/living-doc-definitions",
+      "graph": {
+        "schema": "living-doc-semantic-graph/v1",
+        "artifactPath": "scripts/generated/living-doc-template-graphs.json"
+      },
+      "diagram": {
+        "schema": "living-doc-semantic-diagrams/v1",
+        "artifactPath": "scripts/generated/living-doc-template-diagrams.json",
+        "mermaid": "flowchart LR\n  status_snapshot[\"status-snapshot<br/>Summarize support readiness without carrying request-flow details.\"]\n  operation[\"operation<br/>Describe how requests enter and move through the support domain.\"]\n  tooling_surface[\"tooling-surface<br/>Expose trusted tools used by operators to run or inspect the request flow.\"]\n\n  status_snapshot -- \"summarizes\" --> operation\n  tooling_surface -- \"supports\" --> operation\n"
+      },
+      "objectiveRole": "Seed an operations doc with request flow and the operator tooling that supports it.",
+      "templateTitle": "Run Support Ops",
+      "templateSubtitle": "A small starting shape for support work where request flow and operator tooling matter first.",
+      "templateScope": "One support or operations domain where requests enter through a mediated path and operators need a clear tool layer.",
+      "templateObjective": "Make the request path and operator tool layer legible enough that someone can quickly understand how the support domain currently runs.",
+      "templateSuccessCondition": "A reader can see how a request enters the system, who or what fulfills it, and which tools the operators trust.",
+      "sections": [
+        {
+          "id": "status-snapshot",
+          "title": "Status Snapshot",
+          "convergenceType": "status-snapshot",
+          "role": "Summarize support readiness without carrying request-flow details.",
+          "rationale": "This section keeps operational status visible while request flow and tool support remain inspectable.",
+          "required": true
+        },
+        {
+          "id": "operations",
+          "title": "Mediated Operation",
+          "convergenceType": "operation",
+          "role": "Describe how requests enter and move through the support domain.",
+          "rationale": "The mediated operation is the core of the support domain because it names how work enters, is fulfilled, and moves next.",
+          "required": true
+        },
+        {
+          "id": "tooling",
+          "title": "Tooling Surface",
+          "convergenceType": "tooling-surface",
+          "role": "Expose trusted tools used by operators to run or inspect the request flow.",
+          "rationale": "Operators need visible tooling so the support flow can be run without rediscovering scripts or workflows.",
+          "required": true
+        }
+      ],
+      "relationships": [
+        {
+          "id": "status-summarizes-operation",
+          "from": "status-snapshot",
+          "to": "operation",
+          "relation": "summarizes",
+          "rationale": "Support status should summarize the actual mediated operation.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        },
+        {
+          "id": "tooling-supports-operation",
+          "from": "tooling-surface",
+          "to": "operation",
+          "relation": "supports",
+          "rationale": "A request flow is operational only when operators can see the trusted tools that support it.",
+          "evidence": null,
+          "repairOperationIds": [],
+          "required": true
+        }
+      ],
+      "stageSignals": [
+        {
+          "id": "seeding-missing-operation",
+          "stage": "Seeding",
+          "when": "operation has no request-flow cards",
+          "condition": {
+            "kind": "section-empty",
+            "type": "operation"
+          },
+          "severity": "high",
+          "question": "What first request path or mediated operation makes this support domain tangible?",
+          "relatedRelationships": []
+        },
+        {
+          "id": "operation-without-tooling",
+          "stage": "Operation",
+          "when": "operation exists but tooling-surface has no trusted tool card",
+          "condition": {
+            "kind": "source-populated-target-empty",
+            "sourceType": "operation",
+            "targetType": "tooling-surface"
+          },
+          "severity": "medium",
+          "question": "Which tool does the operator trust to run, inspect, or update this support flow?",
+          "relatedRelationships": [
+            "tooling-supports-operation"
+          ]
+        },
+        {
+          "id": "judgment-support-starter-ready",
+          "stage": "Judgment",
+          "when": "operation and tooling are populated",
+          "condition": {
+            "kind": "all-populated-no-high-gaps",
+            "types": [
+              "operation",
+              "tooling-surface"
+            ]
+          },
+          "severity": "high",
+          "question": "Can a reader understand how requests enter and which tools operators trust?",
+          "relatedRelationships": [
+            "tooling-supports-operation"
+          ]
+        }
+      ],
+      "validOperations": [
+        {
+          "id": "add-operation-card",
+          "label": "Add operation card",
+          "stages": [
+            "Seeding",
+            "Composition"
+          ],
+          "description": "Add a request-flow card naming the intake path, current support, and next step.",
+          "patchKind": "card-create"
+        },
+        {
+          "id": "add-operator-tooling",
+          "label": "Add operator tooling",
+          "stages": [
+            "Composition",
+            "Operation"
+          ],
+          "description": "Add the trusted script, workflow, or tool used by operators.",
+          "patchKind": "card-create"
+        }
+      ],
+      "counts": {
+        "sections": 3,
+        "relationships": 2,
+        "stageSignals": 3,
+        "validOperations": 2
+      }
+    }
   },
   "objective": "Make the request path and operator tool layer legible enough that someone can quickly understand how the support domain currently runs.",
   "successCondition": "A reader can see how a request enters the system, who or what fulfills it, and which tools the operators trust.",
@@ -59,8 +205,14 @@
       "convergenceType": "status-snapshot",
       "updated": "2026-04-14T12:00:00.000Z",
       "stats": [
-        { "label": "Operations", "value": "1" },
-        { "label": "Tooling blocks", "value": "1" }
+        {
+          "label": "Operations",
+          "value": "1"
+        },
+        {
+          "label": "Tooling blocks",
+          "value": "1"
+        }
       ],
       "callout": {
         "tone": "info",
@@ -70,7 +222,8 @@
           "The detailed request flow belongs in the operation section below."
         ]
       },
-      "data": []
+      "data": [],
+      "rationale": "This section keeps operational status visible while request flow and tool support remain inspectable."
     },
     {
       "id": "operations",
@@ -83,8 +236,13 @@
           "name": "Incoming request intake",
           "status": "ready",
           "updated": "2026-04-14T11:20:00.000Z",
-          "workflowPaths": ["ops/workflows/request-intake.md"],
-          "requestInputs": ["ticket-comment", "operator-note"],
+          "workflowPaths": [
+            "ops/workflows/request-intake.md"
+          ],
+          "requestInputs": [
+            "ticket-comment",
+            "operator-note"
+          ],
           "ticketIds": [
             {
               "issueNumber": "311",
@@ -97,7 +255,8 @@
             "Write the main request path first. You can branch into more surfaces later."
           ]
         }
-      ]
+      ],
+      "rationale": "The mediated operation is the core of the support domain because it names how work enters, is fulfilled, and moves next."
     },
     {
       "id": "tooling",
@@ -110,8 +269,12 @@
           "name": "Support router",
           "status": "prototype",
           "updated": "2026-04-14T11:30:00.000Z",
-          "scriptPaths": ["ops/scripts/route-support-request.ts"],
-          "workflowPaths": ["ops/workflows/request-intake.md"],
+          "scriptPaths": [
+            "ops/scripts/route-support-request.ts"
+          ],
+          "workflowPaths": [
+            "ops/workflows/request-intake.md"
+          ],
           "purpose": "Normalize incoming support requests and route them into the right operator lane.",
           "whenToUse": "Use when manual triage starts becoming the main source of delay.",
           "invocation": "`node ops/scripts/route-support-request.ts request.json`",
@@ -119,7 +282,8 @@
             "Prototype routing logic should not be treated as authoritative until its failure modes are understood."
           ]
         }
-      ]
+      ],
+      "rationale": "Operators need visible tooling so the support flow can be run without rediscovering scripts or workflows."
     }
   ]
 }
