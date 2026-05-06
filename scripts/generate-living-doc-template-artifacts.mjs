@@ -29,6 +29,12 @@ export async function buildTemplateArtifactUpdates({
 
     const nextTemplate = {
       ...template,
+      title: templateGraph.title || template.title,
+      subtitle: templateGraph.subtitle || template.subtitle,
+      scope: templateGraph.scope || template.scope,
+      objective: templateGraph.templateObjective || template.objective,
+      successCondition: templateGraph.templateSuccessCondition || template.successCondition,
+      sections: syncTemplateSections(template.sections || [], templateGraph.sections || []),
       templateMeta: {
         ...(template.templateMeta || {}),
         semanticDefinition,
@@ -48,6 +54,28 @@ export async function buildTemplateArtifactUpdates({
   return updates;
 }
 
+function syncTemplateSections(templateSections, graphSections) {
+  const byId = new Map(graphSections.map((section) => [section.id, section]));
+  return templateSections.map((section) => {
+    const graphSection = byId.get(section.id);
+    if (!graphSection) return section;
+
+    const nextSection = {
+      ...section,
+      title: graphSection.title || section.title,
+      convergenceType: graphSection.convergenceType,
+    };
+
+    if (graphSection.rationale) {
+      nextSection.rationale = graphSection.rationale;
+    } else {
+      delete nextSection.rationale;
+    }
+
+    return nextSection;
+  });
+}
+
 export function buildTemplateSemanticDefinition({ templateId, templateGraph, diagram, graph, diagrams }) {
   return {
     schema: 'living-doc-template-semantic-definition/v1',
@@ -63,6 +91,9 @@ export function buildTemplateSemanticDefinition({ templateId, templateGraph, dia
       mermaid: diagram.mermaid,
     } : null,
     objectiveRole: templateGraph.objectiveRole || '',
+    templateTitle: templateGraph.title || '',
+    templateSubtitle: templateGraph.subtitle || '',
+    templateScope: templateGraph.scope || '',
     templateObjective: templateGraph.templateObjective || '',
     templateSuccessCondition: templateGraph.templateSuccessCondition || '',
     sections: templateGraph.sections || [],

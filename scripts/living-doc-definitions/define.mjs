@@ -15,12 +15,19 @@ function normalizeTemplateDefinition(definition) {
   return {
     id: definition.id,
     name: definition.name || definition.id,
+    title: definition.title || definition.name || definition.id,
+    subtitle: definition.subtitle || '',
+    scope: definition.scope || '',
+    objective: definition.objective || '',
+    successCondition: definition.successCondition || '',
     templatePath: definition.templatePath,
     objectiveRole: definition.objectiveRole || '',
     sections: definition.sections.map((section) => ({
       id: section.id,
+      title: section.title || section.id,
       convergenceType: section.convergenceType,
       role: section.role || '',
+      rationale: section.rationale || '',
       required: section.required !== false,
     })),
     relationships: (definition.relationships || []).map((relationship) => ({

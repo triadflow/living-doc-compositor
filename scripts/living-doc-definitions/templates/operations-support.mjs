@@ -3,33 +3,48 @@ import { defineTemplate } from '../define.mjs';
 export default defineTemplate({
   id: 'operations-support',
   name: 'Operations and Support',
+  title: 'Operations and Support',
+  subtitle: 'A compact starting shape for mediated workflows, support surfaces, and the tools that keep them operational.',
+  scope: 'A support or operations domain where requests, operational surfaces, enablers, and tooling need to be reasoned about together.',
+  objective: 'Make an operations or support domain legible across request flow, operational surfaces, enabling assets, and the tools used to support the work.',
+  successCondition: 'A reader can see how requests enter the system, which support paths exist, what enablers are available, and which tools the operators rely on.',
   templatePath: 'docs/living-doc-template-operations-support.json',
   objectiveRole: 'Make an operations or support domain legible across request flow, operating surfaces, enabling assets, and tooling.',
   sections: [
     {
       id: 'status-snapshot',
+      title: 'Status Snapshot',
       convergenceType: 'status-snapshot',
       role: 'Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.',
+      rationale: 'This section keeps operational readiness visible without turning requests, support lanes, enablers, or tooling into dashboard prose.',
     },
     {
       id: 'operations',
+      title: 'Mediated Operation',
       convergenceType: 'operation',
       role: 'Describe the mediated request-to-execution flow that operators need to run.',
+      rationale: 'The core operation has to name how work enters, moves, and gets mediated before support surfaces can be evaluated.',
     },
     {
       id: 'support-surface',
+      title: 'Operating Surface',
       convergenceType: 'operating-surface',
       role: 'Expose the bounded support lanes or operational paths that request flow routes into.',
+      rationale: 'Support lanes are separated from request flow so each bounded operating path can be assessed and improved.',
     },
     {
       id: 'enablers',
+      title: 'Enabler Catalog',
       convergenceType: 'enabler-catalog',
       role: 'Catalog compact support assets that improve operator speed, reliability, or coverage.',
+      rationale: 'Operators need visible snippets, assets, fixtures, or runbooks that make the operating surfaces easier and safer to run.',
     },
     {
       id: 'tooling',
+      title: 'Tooling Surface',
       convergenceType: 'tooling-surface',
       role: 'Expose the scripts, workflows, and local tools used to operate or evolve the support domain.',
+      rationale: 'Operational claims need concrete tool paths so support work can be rerun, inspected, or extended.',
     },
   ],
   relationships: [

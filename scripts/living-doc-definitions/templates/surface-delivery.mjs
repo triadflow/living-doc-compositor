@@ -3,33 +3,48 @@ import { defineTemplate } from '../define.mjs';
 export default defineTemplate({
   id: 'surface-delivery',
   name: 'Surface Delivery',
+  title: 'Surface Delivery',
+  subtitle: 'A compact starting shape for product surfaces that need design, implementation, verification, and tooling in one place.',
+  scope: 'A feature or product surface moving from design intent through implementation and verification.',
+  objective: 'Make one product surface legible across intent, implementation state, verification readiness, and the tools used to work on it.',
+  successCondition: 'A reader can identify the main surface, current implementation drift, immediate verification gaps, and which tools are used to evolve the work.',
   templatePath: 'docs/living-doc-template-surface-delivery.json',
   objectiveRole: 'Make one product surface legible across intent, implementation state, verification readiness, and tooling.',
   sections: [
     {
       id: 'status-snapshot',
+      title: 'Status Snapshot',
       convergenceType: 'status-snapshot',
       role: 'Summarize delivery pressure and current readiness without carrying the detailed evidence.',
+      rationale: 'This section keeps delivery readiness visible without mixing summary state into the design, alignment, verification, or tooling evidence.',
     },
     {
       id: 'surface-flow',
+      title: 'Design–Code–Spec Flow',
       convergenceType: 'design-code-spec-flow',
       role: 'Hold the product surface as a joined design, code, spec, interaction, and ticket entity.',
+      rationale: 'The product surface needs one joined entity that can name design intent, implementation paths, specs, interactions, and tickets together.',
     },
     {
       id: 'alignment',
+      title: 'Design–Implementation Alignment',
       convergenceType: 'design-implementation-alignment',
       role: 'Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.',
+      rationale: 'The surface-flow cards need explicit implementation judgments so visual or code presence is not mistaken for delivery alignment.',
     },
     {
       id: 'verification',
+      title: 'Verification Checkpoints',
       convergenceType: 'verification-checkpoints',
       role: 'Track the checks that prove the aligned implementation is ready enough to ship or continue.',
+      rationale: 'Alignment claims need concrete checks that can be rerun or extended before readiness is treated as real.',
     },
     {
       id: 'tooling',
+      title: 'Tooling Surface',
       convergenceType: 'tooling-surface',
       role: 'Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.',
+      rationale: 'Verification and future updates need visible tool paths so the surface can be inspected without rediscovering the workflow.',
     },
   ],
   relationships: [
