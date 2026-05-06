@@ -37,7 +37,8 @@ A skill is a catalyst: it lowers the cost of the correct transformation. It must
    ```
 8. Update GitHub issues where needed: create, reopen, close, link, or comment.
 9. Run targeted validation that matches the repaired state.
-10. Report the resulting state and next action concisely.
+10. Commit all repair changes with a detailed message before reporting completion.
+11. Report the resulting state and next action concisely.
 
 ## Output
 
@@ -52,3 +53,13 @@ Return one of these states:
 ## Repair Rule
 
 Do not end with analysis only. A catalytic repair run should leave the living doc JSON, rendered HTML, GitHub issue state, and final answer saying the same honest thing.
+
+## Commit Rule
+
+This skill must commit its repair changes before finishing, unless no files changed. Use a detailed commit body that records:
+
+- detected imbalances
+- skills/checks applied
+- living doc state before and after
+- issue changes made
+- validation or render commands run

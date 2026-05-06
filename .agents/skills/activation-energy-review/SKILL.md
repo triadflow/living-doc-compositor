@@ -26,6 +26,7 @@ Closure requires activation energy: a threshold proof event that survives contra
 5. Try to break the completion claim with source reality, issue state, missing artifact surfaces, stale governance, and plausible user rejection.
 6. If the proof does not cross the threshold, downgrade the claim to partial, blocked, or continue.
 7. If editing the living doc, render it after the update.
+8. If files changed, create a focused commit before finishing the run. The commit message must name the proof-threshold decision.
 
 ## Output
 
@@ -40,3 +41,12 @@ Return one of these states:
 ## Closure Rule
 
 Passing tests, rendered artifacts, and closed issues can support closure, but none of them replace the objective. If the proof did not try to fail, it is not final proof.
+
+## Commit Rule
+
+When this skill changes the living doc, rendered HTML, issues, or validation artifacts, commit those changes in the same run. Use a detailed commit body that records:
+
+- the claimed closure threshold
+- whether the threshold was met or missed
+- what evidence was accepted or rejected
+- validation or render commands run

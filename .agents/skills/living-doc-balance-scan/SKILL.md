@@ -62,6 +62,7 @@ An out-of-balance living doc may have several failures at once. Do not force a s
    - `activation-energy-review` before final completion proof.
    - `catalytic-repair-run` when multiple high-confidence imbalances are present or the user is actively challenging drift.
 7. Say what should not happen yet, such as closing the issue, rewriting the objective, or adding more schema.
+8. If this scan only diagnoses, do not commit. If the scan changes files or issue-linked artifacts despite the default no-repair posture, create a focused commit before finishing.
 
 ## Output Shape
 
@@ -91,3 +92,7 @@ Next action:
 - Do not reduce multi-faceted instability to one label for neatness.
 - Do not recommend closure until conservation, transition, and activation questions have been answered.
 - Prefer existing governance and source-system evidence over adding new living-doc structure.
+
+## Commit Rule
+
+This skill normally produces diagnosis only, so it usually does not commit. If it changes the living doc, rendered HTML, skills, or source artifacts, commit those changes in the same run with a detailed message explaining why the scan crossed from diagnosis into state change.

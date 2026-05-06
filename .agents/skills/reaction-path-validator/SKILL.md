@@ -32,6 +32,7 @@ State transitions have allowed reaction paths. Partial proof cannot jump directl
 5. Decide whether the transition is valid.
 6. If invalid, name the nearest honest stage and the required operation.
 7. Patch the living doc or issue state only when the transition is supported.
+8. If files changed, create a focused commit before finishing the run. The commit message must name the transition that was accepted, blocked, or corrected.
 
 ## Output
 
@@ -46,3 +47,12 @@ Return one of these states:
 ## Transition Rule
 
 Do not let a useful slice become final closure. A transition to completion must be supported by objective conservation, proof threshold, governance state, and issue/source reality.
+
+## Commit Rule
+
+When this skill changes stage/status fields, living doc content, rendered HTML, or issue state, commit those changes in the same run. Use a detailed commit body that records:
+
+- proposed transition
+- validation result
+- nearest honest stage if blocked
+- validation or render commands run

@@ -34,6 +34,7 @@ Living docs can reach local equilibrium without being complete. New evidence shi
    ```bash
    node scripts/render-living-doc.mjs <doc>
    ```
+8. If files changed, create a focused commit before finishing the run. The commit message must name the destabilizing evidence and repaired state.
 
 ## Output
 
@@ -48,3 +49,12 @@ Return one of these states:
 ## Repair Rule
 
 Do not delete the old claim just because it was wrong. Convert it into history: what was claimed, why it failed, and what state replaced it.
+
+## Commit Rule
+
+When this skill changes the living doc, rendered HTML, issue-linked artifacts, or source state, commit those changes in the same run. Use a detailed commit body that records:
+
+- the evidence that destabilized the doc
+- the old state and new state
+- issue changes made
+- validation or render commands run
