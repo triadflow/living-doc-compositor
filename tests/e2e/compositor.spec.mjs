@@ -63,3 +63,24 @@ test('applies a starter template and exposes prompt context', async ({ page }) =
   await page.locator('#copy-prompt').click();
   await expect(page.locator('#copy-prompt')).toHaveText('Copied');
 });
+
+test('shows generated template semantics without layout overlap', async ({ page }) => {
+  await openLocalCompositor(page);
+
+  await page.locator('[data-rail-mode="templates"]').click();
+  await page.locator('.template-card-action[data-template-file="living-doc-template-oss-issue-deep-dive.json"]').click();
+  await page.locator('.preview-tab[data-tab="semantic"]').click();
+
+  await expect(page.locator('.semantic-preview')).toContainText('Generated semantic context');
+  await expect(page.locator('.semantic-preview')).toContainText('oss-issue-deep-dive');
+  await expect(page.locator('.semantic-preview')).toContainText('symptom-localized-by-anchor');
+  await expect(page.locator('.semantic-preview')).toContainText('MCP patch draft');
+
+  const heroBox = await page.locator('.semantic-hero').boundingBox();
+  const statsBox = await page.locator('.semantic-stats').boundingBox();
+  expect(heroBox).not.toBeNull();
+  expect(statsBox).not.toBeNull();
+  expect(heroBox.width).toBeGreaterThan(200);
+  expect(heroBox.height).toBeGreaterThan(40);
+  expect(statsBox.y).toBeGreaterThan(heroBox.y + heroBox.height - 1);
+});
