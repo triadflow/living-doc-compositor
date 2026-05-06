@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { applyAiPatch } from './apply-ai-patch.mjs';
 import { validatePatch } from './validate-ai-patch.mjs';
+import { convergenceTypeDefinitions } from './living-doc-definitions/index.mjs';
 import {
   inferTemplateGraphForDoc,
   loadSemanticDiagrams,
@@ -20,6 +21,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const harnessCli = path.join(repoRoot, '.agents/skills/inference-living-doc-run-codex/scripts/ldoc-run-tools.mjs');
 
 const protocolVersion = '2024-11-05';
+const convergenceTypeDefinitionsById = new Map(convergenceTypeDefinitions.map((definition) => [definition.id, definition]));
 
 const objectSchema = (properties = {}, required = []) => ({
   type: 'object',
@@ -37,6 +39,10 @@ const tools = [
   tool('living_doc_registry_explain_type', 'Explain a convergence type as an inference type: sources, projection, status sets, prompt guidance, and structural contract.', objectSchema({
     convergenceType: stringProp('Convergence type id.'),
     registry: optionalString('Optional registry JSON path.'),
+  }, ['convergenceType'])),
+  tool('living_doc_convergence_type_contract', 'Return the code-defined convergence-type contract with status logic, generated relationship participation, prompt guidance, structural constraints, and repair operation ids.', objectSchema({
+    convergenceType: stringProp('Convergence type id.'),
+    registry: optionalString('Optional generated registry JSON path used only for status set values and generated semanticUses.'),
   }, ['convergenceType'])),
   tool('living_doc_registry_match_objective', 'Match an objective/success condition to strategy, starter template, and convergence types.', objectSchema({
     objective: stringProp(),
@@ -191,6 +197,7 @@ function tool(name, description, inputSchema) {
   const readOnlyTools = new Set([
     'living_doc_registry_summary',
     'living_doc_registry_explain_type',
+    'living_doc_convergence_type_contract',
     'living_doc_registry_match_objective',
     'living_doc_registry_propose_type_gap',
     'living_doc_objective_decompose',
@@ -349,6 +356,106 @@ async function registryExplainType(args) {
       promptGuidance: type.promptGuidance || null,
       structuralContract: type.structuralContract || type.description || '',
     },
+  };
+}
+
+async function convergenceTypeContractTool(args) {
+  const definition = convergenceTypeDefinitionsById.get(args.convergenceType);
+  if (!definition) throw new McpError(-32602, `Unknown convergenceType: ${args.convergenceType}`);
+
+  const registry = await loadRegistry(args);
+  const generatedType = registry.convergenceTypes?.[args.convergenceType] || {};
+  const authoredContract = JSON.parse(JSON.stringify(definition.registryEntry));
+  const semanticUses = generatedType.semanticUses || null;
+  const statusLogic = statusLogicForContract(authoredContract, registry);
+  const relationshipParticipation = relationshipParticipationForSemanticUses(semanticUses);
+
+  return {
+    id: definition.id,
+    source: {
+      kind: 'code-defined-convergence-type',
+      modulePath: `scripts/living-doc-definitions/convergence-types/${definition.id}.mjs`,
+      exportName: 'default',
+    },
+    authoredContract,
+    generatedFields: [...(definition.generatedFields || [])],
+    fieldContract: {
+      projection: authoredContract.projection,
+      columns: authoredContract.columns || null,
+      sources: authoredContract.sources || [],
+      sourceA: authoredContract.sourceA || null,
+      sourceB: authoredContract.sourceB || null,
+      statusFields: authoredContract.statusFields || [],
+      edgeStatus: authoredContract.edgeStatus || null,
+      textFields: authoredContract.textFields || [],
+      detailsFields: authoredContract.detailsFields || [],
+      columnHeaders: authoredContract.columnHeaders || [],
+      edgeNotes: authoredContract.edgeNotes || null,
+    },
+    statusLogic,
+    structuralContract: authoredContract.structuralContract || '',
+    promptGuidance: authoredContract.promptGuidance || null,
+    relationshipParticipation,
+    repairOperationIds: relationshipParticipation.repairOperationIds,
+    generatedSemanticUses: semanticUses,
+    inferenceUse: {
+      sourceOfTruth: 'scripts/living-doc-definitions/convergence-types',
+      useFor: [
+        'field and source expectations',
+        'status value validation',
+        'structural fit checks',
+        'prompt guidance',
+        'template relationship participation',
+        'repair operation selection',
+      ],
+      doNotInferFrom: [
+        'rendered prose',
+        'template-local duplication',
+        'hand-edited registry JSON',
+      ],
+    },
+  };
+}
+
+function statusLogicForContract(contract, registry) {
+  const fields = [...(contract.statusFields || [])];
+  if (contract.edgeStatus) fields.push(contract.edgeStatus);
+  return fields.map((field) => ({
+    ...field,
+    values: registry.statusSets?.[field.statusSet]?.values || [],
+    labels: registry.statusSets?.[field.statusSet]?.labels || {},
+    tones: registry.statusSets?.[field.statusSet]?.tones || {},
+  }));
+}
+
+function relationshipParticipationForSemanticUses(semanticUses) {
+  const incoming = [];
+  const outgoing = [];
+  const repairOperationIds = new Set();
+
+  for (const template of semanticUses?.templates || []) {
+    for (const relationship of template.relationships?.incoming || []) {
+      incoming.push({
+        templateId: template.templateId,
+        templateName: template.templateName,
+        ...relationship,
+      });
+      for (const id of relationship.repairOperationIds || []) repairOperationIds.add(id);
+    }
+    for (const relationship of template.relationships?.outgoing || []) {
+      outgoing.push({
+        templateId: template.templateId,
+        templateName: template.templateName,
+        ...relationship,
+      });
+      for (const id of relationship.repairOperationIds || []) repairOperationIds.add(id);
+    }
+  }
+
+  return {
+    incoming,
+    outgoing,
+    repairOperationIds: [...repairOperationIds].sort(),
   };
 }
 
@@ -1442,6 +1549,8 @@ async function callTool(name, args = {}) {
       return parseJsonOutput(runNode([harnessCli, 'registry-summary', ...toArgs(args, ['registry'])]));
     case 'living_doc_registry_explain_type':
       return registryExplainType(args);
+    case 'living_doc_convergence_type_contract':
+      return convergenceTypeContractTool(args);
     case 'living_doc_registry_match_objective':
     case 'living_doc_match_structure':
     case 'living_doc_structure_select':

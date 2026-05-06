@@ -8,6 +8,7 @@ const skillPaths = [
 
 const requiredTerms = [
   'living_doc_semantic_context',
+  'living_doc_convergence_type_contract',
   'living_doc_relationship_gaps',
   'living_doc_stage_diagnostics',
   'living_doc_valid_stage_operations',

@@ -93,7 +93,7 @@ The living-doc toolchain is part of this skill. Use it directly.
 
 Required tool surfaces:
 
-- registry tools for selecting and explaining convergence types
+- registry tools for selecting structure and code-defined convergence-type contract tools for explaining section semantics
 - generated semantic tools for retrieving template context, relationship gaps, stage diagnostics, valid stage operations, and validated patch drafts
 - scaffold tools for creating the run doc
 - source tools for adding, creating, and linking source material
@@ -151,13 +151,13 @@ Run:
 ```text
 living_doc_registry_summary
 living_doc_registry_match_objective
-living_doc_registry_explain_type
+living_doc_convergence_type_contract
 living_doc_semantic_context
 living_doc_template_graph
 living_doc_template_diagrams
 ```
 
-Explain every convergence type before adding cards to that section.
+Query every convergence type contract before adding cards to that section.
 
 If the selected structure or starter template matches generated semantic definitions, record the inferred template id, generated section roles, relationship graph, stage signals, and valid operations in the run doc. Do not recreate that shape from prose when MCP can expose the generated source.
 
@@ -431,7 +431,7 @@ Use this sequence unless the objective requires a stricter ordering:
 
 1. `living_doc_registry_summary`
 2. `living_doc_registry_match_objective`
-3. `living_doc_registry_explain_type`
+3. `living_doc_convergence_type_contract`
 4. `living_doc_scaffold`
 5. `living_doc_sources_add`
 6. `living_doc_coverage_map`

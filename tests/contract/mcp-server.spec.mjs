@@ -7,6 +7,7 @@ import path from 'node:path';
 const expectedTools = [
   'living_doc_registry_summary',
   'living_doc_registry_explain_type',
+  'living_doc_convergence_type_contract',
   'living_doc_registry_match_objective',
   'living_doc_registry_propose_type_gap',
   'living_doc_objective_decompose',
@@ -117,6 +118,18 @@ try {
   const type = await client.callTool('living_doc_registry_explain_type', { convergenceType: 'capability-surface' });
   assert.equal(type.id, 'capability-surface');
   assert.ok(type.inferenceUse.sourcesConstrainGrouping.length > 0);
+
+  const contract = await client.callTool('living_doc_convergence_type_contract', { convergenceType: 'design-code-spec-flow' });
+  assert.equal(contract.id, 'design-code-spec-flow');
+  assert.equal(contract.source.kind, 'code-defined-convergence-type');
+  assert.equal(contract.authoredContract.projection, 'card-grid');
+  assert.ok(contract.fieldContract.sources.some((source) => source.key === 'codeRefs'));
+  assert.ok(contract.statusLogic.some((field) => field.key === 'status' && field.values.includes('ground-truth')));
+  assert.ok(contract.promptGuidance.operatingThesis);
+  assert.match(contract.structuralContract, /Two-column card grid/);
+  assert.ok(contract.relationshipParticipation.outgoing.some((relationship) => relationship.relation === 'feeds'));
+  assert.ok(contract.repairOperationIds.includes('add-alignment-row'));
+  assert.ok(contract.generatedSemanticUses.templates.some((template) => template.templateId === 'surface-delivery'));
 
   const match = await client.callTool('living_doc_structure_select', {
     objective: 'Ship a settings toggle and prove it works',
