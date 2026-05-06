@@ -18,14 +18,17 @@ const strictCheck = spawnSync(
   ['scripts/generate-living-doc-registry-from-definitions.mjs', '--check', '--strict'],
   { encoding: 'utf8' },
 );
-assert.notEqual(strictCheck.status, 0, 'strict generation must fail until all convergence types are code-defined');
-assert.match(strictCheck.stderr, /Missing:/, 'strict failure should name missing convergence type definitions');
+assert.equal(
+  strictCheck.status,
+  0,
+  `strict registry-from-definitions check failed\nSTDOUT:\n${strictCheck.stdout}\nSTDERR:\n${strictCheck.stderr}`,
+);
 
 const registry = JSON.parse(await readFile('scripts/living-doc-registry.json', 'utf8'));
 const generated = buildRegistryFromDefinitions(registry);
-assert.deepEqual(generated.registry, registry, 'generator must reproduce the committed registry in transitional mode');
+assert.deepEqual(generated.registry, registry, 'generator must reproduce the committed registry from code definitions');
 assert.deepEqual(generated.definedTypeIds, convergenceTypeDefinitions.map((definition) => definition.id).sort());
-assert.ok(generated.legacyTypeIds.length > 0, 'transitional generation should report legacy registry-authored types');
+assert.deepEqual(generated.legacyTypeIds, [], 'strict generation should have no legacy registry-authored types');
 
 const drifted = JSON.parse(JSON.stringify(registry));
 drifted.convergenceTypes['acceptance-criteria'].name = 'Drifted Acceptance Criteria';
@@ -37,5 +40,5 @@ assert.equal(
 );
 
 console.log(
-  `convergence type registry generation contract ok: ${generated.definedTypeIds.length} code-defined type(s), ${generated.legacyTypeIds.length} legacy type(s)`,
+  `convergence type registry generation contract ok: ${generated.definedTypeIds.length} code-defined type(s), strict mode clean`,
 );

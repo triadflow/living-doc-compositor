@@ -108,6 +108,7 @@ function normalizeConvergenceTypeDefinition(definition) {
     if (definition.textFields) normalized.textFields = normalizeLabeledFields(definition.textFields);
     if (definition.detailsFields) normalized.detailsFields = normalizeLabeledFields(definition.detailsFields);
   } else {
+    if (definition.columns) normalized.columns = clonePlain(definition.columns);
     normalized.sourceA = normalizeEntitySource(definition.sourceA, 'sourceA');
     if (definition.sourceB) normalized.sourceB = normalizeEntitySource(definition.sourceB, 'sourceB');
     if (definition.edgeStatus) normalized.edgeStatus = normalizeStatusField(definition.edgeStatus, 'edgeStatus');
@@ -158,8 +159,8 @@ function normalizeEntitySource(source, label) {
   if (!source.key) throw new TypeError(`${label} missing key`);
   return {
     key: source.key,
-    entityType: source.entityType ?? null,
-    label: source.label ?? null,
+    ...('entityType' in source ? { entityType: source.entityType } : {}),
+    ...('label' in source ? { label: source.label } : {}),
     ...(source.resolve !== undefined ? { resolve: Boolean(source.resolve) } : {}),
     ...(source.displayKey ? { displayKey: source.displayKey } : {}),
     ...(source.valueKey ? { valueKey: source.valueKey } : {}),

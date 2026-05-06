@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/convergence-type-code-source-refactor.json",
   "sourceCoverage": "Created from the agreed verbatim objective after identifying that current executable semantics are template-centered while convergence types remain JSON-authored. GitHub epic #177 and subtickets #178-#184 now hold the implementation plan.",
-  "updated": "2026-05-06T13:57:40.000Z",
+  "updated": "2026-05-06T14:01:51.000Z",
   "pills": [
     "Refactor",
     "Convergence Types",
@@ -129,14 +129,14 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:2f47b953644e6cdbf4fc4519ceda26031482d5b7ab0e8c19cf8f88df0ecff6f8",
+  "metaFingerprint": "sha256:a3ce42765a377c31fe40b9811d53cefa4b4fd680a67333d691d381bda18a9f13",
   "sections": [
     {
       "id": "status-snapshot",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Keeps the objective state visible: this is a new refactor living doc, not the completed template-semantics refactor.",
-      "updated": "2026-05-06T13:57:40.000Z",
+      "updated": "2026-05-06T14:01:51.000Z",
       "stats": [
         {
           "label": "Epic",
@@ -144,7 +144,7 @@
         },
         {
           "label": "State",
-          "value": "#179 transitional generator implemented"
+          "value": "#180 strict registry generation clean"
         },
         {
           "label": "Subtickets",
@@ -160,12 +160,12 @@
         }
       ],
       "callout": {
-        "tone": "warning",
-        "title": "Generator path exists, strict closure still blocked",
+        "tone": "positive",
+        "title": "Convergence-type source layer migrated",
         "items": [
-          "scripts/generate-living-doc-registry-from-definitions.mjs reproduces the registry in transitional mode.",
-          "--check now detects drift for code-defined convergence types; --strict fails until all current types are migrated.",
-          "The generated-registry acceptance criterion remains required until #180 removes the legacy registry-authored type surface."
+          "All 48 current convergence types now have code definitions under scripts/living-doc-definitions/convergence-types/.",
+          "node scripts/generate-living-doc-registry-from-definitions.mjs --check --strict passes with 0 legacy types.",
+          "The objective is still open because template composition, runtime preservation proof, MCP exposure, and final drift contracts remain."
         ]
       },
       "data": []
@@ -175,13 +175,13 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates. Each criterion preserves a phrase from the verbatim objective and states the proof needed before completion can be accepted.",
-      "updated": "2026-05-06T13:57:40.000Z",
+      "updated": "2026-05-06T14:01:51.000Z",
       "data": [
         {
           "id": "criterion-code-defined-convergence-types",
           "name": "Convergence types become executable canonical source",
-          "status": "required",
-          "updated": "2026-05-06T13:53:24.000Z",
+          "status": "satisfied",
+          "updated": "2026-05-06T14:01:51.000Z",
           "facetIds": [
             "convergence-types-canonical-source"
           ],
@@ -208,28 +208,29 @@
           ],
           "codeRefs": [
             {
-              "path": "scripts/living-doc-definitions/define.mjs",
-              "range": "defineConvergenceType"
+              "path": "scripts/living-doc-definitions/convergence-types",
+              "range": "48 modules"
             },
             {
-              "path": "scripts/living-doc-definitions/convergence-types/acceptance-criteria.mjs",
-              "range": "module default export"
+              "path": "scripts/living-doc-definitions/index.mjs",
+              "range": "convergenceTypeDefinitions"
             },
             {
               "path": "tests/contract/convergence-type-definitions.spec.mjs",
-              "range": "acceptance-criteria fixture contract"
+              "range": "full file"
             }
           ],
           "notes": [
-            "#178 proves the API shape and one real type fixture only.",
-            "The criterion remains required until every current convergence type has moved into code and the registry no longer depends on hand-authored JSON as canonical source."
+            "All current convergence types are exported as code definitions.",
+            "Generated semanticUses stays generated via generatedFields instead of being authored into the modules.",
+            "The registry JSON is now an artifact of the code-defined type layer, not the only authored type source."
           ]
         },
         {
           "id": "criterion-generated-registry-json",
           "name": "Registry JSON regenerates deterministically",
-          "status": "required",
-          "updated": "2026-05-06T13:57:40.000Z",
+          "status": "satisfied",
+          "updated": "2026-05-06T14:01:51.000Z",
           "facetIds": [
             "registry-generation"
           ],
@@ -256,17 +257,21 @@
             },
             {
               "path": "tests/contract/convergence-type-registry-generation.spec.mjs",
-              "range": "full file"
+              "range": "strict mode assertions"
             },
             {
-              "path": "package.json",
-              "range": "scripts.test:contract"
+              "path": "scripts/living-doc-registry.json",
+              "range": "generated convergenceTypes"
+            },
+            {
+              "path": "docs/scripts/living-doc-registry.json",
+              "range": "synced mirror"
             }
           ],
           "notes": [
-            "#179 adds the deterministic generator/check path.",
-            "The generator is transitional: it overlays code-defined convergence types and preserves legacy registry-authored types until #180 migrates them.",
-            "The criterion remains required because the current registry is not yet fully regenerated from code-defined convergence types in strict mode."
+            "Strict registry generation now passes with 48 code-defined types and 0 legacy types.",
+            "The generator preserves generated semanticUses from the existing generated semantic-use pipeline.",
+            "The compositor embed and docs/scripts mirror were synced after regeneration."
           ]
         },
         {
@@ -474,7 +479,7 @@
       "title": "Code Anchors",
       "convergenceType": "code-anchor",
       "rationale": "Pins the refactor to the current files that prove the mismatch and the future files expected to close it.",
-      "updated": "2026-05-06T13:57:40.000Z",
+      "updated": "2026-05-06T14:01:51.000Z",
       "data": [
         {
           "id": "registry-json-current-source",
@@ -535,24 +540,19 @@
         },
         {
           "id": "convergence-type-definitions-current-code",
-          "name": "Convergence-type code definition API and fixture",
+          "name": "Complete convergence-type code definition set",
           "status": "current",
-          "updated": "2026-05-06T13:53:24.000Z",
-          "path": "scripts/living-doc-definitions",
-          "range": "defineConvergenceType; convergence-types/acceptance-criteria.mjs; convergenceTypeDefinitions export",
+          "updated": "2026-05-06T14:01:51.000Z",
+          "path": "scripts/living-doc-definitions/convergence-types",
+          "range": "48 modules",
           "revision": "working tree",
-          "what_it_does": "Defines the code-side convergence-type API, exports code-defined types, and provides acceptance-criteria as the first real proof fixture.",
+          "what_it_does": "Defines every current convergence type as executable code and exports the full set through convergenceTypeDefinitions.",
           "why_it_matters": [
-            "This starts the convergence-type-first source layer rather than adding more template-owned semantics.",
-            "The fixture proves one current registry type can be represented in code without losing its authored registry contract.",
-            "The full migration is still open because the registry generator and remaining convergence-type modules are not implemented yet."
+            "This removes the legacy state where convergence types were only authored in registry JSON.",
+            "The registry generator can now run in strict mode with no legacy type surface.",
+            "This satisfies the source-layer migration criteria while leaving template composition and MCP exposure as separate objective terms."
           ],
           "ticketIds": [
-            {
-              "issueNumber": "178",
-              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/178",
-              "title": "Define the convergence-type code definition API"
-            },
             {
               "issueNumber": "180",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
@@ -585,21 +585,26 @@
           "id": "registry-generation-script",
           "name": "Registry generation from convergence-type definitions",
           "status": "current",
-          "updated": "2026-05-06T13:57:40.000Z",
+          "updated": "2026-05-06T14:01:51.000Z",
           "path": "scripts/generate-living-doc-registry-from-definitions.mjs",
           "range": "full file",
           "revision": "working tree",
           "what_it_does": "Generates scripts/living-doc-registry.json by overlaying code-defined convergence types onto the current registry and provides --check plus --strict modes.",
           "why_it_matters": [
-            "This creates the deterministic generation path required before full migration can be proven.",
-            "The normal check catches drift for code-defined types now.",
-            "The strict check names the remaining legacy registry-authored types and must pass before the full objective can close."
+            "This now provides the deterministic generation path for all current convergence types.",
+            "The strict check passes with zero legacy type definitions.",
+            "The generated registry remains the compatibility artifact consumed by existing renderer and compositor flows."
           ],
           "ticketIds": [
             {
               "issueNumber": "179",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
               "title": "Generate registry JSON from convergence-type definitions"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
             }
           ]
         },
@@ -631,7 +636,7 @@
       "title": "Attempt Log",
       "convergenceType": "attempt-log",
       "rationale": "Tracks implementation attempts without letting a useful slice become a false completion claim.",
-      "updated": "2026-05-06T13:57:40.000Z",
+      "updated": "2026-05-06T14:01:51.000Z",
       "data": [
         {
           "id": "initial-objective-crystallization",
@@ -748,6 +753,33 @@
               "title": "Generate registry JSON from convergence-type definitions"
             }
           ]
+        },
+        {
+          "id": "migrate-all-convergence-types-to-code",
+          "name": "Migrate all convergence types into code definitions",
+          "status": "ready",
+          "updated": "2026-05-06T14:01:51.000Z",
+          "shipped_in": "working tree",
+          "cost_to_apply": "high",
+          "what_tried": [
+            "Generated code modules for the 47 remaining registry-authored convergence types while keeping the existing acceptance-criteria fixture.",
+            "Updated convergenceTypeDefinitions to export all 48 current type definitions.",
+            "Preserved generated semanticUses as generatedFields so template semantic-use data remains produced by the existing generation path.",
+            "Fixed definition normalization so edge-table columns and optional source labels are preserved instead of reshaped.",
+            "Ran strict registry generation and synced compositor embeds plus docs/scripts mirrors."
+          ],
+          "what_proved": [
+            "Every current convergence type has an executable code definition.",
+            "scripts/living-doc-registry.json is reproducible from code-defined convergence types in strict mode.",
+            "The remaining objective work is no longer about moving the source layer; it is about making downstream template, MCP, render, and drift contracts consume that layer directly."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
+            }
+          ]
         }
       ]
     },
@@ -756,7 +788,7 @@
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
       "rationale": "Will hold increasing proof that the refactor crossed from useful code generation to convergence-type-grounded canonical source.",
-      "updated": "2026-05-06T13:57:40.000Z",
+      "updated": "2026-05-06T14:01:51.000Z",
       "data": [
         {
           "id": "objective-and-criteria-recorded",
@@ -818,10 +850,13 @@
         {
           "id": "registry-generated-from-code",
           "name": "Registry generated from convergence-type code",
-          "status": "planned",
-          "updated": "2026-05-06T13:17:46.000Z",
+          "status": "ready",
+          "updated": "2026-05-06T14:01:51.000Z",
           "notes": [
-            "Planned proof: generator and check mode make scripts/living-doc-registry.json reproducible from code-defined convergence types."
+            "node scripts/generate-living-doc-registry-from-definitions.mjs --check --strict passes.",
+            "The check reports 48 code-defined type(s), 0 legacy type(s).",
+            "tests/contract/convergence-type-definitions.spec.mjs checks the full exported definition set.",
+            "tests/contract/convergence-type-registry-generation.spec.mjs checks strict deterministic registry regeneration."
           ],
           "ticketIds": [
             {
@@ -865,6 +900,24 @@
               "issueNumber": "184",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/184",
               "title": "Add drift-prevention contracts for code-defined convergence types"
+            }
+          ]
+        },
+        {
+          "id": "source-layer-criteria-satisfied-not-full-objective",
+          "name": "Source-layer criteria satisfied, full objective still open",
+          "status": "ready",
+          "updated": "2026-05-06T14:01:51.000Z",
+          "notes": [
+            "The code-defined convergence-type and generated-registry acceptance criteria are satisfied.",
+            "Template composition, runtime preservation after composition, MCP/skill contract access, and cross-surface drift prevention remain required.",
+            "No completion claim is valid until those remaining objective terms are implemented and proved."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
             }
           ]
         }
@@ -970,7 +1023,7 @@
       "title": "Tooling Surface",
       "convergenceType": "tooling-surface",
       "rationale": "Lists current and target commands that will operate the code-defined convergence-type source and its generated artifacts.",
-      "updated": "2026-05-06T13:57:40.000Z",
+      "updated": "2026-05-06T14:01:51.000Z",
       "data": [
         {
           "id": "current-template-generation-chain",
@@ -1006,23 +1059,28 @@
         {
           "id": "target-registry-generation-chain",
           "name": "Registry generation from convergence-type definitions",
-          "status": "partial",
-          "updated": "2026-05-06T13:57:40.000Z",
+          "status": "trusted",
+          "updated": "2026-05-06T14:01:51.000Z",
           "scriptPaths": [
             "scripts/generate-living-doc-registry-from-definitions.mjs"
           ],
-          "purpose": "Generate registry JSON from the code-defined convergence types that have been migrated, while preserving legacy registry-authored types until #180 is complete.",
-          "whenToUse": "Run before sync when a code-defined convergence type changes; use --check in tests and --strict only after all current types have code definitions.",
-          "invocation": "node scripts/generate-living-doc-registry-from-definitions.mjs && node scripts/sync-compositor-embeds.mjs",
+          "purpose": "Generate registry JSON from the complete code-defined convergence type set while preserving generated semanticUses from the semantic-use generation path.",
+          "whenToUse": "Run after changing any convergence type module; use --check --strict in contracts before sync and render verification.",
+          "invocation": "node scripts/generate-living-doc-registry-from-definitions.mjs --strict && node scripts/sync-compositor-embeds.mjs",
           "caveats": [
-            "Transitional mode is not full objective closure because most convergence types are still legacy-authored in registry JSON.",
-            "Strict mode is the target closure check for #180 and currently fails by design."
+            "The generated registry is still consumed by existing renderer and compositor flows for compatibility.",
+            "Template composition and MCP contract access still need to be refactored to use the code-defined source layer directly."
           ],
           "ticketIds": [
             {
               "issueNumber": "179",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/179",
               "title": "Generate registry JSON from convergence-type definitions"
+            },
+            {
+              "issueNumber": "180",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/180",
+              "title": "Migrate current convergence types into code definitions"
             }
           ]
         }
