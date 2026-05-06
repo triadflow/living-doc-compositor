@@ -80,6 +80,10 @@ assert.ok(
   semanticContext.graph.template.relationships.some((relationship) => relationship.id === 'alignment-requires-verification'),
   'embedded semantic context should include generated relationship graph',
 );
+assert.ok(
+  semanticContext.graph.template.convergenceTypes?.['design-code-spec-flow']?.structuralContract,
+  'embedded semantic context should include composed convergence type contracts',
+);
 assert.match(
   semanticContext.diagram.template.mermaid,
   /design_implementation_alignment -- "requires-verification" --> verification_checkpoints/,
