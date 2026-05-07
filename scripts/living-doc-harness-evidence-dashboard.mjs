@@ -75,6 +75,15 @@ function latestByCreatedAt(items) {
   return [...items].sort((a, b) => String(b.createdAt || b.at || '').localeCompare(String(a.createdAt || a.at || '')))[0] || null;
 }
 
+function iterationFromName(filePath) {
+  const match = path.basename(filePath || '').match(/^iteration-(\d+)-/);
+  return match ? Number(match[1]) : 0;
+}
+
+function latestByIteration(files) {
+  return [...files].sort((a, b) => iterationFromName(b) - iterationFromName(a) || path.basename(b).localeCompare(path.basename(a)))[0] || null;
+}
+
 function relative(runDir, filePath) {
   return filePath ? path.relative(runDir, filePath) : null;
 }
@@ -120,6 +129,8 @@ export async function collectRunEvidence(runDir) {
     if (handover) handovers.push({ ...handover, artifactPath: relative(runDir, file) });
   }
   const traceFiles = await listFiles(path.join(runDir, 'traces'), (name) => name.endsWith('.summary.json'));
+  const proofFiles = await listFiles(path.join(runDir, 'artifacts'), (name) => /^iteration-\d+-proof\.json$/.test(name));
+  const verdictFiles = await listFiles(path.join(runDir, 'artifacts'), (name) => /^iteration-\d+-stop-verdict\.json$/.test(name));
   const traceSummaries = [];
   for (const file of traceFiles) {
     const summary = await readJson(file);
@@ -139,6 +150,10 @@ export async function collectRunEvidence(runDir) {
 
   const latestTerminal = latestByCreatedAt(terminalStates);
   const latestHandover = latestByCreatedAt(handovers);
+  const latestProofPath = latestByIteration(proofFiles);
+  const latestVerdictPath = latestByIteration(verdictFiles);
+  const latestProof = latestProofPath ? await readJson(latestProofPath) : null;
+  const latestVerdict = latestVerdictPath ? await readJson(latestVerdictPath) : null;
   const traceRefs = [
     ...(contract?.artifacts?.nativeTraceRefs || []),
     ...traceSummaries.map((summary) => ({
@@ -165,6 +180,10 @@ export async function collectRunEvidence(runDir) {
     skillInvocations,
     handover: latestHandover,
     handovers,
+    latestProof,
+    latestProofPath: relative(runDir, latestProofPath),
+    latestVerdict,
+    latestVerdictPath: relative(runDir, latestVerdictPath),
     traceRefs: uniqueTraceRefs,
     traceSummaries,
     proofGates: gates,
@@ -193,7 +212,14 @@ export async function writeEvidenceBundle({
     status: facts.state?.status || facts.contract?.status || 'unknown',
     recommendation: facts.recommendation,
     proofGates: facts.proofGates,
-    stopVerdict: facts.terminalState?.stopVerdict || facts.handover?.stopVerdict || null,
+    stopVerdict: facts.terminalState?.stopVerdict || facts.latestVerdict?.stopVerdict || facts.handover?.stopVerdict || null,
+    stopMismatch: facts.latestVerdict?.mismatch || facts.handover?.mismatch || null,
+    objectiveRef: {
+      sourcePath: facts.contract?.livingDoc?.sourcePath || facts.state?.docPath || null,
+      renderedHtml: facts.contract?.livingDoc?.renderedHtml || null,
+      objectiveHash: facts.contract?.livingDoc?.objectiveHash || facts.state?.objectiveHash || null,
+      sourceHash: facts.contract?.livingDoc?.sourceHash || null,
+    },
     terminalState: facts.terminalState ? {
       kind: facts.terminalState.kind,
       status: facts.terminalState.status,
@@ -242,6 +268,10 @@ export async function writeEvidenceBundle({
       blockers: facts.blockers.length ? 'blockers.jsonl' : null,
       skillInvocations: facts.skillInvocations.length ? 'skill-invocations.jsonl' : null,
       latestHandover: facts.handover?.artifactPath || null,
+      latestProof: facts.latestProofPath || null,
+      latestStopVerdict: facts.latestVerdictPath || null,
+      evidenceBundle: path.join(facts.runId, 'bundle.json'),
+      evidenceSummary: path.join(facts.runId, 'summary.md'),
     },
     privacy: {
       rawPromptIncluded: false,
@@ -295,6 +325,17 @@ function renderRunCard(bundle) {
   const traces = (bundle.traceRefs || [])
     .map((ref) => `<li>${esc(ref.summaryPath || ref.traceHash)} · ${esc(ref.lineCount || 'unknown')} lines</li>`)
     .join('') || '<li>none</li>';
+  const objective = bundle.objectiveRef || {};
+  const renderedRefs = (bundle.renderedDocRefs || [])
+    .map((ref) => `<li>${esc(ref)}</li>`)
+    .join('') || '<li>none</li>';
+  const artifactRefs = Object.entries(bundle.artifacts || {})
+    .filter(([, value]) => value)
+    .map(([key, value]) => `<li>${esc(key)}: ${esc(value)}</li>`)
+    .join('') || '<li>none</li>';
+  const mismatch = bundle.stopMismatch
+    ? `<p class="mismatch"><strong>Wrapper/native mismatch:</strong> ${esc(bundle.stopMismatch.wrapperClaim || 'wrapper claim')} -> ${esc(bundle.stopMismatch.inferredClassification || 'inferred')} via ${esc(bundle.stopMismatch.authoritativeSource || 'native evidence')}</p>`
+    : '<p class="mismatch muted">Wrapper/native mismatch: none recorded</p>';
   return `
     <section class="run-card" data-run-id="${esc(bundle.runId)}" data-recommendation="${esc(bundle.recommendation)}">
       <header>
@@ -302,12 +343,16 @@ function renderRunCard(bundle) {
         <div class="recommendation">${esc(bundle.recommendation)}</div>
       </header>
       <p><strong>Stage:</strong> ${esc(bundle.lifecycleStage)} · <strong>Status:</strong> ${esc(bundle.status)}</p>
+      <p><strong>Objective:</strong> ${esc(objective.sourcePath || 'unknown')} · ${esc(objective.objectiveHash || 'missing hash')}</p>
       <p><strong>Stop:</strong> ${esc(bundle.stopVerdict?.classification || 'none')} · ${esc(bundle.stopVerdict?.reasonCode || 'none')}</p>
+      ${mismatch}
       <div class="gates">${gates}</div>
       <div class="grid">
         <div><h3>Blockers</h3><ul>${blockers}</ul></div>
         <div><h3>Skills</h3><ul>${skills}</ul></div>
         <div><h3>Native Trace Summaries</h3><ul>${traces}</ul></div>
+        <div><h3>Rendered Docs</h3><ul>${renderedRefs}</ul></div>
+        <div class="wide"><h3>Evidence Artifacts</h3><ul>${artifactRefs}</ul></div>
       </div>
       <p class="privacy">Privacy: raw prompts, wrapper logs, native traces, and message content are omitted.</p>
     </section>`;
@@ -350,9 +395,12 @@ export async function renderDashboard({
     .gate-fail { border-color:#fecaca; background:#fef2f2; color:var(--bad); }
     .gate-pending, .gate-warn { border-color:#fed7aa; background:#fff7ed; color:var(--warn); }
     .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+    .wide { grid-column:span 2; }
+    .mismatch { margin:8px 0; }
+    .muted { color:var(--muted); }
     ul { margin:0; padding-left:18px; }
     .privacy { color:var(--muted); border-top:1px solid var(--line); padding-top:10px; margin-bottom:0; }
-    @media (max-width: 760px) { .grid { grid-template-columns:1fr; } .run-card header { display:block; } .recommendation { display:inline-block; margin-top:8px; } }
+    @media (max-width: 760px) { .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } .run-card header { display:block; } .recommendation { display:inline-block; margin-top:8px; } }
   </style>
 </head>
 <body>

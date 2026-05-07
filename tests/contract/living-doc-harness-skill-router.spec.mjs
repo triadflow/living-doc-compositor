@@ -105,6 +105,8 @@ try {
     assert.equal(result.handover.livingDoc.before.hash.startsWith('sha256:'), true);
     assert.equal(result.handover.livingDoc.after.hash.startsWith('sha256:'), true);
     assert.equal(result.handover.livingDoc.render.status, 0);
+    assert.equal(result.handover.mismatch.wrapperClaim, 'stopped');
+    assert.equal(result.handover.mismatch.inferredClassification, 'repairable');
     const handover = JSON.parse(await readFile(result.handoverPath, 'utf8'));
     assert.equal(handover.schema, 'living-doc-harness-repair-handover/v1');
     const invocations = await readFile(result.skillInvocationsPath, 'utf8');
@@ -162,6 +164,8 @@ try {
     });
     const actionNames = result.routing.actions.map((action) => action.skill || action.actionId);
     assert.deepEqual(actionNames.slice(0, 3), ['objective-conservation-audit', 'activation-energy-review', 'reaction-path-validator']);
+    assert.equal(result.handover.mismatch.wrapperClaim, 'closed');
+    assert.equal(result.handover.mismatch.inferredClassification, 'closure-candidate');
   }
 
   // True block creates blocker record action and terminal handover.

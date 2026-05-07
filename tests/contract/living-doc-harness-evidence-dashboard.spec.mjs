@@ -102,6 +102,8 @@ try {
   assert.equal(bundle.schema, 'living-doc-harness-evidence-bundle/v1');
   assert.equal(bundle.recommendation, 'block');
   assert.equal(bundle.lifecycleStage, 'true-blocked');
+  assert.equal(bundle.objectiveRef.sourcePath, 'tests/fixtures/minimal-doc.json');
+  assert.match(bundle.objectiveRef.objectiveHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(bundle.proofGates.nativeTrace, 'pass');
   assert.equal(bundle.proofGates.blockersVisible, 'pass');
   assert.equal(bundle.blockers[0].reasonCode, 'missing-source');
@@ -126,6 +128,8 @@ try {
   const html = await readFile(dashboardPath, 'utf8');
   assert.match(html, /Living Doc Harness Dashboard/);
   assert.match(html, /data-recommendation="block"/);
+  assert.match(html, /Objective:/);
+  assert.match(html, /Evidence Artifacts/);
   assert.match(html, /missing-source/);
   assert.match(html, /reaction-path-validator/);
   assert.match(html, /Native Trace Summaries/);

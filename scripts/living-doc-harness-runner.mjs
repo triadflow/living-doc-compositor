@@ -6,9 +6,11 @@
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { attachTraceSummaryToRun, discoverCodexTraceFiles } from './living-doc-harness-trace-reader.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -62,9 +64,9 @@ function buildPrompt(doc, { docPath, runId }) {
   ].join('\n');
 }
 
-function buildCodexCommand({ cwd, lastMessagePath }) {
+function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex' }) {
   return {
-    command: 'codex',
+    command: codexBin,
     args: [
       'exec',
       '--json',
@@ -94,7 +96,10 @@ function parseArgs(argv) {
     runsDir: DEFAULT_RUNS_DIR,
     execute: false,
     cwd: process.cwd(),
-    now: null,
+    now: new Date().toISOString(),
+    codexBin: 'codex',
+    codexHome: process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
+    traceLimit: 10,
   };
 
   while (args.length) {
@@ -109,6 +114,18 @@ function parseArgs(argv) {
       const value = args.shift();
       if (!value) throw new Error('--now requires a value');
       options.now = value;
+    } else if (flag === '--codex-bin') {
+      const value = args.shift();
+      if (!value) throw new Error('--codex-bin requires a value');
+      options.codexBin = value;
+    } else if (flag === '--codex-home') {
+      const value = args.shift();
+      if (!value) throw new Error('--codex-home requires a value');
+      options.codexHome = value;
+    } else if (flag === '--trace-limit') {
+      const value = Number(args.shift());
+      if (!Number.isInteger(value) || value < 1) throw new Error('--trace-limit requires an integer >= 1');
+      options.traceLimit = value;
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
@@ -123,6 +140,9 @@ export async function createHarnessRun({
   execute = false,
   cwd = process.cwd(),
   now = new Date().toISOString(),
+  codexBin = 'codex',
+  codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
+  traceLimit = 10,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -145,7 +165,8 @@ export async function createHarnessRun({
   const codexStderrPath = path.join(turnsDir, 'codex-stderr.log');
   const prompt = buildPrompt(doc, { docPath: relativeDocPath, runId });
   const promptPath = path.join(runDir, 'prompt.md');
-  const codexCommand = buildCodexCommand({ cwd, lastMessagePath });
+  const absoluteCodexHome = path.resolve(cwd, codexHome);
+  const codexCommand = buildCodexCommand({ cwd, lastMessagePath, codexBin });
 
   const contract = {
     schema: 'living-doc-harness-run/v1',
@@ -165,8 +186,13 @@ export async function createHarnessRun({
       args: codexCommand.args,
       stdin: codexCommand.stdin,
       cwd,
+      env: {
+        CODEX_HOME: absoluteCodexHome,
+      },
       pid: null,
       exitCode: null,
+      startedAt: null,
+      finishedAt: null,
     },
     artifacts: {
       state: 'state.json',
@@ -176,6 +202,7 @@ export async function createHarnessRun({
       codexStderr: path.relative(runDir, codexStderrPath),
       lastMessage: path.relative(runDir, lastMessagePath),
       nativeTraceRefs: [],
+      traceDiscovery: 'trace-discovery.json',
     },
   };
 
@@ -218,11 +245,17 @@ export async function createHarnessRun({
     return { runId, runDir, contract, state, executed: false };
   }
 
+  const processStartedAt = new Date().toISOString();
   const child = spawn(codexCommand.command, codexCommand.args, {
     cwd,
+    env: {
+      ...process.env,
+      CODEX_HOME: absoluteCodexHome,
+    },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   contract.process.pid = child.pid;
+  contract.process.startedAt = processStartedAt;
   state.status = 'running';
   state.updatedAt = new Date().toISOString();
   await writeJson(path.join(runDir, 'contract.json'), contract);
@@ -237,6 +270,7 @@ export async function createHarnessRun({
   const finishedAt = new Date().toISOString();
   contract.status = exitCode === 0 ? 'finished' : 'failed';
   contract.process.exitCode = exitCode;
+  contract.process.finishedAt = finishedAt;
   state.status = contract.status;
   state.updatedAt = finishedAt;
   state.nextAction = 'inspect native inference logs and emit iteration proof handover';
@@ -249,7 +283,51 @@ export async function createHarnessRun({
     exitCode,
   });
 
-  return { runId, runDir, contract, state, executed: true, exitCode };
+  const discovered = await discoverCodexTraceFiles({
+    codexHome: absoluteCodexHome,
+    limit: traceLimit,
+  });
+  const startedMs = new Date(processStartedAt).getTime() - 2000;
+  const candidateTraces = discovered.filter((trace) => new Date(trace.modifiedAt).getTime() >= startedMs);
+  const traceDiscovery = {
+    schema: 'living-doc-harness-trace-discovery/v1',
+    runId,
+    codexHomeHash: sha256(absoluteCodexHome),
+    processStartedAt,
+    processFinishedAt: finishedAt,
+    candidateCount: candidateTraces.length,
+    candidates: candidateTraces.map((trace) => ({
+      pathHash: sha256(trace.path),
+      sizeBytes: trace.sizeBytes,
+      modifiedAt: trace.modifiedAt,
+    })),
+  };
+  await writeJson(path.join(runDir, 'trace-discovery.json'), traceDiscovery);
+  await appendJsonl(path.join(runDir, 'events.jsonl'), {
+    event: 'native-trace-discovery-written',
+    at: finishedAt,
+    runId,
+    candidateCount: candidateTraces.length,
+  });
+  for (const trace of candidateTraces) {
+    await attachTraceSummaryToRun({ runDir, tracePath: trace.path, now: finishedAt });
+  }
+  const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
+  const finalState = JSON.parse(await readFile(path.join(runDir, 'state.json'), 'utf8'));
+  finalState.nextAction = finalContract.artifacts.nativeTraceRefs.length
+    ? 'emit iteration evidence template from attached native trace summaries'
+    : 'attach native inference trace evidence before finalizing iteration';
+  await writeJson(path.join(runDir, 'state.json'), finalState);
+
+  return {
+    runId,
+    runDir,
+    contract: finalContract,
+    state: finalState,
+    executed: true,
+    exitCode,
+    traceDiscovery,
+  };
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;

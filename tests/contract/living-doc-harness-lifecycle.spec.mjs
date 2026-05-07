@@ -31,6 +31,8 @@ try {
   assert.match(dashboardHtml, /Living Doc Harness Dashboard/);
   assert.match(dashboardHtml, /data-recommendation="close"/);
   assert.match(dashboardHtml, /data-recommendation="resume"/);
+  assert.match(dashboardHtml, /Wrapper\/native mismatch:/);
+  assert.match(dashboardHtml, /done -> closure-candidate/);
 
   const fixtureResultJson = await readFile(path.join(tmp, 'lifecycle-fixture-result.json'), 'utf8');
   assert.match(fixtureResultJson, /invalidSelfReportClosureValid/);
