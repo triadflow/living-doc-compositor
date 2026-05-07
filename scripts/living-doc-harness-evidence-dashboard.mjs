@@ -1,0 +1,426 @@
+// Evidence bundle writer and local dashboard renderer for harness runs.
+//
+// Reads durable run artifacts and emits sanitized proof summaries. Raw Codex
+// traces, wrapper logs, prompts, and message content are never copied into the
+// evidence bundle or dashboard.
+
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+
+function sha256(text) {
+  return `sha256:${createHash('sha256').update(text).digest('hex')}`;
+}
+
+function esc(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+async function exists(filePath) {
+  try {
+    await stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJson(filePath, fallback = null) {
+  try {
+    return JSON.parse(await readFile(filePath, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+async function readJsonl(filePath) {
+  try {
+    const raw = await readFile(filePath, 'utf8');
+    return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
+async function writeJson(filePath, value) {
+  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+async function listFiles(dir, predicate = () => true) {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    return entries.filter((entry) => entry.isFile() && predicate(entry.name)).map((entry) => path.join(dir, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+async function listDirs(dir) {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => path.join(dir, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+function latestByCreatedAt(items) {
+  return [...items].sort((a, b) => String(b.createdAt || b.at || '').localeCompare(String(a.createdAt || a.at || '')))[0] || null;
+}
+
+function relative(runDir, filePath) {
+  return filePath ? path.relative(runDir, filePath) : null;
+}
+
+function deriveRecommendation({ state, terminal, handover }) {
+  const stage = terminal?.kind || state?.lifecycleStage || '';
+  if (stage === 'closed') return 'close';
+  if (stage === 'true-blocked') return 'block';
+  if (stage === 'pivoted') return 'pivot';
+  if (stage === 'deferred') return 'defer';
+  if (stage === 'budget-exhausted') return 'stop-budget';
+  if (stage === 'repair-resumed') return 'resume';
+  if (handover?.nextIteration?.mode) return handover.nextIteration.mode;
+  if (state?.status === 'prepared') return 'resume';
+  return 'inspect';
+}
+
+function proofGates({ contract, state, terminal, handover, traceRefs, skillInvocations, blockers }) {
+  return {
+    standaloneRun: contract?.process?.isolatedFromUserSession === true ? 'pass' : 'fail',
+    nativeTrace: traceRefs.length > 0 ? 'pass' : 'fail',
+    livingDocRendered: handover?.livingDoc?.render?.status === 0 || Boolean(contract?.livingDoc?.renderedHtml) ? 'pass' : 'pending',
+    skillRouting: skillInvocations.length > 0 || Boolean(handover?.actions?.length) ? 'pass' : 'pending',
+    terminalState: terminal ? 'pass' : 'pending',
+    blockersVisible: blockers.length > 0 ? 'pass' : terminal?.kind === 'true-blocked' ? 'fail' : 'not-applicable',
+    evidenceBundle: 'pass',
+    closureAllowed: terminal?.kind === 'closed' ? 'pass' : 'not-applicable',
+    lifecycleStage: state?.lifecycleStage || terminal?.kind || 'unknown',
+  };
+}
+
+export async function collectRunEvidence(runDir) {
+  const contract = await readJson(path.join(runDir, 'contract.json'), {});
+  const state = await readJson(path.join(runDir, 'state.json'), {});
+  const events = await readJsonl(path.join(runDir, 'events.jsonl'));
+  const blockers = await readJsonl(path.join(runDir, 'blockers.jsonl'));
+  const terminalStates = await readJsonl(path.join(runDir, 'terminal-states.jsonl'));
+  const skillInvocations = await readJsonl(path.join(runDir, 'skill-invocations.jsonl'));
+  const handoverFiles = await listFiles(path.join(runDir, 'handovers'), (name) => name.endsWith('.json'));
+  const handovers = [];
+  for (const file of handoverFiles) {
+    const handover = await readJson(file);
+    if (handover) handovers.push({ ...handover, artifactPath: relative(runDir, file) });
+  }
+  const traceFiles = await listFiles(path.join(runDir, 'traces'), (name) => name.endsWith('.summary.json'));
+  const traceSummaries = [];
+  for (const file of traceFiles) {
+    const summary = await readJson(file);
+    if (summary) {
+      traceSummaries.push({
+        summaryPath: relative(runDir, file),
+        traceHash: summary.traceHash,
+        lineCount: summary.lineCount,
+        firstTimestamp: summary.firstTimestamp,
+        lastTimestamp: summary.lastTimestamp,
+        eventTypes: summary.eventTypes || {},
+        payloadTypes: summary.payloadTypes || {},
+        privacy: summary.privacy || {},
+      });
+    }
+  }
+
+  const latestTerminal = latestByCreatedAt(terminalStates);
+  const latestHandover = latestByCreatedAt(handovers);
+  const traceRefs = [
+    ...(contract?.artifacts?.nativeTraceRefs || []),
+    ...traceSummaries.map((summary) => ({
+      summaryPath: summary.summaryPath,
+      traceHash: summary.traceHash,
+      lineCount: summary.lineCount,
+      rawPayloadIncluded: false,
+    })),
+  ];
+  const uniqueTraceRefs = [...new Map(traceRefs.filter(Boolean).map((ref) => [ref.traceHash || ref.summaryPath, ref])).values()];
+  const gates = proofGates({ contract, state, terminal: latestTerminal, handover: latestHandover, traceRefs: uniqueTraceRefs, skillInvocations, blockers });
+  const recommendation = deriveRecommendation({ state, terminal: latestTerminal, handover: latestHandover });
+
+  return {
+    schema: 'living-doc-harness-evidence-facts/v1',
+    runDir,
+    runId: contract.runId || state.runId || path.basename(runDir),
+    contract,
+    state,
+    events,
+    blockers,
+    terminalState: latestTerminal,
+    terminalStates,
+    skillInvocations,
+    handover: latestHandover,
+    handovers,
+    traceRefs: uniqueTraceRefs,
+    traceSummaries,
+    proofGates: gates,
+    recommendation,
+  };
+}
+
+export async function writeEvidenceBundle({
+  runDir,
+  outDir = 'evidence/living-doc-harness',
+  now = new Date().toISOString(),
+} = {}) {
+  if (!runDir) throw new Error('runDir is required');
+  const facts = await collectRunEvidence(runDir);
+  const bundleDir = path.join(outDir, facts.runId);
+  await mkdir(bundleDir, { recursive: true });
+
+  const bundle = {
+    schema: 'living-doc-harness-evidence-bundle/v1',
+    generatedAt: now,
+    runId: facts.runId,
+    runDirHash: sha256(path.resolve(runDir)),
+    objectiveHash: facts.contract?.livingDoc?.objectiveHash || facts.state?.objectiveHash || null,
+    sourceHash: facts.contract?.livingDoc?.sourceHash || null,
+    lifecycleStage: facts.state?.lifecycleStage || facts.terminalState?.kind || 'unknown',
+    status: facts.state?.status || facts.contract?.status || 'unknown',
+    recommendation: facts.recommendation,
+    proofGates: facts.proofGates,
+    stopVerdict: facts.terminalState?.stopVerdict || facts.handover?.stopVerdict || null,
+    terminalState: facts.terminalState ? {
+      kind: facts.terminalState.kind,
+      status: facts.terminalState.status,
+      loopMayContinue: facts.terminalState.loopMayContinue,
+      blockerRef: facts.terminalState.blockerRef,
+      nextAction: facts.terminalState.nextAction,
+    } : null,
+    blockers: facts.blockers.map((blocker) => ({
+      id: blocker.id,
+      reasonCode: blocker.reasonCode,
+      owningLayer: blocker.owningLayer,
+      requiredDecision: blocker.requiredDecision,
+      requiredSource: blocker.requiredSource,
+      requiredProof: blocker.requiredProof,
+      issueRef: blocker.issueRef,
+      followUpRef: blocker.followUpRef,
+      unblockCriteria: blocker.unblockCriteria,
+      dashboardVisible: blocker.dashboardVisible === true,
+    })),
+    skillTimeline: facts.skillInvocations.map((item) => ({
+      at: item.at,
+      skill: item.skill,
+      status: item.status,
+      reason: item.reason,
+      stopClassification: item.stopClassification,
+      stopReasonCode: item.stopReasonCode,
+      handoverPath: item.handoverPath,
+    })),
+    traceRefs: facts.traceRefs.map((ref) => ({
+      summaryPath: ref.summaryPath || null,
+      traceHash: ref.traceHash || null,
+      lineCount: ref.lineCount || null,
+      firstTimestamp: ref.firstTimestamp || null,
+      lastTimestamp: ref.lastTimestamp || null,
+      rawPayloadIncluded: false,
+    })),
+    renderedDocRefs: [
+      facts.contract?.livingDoc?.renderedHtml,
+      facts.handover?.livingDoc?.render?.renderedHtml,
+    ].filter(Boolean),
+    artifacts: {
+      contract: 'contract.json',
+      state: 'state.json',
+      events: 'events.jsonl',
+      terminalStates: facts.terminalStates.length ? 'terminal-states.jsonl' : null,
+      blockers: facts.blockers.length ? 'blockers.jsonl' : null,
+      skillInvocations: facts.skillInvocations.length ? 'skill-invocations.jsonl' : null,
+      latestHandover: facts.handover?.artifactPath || null,
+    },
+    privacy: {
+      rawPromptIncluded: false,
+      rawWrapperLogIncluded: false,
+      rawNativeTraceIncluded: false,
+      rawMessageContentIncluded: false,
+      sanitizedTraceSummariesOnly: true,
+    },
+  };
+
+  const summary = [
+    `# Harness Evidence Bundle: ${facts.runId}`,
+    '',
+    `Generated: ${now}`,
+    `Lifecycle stage: ${bundle.lifecycleStage}`,
+    `Recommendation: ${bundle.recommendation}`,
+    `Objective hash: ${bundle.objectiveHash || 'missing'}`,
+    '',
+    '## Gates',
+    ...Object.entries(bundle.proofGates).map(([key, value]) => `- ${key}: ${value}`),
+    '',
+    '## Stop',
+    `- classification: ${bundle.stopVerdict?.classification || 'none'}`,
+    `- reason: ${bundle.stopVerdict?.reasonCode || 'none'}`,
+    '',
+    '## Privacy',
+    '- raw prompt included: false',
+    '- raw wrapper log included: false',
+    '- raw native trace included: false',
+    '- raw message content included: false',
+    '',
+  ].join('\n');
+
+  const bundlePath = path.join(bundleDir, 'bundle.json');
+  const summaryPath = path.join(bundleDir, 'summary.md');
+  await writeJson(bundlePath, bundle);
+  await writeFile(summaryPath, summary, 'utf8');
+  return { bundle, bundlePath, summaryPath };
+}
+
+function renderRunCard(bundle) {
+  const gates = Object.entries(bundle.proofGates || {})
+    .map(([key, value]) => `<span class="gate gate-${esc(value)}">${esc(key)}: ${esc(value)}</span>`)
+    .join('');
+  const blockers = (bundle.blockers || [])
+    .map((blocker) => `<li><strong>${esc(blocker.reasonCode)}</strong> · ${esc(blocker.owningLayer)} · ${esc(blocker.requiredDecision)}</li>`)
+    .join('') || '<li>none</li>';
+  const skills = (bundle.skillTimeline || [])
+    .map((item) => `<li>${esc(item.skill)} · ${esc(item.status)} · ${esc(item.stopClassification)}</li>`)
+    .join('') || '<li>none</li>';
+  const traces = (bundle.traceRefs || [])
+    .map((ref) => `<li>${esc(ref.summaryPath || ref.traceHash)} · ${esc(ref.lineCount || 'unknown')} lines</li>`)
+    .join('') || '<li>none</li>';
+  return `
+    <section class="run-card" data-run-id="${esc(bundle.runId)}" data-recommendation="${esc(bundle.recommendation)}">
+      <header>
+        <h2>${esc(bundle.runId)}</h2>
+        <div class="recommendation">${esc(bundle.recommendation)}</div>
+      </header>
+      <p><strong>Stage:</strong> ${esc(bundle.lifecycleStage)} · <strong>Status:</strong> ${esc(bundle.status)}</p>
+      <p><strong>Stop:</strong> ${esc(bundle.stopVerdict?.classification || 'none')} · ${esc(bundle.stopVerdict?.reasonCode || 'none')}</p>
+      <div class="gates">${gates}</div>
+      <div class="grid">
+        <div><h3>Blockers</h3><ul>${blockers}</ul></div>
+        <div><h3>Skills</h3><ul>${skills}</ul></div>
+        <div><h3>Native Trace Summaries</h3><ul>${traces}</ul></div>
+      </div>
+      <p class="privacy">Privacy: raw prompts, wrapper logs, native traces, and message content are omitted.</p>
+    </section>`;
+}
+
+export async function renderDashboard({
+  runsDir = '.living-doc-runs',
+  evidenceDir = 'evidence/living-doc-harness',
+  outPath = 'docs/living-doc-harness-dashboard.html',
+  now = new Date().toISOString(),
+} = {}) {
+  const runDirs = await listDirs(runsDir);
+  const bundles = [];
+  for (const runDir of runDirs) {
+    const { bundle } = await writeEvidenceBundle({ runDir, outDir: evidenceDir, now });
+    bundles.push(bundle);
+  }
+  bundles.sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Living Doc Harness Dashboard</title>
+  <style>
+    :root { color-scheme: light; --ink:#17202a; --muted:#5d6876; --line:#d9dee7; --bg:#f7f8fb; --panel:#fff; --accent:#0f766e; --warn:#b45309; --bad:#b91c1c; }
+    body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:var(--bg); }
+    header.page { padding:24px 28px; border-bottom:1px solid var(--line); background:var(--panel); }
+    h1 { margin:0 0 4px; font-size:24px; letter-spacing:0; }
+    .sub { color:var(--muted); }
+    main { max-width:1180px; margin:0 auto; padding:24px; }
+    .run-card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px; margin-bottom:16px; }
+    .run-card header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+    h2 { margin:0; font-size:18px; letter-spacing:0; }
+    h3 { margin:14px 0 6px; font-size:13px; letter-spacing:0; color:var(--muted); text-transform:uppercase; }
+    .recommendation { padding:4px 8px; border-radius:6px; background:#e6f3f1; color:var(--accent); font-weight:700; }
+    .gates { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+    .gate { border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; }
+    .gate-pass { border-color:#9dd6c8; background:#ecfdf5; color:#047857; }
+    .gate-fail { border-color:#fecaca; background:#fef2f2; color:var(--bad); }
+    .gate-pending, .gate-warn { border-color:#fed7aa; background:#fff7ed; color:var(--warn); }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+    ul { margin:0; padding-left:18px; }
+    .privacy { color:var(--muted); border-top:1px solid var(--line); padding-top:10px; margin-bottom:0; }
+    @media (max-width: 760px) { .grid { grid-template-columns:1fr; } .run-card header { display:block; } .recommendation { display:inline-block; margin-top:8px; } }
+  </style>
+</head>
+<body>
+  <header class="page">
+    <h1>Living Doc Harness Dashboard</h1>
+    <div class="sub">Generated ${esc(now)} · ${bundles.length} run(s) · local sanitized proof view</div>
+  </header>
+  <main>
+    ${bundles.length ? bundles.map(renderRunCard).join('\n') : '<p>No harness runs found.</p>'}
+  </main>
+</body>
+</html>
+`;
+  await mkdir(path.dirname(outPath), { recursive: true });
+  await writeFile(outPath, html, 'utf8');
+  return { outPath, bundles };
+}
+
+function parseArgs(argv) {
+  const args = [...argv];
+  const command = args.shift();
+  if (!['bundle', 'dashboard'].includes(command)) {
+    throw new Error('usage: living-doc-harness-evidence-dashboard.mjs <bundle|dashboard> ...');
+  }
+  const options = {
+    command,
+    runDir: null,
+    runsDir: '.living-doc-runs',
+    outDir: 'evidence/living-doc-harness',
+    outPath: 'docs/living-doc-harness-dashboard.html',
+  };
+  if (command === 'bundle') {
+    options.runDir = args.shift();
+    if (!options.runDir) throw new Error('bundle requires <runDir>');
+  }
+  while (args.length) {
+    const flag = args.shift();
+    if (flag === '--out-dir') {
+      options.outDir = args.shift();
+      if (!options.outDir) throw new Error('--out-dir requires a value');
+    } else if (flag === '--runs-dir') {
+      options.runsDir = args.shift();
+      if (!options.runsDir) throw new Error('--runs-dir requires a value');
+    } else if (flag === '--out') {
+      options.outPath = args.shift();
+      if (!options.outPath) throw new Error('--out requires a value');
+    } else {
+      throw new Error(`unknown option: ${flag}`);
+    }
+  }
+  return options;
+}
+
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+if (isDirectRun) {
+  try {
+    const options = parseArgs(process.argv.slice(2));
+    const result = options.command === 'bundle'
+      ? await writeEvidenceBundle({ runDir: options.runDir, outDir: options.outDir })
+      : await renderDashboard({ runsDir: options.runsDir, evidenceDir: options.outDir, outPath: options.outPath });
+    console.log(JSON.stringify({
+      bundlePath: result.bundlePath || null,
+      summaryPath: result.summaryPath || null,
+      outPath: result.outPath || null,
+      runCount: result.bundles?.length || 1,
+    }, null, 2));
+  } catch (err) {
+    console.error(err.message);
+    process.exit(2);
+  }
+}
