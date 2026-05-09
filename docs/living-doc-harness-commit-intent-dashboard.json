@@ -1,0 +1,217 @@
+{
+  "docId": "doc:living-doc-harness-commit-intent-dashboard",
+  "title": "Commit Intent Dashboard Visibility",
+  "subtitle": "A small realistic harness-run objective against the harness dashboard itself.",
+  "brand": "LD",
+  "scope": "Living-doc harness dashboard graph and inspector surfaces for repair-unit commitIntent evidence.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/living-doc-harness-commit-intent-dashboard.json",
+  "sourceCoverage": "Created from GitHub issue #216 and the May 9, 2026 live repair-unit proof where catalytic-repair-run emitted commitIntent instead of committing directly.",
+  "updated": "2026-05-09T12:32:25.000Z",
+  "objective": "Use the standalone agentic living-doc harness to make repair-unit commitIntent evidence visible and inspectable in the local harness dashboard. The dashboard graph and inspector must expose whether a repair inference unit proposed a commit, why the commit was deferred, the proposed commit message/body, and changed files, using artifact-derived repair-chain data rather than hard-coded sample data. This objective must be executed through the standalone lifecycle harness, with the supervising chat only observing the run and creating blocker tickets if the harness cannot finish.",
+  "successCondition": "A dashboard user can inspect a lifecycle graph containing a repair unit with commitIntent evidence and see the required/not-required state, reason, message, body, and changed files in the appropriate node or edge detail surface; contract tests prove the data comes from lifecycle/repair-chain artifacts and the standalone harness run reaches closed or a documented blocker without direct implementation by the supervising chat.",
+  "runState": {
+    "currentPhase": "initial-objective-bearing",
+    "documentReady": true,
+    "objectiveReady": true,
+    "nextObjectiveAction": "Start the standalone lifecycle harness against this living doc. The supervising chat must observe artifacts, not implement the dashboard feature directly.",
+    "supervisionBoundary": {
+      "mode": "standalone-harness-indirection",
+      "supervisorMay": [
+        "start or watch the lifecycle run",
+        "inspect run artifacts and dashboard evidence",
+        "create a GitHub blocker issue if the harness blocks"
+      ],
+      "supervisorMustNot": [
+        "edit dashboard source directly while the run is active",
+        "patch tests to make the run look successful",
+        "claim closure without lifecycle, inference-unit, and dashboard proof"
+      ]
+    }
+  },
+  "sections": [
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "rationale": "Defines the objective-tight closure gates for this realistic harness test.",
+      "updated": "2026-05-09T12:32:25.000Z",
+      "data": [
+        {
+          "id": "criterion-repair-unit-commit-intent-detail",
+          "name": "Repair-unit detail exposes commitIntent",
+          "status": "required",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "objectiveTerm": "dashboard graph and inspector must expose whether a repair inference unit proposed a commit, why the commit was deferred, the proposed commit message/body, and changed files",
+          "criterion": "When a repair-skill result contains commitIntent, the dashboard detail surface for that repair unit exposes commitIntent.required, reason, message, body, and changedFiles in a readable operator-facing form.",
+          "proofRequired": "Artifact-derived graph/dashboard data from a repair-chain result containing commitIntent.required true, plus a dashboard UI or graph contract test asserting those fields are visible.",
+          "acceptanceTest": "Run the dashboard graph contract against a lifecycle fixture or live run with catalytic-repair-run commitIntent.required true; the test must fail if reason, message/body, or changedFiles are missing from the detail surface."
+        },
+        {
+          "id": "criterion-changed-doc-edge-commit-intent",
+          "name": "Changed-living-doc edge carries commitIntent",
+          "status": "required",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "objectiveTerm": "changed files, using artifact-derived repair-chain data rather than hard-coded sample data",
+          "criterion": "The graph edge from a doc-changing repair unit to the operated living doc carries commitIntent metadata when the repair result changed files and supplied commitIntent.",
+          "proofRequired": "Graph API response derived from repair-chain artifacts with a changed-living-doc edge that includes changedFiles and commitIntent evidence, plus a contract assertion against that response.",
+          "acceptanceTest": "Inspect GET /api/lifecycles/:resultId/graph for a lifecycle whose repair-chain result contains commitIntent.required true; the changed-living-doc edge must include commitIntent and changedFiles from the artifact."
+        },
+        {
+          "id": "criterion-not-required-state-visible",
+          "name": "Not-required commitIntent is explicit",
+          "status": "required",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "objectiveTerm": "whether a repair inference unit proposed a commit",
+          "criterion": "When a repair-skill result contains commitIntent.required false or no file changes, the dashboard shows that commit intent is not required instead of silently hiding the field.",
+          "proofRequired": "Fixture or live repair-chain result with a no-change repair unit such as objective-execution-readiness and dashboard/graph test proving the not-required state is represented.",
+          "acceptanceTest": "Run the graph/dashboard test against a repair-chain result containing objective-execution-readiness commitIntent.required false; the UI or graph detail must expose not-required state."
+        },
+        {
+          "id": "criterion-standalone-harness-indirection",
+          "name": "Standalone harness performs the work",
+          "status": "required",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "objectiveTerm": "This objective must be executed through the standalone lifecycle harness, with the supervising chat only observing the run",
+          "criterion": "The implementation attempt is started through the standalone lifecycle harness from this living doc, and the supervising chat does not directly patch dashboard code while the run is active.",
+          "proofRequired": "Lifecycle result path, output-input artifacts, inference-unit logs, final terminal state, and either closure proof or a blocker issue created from run evidence.",
+          "acceptanceTest": "A reviewer can inspect .living-doc-runs/<ldhl-id>/lifecycle-result.json and see worker/reviewer/repair/closure artifacts for this doc, or a true-block/process-defect issue that cites those artifacts."
+        }
+      ]
+    },
+    {
+      "id": "implementation-surfaces",
+      "title": "Implementation Surfaces",
+      "convergenceType": "operating-surface",
+      "rationale": "Names the source-system surfaces the harness worker is allowed to inspect or change.",
+      "updated": "2026-05-09T12:32:25.000Z",
+      "data": [
+        {
+          "id": "surface-dashboard-graph-api",
+          "name": "Dashboard graph API",
+          "status": "in-scope",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "summary": "The graph API should expose commitIntent on repair-unit nodes and changed-living-doc edges from artifact-derived repair-chain data.",
+          "sourcePaths": [
+            "scripts/living-doc-harness-dashboard-server.mjs",
+            "tests/contract/living-doc-harness-dashboard-server.spec.mjs"
+          ]
+        },
+        {
+          "id": "surface-dashboard-ui",
+          "name": "Dashboard graph UI and inspector",
+          "status": "in-scope",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "summary": "The operator-facing graph surface should make commitIntent readable when a repair unit card or changed-living-doc edge is selected.",
+          "sourcePaths": [
+            "docs/living-doc-harness-dashboard.html",
+            "tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs"
+          ]
+        },
+        {
+          "id": "surface-repair-chain-artifacts",
+          "name": "Repair-chain artifacts",
+          "status": "source-of-truth",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "summary": "repair-chain-result.json and per-skill result.json files are the source of commitIntent evidence. The dashboard must not hard-code or invent this state.",
+          "sourcePaths": [
+            ".living-doc-runs/<run-id>/repair-skills/iteration-N/repair-chain-result.json",
+            ".living-doc-runs/<run-id>/repair-skills/iteration-N/<unit>/result.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "issue-spine",
+      "title": "Issue Spine",
+      "convergenceType": "issue-orbit",
+      "rationale": "Keeps the GitHub reference for this indirection test visible.",
+      "updated": "2026-05-09T12:32:25.000Z",
+      "data": [
+        {
+          "id": "issue-216",
+          "name": "Realistic harness test: commitIntent visibility in dashboard",
+          "status": "open",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/216",
+          "relationship": "objective-ticket",
+          "relevance": "This ticket is the external reference for the realistic living-doc test. It captures the indirection rule: create a living doc, run the standalone harness, and judge the outcome from artifacts instead of direct supervising-chat implementation.",
+          "acceptanceFocus": "CommitIntent visibility must become a dashboard capability proven through artifact-derived graph/UI tests and standalone harness evidence."
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "rationale": "Defines the expected proof escalation for this small realistic run.",
+      "updated": "2026-05-09T12:32:25.000Z",
+      "data": [
+        {
+          "id": "rung-objective-shaped",
+          "name": "Objective and acceptance criteria shaped",
+          "status": "complete",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "evidence": "This living doc contains a narrow objective and four objective-tied acceptance criteria.",
+          "nextStep": "Start the standalone lifecycle harness."
+        },
+        {
+          "id": "rung-standalone-lifecycle-run",
+          "name": "Standalone lifecycle run",
+          "status": "pending",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "evidence": "No lifecycle result yet.",
+          "nextStep": "Run the harness and record the lifecycle id."
+        },
+        {
+          "id": "rung-dashboard-proof",
+          "name": "Dashboard graph and inspector proof",
+          "status": "pending",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "evidence": "No graph/UI contract proof yet.",
+          "nextStep": "Require graph/UI tests or a blocker issue."
+        }
+      ]
+    },
+    {
+      "id": "relationship-maps",
+      "title": "Relationship Maps",
+      "convergenceType": "relationship-map",
+      "rationale": "Makes the indirection and data-flow relationship inspectable before the run.",
+      "updated": "2026-05-09T12:32:25.000Z",
+      "data": [
+        {
+          "id": "map-commit-intent-dashboard-flow",
+          "name": "CommitIntent dashboard flow",
+          "status": "specified",
+          "updated": "2026-05-09T12:32:25.000Z",
+          "claim": "CommitIntent visibility is valid only when dashboard graph and UI details are derived from repair-chain artifacts produced by a standalone harness run.",
+          "semanticRole": "Execution-guiding: it separates source evidence, harness execution, dashboard representation, and proof gates.",
+          "validationQuestion": "Can a user trace commitIntent from repair-skill result artifact to graph edge/detail UI to contract test without relying on hard-coded sample data?",
+          "driftRisk": "The map is stale if the dashboard shows commitIntent from fixtures only, hides not-required state, or the supervising chat implements the feature outside the harness run.",
+          "sectionIds": [
+            "acceptance-criteria",
+            "implementation-surfaces"
+          ],
+          "criterionIds": [
+            "criterion-repair-unit-commit-intent-detail",
+            "criterion-changed-doc-edge-commit-intent",
+            "criterion-not-required-state-visible",
+            "criterion-standalone-harness-indirection"
+          ],
+          "ticketIds": [
+            "#216"
+          ],
+          "diagrams": [
+            {
+              "title": "Indirection and Proof Flow",
+              "role": "execution",
+              "text": "flowchart LR\n  Doc[\"Living doc objective\"] --> Harness[\"Standalone lifecycle harness\"]\n  Harness --> Worker[\"Worker inference\"]\n  Worker --> Reviewer[\"Reviewer inference\"]\n  Reviewer --> Repair[\"Repair units\"]\n  Repair --> Artifact[\"repair-chain-result.json commitIntent\"]\n  Artifact --> Graph[\"Dashboard graph API\"]\n  Graph --> UI[\"Inspector / edge detail\"]\n  UI --> Tests[\"Graph and UI contract tests\"]\n  Tests --> Closure[\"Closure or blocker\"]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
