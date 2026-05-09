@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Agentic Harness Loop</title>
+<meta name="description" content="Static presentation of an inference-time living-doc harness that runs Codex headless, treats stops as diagnostic signals, invokes repair skills, patches the living doc, and resumes toward objective closure." />
+<style>
+  :root {
+    --bg: #f5f2ec;
+    --paper: #fffdf8;
+    --ink: #1d2528;
+    --muted: #667176;
+    --line: #d8d0c4;
+    --soft: #eee7dc;
+    --green: #0c6b5e;
+    --green-bg: #edf8f2;
+    --blue: #285f8f;
+    --blue-bg: #edf4fb;
+    --amber: #946316;
+    --amber-bg: #fff7e6;
+    --red: #8d2f2f;
+    --red-bg: #fff1ef;
+    --violet: #62508c;
+    --violet-bg: #f4f1fb;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1240px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, .92);
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 760;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 50px 0 80px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr);
+    gap: 28px;
+    align-items: start;
+    margin-bottom: 28px;
+  }
+
+  .eyebrow {
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 940px;
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .95;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 910px;
+    margin: 0;
+    color: #344044;
+    font-size: 21px;
+    line-height: 1.42;
+  }
+
+  .summary,
+  section,
+  .card,
+  .loop-node,
+  .signal,
+  .bundle-card,
+  .state-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .06);
+  }
+
+  .summary { padding: 18px; }
+
+  .summary h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary li + li { margin-top: 8px; }
+
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 24px 0;
+  }
+
+  .principle {
+    min-height: 108px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 14px;
+  }
+
+  .principle span {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .principle strong {
+    display: block;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  section {
+    margin-top: 26px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 19px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    max-width: 980px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .body { padding: 22px; }
+
+  .loop {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .loop-node {
+    min-height: 178px;
+    padding: 16px;
+    position: relative;
+    box-shadow: none;
+  }
+
+  .loop-node::after {
+    content: "→";
+    position: absolute;
+    top: 50%;
+    right: -18px;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 22px;
+    z-index: 2;
+  }
+
+  .loop-node:nth-child(4)::after,
+  .loop-node:nth-child(8)::after { display: none; }
+
+  .loop-node strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  .loop-node span {
+    display: inline-flex;
+    margin-bottom: 9px;
+    border-radius: 5px;
+    background: var(--soft);
+    padding: 3px 7px;
+    color: #263236;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .loop-node p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .green { background: var(--green-bg); border-color: #b9d8cf; }
+  .blue { background: var(--blue-bg); border-color: #bfd3e4; }
+  .amber { background: var(--amber-bg); border-color: #ead19a; }
+  .red { background: var(--red-bg); border-color: #e2beb9; }
+  .violet { background: var(--violet-bg); border-color: #d6cfe6; }
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .triple {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .signal-grid,
+  .bundle-grid,
+  .state-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .signal,
+  .bundle-card,
+  .state-card,
+  .card {
+    padding: 15px;
+    box-shadow: none;
+  }
+
+  .signal strong,
+  .bundle-card strong,
+  .state-card strong,
+  .card h3 {
+    display: block;
+    margin: 0 0 7px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .signal p,
+  .bundle-card p,
+  .state-card p,
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .bundle-card code,
+  .state-card code {
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+
+  .rule {
+    margin: 0;
+    padding: 18px 20px;
+    border-left: 5px solid var(--green);
+    border-radius: 8px;
+    background: var(--green-bg);
+    color: #263236;
+    font-size: 20px;
+    line-height: 1.38;
+  }
+
+  .pseudo {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #263236;
+    color: #f7f2ea;
+    overflow: auto;
+  }
+
+  pre {
+    margin: 0;
+    padding: 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: .92em;
+    background: var(--soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  .ladder {
+    display: grid;
+    gap: 10px;
+  }
+
+  .ladder-step {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 13px;
+  }
+
+  .ladder-step strong {
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .ladder-step p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  footer {
+    padding: 0 0 40px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 1040px) {
+    .hero,
+    .split,
+    .triple,
+    .signal-grid,
+    .bundle-grid,
+    .state-grid,
+    .principles,
+    .loop {
+      grid-template-columns: 1fr;
+    }
+
+    .loop-node::after {
+      content: "↓";
+      top: auto;
+      bottom: -24px;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+    }
+
+    .loop-node:nth-child(4)::after { display: block; }
+    .loop-node:nth-child(8)::after { display: none; }
+
+    .ladder-step { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 620px) {
+    nav { display: none; }
+    .lede { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./index.html">
+        <span class="mark">LD</span>
+        <span>Living Doc Compositor</span>
+      </a>
+      <nav aria-label="Page navigation">
+        <a href="#loop">Loop</a>
+        <a href="#signals">Signals</a>
+        <a href="#skills">Skills</a>
+        <a href="#harness">Harness</a>
+        <a href="#value">Value</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Inference-time control / agentic harness</div>
+        <h1>Living Doc Agentic Harness Loop</h1>
+        <p class="lede">
+          Codex can already complete a bounded A-Z living-doc run when the objective fits the time window. The next step is to treat every stop as a diagnostic signal, invoke the right repair skill, rebalance the living doc, and resume without making the user the constant control layer.
+        </p>
+      </div>
+      <aside class="summary">
+        <h2>Core shift</h2>
+        <ul>
+          <li>Run Codex headless against a living doc objective.</li>
+          <li>Classify stops as inference ambiguity or state imbalance.</li>
+          <li>Use skills to repair the doc and source-state interpretation.</li>
+          <li>Resume until closed, blocked, pivoted, deferred, or budget exhausted.</li>
+        </ul>
+      </aside>
+    </div>
+
+    <div class="principles" aria-label="Harness principles">
+      <div class="principle"><span>Run</span><strong>bounded inference attempt</strong></div>
+      <div class="principle"><span>Stop</span><strong>diagnostic signal</strong></div>
+      <div class="principle"><span>Repair</span><strong>skill-driven rebalance</strong></div>
+      <div class="principle"><span>Resume</span><strong>objective-conserving iteration</strong></div>
+    </div>
+
+    <section id="loop">
+      <div class="section-head">
+        <h2>The Iteration Loop</h2>
+        <p>The harness does not blindly keep prompting. It uses the living doc as the state surface and the skill bundle as the repair mechanism between inference attempts.</p>
+      </div>
+      <div class="body">
+        <div class="loop" aria-label="Agentic harness loop">
+          <div class="loop-node green">
+            <span>01</span>
+            <strong>Load living doc</strong>
+            <p>Read objective, acceptance criteria, convergence types, stage state, proof surfaces, and source-system references.</p>
+          </div>
+          <div class="loop-node blue">
+            <span>02</span>
+            <strong>Run Codex headless</strong>
+            <p>Give Codex a bounded interval to work from A to Z against the living doc.</p>
+          </div>
+          <div class="loop-node amber">
+            <span>03</span>
+            <strong>Capture stop</strong>
+            <p>Record why the run stopped: question, uncertainty, tool failure, closure claim, loop, or partial state.</p>
+          </div>
+          <div class="loop-node violet">
+            <span>04</span>
+            <strong>Classify stage</strong>
+            <p>Infer whether the doc is raw, shaped, executable, in motion, out of balance, or a closure candidate.</p>
+          </div>
+          <div class="loop-node red">
+            <span>05</span>
+            <strong>Invoke skill bundle</strong>
+            <p>Run shaping, readiness, balance, conservation, activation, or path validation based on the stop signal.</p>
+          </div>
+          <div class="loop-node amber">
+            <span>06</span>
+            <strong>Patch living doc</strong>
+            <p>Update objective, criteria, proof, issue state, blocker, deferral, pivot, or repair notes.</p>
+          </div>
+          <div class="loop-node blue">
+            <span>07</span>
+            <strong>Verify and render</strong>
+            <p>Run proof commands, inspect source-system state, render the doc, and keep the current state portable.</p>
+          </div>
+          <div class="loop-node green">
+            <span>08</span>
+            <strong>Resume or exit</strong>
+            <p>Resume Codex with repaired context, or exit as closed, blocked, pivoted, deferred, or budget exhausted.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="signals">
+      <div class="section-head">
+        <h2>Stop Signals</h2>
+        <p>A stop is not automatically a failure. It is evidence that the inference run has reached ambiguity, imbalance, missing proof, or closure pressure.</p>
+      </div>
+      <div class="body">
+        <div class="signal-grid">
+          <div class="signal">
+            <strong>Clarification question</strong>
+            <p>The objective, scope, source surface, or acceptance criterion is not explicit enough for independent execution.</p>
+          </div>
+          <div class="signal">
+            <strong>No clear next action</strong>
+            <p>The living doc may be shaped but not executable; the next valid operation is not visible.</p>
+          </div>
+          <div class="signal">
+            <strong>Tool or proof failure</strong>
+            <p>The source system is contradicting the expected path, or the proof surface was underdefined.</p>
+          </div>
+          <div class="signal">
+            <strong>Closure claim</strong>
+            <p>The run says done; the harness must challenge whether every objective term is accounted for.</p>
+          </div>
+          <div class="signal">
+            <strong>Repeated planning</strong>
+            <p>The model is reorganizing intention instead of changing the source state or proof state.</p>
+          </div>
+          <div class="signal">
+            <strong>User-style handoff</strong>
+            <p>The model stops with a summary that expects the user to decide what the living doc itself should decide.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="section-head">
+        <h2>Skill Routing</h2>
+        <p>The harness chooses skills from the stop condition and the living-doc stage. This is the orchestration layer that currently happens manually while waiting for user feedback.</p>
+      </div>
+      <div class="body">
+        <div class="bundle-grid">
+          <div class="bundle-card green">
+            <code>objective-acceptance-shaping</code>
+            <strong>Objective is still soft.</strong>
+            <p>Critique rough intent, propose the first clear objective, and attach acceptance criteria that can fail.</p>
+          </div>
+          <div class="bundle-card blue">
+            <code>objective-execution-readiness</code>
+            <strong>Doc may not be executable.</strong>
+            <p>Check whether the objective, criteria, proof surfaces, and next action are enough to drive work.</p>
+          </div>
+          <div class="bundle-card amber">
+            <code>living-doc-balance-scan</code>
+            <strong>State seems unstable.</strong>
+            <p>Classify the imbalance before choosing repair: objective, proof, governance, source, or stage confusion.</p>
+          </div>
+          <div class="bundle-card violet">
+            <code>equilibrium-rebalance</code>
+            <strong>Surfaces disagree.</strong>
+            <p>Repair the doc when source state, issue state, proof, invariants, or user feedback pull apart.</p>
+          </div>
+          <div class="bundle-card red">
+            <code>activation-energy-review</code>
+            <strong>Closure is claimed.</strong>
+            <p>Test whether proof crossed the objective threshold instead of accumulating closure-shaped artifacts.</p>
+          </div>
+          <div class="bundle-card green">
+            <code>catalytic-repair-run</code>
+            <strong>Repair must be executed.</strong>
+            <p>Patch the doc, update issues, verify source state, render, and commit the repair before resuming.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="harness">
+      <div class="section-head">
+        <h2>Harness Contract</h2>
+        <p>The harness should be strict about what it treats as progress. A nicer summary is not progress unless the living doc state or source-system truth changed.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div>
+            <blockquote class="rule">
+              A stop is a control point. The harness must classify it, repair the living doc if needed, and resume only with a clearer objective state.
+            </blockquote>
+          </div>
+          <div class="pseudo" aria-label="Harness pseudocode">
+<pre>while budget_remains:
+  state = read_living_doc()
+  result = run_codex_headless(state, timebox)
+
+  stop = classify_stop(result)
+  stage = infer_living_doc_stage(state, result)
+
+  if result.claims_closure:
+    audit = run_closure_skills(state, result)
+  else:
+    audit = run_repair_skills(stage, stop, state, result)
+
+  patch = produce_doc_patch(audit)
+  apply_patch_and_render(patch)
+
+  if audit.exit_state in ["closed", "blocked", "pivoted", "deferred"]:
+    break
+
+  resume_with_repaired_doc()</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Exit States</h2>
+        <p>The loop should not run forever. It needs a small set of honest end states that preserve the objective.</p>
+      </div>
+      <div class="body">
+        <div class="state-grid">
+          <div class="state-card green">
+            <code>closed</code>
+            <strong>Objective proved.</strong>
+            <p>Every accountable term is satisfied and the proof surface agrees with the source system.</p>
+          </div>
+          <div class="state-card amber">
+            <code>blocked</code>
+            <strong>Rate-limiting condition.</strong>
+            <p>A missing permission, source, decision, dependency, or failing proof prevents further progress.</p>
+          </div>
+          <div class="state-card violet">
+            <code>pivoted</code>
+            <strong>Objective changed honestly.</strong>
+            <p>The old objective is not claimed as complete; the new objective and carry-over are explicit.</p>
+          </div>
+          <div class="state-card blue">
+            <code>deferred</code>
+            <strong>Outside current objective.</strong>
+            <p>A remaining part is named with a trigger for reopening, not hidden as vague future work.</p>
+          </div>
+          <div class="state-card red">
+            <code>budget-exhausted</code>
+            <strong>Run stops without pretending.</strong>
+            <p>The harness records what remains false and what skill or proof surface should run next.</p>
+          </div>
+          <div class="state-card green">
+            <code>resume</code>
+            <strong>Repaired enough to continue.</strong>
+            <p>The living doc has been patched and the next valid operation is visible again.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="value">
+      <div class="section-head">
+        <h2>Why This Matters</h2>
+        <p>The value is not only less user intervention. The deeper value is making stronger inference runs safer to let continue.</p>
+      </div>
+      <div class="body">
+        <div class="ladder">
+          <div class="ladder-step">
+            <strong>Current manual mode</strong>
+            <p>The model works until it stops. The user notices uncertainty, drift, or premature closure and manually invokes the next skill or correction.</p>
+          </div>
+          <div class="ladder-step">
+            <strong>Harness mode</strong>
+            <p>The stop itself triggers diagnosis. Skills repair the living doc, update proof state, and resume the model without making the user carry every control transition.</p>
+          </div>
+          <div class="ladder-step">
+            <strong>Next capability step</strong>
+            <p>As models can do longer A-Z runs, the harness gives them durable objective state, stage awareness, and closure gates so capability does not amplify drift.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Proof And Dashboard Layer</h2>
+        <p>The harness needs a second surface around the loop: frozen contracts, state events, sanitized evidence, blocker semantics, and native inference trace links.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="card">
+            <h3>Why it matters</h3>
+            <p>A stop should become dashboard-visible proof state, not only a final assistant message. The operator must be able to inspect what stopped, what skill ran, what changed, and whether the run can resume.</p>
+          </div>
+          <div class="card green">
+            <h3>Companion page</h3>
+            <p>See <a href="./living-doc-harness-proof-dashboard.html">Living Doc Harness Proof Dashboard Layer</a> for the contract, evidence bundle, blocker, trace, and dashboard handoff model.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    Static presentation page. Companion to
+    <a href="./living-doc-stage-skill-matrix.html">Living Doc Stage Skill Matrix</a>,
+    <a href="./living-doc-harness-proof-dashboard.html">Living Doc Harness Proof Dashboard Layer</a>, and
+    <a href="./living-doc-governance-chemistry-skills.html">Skills as Deep Repair for Objective Drift</a>.
+  </footer>
+</body>
+</html>

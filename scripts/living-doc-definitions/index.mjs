@@ -15,6 +15,8 @@ import surfaceDelivery from './templates/surface-delivery.mjs';
 import coherenceMap from './convergence-types/coherence-map.mjs';
 import explainabilityLayer from './convergence-types/explainability-layer.mjs';
 import acceptanceCriteria from './convergence-types/acceptance-criteria.mjs';
+import regressionBoundary from './convergence-types/regression-boundary.mjs';
+import relationshipMap from './convergence-types/relationship-map.mjs';
 import designCodeSpecFlow from './convergence-types/design-code-spec-flow.mjs';
 import statusSnapshot from './convergence-types/status-snapshot.mjs';
 import capabilitySurface from './convergence-types/capability-surface.mjs';
@@ -84,6 +86,8 @@ export const convergenceTypeDefinitions = [
   coherenceMap,
   explainabilityLayer,
   acceptanceCriteria,
+  regressionBoundary,
+  relationshipMap,
   designCodeSpecFlow,
   statusSnapshot,
   capabilitySurface,

@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Why This Living Doc Objective Closed in One Run</title>
+<meta name="description" content="Internal analysis of why the convergence-type refactor could be completed in one sustained run once the living-doc objective became executable." />
+<style>
+  :root {
+    --bg: #f5f2ec;
+    --paper: #fffdf8;
+    --ink: #1e2528;
+    --muted: #667176;
+    --line: #d7d0c4;
+    --soft: #eee7dc;
+    --accent: #0c6b5e;
+    --accent-2: #6f4a1f;
+    --blue: #285f8f;
+    --blue-bg: #edf4fb;
+    --green: #28664f;
+    --green-bg: #edf8f2;
+    --warn: #9a6517;
+    --warn-bg: #fff7e6;
+    --danger: #8d2f2f;
+    --danger-bg: #fff1ef;
+    --code: #263236;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, .92);
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 760;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--serif);
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 54px 0 84px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+    gap: 32px;
+    align-items: start;
+    margin-bottom: 34px;
+  }
+
+  .eyebrow {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 900px;
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .95;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 890px;
+    margin: 0;
+    color: #334044;
+    font-size: 21px;
+    line-height: 1.42;
+  }
+
+  .summary-card,
+  section,
+  .metric,
+  .tile {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .07);
+  }
+
+  .summary-card { padding: 18px; }
+
+  .summary-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary-card li + li { margin-top: 8px; }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 28px 0;
+  }
+
+  .metric {
+    min-height: 118px;
+    padding: 14px;
+  }
+
+  .metric span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .metric strong {
+    display: block;
+    font-size: 24px;
+    line-height: 1.12;
+  }
+
+  section {
+    margin-top: 28px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    max-width: 940px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .body { padding: 22px; }
+
+  code,
+  .code {
+    font-family: var(--mono);
+    color: var(--code);
+    background: #f0ece4;
+    border: 1px solid #ded6c9;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: .92em;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .wide-split {
+    display: grid;
+    grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr);
+    gap: 18px;
+  }
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 16px;
+  }
+
+  .panel h3,
+  .tile h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  .panel p,
+  .tile p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .panel ul,
+  .panel ol,
+  .tile ul {
+    margin: 10px 0 0;
+    padding-left: 20px;
+    color: var(--muted);
+  }
+
+  li + li { margin-top: 7px; }
+
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--accent);
+    border-radius: 8px;
+    background: #f6fbf8;
+    padding: 16px;
+  }
+
+  .callout.warn {
+    border-left-color: var(--warn);
+    background: var(--warn-bg);
+  }
+
+  .callout.danger {
+    border-left-color: var(--danger);
+    background: var(--danger-bg);
+  }
+
+  .callout h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+  }
+
+  .callout p {
+    margin: 0;
+    color: #354144;
+  }
+
+  .stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .label {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #f8f1e7;
+    padding: 13px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+  }
+
+  .content {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffdf8;
+    padding: 13px 15px;
+  }
+
+  .content strong { display: block; margin-bottom: 4px; }
+  .content p { margin: 0; color: var(--muted); }
+
+  .timeline {
+    display: grid;
+    gap: 10px;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) 180px;
+    gap: 12px;
+    align-items: start;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffdf8;
+    padding: 13px;
+  }
+
+  .step .issue {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 800;
+  }
+
+  .step .commit {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .step h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+  }
+
+  .step p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .tile {
+    padding: 16px;
+    box-shadow: none;
+  }
+
+  .tile.good { background: var(--green-bg); border-color: #b9d8c9; }
+  .tile.blue { background: var(--blue-bg); border-color: #bad0e4; }
+  .tile.warn { background: var(--warn-bg); border-color: #e3c992; }
+
+  .mini-title {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .quote {
+    margin: 0;
+    padding: 16px 18px;
+    border-left: 5px solid var(--ink);
+    background: #f8f1e7;
+    color: #263236;
+    font-size: 20px;
+    line-height: 1.35;
+  }
+
+  .false-true {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .false-true .false {
+    border-left: 5px solid var(--danger);
+    background: var(--danger-bg);
+  }
+
+  .false-true .true {
+    border-left: 5px solid var(--green);
+    background: var(--green-bg);
+  }
+
+  .checklist {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .check {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffdf8;
+    padding: 12px;
+  }
+
+  .tick {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 5px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .check strong { display: block; }
+  .check p { margin: 3px 0 0; color: var(--muted); }
+
+  footer {
+    margin-top: 40px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    .hero,
+    .split,
+    .wide-split,
+    .false-true,
+    .tiles,
+    .metrics {
+      grid-template-columns: 1fr;
+    }
+
+    .row,
+    .step {
+      grid-template-columns: 1fr;
+    }
+
+    .step .commit { text-align: left; }
+    nav { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="shell top">
+    <a class="brand" href="./index.html">
+      <span class="mark">LD</span>
+      <span>Living Doc Compositor</span>
+    </a>
+    <nav aria-label="Page sections">
+      <a href="#thesis">Thesis</a>
+      <a href="#mechanisms">Mechanisms</a>
+      <a href="#execution">Execution</a>
+      <a href="#proof">Proof</a>
+      <a href="#lessons">Lessons</a>
+    </nav>
+  </div>
+</header>
+
+<main class="shell">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Internal analysis · objective execution</div>
+      <h1>Why this living-doc objective closed in one sustained run</h1>
+      <p class="lede">The important lesson is not that the agent suddenly worked harder. The work became executable: the objective was fixed, every remaining step mapped to an accountable objective term, and the proof system made false closure difficult.</p>
+    </div>
+    <aside class="summary-card" aria-label="Case summary">
+      <h2>Case</h2>
+      <ul>
+        <li><strong>Living doc:</strong> <code>docs/convergence-type-code-source-refactor.json</code></li>
+        <li><strong>Epic:</strong> #177, with subtickets #178-#184</li>
+        <li><strong>Final state:</strong> all six acceptance criteria satisfied</li>
+        <li><strong>Core shift:</strong> from architecture discussion to deterministic closure proof</li>
+      </ul>
+    </aside>
+  </div>
+
+  <div class="metrics" aria-label="Execution metrics">
+    <div class="metric">
+      <span>Objective terms</span>
+      <strong>6 closure gates</strong>
+    </div>
+    <div class="metric">
+      <span>Implementation spine</span>
+      <strong>7 subtickets</strong>
+    </div>
+    <div class="metric">
+      <span>Source migration</span>
+      <strong>48 type modules</strong>
+    </div>
+    <div class="metric">
+      <span>Proof command</span>
+      <strong>test:contract</strong>
+    </div>
+  </div>
+
+  <section id="thesis">
+    <div class="section-head">
+      <h2>The core reason</h2>
+      <p>The run succeeded because the living doc converted a vague architectural desire into a sequence of verifiable transformations.</p>
+    </div>
+    <div class="body">
+      <div class="false-true">
+        <div class="panel false">
+          <h3>False explanation</h3>
+          <p>The work finished because the agent had more momentum, confidence, or willingness to continue.</p>
+        </div>
+        <div class="panel true">
+          <h3>Actual explanation</h3>
+          <p>The work finished because the objective had become operational: each next action had a direct closure test and a place in the living doc.</p>
+        </div>
+      </div>
+      <p class="quote" style="margin-top:16px;">The work stopped being "reason about the architecture" and became "make the objective impossible to fake."</p>
+    </div>
+  </section>
+
+  <section id="mechanisms">
+    <div class="section-head">
+      <h2>The enabling mechanisms</h2>
+      <p>These were the specific conditions that changed the run from drift-prone reasoning into directed execution.</p>
+    </div>
+    <div class="body">
+      <div class="stack">
+        <div class="row">
+          <div class="label">1 · Fixed objective</div>
+          <div class="content">
+            <strong>The objective was no longer negotiable.</strong>
+            <p>The long objective was carried verbatim. That stopped the earlier pattern where a useful template-level refactor could be treated as close enough.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label">2 · Objective slicing</div>
+          <div class="content">
+            <strong>The tickets followed the words in the objective.</strong>
+            <p>#178-#184 were not arbitrary engineering chunks. Each one corresponded to a phrase: define in code, generate registry JSON, compose templates, preserve runtime, expose MCP access, prevent drift.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label">3 · Closure gates</div>
+          <div class="content">
+            <strong>Acceptance criteria prevented useful work from becoming fake completion.</strong>
+            <p>After #178 and #179, the living doc still kept the larger criteria open. A slice could close without the objective closing.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label">4 · Existing machinery</div>
+          <div class="content">
+            <strong>The codebase already had generation paths to attach to.</strong>
+            <p>Template definitions, semantic graphs, template artifacts, registry semantic uses, embed sync, render contracts, and MCP tests already existed. The refactor could connect surfaces instead of inventing a parallel system.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label">5 · Drift logic</div>
+          <div class="content">
+            <strong>The decisive question became: what should fail if this drifts?</strong>
+            <p>That produced strict registry generation, template graph checks, artifact checks, rendered semantic context checks, MCP checks, and the final cross-surface drift contract.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="execution">
+    <div class="section-head">
+      <h2>The execution spine</h2>
+      <p>The run was not one large undifferentiated change. It was a chain of objective-bound closures, each with a source-system proof.</p>
+    </div>
+    <div class="body">
+      <div class="timeline">
+        <div class="step">
+          <div class="issue">#178</div>
+          <div>
+            <h3>Define the convergence-type code definition API</h3>
+            <p>Created <code>defineConvergenceType</code>, exported <code>convergenceTypeDefinitions</code>, and proved one real fixture.</p>
+          </div>
+          <div class="commit">c420566</div>
+        </div>
+        <div class="step">
+          <div class="issue">#179</div>
+          <div>
+            <h3>Generate registry JSON from definitions</h3>
+            <p>Added the generator and check path, initially transitional, with strict mode ready for full migration.</p>
+          </div>
+          <div class="commit">3d71dc7</div>
+        </div>
+        <div class="step">
+          <div class="issue">#180</div>
+          <div>
+            <h3>Migrate all current convergence types</h3>
+            <p>Moved all 48 current convergence types into code modules; strict generation reported 0 legacy types.</p>
+          </div>
+          <div class="commit">483719c</div>
+        </div>
+        <div class="step">
+          <div class="issue">#181</div>
+          <div>
+            <h3>Make templates compose type definitions</h3>
+            <p>Template graphs and artifacts now carry generated <code>convergenceTypes</code> contract context from the code source.</p>
+          </div>
+          <div class="commit">e6aa0a5</div>
+        </div>
+        <div class="step">
+          <div class="issue">#182</div>
+          <div>
+            <h3>Prove rendered docs and compositor flows still work</h3>
+            <p>Re-rendered template docs and ran contract plus e2e verification against existing flows.</p>
+          </div>
+          <div class="commit">547407b</div>
+        </div>
+        <div class="step">
+          <div class="issue">#183</div>
+          <div>
+            <h3>Expose contracts through MCP and skills</h3>
+            <p>Added <code>living_doc_convergence_type_contract</code> so inference-time tools can query the source-level contract directly.</p>
+          </div>
+          <div class="commit">9e723bc</div>
+        </div>
+        <div class="step">
+          <div class="issue">#184</div>
+          <div>
+            <h3>Add cross-surface drift prevention</h3>
+            <p>Added a contract tying code definitions, registry JSON, compositor embed, template artifacts, rendered semantic context, and MCP behavior together.</p>
+          </div>
+          <div class="commit">992a17a</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="proof">
+    <div class="section-head">
+      <h2>What made closure real</h2>
+      <p>The key was replacing closure-shaped artifacts with checks that directly conserve the objective.</p>
+    </div>
+    <div class="body">
+      <div class="wide-split">
+        <div class="callout warn">
+          <h3>What would have been weak proof</h3>
+          <p>Closed issues, rendered pages, generated files, and green tests in isolation. Those are useful signals, but they can still miss the objective.</p>
+        </div>
+        <div class="callout">
+          <h3>What became strong proof</h3>
+          <p>A mismatch between the code-defined convergence type and any generated or consuming surface now causes a deterministic check or contract test to fail.</p>
+        </div>
+      </div>
+
+      <div class="checklist">
+        <div class="check">
+          <span class="tick">1</span>
+          <div>
+            <strong>Strict registry generation</strong>
+            <p><code>generate-living-doc-registry-from-definitions.mjs --check --strict</code> proves the registry is generated from code-defined types.</p>
+          </div>
+        </div>
+        <div class="check">
+          <span class="tick">2</span>
+          <div>
+            <strong>Template composition contracts</strong>
+            <p>Template graph and artifact tests compare composed <code>convergenceTypes</code> against <code>convergenceTypeDefinitions</code>.</p>
+          </div>
+        </div>
+        <div class="check">
+          <span class="tick">3</span>
+          <div>
+            <strong>Rendered semantic context</strong>
+            <p>Rendered HTML must carry semantic context containing the same composed type contracts.</p>
+          </div>
+        </div>
+        <div class="check">
+          <span class="tick">4</span>
+          <div>
+            <strong>MCP contract access</strong>
+            <p><code>living_doc_convergence_type_contract</code> exposes the code-defined type contract, status logic, relationship participation, and repair operation ids.</p>
+          </div>
+        </div>
+        <div class="check">
+          <span class="tick">5</span>
+          <div>
+            <strong>Cross-surface drift test</strong>
+            <p><code>convergence-type-cross-surface-drift.spec.mjs</code> ties code definitions, registry, docs mirror, compositor embed, template graph/artifacts, rendered HTML, and MCP behavior together.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="lessons">
+    <div class="section-head">
+      <h2>What this teaches about living-doc work</h2>
+      <p>This is the part to carry forward into future skills and repair runs.</p>
+    </div>
+    <div class="body">
+      <div class="tiles">
+        <div class="tile good">
+          <div class="mini-title">Do</div>
+          <h3>Freeze the objective wording before implementing.</h3>
+          <p>The exact wording gives the agent something to conserve. Without it, adjacent useful work can masquerade as completion.</p>
+        </div>
+        <div class="tile blue">
+          <div class="mini-title">Do</div>
+          <h3>Map tickets to objective phrases.</h3>
+          <p>When every ticket corresponds to a phrase in the objective, sequencing stops being a negotiation.</p>
+        </div>
+        <div class="tile warn">
+          <div class="mini-title">Do not</div>
+          <h3>Close from artifacts alone.</h3>
+          <p>Rendered pages, commits, and tests are not enough unless they prove the accountable objective terms.</p>
+        </div>
+        <div class="tile good">
+          <div class="mini-title">Do</div>
+          <h3>Ask what should fail.</h3>
+          <p>The strongest implementation decisions came from identifying which drift should become impossible to miss.</p>
+        </div>
+        <div class="tile blue">
+          <div class="mini-title">Do</div>
+          <h3>Update the living doc from implementation evidence.</h3>
+          <p>The living doc became trustworthy because its state changed after source-system proof existed.</p>
+        </div>
+        <div class="tile warn">
+          <div class="mini-title">Do not</div>
+          <h3>Let a slice become the whole objective.</h3>
+          <p>#178 and #179 were real progress, but the living doc kept the broader criteria open until the source layer, templates, MCP, runtime, and drift checks were all proven.</p>
+        </div>
+      </div>
+
+      <div class="callout danger" style="margin-top:18px;">
+        <h3>The general rule</h3>
+        <p>A living doc helps execution when it turns the objective into a conserved system of closure gates. It fails when it becomes a place to narrate progress. The difference is whether a later agent can determine, from the document and the source system, exactly what remains false.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Static analysis page generated for the completed convergence-type code-source refactor. Related artifact: <code>docs/convergence-type-code-source-refactor.html</code>.
+  </footer>
+</main>
+</body>
+</html>

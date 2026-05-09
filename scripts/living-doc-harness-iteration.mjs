@@ -10,7 +10,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inferStopNegotiation } from './living-doc-harness-stop-negotiation.mjs';
+import { writeReviewerInferenceVerdict } from './living-doc-harness-reviewer-inference.mjs';
+import { runClosureReviewUnit } from './living-doc-harness-closure-review.mjs';
 import { routeStopVerdict } from './living-doc-harness-skill-router.mjs';
+import { runRepairSkillChain } from './living-doc-harness-repair-skill-runner.mjs';
 import { writeTerminalState } from './living-doc-harness-terminal-state.mjs';
 import { renderDashboard, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
 import { attachTraceSummaryToRun } from './living-doc-harness-trace-reader.mjs';
@@ -43,14 +46,21 @@ async function fileHash(filePath, fallback = null) {
   }
 }
 
-function skillsAppliedFromRouting(routing) {
-  return (routing.actions || [])
+function skillsAppliedFromRouting(routing, repairRun = null) {
+  const recommended = (routing.actions || [])
     .filter((action) => action.kind === 'skill')
     .map((action) => ({
       skill: action.skill,
       verdict: action.status,
       patchRefs: [],
     }));
+  const executed = (repairRun?.chain?.skillResults || [])
+    .map((skill) => ({
+      skill: skill.skill,
+      verdict: skill.status,
+      patchRefs: [skill.resultPath, skill.validationPath].filter(Boolean),
+    }));
+  return [...recommended, ...executed];
 }
 
 function proofGatesAfterBundle(evidence) {
@@ -60,6 +70,221 @@ function proofGatesAfterBundle(evidence) {
     nativeTraceInspected: nativeRefs.length > 0 ? 'pass' : evidence.proofGates?.nativeTraceInspected,
     evidenceBundleWritten: 'pass',
   };
+}
+
+function repairChainBlockedVerdict(originalVerdict, repairRun) {
+  const blocked = repairRun?.chain?.skillResults?.find((item) => ['blocked', 'failed'].includes(item.status));
+  const status = repairRun?.chain?.status || blocked?.status || 'blocked';
+  const skill = blocked?.skill || 'repair-skill-chain';
+  const resultPath = blocked?.resultPath || repairRun?.chainPath || null;
+  const reasonCode = blocked?.reasonCode || 'repair-skill-chain-blocked';
+  return {
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'true-block',
+      reasonCode,
+      confidence: 'high',
+      closureAllowed: false,
+      basis: [
+        `Repair chain ${status} at ${skill}; the lifecycle cannot start the next worker iteration until this is resolved.`,
+        ...(resultPath ? [`Repair result evidence: ${resultPath}`] : []),
+        ...arr(originalVerdict?.stopVerdict?.basis),
+      ],
+    },
+    nextIteration: {
+      allowed: false,
+      mode: 'block',
+      instruction: 'Stop the lifecycle and inspect the blocked repair-skill inference unit before resuming.',
+    },
+    terminal: {
+      kind: 'true-block',
+      reasonCode,
+      owningLayer: 'repair-skill-inference',
+      requiredDecision: 'Resolve the blocked repair-skill inference unit and rerun the standalone lifecycle.',
+      requiredProof: resultPath,
+      unblockCriteria: [
+        'The repair-skill chain result status is complete.',
+        'Every ordered repair skill has prompt, input contract, raw JSONL log, result, and validation artifacts.',
+        'The output-input artifact does not start the next worker iteration while the repair chain is blocked.',
+      ],
+      basis: [
+        `Repair chain ${status} at ${skill}.`,
+        ...(resultPath ? [`Repair result evidence: ${resultPath}`] : []),
+      ],
+    },
+  };
+}
+
+function closureReviewBlockedVerdict(originalVerdict, closureReview) {
+  const reasonCode = closureReview?.review?.reasonCode || 'closure-review-denied';
+  const resultPath = closureReview?.unit?.resultPath || null;
+  return {
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'true-block',
+      reasonCode: 'closure-review-denied',
+      confidence: closureReview?.review?.confidence || 'high',
+      closureAllowed: false,
+      basis: [
+        `Closure review denied terminal closure: ${reasonCode}.`,
+        ...(resultPath ? [`Closure review evidence: ${resultPath}`] : []),
+        ...arr(closureReview?.review?.basis),
+        ...arr(originalVerdict?.stopVerdict?.basis),
+      ],
+    },
+    nextIteration: {
+      allowed: false,
+      mode: 'block',
+      instruction: 'Stop the lifecycle and resolve the closure-review denial before any next inference unit runs.',
+    },
+    terminal: {
+      kind: 'true-block',
+      reasonCode: 'closure-review-denied',
+      owningLayer: 'closure-review-inference',
+      requiredDecision: 'Repair the proof ordering or evidence contract that caused closure review to deny terminal closure.',
+      requiredProof: resultPath,
+      unblockCriteria: [
+        'Closure review receives a coherent proof contract.',
+        'No required pre-closure proof gate is impossible to satisfy when closure review runs.',
+        'A denied closure review writes terminal lifecycle artifacts instead of aborting the controller.',
+      ],
+      basis: [
+        `Closure review denied terminal closure: ${reasonCode}.`,
+        ...(resultPath ? [`Closure review evidence: ${resultPath}`] : []),
+      ],
+    },
+  };
+}
+
+function terminalKindFromVerdict(verdict) {
+  const classification = verdict?.stopVerdict?.classification;
+  if (classification === 'closed') return 'closed';
+  if (classification === 'true-block') return 'true-blocked';
+  if (classification === 'pivot') return 'pivoted';
+  if (classification === 'deferred') return 'deferred';
+  if (classification === 'budget-exhausted') return 'budget-exhausted';
+  if (['repairable', 'resumable', 'closure-candidate'].includes(classification)) return 'repair-resumed';
+  return 'unknown';
+}
+
+function buildPostReviewSelection({
+  runDir,
+  evidencePath,
+  reviewer,
+  verdict,
+  effectiveVerdict,
+  closureReview,
+  repairRun,
+  iteration,
+  now,
+  executeRepairSkills,
+}) {
+  const classification = verdict?.stopVerdict?.classification || 'unknown';
+  const selected = {
+    schema: 'living-doc-harness-post-review-selection/v1',
+    runId: verdict?.runId || reviewer?.artifact?.runId || null,
+    iteration,
+    createdAt: now,
+    reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+    reviewerInferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
+    classification,
+    reasonCode: verdict?.stopVerdict?.reasonCode || null,
+    selectionBasis: [
+      'Only worker and reviewer are fixed bootstrap units.',
+      'This selection records the post-review unit or terminal action chosen from reviewer output and proof state.',
+    ],
+  };
+
+  if (classification === 'closed') {
+    selected.nextUnit = {
+      unitId: 'closure-review',
+      role: 'closure-review',
+      reasonCode: 'reviewer-closed-requires-final-closure-review',
+      requiredInputPaths: [
+        evidencePath ? path.relative(runDir, evidencePath) : null,
+        reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+        reviewer?.artifact?.inferenceUnitResultPath || null,
+        reviewer?.artifact?.inferenceUnitValidationPath || null,
+      ].filter(Boolean),
+      expectedOutputSchema: 'living-doc-harness-closure-review/v1',
+      resultPath: closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
+      validationPath: closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null,
+      status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
+    };
+    if (closureReview) {
+      selected.terminalAction = closureReview.review.terminalAllowed
+        ? {
+          kind: 'closed',
+          reasonCode: closureReview.review.reasonCode,
+          selectedBy: 'closure-review',
+        }
+        : {
+          kind: 'true-blocked',
+          reasonCode: 'closure-review-denied',
+          selectedBy: 'closure-review',
+          blockerReasonCode: closureReview.review.reasonCode || 'closure-review-denied',
+        };
+    }
+    return selected;
+  }
+
+  if (['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification)) {
+    selected.terminalAction = {
+      kind: terminalKindFromVerdict(effectiveVerdict || verdict),
+      reasonCode: (effectiveVerdict || verdict)?.stopVerdict?.reasonCode || classification,
+      selectedBy: 'reviewer-verdict',
+    };
+    return selected;
+  }
+
+  if (verdict?.nextIteration?.allowed !== false && verdict?.nextIteration?.mode === 'repair') {
+    selected.nextUnit = executeRepairSkills
+      ? {
+        unitId: 'living-doc-balance-scan',
+        role: 'balance-scan',
+        reasonCode: 'reviewer-selected-repair',
+        requiredInputPaths: [
+          reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+          evidencePath ? path.relative(runDir, evidencePath) : null,
+        ].filter(Boolean),
+        expectedOutputSchema: 'living-doc-balance-scan-result/v1',
+        resultPath: repairRun?.chainPath ? path.relative(runDir, repairRun.chainPath) : null,
+        status: repairRun?.chain?.status || 'selected',
+      }
+      : {
+        unitId: 'worker',
+        role: 'worker',
+        reasonCode: 'repair-resumed-without-executed-repair-units',
+        expectedOutputSchema: 'living-doc-worker-output/v1',
+        status: 'selected',
+      };
+    if (repairRun && ['blocked', 'failed'].includes(repairRun.chain?.status)) {
+      selected.terminalAction = {
+        kind: 'true-blocked',
+        reasonCode: 'repair-skill-chain-blocked',
+        selectedBy: 'repair-skill-chain',
+      };
+    }
+    return selected;
+  }
+
+  if (verdict?.nextIteration?.allowed !== false) {
+    selected.nextUnit = {
+      unitId: 'worker',
+      role: 'worker',
+      reasonCode: 'reviewer-authorized-continuation',
+      expectedOutputSchema: 'living-doc-worker-output/v1',
+      status: 'selected',
+    };
+    return selected;
+  }
+
+  selected.terminalAction = {
+    kind: terminalKindFromVerdict(effectiveVerdict || verdict),
+    reasonCode: (effectiveVerdict || verdict)?.stopVerdict?.reasonCode || 'no-valid-next-unit',
+    selectedBy: 'reviewer-verdict',
+  };
+  return selected;
 }
 
 function arr(value) {
@@ -161,7 +386,7 @@ async function attachNativeTraces({ runDir, evidence, tracePaths, now }) {
   };
 }
 
-async function buildIterationProof({ runDir, evidence, verdict, routing, livingDocPath, afterDocPath, iteration, now }) {
+async function buildIterationProof({ runDir, evidence, verdict, reviewer, closureReview, postReviewSelection, routing, repairRun, livingDocPath, afterDocPath, iteration, now }) {
   const contract = await readJson(path.join(runDir, 'contract.json'));
   const afterHash = await fileHash(afterDocPath || livingDocPath, contract.livingDoc?.sourceHash || null);
   return {
@@ -177,8 +402,31 @@ async function buildIterationProof({ runDir, evidence, verdict, routing, livingD
     },
     objectiveState: evidence.objectiveState,
     workerEvidence: evidence.workerEvidence,
+    reviewerInference: {
+      verdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+      inputPath: reviewer?.inputPath ? path.relative(runDir, reviewer.inputPath) : null,
+      mode: reviewer?.artifact?.mode || null,
+      inferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
+      inferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
+      inferenceUnitInputContractPath: reviewer?.artifact?.inferenceUnitInputContractPath || null,
+      inferenceUnitPromptPath: reviewer?.artifact?.inferenceUnitPromptPath || null,
+    },
+    closureReview: closureReview ? {
+      approved: closureReview.review.approved,
+      terminalAllowed: closureReview.review.terminalAllowed,
+      reasonCode: closureReview.review.reasonCode,
+      inferenceUnitResultPath: path.relative(runDir, closureReview.unit.resultPath),
+      inferenceUnitValidationPath: path.relative(runDir, closureReview.unit.validationPath),
+      inferenceUnitInputContractPath: path.relative(runDir, closureReview.unit.inputContractPath),
+      inferenceUnitPromptPath: path.relative(runDir, closureReview.unit.promptPath),
+    } : null,
+    postReviewSelection: postReviewSelection ? {
+      selectionPath: postReviewSelection.selectionPath ? path.relative(runDir, postReviewSelection.selectionPath) : null,
+      nextUnit: postReviewSelection.artifact.nextUnit || null,
+      terminalAction: postReviewSelection.artifact.terminalAction || null,
+    } : null,
     stopVerdict: verdict.stopVerdict,
-    skillsApplied: skillsAppliedFromRouting(routing),
+    skillsApplied: skillsAppliedFromRouting(routing, repairRun),
     proofGates: proofGatesAfterBundle(evidence),
     nextIteration: verdict.nextIteration,
     ...(verdict.terminal ? { terminal: verdict.terminal } : {}),
@@ -197,6 +445,14 @@ export async function finalizeHarnessIteration({
   dashboardPath = 'docs/living-doc-harness-dashboard.html',
   runsDir = null,
   tracePaths = [],
+  reviewerVerdict = null,
+  reviewerVerdictPath = null,
+  executeReviewer = false,
+  executeClosureReview = executeReviewer,
+  executeRepairSkills = false,
+  executeRepairSkillUnits = false,
+  repairSkillPlan = null,
+  codexBin = 'codex',
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!evidencePath) throw new Error('evidencePath is required');
@@ -214,11 +470,52 @@ export async function finalizeHarnessIteration({
   const artifactsDir = path.join(runDir, 'artifacts');
   await mkdir(artifactsDir, { recursive: true });
 
-  const verdict = inferStopNegotiation(finalEvidence);
+  const reviewer = await writeReviewerInferenceVerdict({
+    runDir,
+    evidence: finalEvidence,
+    evidencePath,
+    iteration,
+    now,
+    reviewerVerdict,
+    reviewerVerdictPath,
+    executeReviewer,
+    codexBin,
+    cwd: process.cwd(),
+  });
+  const verdict = reviewer.verdict;
   const evidenceSnapshotPath = path.join(artifactsDir, `iteration-${iteration}-evidence.json`);
   const verdictPath = path.join(artifactsDir, `iteration-${iteration}-stop-verdict.json`);
   await writeJson(evidenceSnapshotPath, finalEvidence);
   await writeJson(verdictPath, verdict);
+  const closureEvidencePath = evidenceSnapshotPath;
+
+  const initialPostReviewSelection = buildPostReviewSelection({
+    runDir,
+    evidencePath: closureEvidencePath,
+    reviewer,
+    verdict,
+    effectiveVerdict: verdict,
+    closureReview: null,
+    repairRun: null,
+    iteration,
+    now,
+    executeRepairSkills,
+  });
+
+  const closureReview = initialPostReviewSelection.nextUnit?.unitId === 'closure-review'
+    ? await runClosureReviewUnit({
+      runDir,
+      evidence: finalEvidence,
+      evidencePath: closureEvidencePath,
+      reviewer,
+      verdict,
+      iteration,
+      now,
+      executeClosureReview,
+      codexBin,
+      cwd: process.cwd(),
+    })
+    : null;
 
   const routed = await routeStopVerdict({
     verdict,
@@ -230,9 +527,58 @@ export async function finalizeHarnessIteration({
     now,
     render,
   });
+  const shouldRunRepairSkills = initialPostReviewSelection.nextUnit?.unitId === 'living-doc-balance-scan';
+  const repairRun = shouldRunRepairSkills
+    ? await runRepairSkillChain({
+      runDir,
+      iteration,
+      livingDocPath: afterDocPath || livingDocPath,
+      renderedHtmlPath: String(afterDocPath || livingDocPath || '').replace(/\.json$/i, '.html'),
+      reviewerVerdictPath: reviewer.artifactPath,
+      handoverPath: routed.handoverPath,
+      repairSkillPlan: repairSkillPlan || {},
+      executeUnits: executeRepairSkillUnits,
+      codexBin,
+      cwd: process.cwd(),
+      now,
+    })
+    : null;
+  let effectiveVerdict = verdict;
+  if (verdict.stopVerdict?.classification === 'closed' && closureReview && (!closureReview.review.approved || !closureReview.review.terminalAllowed)) {
+    effectiveVerdict = closureReviewBlockedVerdict(verdict, closureReview);
+  } else if (['blocked', 'failed'].includes(repairRun?.chain?.status)) {
+    effectiveVerdict = repairChainBlockedVerdict(verdict, repairRun);
+  }
+  if (effectiveVerdict !== verdict) {
+    await writeJson(verdictPath, effectiveVerdict);
+  }
+  const postReviewSelectionArtifact = buildPostReviewSelection({
+    runDir,
+    evidencePath: closureEvidencePath,
+    reviewer,
+    verdict,
+    effectiveVerdict,
+    closureReview,
+    repairRun,
+    iteration,
+    now,
+    executeRepairSkills,
+  });
+  const postReviewSelectionPath = path.join(artifactsDir, `iteration-${iteration}-post-review-selection.json`);
+  await writeJson(postReviewSelectionPath, postReviewSelectionArtifact);
+  await appendJsonl(path.join(runDir, 'events.jsonl'), {
+    event: 'post-review-selection-written',
+    at: now,
+    runId: evidence.runId,
+    iteration,
+    classification: verdict.stopVerdict?.classification,
+    nextUnit: postReviewSelectionArtifact.nextUnit?.unitId || null,
+    terminalAction: postReviewSelectionArtifact.terminalAction?.kind || null,
+    selectionPath: path.relative(runDir, postReviewSelectionPath),
+  });
   const terminal = await writeTerminalState({
     runDir,
-    verdict,
+    verdict: effectiveVerdict,
     evidence: finalEvidence,
     iteration,
     now,
@@ -241,8 +587,15 @@ export async function finalizeHarnessIteration({
   const proof = await buildIterationProof({
     runDir,
     evidence: finalEvidence,
-    verdict,
+    verdict: effectiveVerdict,
+    reviewer,
+    closureReview,
+    postReviewSelection: {
+      artifact: postReviewSelectionArtifact,
+      selectionPath: postReviewSelectionPath,
+    },
     routing: routed.routing,
+    repairRun,
     livingDocPath,
     afterDocPath,
     iteration,
@@ -265,7 +618,7 @@ export async function finalizeHarnessIteration({
     at: now,
     runId: evidence.runId || proof.runId,
     iteration,
-    classification: verdict.stopVerdict.classification,
+    classification: effectiveVerdict.stopVerdict.classification,
     terminalKind: terminal.record.kind,
     evidenceBundle: path.relative(runDir, bundleResult.bundlePath),
     dashboardPath,
@@ -277,10 +630,13 @@ export async function finalizeHarnessIteration({
     runId: proof.runId,
     runDir,
     iteration,
-    classification: verdict.stopVerdict.classification,
+    classification: effectiveVerdict.stopVerdict.classification,
     terminalKind: terminal.record.kind,
-    nextIteration: verdict.nextIteration,
+    nextIteration: effectiveVerdict.nextIteration,
+    evidencePath: evidenceSnapshotPath,
     verdictPath,
+    reviewerVerdictPath: reviewer.artifactPath,
+    reviewerInputPath: reviewer.inputPath,
     handoverPath: routed.handoverPath,
     terminalPath: terminal.terminalPath,
     blockerPath: terminal.blockerPath,
@@ -290,6 +646,10 @@ export async function finalizeHarnessIteration({
     proofValidationPath,
     proofValid: proofValidation.ok,
     dashboardPath: dashboard.outPath,
+    repairSkillResultPath: repairRun?.chainPath || null,
+    closureReviewResultPath: closureReview?.unit?.resultPath || null,
+    postReviewSelectionPath,
+    postReviewSelection: postReviewSelectionArtifact,
   };
 }
 
@@ -321,6 +681,10 @@ function parseArgs(argv) {
     filesChanged: [],
     acceptanceCriteriaSatisfied: 'pending',
     closureAllowed: false,
+    reviewerVerdictPath: null,
+    executeReviewer: false,
+    executeClosureReview: false,
+    codexBin: 'codex',
   };
   if (!options.runDir) throw new Error(`${command} requires <runDir>`);
   while (args.length) {
@@ -386,6 +750,17 @@ function parseArgs(argv) {
       options.acceptanceCriteriaSatisfied = 'fail';
     } else if (flag === '--closure-allowed') {
       options.closureAllowed = true;
+    } else if (flag === '--reviewer-verdict') {
+      options.reviewerVerdictPath = args.shift();
+      if (!options.reviewerVerdictPath) throw new Error('--reviewer-verdict requires a value');
+    } else if (flag === '--execute-reviewer') {
+      options.executeReviewer = true;
+      options.executeClosureReview = true;
+    } else if (flag === '--execute-closure-review') {
+      options.executeClosureReview = true;
+    } else if (flag === '--codex-bin') {
+      options.codexBin = args.shift();
+      if (!options.codexBin) throw new Error('--codex-bin requires a value');
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
@@ -397,6 +772,9 @@ function parseArgs(argv) {
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 if (isDirectRun) {
   try {
+    if (process.env.LIVING_DOC_HARNESS_ROLE === 'worker') {
+      throw new Error('harness iteration commands are lifecycle-owned and cannot run from inside a worker inference process');
+    }
     const options = parseArgs(process.argv.slice(2));
     const result = options.command === 'evidence-template'
       ? await writeIterationEvidenceTemplate(options)

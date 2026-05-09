@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Living Doc Template Mermaid Diagrams</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #171b22;
+      --muted: #5d6675;
+      --line: #d9dee7;
+      --accent: #1f6feb;
+      --accent-2: #0d9488;
+      --node: #fbfcff;
+      --node-stroke: #bdc7d6;
+      --code: #101828;
+      --code-bg: #f1f4f8;
+      --shadow: 0 14px 38px rgba(20, 31, 48, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      padding: 28px clamp(20px, 5vw, 64px) 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    .lead {
+      max-width: 980px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+      gap: 22px;
+      padding: 22px clamp(20px, 5vw, 64px) 56px;
+    }
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+    nav h2 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    nav a {
+      display: block;
+      padding: 7px 8px;
+      color: var(--ink);
+      text-decoration: none;
+      border-radius: 6px;
+      overflow-wrap: anywhere;
+    }
+    nav a:hover { background: #eef4ff; color: var(--accent); }
+    .stack { display: grid; gap: 22px; }
+    article {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .template-id {
+      margin-top: 3px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
+    .counts {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      min-width: 160px;
+    }
+    .count {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: var(--muted);
+      background: #fafbfc;
+      font-size: 12px;
+    }
+    .diagram-wrap {
+      padding: 18px 20px 20px;
+      overflow-x: auto;
+      background:
+        linear-gradient(#fff, #fff) padding-box,
+        repeating-linear-gradient(90deg, rgba(31,111,235,.05) 0, rgba(31,111,235,.05) 1px, transparent 1px, transparent 32px),
+        repeating-linear-gradient(0deg, rgba(31,111,235,.05) 0, rgba(31,111,235,.05) 1px, transparent 1px, transparent 32px);
+    }
+    svg.template-diagram {
+      display: block;
+      min-width: 760px;
+      width: 100%;
+      height: auto;
+    }
+    details {
+      border-top: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+    summary {
+      cursor: pointer;
+      padding: 12px 20px;
+      color: var(--accent);
+      font-weight: 650;
+    }
+    pre {
+      margin: 0;
+      padding: 0 20px 18px;
+      overflow-x: auto;
+    }
+    code {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code);
+      padding: 14px;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      white-space: pre;
+    }
+    .node-title {
+      font-weight: 700;
+      fill: #172033;
+      font-size: 13px;
+    }
+    .node-role {
+      fill: #536071;
+      font-size: 11px;
+    }
+    .edge-label {
+      fill: #324055;
+      font-size: 11px;
+      paint-order: stroke;
+      stroke: white;
+      stroke-width: 5px;
+      stroke-linejoin: round;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; max-height: none; }
+      .card-head { display: block; }
+      .counts { justify-content: flex-start; margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Living Doc Template Mermaid Diagrams</h1>
+    <p class="lead">Generated from <code style="display:inline;padding:2px 5px">scripts/generated/living-doc-template-diagrams.json</code>. Each visual is rendered from the same section and relationship graph that emits the Mermaid source shown below it.</p>
+    <div class="meta">
+      <span class="pill">14 templates</span>
+      <span class="pill">living-doc-semantic-diagrams/v1</span>
+      <span class="pill">Generated from scripts/generated/living-doc-template-graphs.json</span>
+    </div>
+  </header>
+  <main>
+    <nav aria-label="Template diagrams">
+      <h2>Templates</h2>
+      <a href="#architect-manuscript">Architect the Manuscript</a>
+      <a href="#competitor-watcher">Competitor Watcher</a>
+      <a href="#design-system">Design a System</a>
+      <a href="#map-themes-storylines">Map Themes and Storylines</a>
+      <a href="#monitoring-tracker">Monitoring Tracker</a>
+      <a href="#operations-support">Operations and Support</a>
+      <a href="#oss-issue-deep-dive">OSS Issue Deep-Dive</a>
+      <a href="#proof-canonicality">Proof and Canonicality</a>
+      <a href="#starter-prove-claim">Prove a Claim</a>
+      <a href="#starter-run-support-ops">Run Support Ops</a>
+      <a href="#starter-ship-feature">Ship a Feature</a>
+      <a href="#starter-tiny-experiment">Run Tiny Experiments</a>
+      <a href="#starter-write-book">Write a Book</a>
+      <a href="#surface-delivery">Surface Delivery</a>
+    </nav>
+    <div class="stack">
+      <article id="architect-manuscript">
+    <div class="card-head">
+      <div>
+        <h2>Architect the Manuscript</h2>
+        <div class="template-id">architect-manuscript</div>
+      </div>
+      <div class="counts">
+        <span class="count">5 sections</span>
+        <span class="count">4 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1430 278" role="img" aria-label="Architect the Manuscript">
+    <defs>
+      <marker id="arrow-architect-manuscript" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-architect-manuscript)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-architect-manuscript)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">frames</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-architect-manuscript)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">surfaces-risk</text>
+<path d="M 288 197 C 646.6800000000001 197, 783.3199999999999 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-architect-manuscript)"/>
+      <text class="edge-label" x="715" y="131" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize manuscript architecture pressure</text>
+<text class="node-role" x="52" y="103">without carrying the structural evidence.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">content outline</text>
+      <text class="node-role" x="420" y="90">Hold the ordered act or part structure that</text>
+<text class="node-role" x="420" y="103">defines the manuscript path.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">scene dependency map</text>
+      <text class="node-role" x="788" y="90">Map setup and payoff dependencies between</text>
+<text class="node-role" x="788" y="103">scenes.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">continuity watchlist</text>
+      <text class="node-role" x="1156" y="90">Track unresolved contradictions and continuity</text>
+<text class="node-role" x="1156" y="103">risks across scenes, characters, and storylines.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">tooling surface</text>
+      <text class="node-role" x="52" y="206">Expose the tools used to inspect, verify, and</text>
+<text class="node-role" x="52" y="219">evolve the manuscript structure.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize manuscript architecture pressure without carrying the structural evidence.&quot;]
+  content_outline[&quot;content-outline&lt;br/&gt;Hold the ordered act or part structure that defines the manuscript path.&quot;]
+  scene_dependency_map[&quot;scene-dependency-map&lt;br/&gt;Map setup and payoff dependencies between scenes.&quot;]
+  continuity_watchlist[&quot;continuity-watchlist&lt;br/&gt;Track unresolved contradictions and continuity risks across scenes, characters, and storylines.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose the tools used to inspect, verify, and evolve the manuscript structure.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; content_outline
+  content_outline -- &quot;frames&quot; --&gt; scene_dependency_map
+  scene_dependency_map -- &quot;surfaces-risk&quot; --&gt; continuity_watchlist
+  tooling_surface -- &quot;supports&quot; --&gt; continuity_watchlist
+</code></pre>
+    </details>
+  </article>
+<article id="competitor-watcher">
+    <div class="card-head">
+      <div>
+        <h2>Competitor Watcher</h2>
+        <div class="template-id">competitor-watcher</div>
+      </div>
+      <div class="counts">
+        <span class="count">7 sections</span>
+        <span class="count">6 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1798 278" role="img" aria-label="Competitor Watcher">
+    <defs>
+      <marker id="arrow-competitor-watcher" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-competitor-watcher)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">informs</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-competitor-watcher)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">makes</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-competitor-watcher)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">drives</text>
+<path d="M 656 81 C 705.56 81, 724.44 197, 765 197" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-competitor-watcher)"/>
+      <text class="edge-label" x="715" y="131" text-anchor="middle">positioned-on</text>
+<path d="M 1392 81 C 1441.56 81, 1460.44 81, 1501 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-competitor-watcher)"/>
+      <text class="edge-label" x="1451" y="73" text-anchor="middle">resolves</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-competitor-watcher)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">summarizes</text>
+    <g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">competitor stance track</text>
+      <text class="node-role" x="420" y="90">Track named competitors and their current</text>
+<text class="node-role" x="420" y="103">strategic posture.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">strategic move log</text>
+      <text class="node-role" x="788" y="90">Log discrete competitor actions with intent and</text>
+<text class="node-role" x="788" y="103">observed outcome.</text>
+    </g>
+<g>
+      <rect x="1510" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1524" y="60">proof ladder</text>
+      <text class="node-role" x="1524" y="90">Track predictions about competitor moves or</text>
+<text class="node-role" x="1524" y="103">market outcomes.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">indicator trace</text>
+      <text class="node-role" x="1156" y="90">Track numeric or categorical indicators that</text>
+<text class="node-role" x="1156" y="103">show competitive movement.</text>
+    </g>
+<g>
+      <rect x="774" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="176">position cluster map</text>
+      <text class="node-role" x="788" y="206">Map competitor position and movement between</text>
+<text class="node-role" x="788" y="219">periods.</text>
+    </g>
+<g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">citation feed</text>
+      <text class="node-role" x="52" y="90">Preserve the sources consumed during the current</text>
+<text class="node-role" x="52" y="103">competitive monitoring period.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">decision record</text>
+      <text class="node-role" x="52" y="206">Summarize what moved, resolved, and matters for</text>
+<text class="node-role" x="52" y="219">the next period.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  competitor_stance_track[&quot;competitor-stance-track&lt;br/&gt;Track named competitors and their current strategic posture.&quot;]
+  strategic_move_log[&quot;strategic-move-log&lt;br/&gt;Log discrete competitor actions with intent and observed outcome.&quot;]
+  proof_ladder[&quot;proof-ladder&lt;br/&gt;Track predictions about competitor moves or market outcomes.&quot;]
+  indicator_trace[&quot;indicator-trace&lt;br/&gt;Track numeric or categorical indicators that show competitive movement.&quot;]
+  position_cluster_map[&quot;position-cluster-map&lt;br/&gt;Map competitor position and movement between periods.&quot;]
+  citation_feed[&quot;citation-feed&lt;br/&gt;Preserve the sources consumed during the current competitive monitoring period.&quot;]
+  decision_record[&quot;decision-record&lt;br/&gt;Summarize what moved, resolved, and matters for the next period.&quot;]
+
+  citation_feed -- &quot;informs&quot; --&gt; competitor_stance_track
+  competitor_stance_track -- &quot;makes&quot; --&gt; strategic_move_log
+  strategic_move_log -- &quot;drives&quot; --&gt; indicator_trace
+  competitor_stance_track -- &quot;positioned-on&quot; --&gt; position_cluster_map
+  indicator_trace -- &quot;resolves&quot; --&gt; proof_ladder
+  decision_record -- &quot;summarizes&quot; --&gt; competitor_stance_track
+</code></pre>
+    </details>
+  </article>
+<article id="design-system">
+    <div class="card-head">
+      <div>
+        <h2>Design a System</h2>
+        <div class="template-id">design-system</div>
+      </div>
+      <div class="counts">
+        <span class="count">5 sections</span>
+        <span class="count">4 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1062 394" role="img" aria-label="Design a System">
+    <defs>
+      <marker id="arrow-design-system" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 492.12 81, 569.88 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-design-system)"/>
+      <text class="edge-label" x="531" y="73" text-anchor="middle">summarizes</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-design-system)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">feeds</text>
+<path d="M 288 313 C 492.12 313, 569.88 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-design-system)"/>
+      <text class="edge-label" x="531" y="189" text-anchor="middle">constrains</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-design-system)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">produces</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize design system readiness without</text>
+<text class="node-role" x="52" y="103">carrying the design evidence.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">taste signature</text>
+      <text class="node-role" x="52" y="206">Expose recurring designer traits evidenced by</text>
+<text class="node-role" x="52" y="219">prior systems.</text>
+    </g>
+<g>
+      <rect x="38" y="270" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="292">brief to system</text>
+<text class="node-title" x="52" y="307">alignment</text>
+      <text class="node-role" x="52" y="322">Translate client constraints into concrete</text>
+<text class="node-role" x="52" y="335">system responses.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">design system derivation</text>
+      <text class="node-role" x="420" y="90">Track what the new system inherits or transforms</text>
+<text class="node-role" x="420" y="103">from prior work.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">design system surface</text>
+      <text class="node-role" x="788" y="90">Expose the current design system as pointers to</text>
+<text class="node-role" x="788" y="103">tokens, components, and motifs.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize design-system readiness without carrying the design evidence.&quot;]
+  taste_signature[&quot;taste-signature&lt;br/&gt;Expose recurring designer traits evidenced by prior systems.&quot;]
+  brief_to_system_alignment[&quot;brief-to-system-alignment&lt;br/&gt;Translate client constraints into concrete system responses.&quot;]
+  design_system_derivation[&quot;design-system-derivation&lt;br/&gt;Track what the new system inherits or transforms from prior work.&quot;]
+  design_system_surface[&quot;design-system-surface&lt;br/&gt;Expose the current design system as pointers to tokens, components, and motifs.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; design_system_surface
+  taste_signature -- &quot;feeds&quot; --&gt; design_system_derivation
+  brief_to_system_alignment -- &quot;constrains&quot; --&gt; design_system_surface
+  design_system_derivation -- &quot;produces&quot; --&gt; design_system_surface
+</code></pre>
+    </details>
+  </article>
+<article id="map-themes-storylines">
+    <div class="card-head">
+      <div>
+        <h2>Map Themes and Storylines</h2>
+        <div class="template-id">map-themes-storylines</div>
+      </div>
+      <div class="counts">
+        <span class="count">4 sections</span>
+        <span class="count">3 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1430 162" role="img" aria-label="Map Themes and Storylines">
+    <defs>
+      <marker id="arrow-map-themes-storylines" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-map-themes-storylines)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-map-themes-storylines)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">carried-by</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-map-themes-storylines)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">carried-by</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize narrative thread health without</text>
+<text class="node-role" x="52" y="103">carrying the thread evidence.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">theme thread map</text>
+      <text class="node-role" x="420" y="90">Track deliberate themes and the story material</text>
+<text class="node-role" x="420" y="103">carrying them.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">storyline arc map</text>
+      <text class="node-role" x="788" y="90">Track named arcs, trajectories, beats, and open</text>
+<text class="node-role" x="788" y="103">loops.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">character surface</text>
+      <text class="node-role" x="1156" y="90">Track which characters carry theme and storyline</text>
+<text class="node-role" x="1156" y="103">pressure.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize narrative-thread health without carrying the thread evidence.&quot;]
+  theme_thread_map[&quot;theme-thread-map&lt;br/&gt;Track deliberate themes and the story material carrying them.&quot;]
+  storyline_arc_map[&quot;storyline-arc-map&lt;br/&gt;Track named arcs, trajectories, beats, and open loops.&quot;]
+  character_surface[&quot;character-surface&lt;br/&gt;Track which characters carry theme and storyline pressure.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; theme_thread_map
+  theme_thread_map -- &quot;carried-by&quot; --&gt; storyline_arc_map
+  storyline_arc_map -- &quot;carried-by&quot; --&gt; character_surface
+</code></pre>
+    </details>
+  </article>
+<article id="monitoring-tracker">
+    <div class="card-head">
+      <div>
+        <h2>Monitoring Tracker</h2>
+        <div class="template-id">monitoring-tracker</div>
+      </div>
+      <div class="counts">
+        <span class="count">6 sections</span>
+        <span class="count">5 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1062 278" role="img" aria-label="Monitoring Tracker">
+    <defs>
+      <marker id="arrow-monitoring-tracker" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-monitoring-tracker)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">informs</text>
+<path d="M 288 81 C 337.56 81, 356.44 197, 397 197" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-monitoring-tracker)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">informs</text>
+<path d="M 656 81 C 705.56 81, 724.44 197, 765 197" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-monitoring-tracker)"/>
+      <text class="edge-label" x="715" y="131" text-anchor="middle">positioned-on</text>
+<path d="M 656 197 C 705.56 197, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-monitoring-tracker)"/>
+      <text class="edge-label" x="715" y="131" text-anchor="middle">resolves</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-monitoring-tracker)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">summarizes</text>
+    <g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">expert stance track</text>
+      <text class="node-role" x="420" y="90">Track named voices and how their stances evolve</text>
+<text class="node-role" x="420" y="103">over monitoring periods.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">proof ladder</text>
+      <text class="node-role" x="788" y="90">Track what to watch claims as evidence</text>
+<text class="node-role" x="788" y="103">accumulates.</text>
+    </g>
+<g>
+      <rect x="406" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="176">indicator trace</text>
+      <text class="node-role" x="420" y="206">Track numeric indicators and their direction</text>
+<text class="node-role" x="420" y="219">across periods.</text>
+    </g>
+<g>
+      <rect x="774" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="176">position cluster map</text>
+      <text class="node-role" x="788" y="206">Map current and prior positions so movement</text>
+<text class="node-role" x="788" y="219">between periods is visible.</text>
+    </g>
+<g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">citation feed</text>
+      <text class="node-role" x="52" y="90">Preserve the dated sources consumed during the</text>
+<text class="node-role" x="52" y="103">current monitoring period.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">decision record</text>
+      <text class="node-role" x="52" y="206">Summarize what shifted, resolved, and matters</text>
+<text class="node-role" x="52" y="219">for the next period.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  expert_stance_track[&quot;expert-stance-track&lt;br/&gt;Track named voices and how their stances evolve over monitoring periods.&quot;]
+  proof_ladder[&quot;proof-ladder&lt;br/&gt;Track what-to-watch claims as evidence accumulates.&quot;]
+  indicator_trace[&quot;indicator-trace&lt;br/&gt;Track numeric indicators and their direction across periods.&quot;]
+  position_cluster_map[&quot;position-cluster-map&lt;br/&gt;Map current and prior positions so movement between periods is visible.&quot;]
+  citation_feed[&quot;citation-feed&lt;br/&gt;Preserve the dated sources consumed during the current monitoring period.&quot;]
+  decision_record[&quot;decision-record&lt;br/&gt;Summarize what shifted, resolved, and matters for the next period.&quot;]
+
+  citation_feed -- &quot;informs&quot; --&gt; expert_stance_track
+  citation_feed -- &quot;informs&quot; --&gt; indicator_trace
+  expert_stance_track -- &quot;positioned-on&quot; --&gt; position_cluster_map
+  indicator_trace -- &quot;resolves&quot; --&gt; proof_ladder
+  decision_record -- &quot;summarizes&quot; --&gt; expert_stance_track
+</code></pre>
+    </details>
+  </article>
+<article id="operations-support">
+    <div class="card-head">
+      <div>
+        <h2>Operations and Support</h2>
+        <div class="template-id">operations-support</div>
+      </div>
+      <div class="counts">
+        <span class="count">5 sections</span>
+        <span class="count">4 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1430 278" role="img" aria-label="Operations and Support">
+    <defs>
+      <marker id="arrow-operations-support" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-operations-support)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-operations-support)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">routes-to</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-operations-support)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">needs</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-operations-support)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize operational readiness and current</text>
+<text class="node-role" x="52" y="103">support pressure without carrying detailed</text>
+<text class="node-role" x="52" y="116">request or tooling evidence.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">operation</text>
+      <text class="node-role" x="420" y="90">Describe the mediated request to execution flow</text>
+<text class="node-role" x="420" y="103">that operators need to run.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">operating surface</text>
+      <text class="node-role" x="788" y="90">Expose the bounded support lanes or operational</text>
+<text class="node-role" x="788" y="103">paths that request flow routes into.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">enabler catalog</text>
+      <text class="node-role" x="1156" y="90">Catalog compact support assets that improve</text>
+<text class="node-role" x="1156" y="103">operator speed, reliability, or coverage.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">tooling surface</text>
+      <text class="node-role" x="52" y="206">Expose the scripts, workflows, and local tools</text>
+<text class="node-role" x="52" y="219">used to operate or evolve the support domain.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize operational readiness and current support pressure without carrying detailed request or tooling evidence.&quot;]
+  operation[&quot;operation&lt;br/&gt;Describe the mediated request-to-execution flow that operators need to run.&quot;]
+  operating_surface[&quot;operating-surface&lt;br/&gt;Expose the bounded support lanes or operational paths that request flow routes into.&quot;]
+  enabler_catalog[&quot;enabler-catalog&lt;br/&gt;Catalog compact support assets that improve operator speed, reliability, or coverage.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose the scripts, workflows, and local tools used to operate or evolve the support domain.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; operation
+  operation -- &quot;routes-to&quot; --&gt; operating_surface
+  operating_surface -- &quot;needs&quot; --&gt; enabler_catalog
+  tooling_surface -- &quot;supports&quot; --&gt; operation
+</code></pre>
+    </details>
+  </article>
+<article id="oss-issue-deep-dive">
+    <div class="card-head">
+      <div>
+        <h2>OSS Issue Deep-Dive</h2>
+        <div class="template-id">oss-issue-deep-dive</div>
+      </div>
+      <div class="counts">
+        <span class="count">6 sections</span>
+        <span class="count">5 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1798 278" role="img" aria-label="OSS Issue Deep-Dive">
+    <defs>
+      <marker id="arrow-oss-issue-deep-dive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-oss-issue-deep-dive)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">localized-by</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-oss-issue-deep-dive)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">tested-by</text>
+<path d="M 1392 81 C 1441.56 81, 1460.44 81, 1501 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-oss-issue-deep-dive)"/>
+      <text class="edge-label" x="1451" y="73" text-anchor="middle">produces-finding</text>
+<path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-oss-issue-deep-dive)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">contextualizes</text>
+<path d="M 288 197 C 646.6800000000001 197, 783.3199999999999 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-oss-issue-deep-dive)"/>
+      <text class="edge-label" x="715" y="131" text-anchor="middle">constrains</text>
+    <g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">symptom observation</text>
+      <text class="node-role" x="420" y="90">Hold reproducible observed behavior with</text>
+<text class="node-role" x="420" y="103">environment, witness, and repro steps.</text>
+    </g>
+<g>
+      <rect x="1510" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1524" y="60">investigation findings</text>
+      <text class="node-role" x="1524" y="90">Record synthesized facts learned during</text>
+<text class="node-role" x="1524" y="103">investigation that are not themselves repro</text>
+<text class="node-role" x="1524" y="116">steps.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">code anchor</text>
+      <text class="node-role" x="788" y="90">Pin the code locations, revisions, and mechanics</text>
+<text class="node-role" x="788" y="103">that can plausibly explain or repair the issue.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">attempt log</text>
+      <text class="node-role" x="1156" y="90">Track probes, rejected fixes, shipped</text>
+<text class="node-role" x="1156" y="103">workarounds, and what each attempt proved.</text>
+    </g>
+<g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">issue orbit</text>
+      <text class="node-role" x="52" y="90">Map sibling issues and PRs that share root</text>
+<text class="node-role" x="52" y="103">cause, constraints, or prior resolution</text>
+<text class="node-role" x="52" y="116">evidence.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">maintainer stance</text>
+      <text class="node-role" x="52" y="206">Preserve stakeholder positions that constrain</text>
+<text class="node-role" x="52" y="219">what fix is acceptable or what uncertainty</text>
+<text class="node-role" x="52" y="232">remains.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  symptom_observation[&quot;symptom-observation&lt;br/&gt;Hold reproducible observed behavior with environment, witness, and repro steps.&quot;]
+  investigation_findings[&quot;investigation-findings&lt;br/&gt;Record synthesized facts learned during investigation that are not themselves repro steps.&quot;]
+  code_anchor[&quot;code-anchor&lt;br/&gt;Pin the code locations, revisions, and mechanics that can plausibly explain or repair the issue.&quot;]
+  attempt_log[&quot;attempt-log&lt;br/&gt;Track probes, rejected fixes, shipped workarounds, and what each attempt proved.&quot;]
+  issue_orbit[&quot;issue-orbit&lt;br/&gt;Map sibling issues and PRs that share root cause, constraints, or prior resolution evidence.&quot;]
+  maintainer_stance[&quot;maintainer-stance&lt;br/&gt;Preserve stakeholder positions that constrain what fix is acceptable or what uncertainty remains.&quot;]
+
+  symptom_observation -- &quot;localized-by&quot; --&gt; code_anchor
+  code_anchor -- &quot;tested-by&quot; --&gt; attempt_log
+  attempt_log -- &quot;produces-finding&quot; --&gt; investigation_findings
+  issue_orbit -- &quot;contextualizes&quot; --&gt; symptom_observation
+  maintainer_stance -- &quot;constrains&quot; --&gt; attempt_log
+</code></pre>
+    </details>
+  </article>
+<article id="proof-canonicality">
+    <div class="card-head">
+      <div>
+        <h2>Proof and Canonicality</h2>
+        <div class="template-id">proof-canonicality</div>
+      </div>
+      <div class="counts">
+        <span class="count">7 sections</span>
+        <span class="count">5 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1798 394" role="img" aria-label="Proof and Canonicality">
+    <defs>
+      <marker id="arrow-proof-canonicality" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-proof-canonicality)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">frames</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-proof-canonicality)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">requires-proof</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-proof-canonicality)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">produces-findings</text>
+<path d="M 1392 81 C 1441.56 81, 1460.44 81, 1501 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-proof-canonicality)"/>
+      <text class="edge-label" x="1451" y="73" text-anchor="middle">justifies</text>
+<path d="M 288 313 C 492.12 313, 569.88 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-proof-canonicality)"/>
+      <text class="edge-label" x="531" y="189" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize proof posture and canonicality</text>
+<text class="node-role" x="52" y="103">pressure without collapsing the evidence layers.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">formal model</text>
+      <text class="node-role" x="52" y="206">Define the primitives, invariants, authorities,</text>
+<text class="node-role" x="52" y="219">and scope that make the domain truth bearing.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">model assertion</text>
+      <text class="node-role" x="420" y="90">State the claims that the proof structure is</text>
+<text class="node-role" x="420" y="103">trying to support or weaken.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">proof ladder</text>
+      <text class="node-role" x="788" y="90">Track staged evidence rungs that increase</text>
+<text class="node-role" x="788" y="103">confidence in the assertions.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">investigation findings</text>
+      <text class="node-role" x="1156" y="90">Record observed facts learned from proof work</text>
+<text class="node-role" x="1156" y="103">without turning them directly into decisions.</text>
+    </g>
+<g>
+      <rect x="1510" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1524" y="60">decision record</text>
+      <text class="node-role" x="1524" y="90">Preserve canonical choices justified by the</text>
+<text class="node-role" x="1524" y="103">model, proof, and findings.</text>
+    </g>
+<g>
+      <rect x="38" y="270" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="292">tooling surface</text>
+      <text class="node-role" x="52" y="322">Expose the scripts, skills, and workflows used</text>
+<text class="node-role" x="52" y="335">to inspect, prove, or evolve the domain.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize proof posture and canonicality pressure without collapsing the evidence layers.&quot;]
+  formal_model[&quot;formal-model&lt;br/&gt;Define the primitives, invariants, authorities, and scope that make the domain truth-bearing.&quot;]
+  model_assertion[&quot;model-assertion&lt;br/&gt;State the claims that the proof structure is trying to support or weaken.&quot;]
+  proof_ladder[&quot;proof-ladder&lt;br/&gt;Track staged evidence rungs that increase confidence in the assertions.&quot;]
+  investigation_findings[&quot;investigation-findings&lt;br/&gt;Record observed facts learned from proof work without turning them directly into decisions.&quot;]
+  decision_record[&quot;decision-record&lt;br/&gt;Preserve canonical choices justified by the model, proof, and findings.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose the scripts, skills, and workflows used to inspect, prove, or evolve the domain.&quot;]
+
+  formal_model -- &quot;frames&quot; --&gt; model_assertion
+  model_assertion -- &quot;requires-proof&quot; --&gt; proof_ladder
+  proof_ladder -- &quot;produces-findings&quot; --&gt; investigation_findings
+  investigation_findings -- &quot;justifies&quot; --&gt; decision_record
+  tooling_surface -- &quot;supports&quot; --&gt; proof_ladder
+</code></pre>
+    </details>
+  </article>
+<article id="starter-prove-claim">
+    <div class="card-head">
+      <div>
+        <h2>Prove a Claim</h2>
+        <div class="template-id">starter-prove-claim</div>
+      </div>
+      <div class="counts">
+        <span class="count">3 sections</span>
+        <span class="count">2 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1062 162" role="img" aria-label="Prove a Claim">
+    <defs>
+      <marker id="arrow-starter-prove-claim" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-prove-claim)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-prove-claim)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">requires-proof</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize proof posture without carrying the</text>
+<text class="node-role" x="52" y="103">claim or evidence itself.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">model assertion</text>
+      <text class="node-role" x="420" y="90">State the claim being defended or weakened.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">proof ladder</text>
+      <text class="node-role" x="788" y="90">Track the evidence rungs that support or weaken</text>
+<text class="node-role" x="788" y="103">the assertion.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize proof posture without carrying the claim or evidence itself.&quot;]
+  model_assertion[&quot;model-assertion&lt;br/&gt;State the claim being defended or weakened.&quot;]
+  proof_ladder[&quot;proof-ladder&lt;br/&gt;Track the evidence rungs that support or weaken the assertion.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; model_assertion
+  model_assertion -- &quot;requires-proof&quot; --&gt; proof_ladder
+</code></pre>
+    </details>
+  </article>
+<article id="starter-run-support-ops">
+    <div class="card-head">
+      <div>
+        <h2>Run Support Ops</h2>
+        <div class="template-id">starter-run-support-ops</div>
+      </div>
+      <div class="counts">
+        <span class="count">3 sections</span>
+        <span class="count">2 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 694 278" role="img" aria-label="Run Support Ops">
+    <defs>
+      <marker id="arrow-starter-run-support-ops" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-run-support-ops)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-run-support-ops)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize support readiness without carrying</text>
+<text class="node-role" x="52" y="103">request flow details.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">operation</text>
+      <text class="node-role" x="420" y="90">Describe how requests enter and move through the</text>
+<text class="node-role" x="420" y="103">support domain.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">tooling surface</text>
+      <text class="node-role" x="52" y="206">Expose trusted tools used by operators to run or</text>
+<text class="node-role" x="52" y="219">inspect the request flow.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize support readiness without carrying request-flow details.&quot;]
+  operation[&quot;operation&lt;br/&gt;Describe how requests enter and move through the support domain.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose trusted tools used by operators to run or inspect the request flow.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; operation
+  tooling_surface -- &quot;supports&quot; --&gt; operation
+</code></pre>
+    </details>
+  </article>
+<article id="starter-ship-feature">
+    <div class="card-head">
+      <div>
+        <h2>Ship a Feature</h2>
+        <div class="template-id">starter-ship-feature</div>
+      </div>
+      <div class="counts">
+        <span class="count">3 sections</span>
+        <span class="count">2 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 694 278" role="img" aria-label="Ship a Feature">
+    <defs>
+      <marker id="arrow-starter-ship-feature" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-ship-feature)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-ship-feature)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize feature delivery readiness without</text>
+<text class="node-role" x="52" y="103">replacing the surface or tooling cards.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">design code spec flow</text>
+      <text class="node-role" x="420" y="90">Name the primary feature surface as a joined</text>
+<text class="node-role" x="420" y="103">design, code, spec, interaction, and ticket</text>
+<text class="node-role" x="420" y="116">entity.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">tooling surface</text>
+      <text class="node-role" x="52" y="206">Expose the scripts, workflows, and artifacts</text>
+<text class="node-role" x="52" y="219">used to update or render the feature doc.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize feature delivery readiness without replacing the surface or tooling cards.&quot;]
+  design_code_spec_flow[&quot;design-code-spec-flow&lt;br/&gt;Name the primary feature surface as a joined design, code, spec, interaction, and ticket entity.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose the scripts, workflows, and artifacts used to update or render the feature doc.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; design_code_spec_flow
+  tooling_surface -- &quot;supports&quot; --&gt; design_code_spec_flow
+</code></pre>
+    </details>
+  </article>
+<article id="starter-tiny-experiment">
+    <div class="card-head">
+      <div>
+        <h2>Run Tiny Experiments</h2>
+        <div class="template-id">starter-tiny-experiment</div>
+      </div>
+      <div class="counts">
+        <span class="count">3 sections</span>
+        <span class="count">2 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 694 278" role="img" aria-label="Run Tiny Experiments">
+    <defs>
+      <marker id="arrow-starter-tiny-experiment" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-tiny-experiment)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-tiny-experiment)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">informs</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize experiment pressure without carrying</text>
+<text class="node-role" x="52" y="103">pact details.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">tiny experiment</text>
+      <text class="node-role" x="420" y="90">Track each pact with hypothesis, window,</text>
+<text class="node-role" x="420" y="103">signals, and closure state.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">attempt log</text>
+      <text class="node-role" x="52" y="206">Record actions tried during or around the</text>
+<text class="node-role" x="52" y="219">experiments and what they proved.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize experiment pressure without carrying pact details.&quot;]
+  tiny_experiment[&quot;tiny-experiment&lt;br/&gt;Track each pact with hypothesis, window, signals, and closure state.&quot;]
+  attempt_log[&quot;attempt-log&lt;br/&gt;Record actions tried during or around the experiments and what they proved.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; tiny_experiment
+  attempt_log -- &quot;informs&quot; --&gt; tiny_experiment
+</code></pre>
+    </details>
+  </article>
+<article id="starter-write-book">
+    <div class="card-head">
+      <div>
+        <h2>Write a Book</h2>
+        <div class="template-id">starter-write-book</div>
+      </div>
+      <div class="counts">
+        <span class="count">3 sections</span>
+        <span class="count">2 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 694 278" role="img" aria-label="Write a Book">
+    <defs>
+      <marker id="arrow-starter-write-book" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-write-book)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 288 197 C 337.56 197, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-starter-write-book)"/>
+      <text class="edge-label" x="347" y="131" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize manuscript drafting momentum without</text>
+<text class="node-role" x="52" y="103">carrying chapter details.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">content production</text>
+      <text class="node-role" x="420" y="90">Track major chapter or drafting units as</text>
+<text class="node-role" x="420" y="103">production cards.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">tooling surface</text>
+      <text class="node-role" x="52" y="206">Expose tools used to keep drafting work moving.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize manuscript drafting momentum without carrying chapter details.&quot;]
+  content_production[&quot;content-production&lt;br/&gt;Track major chapter or drafting units as production cards.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose tools used to keep drafting work moving.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; content_production
+  tooling_surface -- &quot;supports&quot; --&gt; content_production
+</code></pre>
+    </details>
+  </article>
+<article id="surface-delivery">
+    <div class="card-head">
+      <div>
+        <h2>Surface Delivery</h2>
+        <div class="template-id">surface-delivery</div>
+      </div>
+      <div class="counts">
+        <span class="count">5 sections</span>
+        <span class="count">4 relationships</span>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg class="template-diagram" viewBox="0 0 1430 278" role="img" aria-label="Surface Delivery">
+    <defs>
+      <marker id="arrow-surface-delivery" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890ad"></path>
+      </marker>
+    </defs>
+    <path d="M 288 81 C 337.56 81, 356.44 81, 397 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-surface-delivery)"/>
+      <text class="edge-label" x="347" y="73" text-anchor="middle">summarizes</text>
+<path d="M 656 81 C 705.56 81, 724.44 81, 765 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-surface-delivery)"/>
+      <text class="edge-label" x="715" y="73" text-anchor="middle">feeds</text>
+<path d="M 1024 81 C 1073.56 81, 1092.44 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-surface-delivery)"/>
+      <text class="edge-label" x="1083" y="73" text-anchor="middle">requires-verification</text>
+<path d="M 288 197 C 646.6800000000001 197, 783.3199999999999 81, 1133 81" fill="none" stroke="#7890ad" stroke-width="1.8" marker-end="url(#arrow-surface-delivery)"/>
+      <text class="edge-label" x="715" y="131" text-anchor="middle">supports</text>
+    <g>
+      <rect x="38" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="60">status snapshot</text>
+      <text class="node-role" x="52" y="90">Summarize delivery pressure and current</text>
+<text class="node-role" x="52" y="103">readiness without carrying the detailed</text>
+<text class="node-role" x="52" y="116">evidence.</text>
+    </g>
+<g>
+      <rect x="406" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="420" y="60">design code spec flow</text>
+      <text class="node-role" x="420" y="90">Hold the product surface as a joined design,</text>
+<text class="node-role" x="420" y="103">code, spec, interaction, and ticket entity.</text>
+    </g>
+<g>
+      <rect x="774" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="788" y="60">design implementation</text>
+<text class="node-title" x="788" y="75">alignment</text>
+      <text class="node-role" x="788" y="90">Judge whether implementation targets satisfy the</text>
+<text class="node-role" x="788" y="103">design and spec intent carried by the surface</text>
+<text class="node-role" x="788" y="116">flow.</text>
+    </g>
+<g>
+      <rect x="1142" y="38" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="1156" y="60">verification checkpoints</text>
+      <text class="node-role" x="1156" y="90">Track the checks that prove the aligned</text>
+<text class="node-role" x="1156" y="103">implementation is ready enough to ship or</text>
+<text class="node-role" x="1156" y="116">continue.</text>
+    </g>
+<g>
+      <rect x="38" y="154" width="250" height="86" rx="8" fill="var(--node)" stroke="var(--node-stroke)" stroke-width="1.4"/>
+      <text class="node-title" x="52" y="176">tooling surface</text>
+      <text class="node-role" x="52" y="206">Expose the scripts, workflows, and local tools</text>
+<text class="node-role" x="52" y="219">used to inspect, evolve, and verify the surface.</text>
+    </g>
+  </svg>
+    </div>
+    <details>
+      <summary>Mermaid source</summary>
+      <pre><code>flowchart LR
+  status_snapshot[&quot;status-snapshot&lt;br/&gt;Summarize delivery pressure and current readiness without carrying the detailed evidence.&quot;]
+  design_code_spec_flow[&quot;design-code-spec-flow&lt;br/&gt;Hold the product surface as a joined design, code, spec, interaction, and ticket entity.&quot;]
+  design_implementation_alignment[&quot;design-implementation-alignment&lt;br/&gt;Judge whether implementation targets satisfy the design and spec intent carried by the surface flow.&quot;]
+  verification_checkpoints[&quot;verification-checkpoints&lt;br/&gt;Track the checks that prove the aligned implementation is ready enough to ship or continue.&quot;]
+  tooling_surface[&quot;tooling-surface&lt;br/&gt;Expose the scripts, workflows, and local tools used to inspect, evolve, and verify the surface.&quot;]
+
+  status_snapshot -- &quot;summarizes&quot; --&gt; design_code_spec_flow
+  design_code_spec_flow -- &quot;feeds&quot; --&gt; design_implementation_alignment
+  design_implementation_alignment -- &quot;requires-verification&quot; --&gt; verification_checkpoints
+  tooling_surface -- &quot;supports&quot; --&gt; verification_checkpoints
+</code></pre>
+    </details>
+  </article>
+    </div>
+  </main>
+</body>
+</html>

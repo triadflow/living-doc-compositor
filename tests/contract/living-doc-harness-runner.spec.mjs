@@ -32,12 +32,24 @@ try {
   assert.deepEqual(contract.process.args.slice(0, 4), ['exec', '--json', '-C', process.cwd()]);
   assert.equal(typeof contract.process.env.CODEX_HOME, 'string');
   assert.ok(contract.process.env.CODEX_HOME.length > 0);
+  assert.equal(contract.process.env.LIVING_DOC_HARNESS_ROLE, 'worker');
   assert.ok(contract.process.args.includes('-o'));
   assert.equal(contract.process.args.at(-1), '-');
   assert.equal(contract.process.stdin, 'prompt.md');
   assert.match(contract.livingDoc.sourceHash, /^sha256:[a-f0-9]{64}$/);
   assert.match(contract.livingDoc.objectiveHash, /^sha256:[a-f0-9]{64}$/);
   assert.deepEqual(contract.artifacts.nativeTraceRefs, []);
+  assert.match(contract.artifacts.workerInferenceUnit.result, /inference-units\/iteration-1\/01-worker\/result\.json$/);
+  assert.match(contract.artifacts.workerInferenceUnit.validation, /inference-units\/iteration-1\/01-worker\/validation\.json$/);
+  const workerUnitResult = JSON.parse(await readFile(path.join(result.runDir, contract.artifacts.workerInferenceUnit.result), 'utf8'));
+  assert.equal(workerUnitResult.schema, 'living-doc-contract-bound-inference-result/v1');
+  assert.equal(workerUnitResult.unitId, 'worker');
+  assert.equal(workerUnitResult.role, 'worker');
+  assert.equal(workerUnitResult.status, 'prepared');
+  assert.equal(workerUnitResult.outputContract.nextAuthority, 'reviewer-inference');
+  const workerUnitInput = JSON.parse(await readFile(path.join(result.runDir, contract.artifacts.workerInferenceUnit.inputContract), 'utf8'));
+  assert.equal(workerUnitInput.schema, 'living-doc-worker-inference-input/v1');
+  assert.deepEqual(workerUnitInput.requiredInspectionPaths, ['tests/fixtures/minimal-doc.json']);
 
   assert.equal(state.schema, 'living-doc-harness-state/v1');
   assert.equal(state.lifecycleStage, 'initial-objective-bearing');
@@ -48,14 +60,20 @@ try {
   assert.match(events, /"event":"codex-command-prepared"/);
   assert.match(events, /"event":"execution-skipped"/);
   assert.match(prompt, /You are running inside the standalone agentic living-doc harness/);
+  assert.match(prompt, /Do not run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands/);
 
   const fakeBin = path.join(tmp, 'fake-codex');
   const fakeCodexHome = path.join(tmp, 'fake-codex-home');
   await writeFile(fakeBin, `#!/bin/sh
 mkdir -p "$CODEX_HOME/sessions/2026/05/07"
-cat > "$CODEX_HOME/sessions/2026/05/07/rollout-live.jsonl" <<'EOF'
-{"timestamp":"2026-05-07T06:31:00.000Z","type":"session_meta","payload":{"id":"live-test","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
-{"timestamp":"2026-05-07T06:31:01.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"PRIVATE_LIVE_TRACE_CONTENT"}]}}
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-stale-but-touched.jsonl" <<'EOF'
+{"timestamp":"2026-05-05T06:31:00.000Z","type":"session_meta","payload":{"id":"stale-test","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"2026-05-05T06:31:01.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"PRIVATE_STALE_TRACE_CONTENT"}]}}
+EOF
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"live-test","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"PRIVATE_LIVE_TRACE_CONTENT"}]}}
 EOF
 printf '{"type":"done"}\\n'
 exit 0
@@ -74,9 +92,22 @@ exit 0
   assert.equal(executed.executed, true);
   assert.equal(executed.exitCode, 0);
   assert.equal(executed.traceDiscovery.candidateCount, 1);
+  assert.equal(executed.traceDiscovery.scannedModifiedCount, 2);
   assert.equal(executed.contract.artifacts.nativeTraceRefs.length, 1);
   assert.equal(executed.contract.artifacts.nativeTraceRefs[0].rawPayloadIncluded, false);
+  const executedWorkerUnit = JSON.parse(await readFile(path.join(executed.runDir, executed.contract.artifacts.workerInferenceUnit.result), 'utf8'));
+  assert.equal(executedWorkerUnit.schema, 'living-doc-contract-bound-inference-result/v1');
+  assert.equal(executedWorkerUnit.unitId, 'worker');
+  assert.equal(executedWorkerUnit.role, 'worker');
+  assert.equal(executedWorkerUnit.mode, 'external-headless-codex');
+  assert.equal(executedWorkerUnit.status, 'finished');
+  assert.equal(executedWorkerUnit.outputContract.schema, 'living-doc-worker-output/v1');
+  assert.equal(executedWorkerUnit.outputContract.nextAuthority, 'reviewer-inference');
+  assert.equal(executedWorkerUnit.outputContract.nativeTraceRefs.length, 1);
+  const executedWorkerValidation = JSON.parse(await readFile(path.join(executed.runDir, executed.contract.artifacts.workerInferenceUnit.validation), 'utf8'));
+  assert.equal(executedWorkerValidation.ok, true);
   assert.equal(JSON.stringify(executed.contract).includes('PRIVATE_LIVE_TRACE_CONTENT'), false);
+  assert.equal(JSON.stringify(executed.contract).includes('PRIVATE_STALE_TRACE_CONTENT'), false);
   const executeEvents = await readFile(path.join(executed.runDir, 'events.jsonl'), 'utf8');
   assert.match(executeEvents, /"event":"native-trace-discovery-written"/);
   assert.match(executeEvents, /"event":"native-trace-summary-attached"/);

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Living Doc Harness Inference Chain</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #66758a;
+      --line: #d8e0ea;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --green: #0f766e;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --violet: #6d28d9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 28px 22px;
+    }
+    main { padding: 20px 22px 32px; }
+    .wrap { max-width: 1160px; margin: 0 auto; }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 28px; line-height: 1.15; }
+    h2 { font-size: 18px; margin-bottom: 10px; }
+    h3 { font-size: 14px; margin-bottom: 6px; }
+    p { margin: 0; }
+    .subtitle { color: var(--muted); margin-top: 8px; max-width: 850px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .lead {
+      border-left: 4px solid var(--blue);
+      padding-left: 14px;
+      max-width: 900px;
+      font-size: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .card {
+      background: #fbfcfe;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 116px;
+    }
+    .card.worker { border-top: 4px solid var(--violet); }
+    .card.reviewer { border-top: 4px solid var(--blue); }
+    .card.repair { border-top: 4px solid var(--green); }
+    .card.control { border-top: 4px solid var(--amber); }
+    .card p, li { color: var(--muted); }
+    .diagram {
+      background: #fbfcfe;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    code {
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #eef2f7;
+      border: 1px solid #dce4ee;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+    .note { margin-top: 10px; color: var(--muted); }
+    @media (max-width: 900px) {
+      .grid, .split { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Living Doc Harness Inference Chain</h1>
+      <p class="subtitle">The lifecycle controller does not reason for the system. It starts separate inference actors, passes file paths, records artifacts, and enforces whether the next step may run.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <p class="lead">The core idea is simple: every meaningful judgment is its own inference call. Worker inference does work. Reviewer inference reads the worker JSONL logs. Balance scan inference orders repair skills. Each repair skill runs as another inference call.</p>
+      <div class="grid">
+        <div class="card worker">
+          <h3>Worker Inference</h3>
+          <p>Moves the objective forward and leaves raw JSONL logs.</p>
+        </div>
+        <div class="card reviewer">
+          <h3>Reviewer Inference</h3>
+          <p>Opens raw worker JSONL paths and emits the stop verdict.</p>
+        </div>
+        <div class="card repair">
+          <h3>Repair Inference</h3>
+          <p>Runs balance scan and ordered repair skills as independent actors.</p>
+        </div>
+        <div class="card control">
+          <h3>Lifecycle Control</h3>
+          <p>Chains calls, validates artifacts, renders docs, and stops on blockers.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Whole System Chain</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  A["Living doc objective"] --> B["Worker inference<br/>headless Codex"]
+  B --> C["Worker raw JSONL logs"]
+  C --> D["Reviewer inference<br/>opens raw JSONL paths"]
+  D --> E{"Reviewer verdict"}
+  E -->|closed| F["Final proof + stop"]
+  E -->|resumable| G["Next worker iteration"]
+  E -->|true-block / pivot / defer / budget| H["Terminal record + dashboard"]
+  E -->|repairable| I["Repair phase"]
+  I --> J["Balance scan inference"]
+  J --> K["Ordered repair skill list"]
+  K --> L["Repair skill chain"]
+  L --> M["Patched + rendered living doc"]
+  M --> N["Reviewer / readiness check"]
+  N --> G
+        </pre>
+      </div>
+      <p class="note">The controller is only allowed to continue after the required inference actor has left durable evidence.</p>
+    </section>
+
+    <section>
+      <h2>Repairable Verdict Path</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+  participant L as Lifecycle
+  participant R as Reviewer Inference
+  participant B as Balance Scan Inference
+  participant S as Repair Skill Inference
+  participant D as Living Doc
+
+  R-->>L: verdict = repairable
+  L->>B: doc path + verdict path + handover path + raw worker JSONL paths
+  B->>B: classify imbalance
+  B-->>L: ordered repair skill list
+  loop for each ordered skill
+    L->>S: skill name + updated doc + prior results + raw worker JSONL paths
+    S->>D: inspect and patch if needed
+    S->>D: render if changed
+    S-->>L: result JSON + skill JSONL log
+    L->>L: validate result before next skill
+  end
+  L-->>R: repaired doc evidence for next review
+        </pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>If Balance Scan Returns Five Skills</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+  A["living-doc-balance-scan result"] --> B["01 equilibrium-rebalance"]
+  B --> C["02 objective-conservation-audit"]
+  C --> D["03 reaction-path-validator"]
+  D --> E["04 activation-energy-review"]
+  E --> F["05 objective-execution-readiness"]
+  F --> G["repair chain complete"]
+
+  B -. "updated doc + result" .-> C
+  C -. "updated doc + results" .-> D
+  D -. "updated doc + results" .-> E
+  E -. "updated doc + results" .-> F
+        </pre>
+      </div>
+      <p class="note">Five recommended skills means five separate headless inference runs. The next skill sees the updated living doc and all prior repair results.</p>
+    </section>
+
+    <section>
+      <h2>Artifact Contract</h2>
+      <div class="split">
+        <div class="diagram">
+          <pre class="mermaid">
+flowchart TB
+  A["repair-skills/"]
+  A --> B["00-balance-scan/"]
+  A --> C["01-equilibrium-rebalance/"]
+  A --> D["02-objective-conservation-audit/"]
+  C --> C1["prompt.md"]
+  C --> C2["codex-events.jsonl"]
+  C --> C3["last-message.txt"]
+  C --> C4["result.json"]
+          </pre>
+        </div>
+        <div>
+          <h3>Each Skill Result Must Say</h3>
+          <ul>
+            <li><code>status</code>: repaired, no-op, blocked, failed</li>
+            <li><code>changedFiles</code>: concrete paths</li>
+            <li><code>renderedHtmlPath</code>: required after doc changes</li>
+            <li><code>priorRepairResultPaths</code>: what it used</li>
+            <li><code>rawJsonlLogPath</code>: its own inference log</li>
+            <li><code>nextRecommendedAction</code>: continue, block, review</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Stop Rules</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  A["Skill result"] --> B{"status"}
+  B -->|repaired| C["render if changed<br/>continue chain"]
+  B -->|no-op| D["record no-op<br/>continue chain"]
+  B -->|blocked| E["write blocker<br/>stop chain"]
+  B -->|failed| F["write process defect<br/>stop chain"]
+  C --> G["next ordered skill or review"]
+  D --> G
+        </pre>
+      </div>
+      <p class="note">A recommended skill list is not proof. Only completed skill-run artifacts can move the lifecycle forward.</p>
+    </section>
+  </main>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        primaryColor: '#ffffff',
+        primaryTextColor: '#172033',
+        primaryBorderColor: '#d8e0ea',
+        lineColor: '#66758a',
+        tertiaryColor: '#f7f8fa'
+      }
+    });
+  </script>
+</body>
+</html>

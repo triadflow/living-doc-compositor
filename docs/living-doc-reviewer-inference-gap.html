@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reviewer Inference Gap in the Living Doc Harness</title>
+  <meta name="description" content="Static explanation of the missing reviewer-inference layer in the agentic living-doc harness.">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f5;
+      --paper: #ffffff;
+      --ink: #18211f;
+      --muted: #5d6b67;
+      --line: #d7dedb;
+      --soft: #edf3f0;
+      --green: #0f766e;
+      --green-bg: #eaf8f4;
+      --blue: #245e91;
+      --blue-bg: #edf5fb;
+      --amber: #9a670f;
+      --amber-bg: #fff7e5;
+      --red: #a33737;
+      --red-bg: #fff0ee;
+      --violet: #6750a4;
+      --violet-bg: #f4f0ff;
+      --slate: #334155;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+
+    a { color: inherit; }
+
+    .shell {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .92);
+      backdrop-filter: blur(12px);
+    }
+
+    .top {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 780;
+      text-decoration: none;
+    }
+
+    .mark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    nav {
+      margin-left: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    nav a { text-decoration: none; }
+    main { padding: 46px 0 80px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(330px, .9fr);
+      gap: 26px;
+      align-items: start;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, h4 { margin: 0; letter-spacing: 0; }
+    h1 {
+      max-width: 950px;
+      margin: 10px 0 16px;
+      font-size: clamp(38px, 6vw, 70px);
+      line-height: .97;
+    }
+
+    .lede {
+      max-width: 900px;
+      margin: 0;
+      color: #33423f;
+      font-size: 21px;
+      line-height: 1.42;
+    }
+
+    .summary,
+    section,
+    .card,
+    .step,
+    .artifact,
+    .contract-card,
+    .test-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 10px 26px rgba(24, 33, 31, .055);
+    }
+
+    .summary { padding: 18px; }
+    .summary h2 { font-size: 16px; margin-bottom: 10px; }
+    .summary ul { margin: 0; padding-left: 18px; color: var(--muted); }
+    .summary li + li { margin-top: 8px; }
+
+    section {
+      padding: 22px;
+      margin-top: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+    }
+
+    h2 { font-size: 24px; line-height: 1.18; }
+    .section-head p { max-width: 760px; color: var(--muted); margin: 6px 0 0; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #fbfcfc;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .badge.red { border-color: #e7aaa4; color: var(--red); background: var(--red-bg); }
+    .badge.green { border-color: #9ed8cf; color: var(--green); background: var(--green-bg); }
+    .badge.amber { border-color: #efd18d; color: var(--amber); background: var(--amber-bg); }
+    .badge.violet { border-color: #c8bbed; color: var(--violet); background: var(--violet-bg); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      padding: 16px;
+      background: #fbfcfc;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .card p,
+    .card li,
+    .step p,
+    .artifact p,
+    .contract-card p,
+    .test-card p {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .card ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    .card li + li { margin-top: 6px; }
+
+    .callout {
+      padding: 14px 16px;
+      border-radius: 8px;
+      border-left: 4px solid var(--red);
+      background: var(--red-bg);
+      margin-top: 14px;
+    }
+
+    .callout.green {
+      border-left-color: var(--green);
+      background: var(--green-bg);
+    }
+
+    .callout strong { display: block; margin-bottom: 4px; }
+    .callout p { color: #33423f; margin: 0; }
+
+    .chain {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(180px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .step {
+      min-height: 170px;
+      padding: 14px;
+      position: relative;
+      background: #fbfcfc;
+    }
+
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      width: 8px;
+      border-top: 2px solid var(--line);
+    }
+
+    .step .num {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--slate);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .step h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .step.worker { border-top: 4px solid var(--violet); }
+    .step.reviewer { border-top: 4px solid var(--green); }
+    .step.det { border-top: 4px solid var(--blue); }
+    .step.artifact { border-top: 4px solid var(--amber); }
+    .step.stop { border-top: 4px solid var(--slate); }
+
+    .wrong-right {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .wrong-right .wrong { border-left: 4px solid var(--red); }
+    .wrong-right .right { border-left: 4px solid var(--green); }
+
+    .artifact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .artifact {
+      padding: 14px;
+      background: #fbfcfc;
+    }
+
+    .artifact h3 {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: .94em;
+      color: var(--slate);
+    }
+
+    .artifact code {
+      display: block;
+      margin-top: 8px;
+      overflow-wrap: anywhere;
+      color: var(--blue);
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      border: 1px solid #263243;
+      border-radius: 8px;
+      overflow-x: auto;
+      background: #16202c;
+      color: #edf4fb;
+      font: 12px/1.5 var(--mono);
+    }
+
+    .contract-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .contract-card {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+      background: #fbfcfc;
+    }
+
+    .contract-card h3 {
+      font-size: 14px;
+      color: var(--ink);
+    }
+
+    .tests {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .test-card {
+      padding: 14px;
+      background: #fbfcfc;
+      min-height: 150px;
+    }
+
+    .test-card h3 {
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .status-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfc;
+      min-height: 96px;
+    }
+
+    .status-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .status-item strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+
+    footer {
+      padding: 24px 0 40px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .grid-2,
+      .grid-3,
+      .wrong-right,
+      .artifact-grid,
+      .tests,
+      .status-strip {
+        grid-template-columns: 1fr;
+      }
+
+      nav { display: none; }
+      h1 { font-size: 38px; }
+      .lede { font-size: 18px; }
+      .contract-card { grid-template-columns: 1fr; }
+      section { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./living-doc-agentic-harness.html">
+        <span class="mark">LD</span>
+        <span>Reviewer Inference Gap</span>
+      </a>
+      <nav aria-label="Page sections">
+        <a href="#gap">Gap</a>
+        <a href="#chain">Chain</a>
+        <a href="#contracts">Contracts</a>
+        <a href="#tests">Tests</a>
+        <a href="#stance">Stance</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Agentic living-doc harness</div>
+        <h1>The missing layer was reviewer inference.</h1>
+        <p class="lede">
+          The harness could run workers, collect artifacts, inspect logs, and move to another iteration. The gap was that the close-or-continue signal was still being created mostly by deterministic proxy checks. That misses the core design: inference must judge the run state, then deterministic code must enforce the transition.
+        </p>
+      </div>
+      <aside class="summary">
+        <h2>Plain statement</h2>
+        <ul>
+          <li>The worker inference does the objective work.</li>
+          <li>A separate reviewer inference must judge what the worker state means.</li>
+          <li>The deterministic lifecycle must only validate, record, and execute allowed transitions.</li>
+          <li>Closure is invalid if it comes only from fields like <code>objectiveReady: true</code>, completed criteria, and rendered HTML.</li>
+        </ul>
+      </aside>
+    </div>
+
+    <section id="gap">
+      <div class="section-head">
+        <div>
+          <span class="badge red">current gap</span>
+          <h2>What was lacking</h2>
+          <p>The implementation had a good artifact spine, but the meaning-making step was in the wrong place.</p>
+        </div>
+      </div>
+
+      <div class="wrong-right">
+        <div class="card wrong">
+          <h3>What the system drifted into</h3>
+          <p>After the worker stopped, deterministic code looked at structured state and inferred enough to close or continue.</p>
+          <ul>
+            <li><code>objectiveReady === true</code></li>
+            <li>acceptance criteria all complete</li>
+            <li>rendered HTML exists</li>
+            <li>native trace refs exist</li>
+            <li>proof gates pass</li>
+          </ul>
+          <div class="callout">
+            <strong>Why this is not enough</strong>
+            <p>Those fields can support a verdict, but they should not be the verdict. They are evidence. They do not replace reasoning over why the worker stopped and whether the living-doc objective is actually conserved.</p>
+          </div>
+        </div>
+
+        <div class="card right">
+          <h3>What the objective requires</h3>
+          <p>After the worker stops, a separate reviewer inference reads the evidence and emits a structured verdict. Deterministic code then enforces that verdict.</p>
+          <ul>
+            <li>worker run evidence</li>
+            <li>native inference trace summaries</li>
+            <li>living doc before and after</li>
+            <li>source artifacts and changed files</li>
+            <li>acceptance criteria and proof gates</li>
+            <li>worker final message as evidence, not authority</li>
+          </ul>
+          <div class="callout green">
+            <strong>The corrected boundary</strong>
+            <p>Inference produces the meaning signal. Deterministic code enforces protocol, schemas, hard gates, artifact writing, and legal transitions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="chain">
+      <div class="section-head">
+        <div>
+          <span class="badge green">correct chain</span>
+          <h2>The input-output chain between iterations</h2>
+          <p>A normal run should have two inference roles: the worker that acts, and the reviewer that judges the stop state.</p>
+        </div>
+      </div>
+
+      <div class="chain" aria-label="Correct lifecycle chain">
+        <article class="step worker">
+          <div class="num">1</div>
+          <h3>Worker input</h3>
+          <p>The lifecycle controller starts from the living doc objective, current stage, acceptance criteria, source paths, and any previous output-input handover.</p>
+        </article>
+
+        <article class="step worker">
+          <div class="num">2</div>
+          <h3>Worker inference</h3>
+          <p>Headless Codex performs objective work: edits files, updates the living doc, renders HTML, runs checks, or reaches a blocker.</p>
+        </article>
+
+        <article class="step artifact">
+          <div class="num">3</div>
+          <h3>Evidence bundle</h3>
+          <p>The harness freezes contracts, state, event logs, changed files, native trace refs, worker output, proof gates, and living-doc before/after snapshots.</p>
+        </article>
+
+        <article class="step reviewer">
+          <div class="num">4</div>
+          <h3>Reviewer inference</h3>
+          <p>A separate inference pass reads the evidence and emits the authoritative structured verdict: close, repair, resume, block, pivot, defer, or exhaust.</p>
+        </article>
+
+        <article class="step det">
+          <div class="num">5</div>
+          <h3>Deterministic enforcement</h3>
+          <p>The lifecycle validates schema and hard gates, writes the verdict reference, then either stops or creates the next output-input artifact.</p>
+        </article>
+      </div>
+
+      <pre>{
+  "workerRun": ".living-doc-runs/ldh-.../contract.json",
+  "reviewerVerdict": ".living-doc-runs/ldh-.../reviewer-inference/iteration-2.json",
+  "classification": "closed",
+  "reasonCode": "objective-proven",
+  "closureAllowed": true,
+  "evidenceRead": [
+    "native trace summary",
+    "living doc before/after",
+    "acceptance criteria",
+    "source artifacts",
+    "proof gates",
+    "worker final message"
+  ],
+  "deterministicAction": "stop-terminal-state"
+}</pre>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <span class="badge amber">why it matters</span>
+          <h2>Why deterministic proxy closure is not a harmless shortcut</h2>
+          <p>The living-doc system exists to reduce drift toward partial completion. If the reviewer signal is replaced by code checks, the system repeats the same drift at a lower layer.</p>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <article class="card">
+          <h3>It confuses evidence with judgment</h3>
+          <p>Completed criteria and rendered files are evidence. They still need interpretation against the actual objective, invariants, stage, trace, and worker behavior.</p>
+        </article>
+
+        <article class="card">
+          <h3>It can close on shape</h3>
+          <p>A deterministic check can see a closed-looking document without understanding whether the work conserved the accountable objective terms.</p>
+        </article>
+
+        <article class="card">
+          <h3>It weakens the harness premise</h3>
+          <p>The premise is that inference can inspect ambiguous stops and repair living-doc balance. If code decides meaning, the harness becomes a runner with gates, not a reasoning loop.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="contracts">
+      <div class="section-head">
+        <div>
+          <span class="badge violet">contract handovers</span>
+          <h2>What contracts need to exist</h2>
+          <p>The reviewer inference layer needs its own durable input, output, trace, and lifecycle reference. Otherwise the verdict cannot be inspected later.</p>
+        </div>
+      </div>
+
+      <div class="contract-list">
+        <article class="contract-card">
+          <h3>Reviewer input contract</h3>
+          <p>Names the worker run, living doc path, objective hash, changed artifacts, native trace summaries, worker final message reference, proof gates, and prior output-input handover. This is what reviewer inference reads.</p>
+        </article>
+
+        <article class="contract-card">
+          <h3>Reviewer verdict artifact</h3>
+          <p>Contains <code>classification</code>, <code>reasonCode</code>, <code>closureAllowed</code>, evidence citations, unresolved terms, confidence, and the required deterministic action.</p>
+        </article>
+
+        <article class="contract-card">
+          <h3>Reviewer inference trace</h3>
+          <p>Records the inference pass or sanitized trace reference proving the verdict came from an inference review, not from lifecycle code manufacturing the signal.</p>
+        </article>
+
+        <article class="contract-card">
+          <h3>Lifecycle result reference</h3>
+          <p>The lifecycle result must point to the reviewer verdict used for each transition. A terminal state without that reference is not valid closure.</p>
+        </article>
+
+        <article class="contract-card">
+          <h3>Dashboard surface</h3>
+          <p>The dashboard must show the reviewer verdict next to hard gates, worker state, native traces, blocker state, and output-input paths so a later reviewer can see why the loop stopped or continued.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <span class="badge green">artifact map</span>
+          <h2>Where the new evidence sits</h2>
+          <p>The reviewer layer does not replace existing artifacts. It sits between worker evidence and lifecycle transition.</p>
+        </div>
+      </div>
+
+      <div class="artifact-grid">
+        <article class="artifact">
+          <h3>Worker run contract</h3>
+          <p>What was launched, from which living doc, with which lifecycle input.</p>
+          <code>.living-doc-runs/&lt;run-id&gt;/contract.json</code>
+        </article>
+
+        <article class="artifact">
+          <h3>Native worker trace summary</h3>
+          <p>Sanitized hard evidence of what the headless worker actually did.</p>
+          <code>.living-doc-runs/&lt;run-id&gt;/traces/*.summary.json</code>
+        </article>
+
+        <article class="artifact">
+          <h3>Reviewer input</h3>
+          <p>The frozen evidence packet sent into the reviewer inference pass.</p>
+          <code>.living-doc-runs/&lt;run-id&gt;/reviewer-inference/iteration-N-input.json</code>
+        </article>
+
+        <article class="artifact">
+          <h3>Reviewer verdict</h3>
+          <p>The structured meaning signal produced by inference.</p>
+          <code>.living-doc-runs/&lt;run-id&gt;/reviewer-inference/iteration-N-verdict.json</code>
+        </article>
+
+        <article class="artifact">
+          <h3>Terminal or output-input</h3>
+          <p>The deterministic lifecycle action after validating the reviewer verdict.</p>
+          <code>.living-doc-runs/&lt;run-id&gt;/terminal/iteration-N-closed.json</code>
+        </article>
+
+        <article class="artifact">
+          <h3>Lifecycle result</h3>
+          <p>The full chain showing worker iteration, reviewer verdict, transition, and final state.</p>
+          <code>.living-doc-runs/ldhl-.../lifecycle-result.json</code>
+        </article>
+      </div>
+    </section>
+
+    <section id="tests">
+      <div class="section-head">
+        <div>
+          <span class="badge amber">acceptance tests</span>
+          <h2>Tests that make the gap real</h2>
+          <p>The corrected objective needs tests that fail on the current shortcut.</p>
+        </div>
+      </div>
+
+      <div class="tests">
+        <article class="test-card">
+          <h3>No reviewer, no closure</h3>
+          <p>A fixture with <code>objectiveReady: true</code>, all criteria complete, rendered HTML present, and native trace refs still cannot close unless a reviewer-inference verdict exists and is referenced.</p>
+        </article>
+
+        <article class="test-card">
+          <h3>Two-phase calibration requires reviewer verdicts</h3>
+          <p>Iteration 1 must have a reviewer verdict that keeps the loop going. Iteration 2 must have a reviewer verdict that allows closure. The lifecycle result must reference both.</p>
+        </article>
+
+        <article class="test-card">
+          <h3>Reviewer can disagree with worker</h3>
+          <p>If the worker says done but proof is incomplete, the reviewer emits <code>closure-candidate</code> or <code>repairable</code>, and deterministic code must not close.</p>
+        </article>
+
+        <article class="test-card">
+          <h3>Hard gates can reject reviewer output</h3>
+          <p>If reviewer inference emits malformed JSON, cites missing artifacts, or allows closure while required hard gates fail, deterministic code rejects the transition and records the defect.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="stance">
+      <div class="section-head">
+        <div>
+          <span class="badge red">current status</span>
+          <h2>The honest status after the correction</h2>
+          <p>The live two-iteration run remains valuable, but it does not satisfy the corrected objective by itself.</p>
+        </div>
+      </div>
+
+      <div class="status-strip">
+        <div class="status-item">
+          <span>Worker loop</span>
+          <strong>Implemented and live-proven</strong>
+        </div>
+        <div class="status-item">
+          <span>Output-input channel</span>
+          <strong>Implemented and live-proven</strong>
+        </div>
+        <div class="status-item">
+          <span>Reviewer inference</span>
+          <strong>Missing required layer</strong>
+        </div>
+        <div class="status-item">
+          <span>Closure acceptance</span>
+          <strong>Open until reviewer verdict exists</strong>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>The key correction</strong>
+        <p>The system is not complete when deterministic code can derive that a run looks closed. It is complete when reviewer inference produces the stop signal from evidence, and deterministic code can only enforce or reject that signal according to contracts.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <p>Static companion page for <code>docs/living-doc-agentic-harness.json</code>. Created to explain the reviewer-inference layer now required by the objective and acceptance criteria.</p>
+  </footer>
+</body>
+</html>

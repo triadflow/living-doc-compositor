@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Repair Skills As Independent Inference</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18212f;
+      --muted: #66758a;
+      --line: #d8e0ea;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --green: #0f766e;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --violet: #6d28d9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 28px;
+    }
+    main { padding: 22px; }
+    .wrap { max-width: 1120px; margin: 0 auto; }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 28px; line-height: 1.15; }
+    h2 { font-size: 18px; margin-bottom: 10px; }
+    h3 { font-size: 14px; margin-bottom: 8px; }
+    p { margin: 0; }
+    .subtitle { margin-top: 8px; color: var(--muted); max-width: 820px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .lead {
+      border-left: 4px solid var(--blue);
+      padding-left: 14px;
+      font-size: 16px;
+      max-width: 900px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 13px;
+      background: #fbfcfe;
+      min-height: 118px;
+    }
+    .card.worker { border-top: 4px solid var(--violet); }
+    .card.review { border-top: 4px solid var(--blue); }
+    .card.repair { border-top: 4px solid var(--green); }
+    .card.control { border-top: 4px solid var(--amber); }
+    .card.stop { border-top: 4px solid var(--red); }
+    .card p { color: var(--muted); }
+    ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+    li { margin: 4px 0; }
+    .diagram {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      max-width: 880px;
+    }
+    code {
+      background: #eef2f7;
+      border: 1px solid #dce4ee;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 860px) {
+      .grid, .split { grid-template-columns: 1fr; }
+      header, main { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Repair Skills As Independent Inference</h1>
+      <p class="subtitle">The controller does not repair the living doc. It starts accountable inference runs that inspect evidence, change the doc, and leave their own proof.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <p class="lead">The practical pattern: worker inference does the work, reviewer inference inspects the worker log, balance-scan inference orders the repair skills, and each repair skill runs as its own headless inference before the worker loop continues.</p>
+      <div class="grid">
+        <div class="card worker">
+          <h3>Worker</h3>
+          <p>Does objective work against the living doc and source files. Its final message is evidence, not authority.</p>
+        </div>
+        <div class="card review">
+          <h3>Reviewer</h3>
+          <p>Opens the worker raw JSONL logs by path and emits the authoritative stop signal.</p>
+        </div>
+        <div class="card repair">
+          <h3>Repair Skills</h3>
+          <p>Run as separate inference sessions. They patch and render the living doc before the next worker run.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Normal Loop</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  A["Living doc objective"] --> B["Worker inference<br/>does work"]
+  B --> C["Worker raw JSONL log"]
+  C --> D["Reviewer inference<br/>opens raw JSONL paths"]
+  D --> E{"Stop verdict"}
+  E -->|closed| F["Lifecycle stops<br/>proof accepted"]
+  E -->|resumable| G["Next worker iteration"]
+  E -->|repairable| H["Balance-scan inference"]
+  H --> I["Ordered repair skill list"]
+  I --> J["Repair skill inference runs"]
+  J --> K["Living doc patched + rendered"]
+  K --> D
+        </pre>
+      </div>
+      <p class="note">The important handoff is not a summary. It is file paths: living doc JSON, reviewer verdict, handover, and raw worker JSONL logs.</p>
+    </section>
+
+    <section>
+      <h2>Balance Scan Chooses The Repair Order</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+  S["living-doc-balance-scan<br/>independent inference"] --> T{"Imbalance type"}
+  T -->|equilibrium-shift| A["equilibrium-rebalance"]
+  T -->|conservation-leak| B["objective-conservation-audit"]
+  T -->|illegal-transition| C["reaction-path-validator"]
+  T -->|activation-shortfall| D["activation-energy-review"]
+  T -->|compound-instability| E["catalytic-repair-run"]
+  T -->|fresh-but-open| F["continue worker loop"]
+  A --> R["ordered repair plan"]
+  B --> R
+  C --> R
+  D --> R
+  E --> R
+  F --> R
+        </pre>
+      </div>
+      <p class="note">The scan is a triage inference. It should not quietly repair. It says which repair skill should run first, second, third, and why.</p>
+    </section>
+
+    <section>
+      <h2>Each Repair Skill Is Its Own Actor</h2>
+      <div class="split">
+        <div class="diagram">
+          <pre class="mermaid">
+sequenceDiagram
+  participant L as Lifecycle
+  participant S as Repair Skill Inference
+  participant D as Living Doc
+  participant W as Worker Logs
+  L->>S: skill name + doc path + verdict path + raw JSONL paths
+  S->>D: read current doc
+  S->>W: inspect worker/reviewer evidence
+  S->>D: patch doc
+  S->>D: render HTML
+  S-->>L: result JSON + changed files + own JSONL log
+          </pre>
+        </div>
+        <div>
+          <h3>Minimum Result Contract</h3>
+          <ul>
+            <li><code>skill</code>: the skill that ran</li>
+            <li><code>status</code>: repaired, no-op, blocked, failed</li>
+            <li><code>changedFiles</code>: concrete paths</li>
+            <li><code>renderedHtmlPath</code>: required when doc changed</li>
+            <li><code>nextRecommendedAction</code>: continue, run next skill, block</li>
+            <li><code>rawJsonlLogPath</code>: the repair inference log</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Short Version</h2>
+      <p>The missing system part is not smarter routing. It is execution: when a repair skill is ordered, the lifecycle must start a new headless inference run for that skill, pass it the real evidence paths, let it repair the living doc, and only then continue the worker loop.</p>
+    </section>
+  </main>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        primaryColor: '#ffffff',
+        primaryTextColor: '#18212f',
+        primaryBorderColor: '#d8e0ea',
+        lineColor: '#66758a',
+        tertiaryColor: '#f7f8fa'
+      }
+    });
+  </script>
+</body>
+</html>

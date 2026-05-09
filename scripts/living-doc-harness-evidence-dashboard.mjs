@@ -131,6 +131,13 @@ export async function collectRunEvidence(runDir) {
   const traceFiles = await listFiles(path.join(runDir, 'traces'), (name) => name.endsWith('.summary.json'));
   const proofFiles = await listFiles(path.join(runDir, 'artifacts'), (name) => /^iteration-\d+-proof\.json$/.test(name));
   const verdictFiles = await listFiles(path.join(runDir, 'artifacts'), (name) => /^iteration-\d+-stop-verdict\.json$/.test(name));
+  const reviewerFiles = await listFiles(path.join(runDir, 'reviewer-inference'), (name) => /^iteration-\d+-verdict\.json$/.test(name));
+  const repairIterationDirs = await listDirs(path.join(runDir, 'repair-skills'));
+  const repairChainFiles = [];
+  for (const dir of repairIterationDirs) {
+    const chain = path.join(dir, 'repair-chain-result.json');
+    if (await exists(chain)) repairChainFiles.push(chain);
+  }
   const traceSummaries = [];
   for (const file of traceFiles) {
     const summary = await readJson(file);
@@ -152,8 +159,12 @@ export async function collectRunEvidence(runDir) {
   const latestHandover = latestByCreatedAt(handovers);
   const latestProofPath = latestByIteration(proofFiles);
   const latestVerdictPath = latestByIteration(verdictFiles);
+  const latestReviewerPath = latestByIteration(reviewerFiles);
+  const latestRepairChainPath = latestByIteration(repairChainFiles);
   const latestProof = latestProofPath ? await readJson(latestProofPath) : null;
   const latestVerdict = latestVerdictPath ? await readJson(latestVerdictPath) : null;
+  const latestReviewerVerdict = latestReviewerPath ? await readJson(latestReviewerPath) : null;
+  const latestRepairChain = latestRepairChainPath ? await readJson(latestRepairChainPath) : null;
   const traceRefs = [
     ...(contract?.artifacts?.nativeTraceRefs || []),
     ...traceSummaries.map((summary) => ({
@@ -184,6 +195,10 @@ export async function collectRunEvidence(runDir) {
     latestProofPath: relative(runDir, latestProofPath),
     latestVerdict,
     latestVerdictPath: relative(runDir, latestVerdictPath),
+    latestReviewerVerdict,
+    latestReviewerVerdictPath: relative(runDir, latestReviewerPath),
+    latestRepairChain,
+    latestRepairChainPath: relative(runDir, latestRepairChainPath),
     traceRefs: uniqueTraceRefs,
     traceSummaries,
     proofGates: gates,
@@ -212,7 +227,15 @@ export async function writeEvidenceBundle({
     status: facts.state?.status || facts.contract?.status || 'unknown',
     recommendation: facts.recommendation,
     proofGates: facts.proofGates,
-    stopVerdict: facts.terminalState?.stopVerdict || facts.latestVerdict?.stopVerdict || facts.handover?.stopVerdict || null,
+    reviewerVerdict: facts.latestReviewerVerdict ? {
+      path: facts.latestReviewerVerdictPath,
+      mode: facts.latestReviewerVerdict.mode,
+      inputPath: facts.latestReviewerVerdict.reviewerInputPath,
+      classification: facts.latestReviewerVerdict.verdict?.stopVerdict?.classification || null,
+      reasonCode: facts.latestReviewerVerdict.verdict?.stopVerdict?.reasonCode || null,
+      closureAllowed: facts.latestReviewerVerdict.verdict?.stopVerdict?.closureAllowed === true,
+    } : null,
+    stopVerdict: facts.terminalState?.stopVerdict || facts.latestReviewerVerdict?.verdict?.stopVerdict || facts.latestVerdict?.stopVerdict || facts.handover?.stopVerdict || null,
     stopMismatch: facts.latestVerdict?.mismatch || facts.handover?.mismatch || null,
     objectiveRef: {
       sourcePath: facts.contract?.livingDoc?.sourcePath || facts.state?.docPath || null,
@@ -247,7 +270,15 @@ export async function writeEvidenceBundle({
       stopClassification: item.stopClassification,
       stopReasonCode: item.stopReasonCode,
       handoverPath: item.handoverPath,
+      resultPath: item.resultPath,
+      rawJsonlLogPath: item.rawJsonlLogPath,
     })),
+    repairSkillChain: facts.latestRepairChain ? {
+      path: facts.latestRepairChainPath,
+      status: facts.latestRepairChain.status,
+      orderedSkills: facts.latestRepairChain.balanceScan?.orderedSkills || [],
+      resultCount: facts.latestRepairChain.skillResults?.length || 0,
+    } : null,
     traceRefs: facts.traceRefs.map((ref) => ({
       summaryPath: ref.summaryPath || null,
       traceHash: ref.traceHash || null,
@@ -270,6 +301,8 @@ export async function writeEvidenceBundle({
       latestHandover: facts.handover?.artifactPath || null,
       latestProof: facts.latestProofPath || null,
       latestStopVerdict: facts.latestVerdictPath || null,
+      latestReviewerVerdict: facts.latestReviewerVerdictPath || null,
+      latestRepairSkillChain: facts.latestRepairChainPath || null,
       evidenceBundle: path.join(facts.runId, 'bundle.json'),
       evidenceSummary: path.join(facts.runId, 'summary.md'),
     },
@@ -296,6 +329,7 @@ export async function writeEvidenceBundle({
     '## Stop',
     `- classification: ${bundle.stopVerdict?.classification || 'none'}`,
     `- reason: ${bundle.stopVerdict?.reasonCode || 'none'}`,
+    `- reviewer verdict: ${bundle.reviewerVerdict?.path || 'missing'}`,
     '',
     '## Privacy',
     '- raw prompt included: false',
@@ -320,8 +354,11 @@ function renderRunCard(bundle) {
     .map((blocker) => `<li><strong>${esc(blocker.reasonCode)}</strong> · ${esc(blocker.owningLayer)} · ${esc(blocker.requiredDecision)}</li>`)
     .join('') || '<li>none</li>';
   const skills = (bundle.skillTimeline || [])
-    .map((item) => `<li>${esc(item.skill)} · ${esc(item.status)} · ${esc(item.stopClassification)}</li>`)
+    .map((item) => `<li>${esc(item.skill)} · ${esc(item.status)} · ${esc(item.resultPath || item.stopClassification || '')}</li>`)
     .join('') || '<li>none</li>';
+  const repairChain = bundle.repairSkillChain
+    ? `<p><strong>Repair chain:</strong> ${esc(bundle.repairSkillChain.status)} · ${esc(bundle.repairSkillChain.resultCount)} result(s) · ${esc(bundle.repairSkillChain.path)}</p>`
+    : '<p class="muted">Repair chain: none recorded</p>';
   const traces = (bundle.traceRefs || [])
     .map((ref) => `<li>${esc(ref.summaryPath || ref.traceHash)} · ${esc(ref.lineCount || 'unknown')} lines</li>`)
     .join('') || '<li>none</li>';
@@ -345,6 +382,8 @@ function renderRunCard(bundle) {
       <p><strong>Stage:</strong> ${esc(bundle.lifecycleStage)} · <strong>Status:</strong> ${esc(bundle.status)}</p>
       <p><strong>Objective:</strong> ${esc(objective.sourcePath || 'unknown')} · ${esc(objective.objectiveHash || 'missing hash')}</p>
       <p><strong>Stop:</strong> ${esc(bundle.stopVerdict?.classification || 'none')} · ${esc(bundle.stopVerdict?.reasonCode || 'none')}</p>
+      <p><strong>Reviewer:</strong> ${esc(bundle.reviewerVerdict?.path || 'missing')} · ${esc(bundle.reviewerVerdict?.mode || 'no mode')}</p>
+      ${repairChain}
       ${mismatch}
       <div class="gates">${gates}</div>
       <div class="grid">

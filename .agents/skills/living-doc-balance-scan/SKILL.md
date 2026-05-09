@@ -21,6 +21,8 @@ An out-of-balance living doc may have several failures at once. Do not force a s
   - Usually run: `reaction-path-validator`
 - `activation-shortfall`: completion evidence exists, but the proof threshold implied by the objective was not crossed.
   - Usually run: `activation-energy-review`
+- `relationship-map-drift`: relationship-map diagrams, claims, anchors, acceptance criteria, or objective terms disagree, overclaim, or leave structural behavior untested.
+  - Usually run: `relationship-map-alignment`
 - `compound-instability`: multiple high-confidence imbalances fire together, or the user explicitly challenges the agent's reasoning/closure behavior.
   - Usually run: `catalytic-repair-run`
 - `fresh-but-open`: the doc is coherent and current, but the objective is simply not finished.
@@ -53,11 +55,14 @@ An out-of-balance living doc may have several failures at once. Do not force a s
    - deferred work without trigger
    - stage/status jump without supporting proof
    - tests/artifacts proving only a slice
-   - source artifacts contradicting proof cards
+  - source artifacts contradicting proof cards
+  - relationship-map diagrams imply behavior, proof, control, or stage flow that acceptance criteria do not test
+  - relationship-map cards lack objective, criterion, invariant, issue, or code anchors
 5. Assign one primary imbalance and any secondary imbalances. Use `confidence: low | medium | high`.
 6. Recommend an ordered skill sequence. Default order:
    - `equilibrium-rebalance` first when freshness or new evidence destabilizes the doc.
    - `objective-conservation-audit` before any closure judgment.
+   - `relationship-map-alignment` after objective conservation when diagrams shape reasoning, repair order, lifecycle flow, or proof expectations.
    - `reaction-path-validator` before changing stage/status.
    - `activation-energy-review` before final completion proof.
    - `catalytic-repair-run` when multiple high-confidence imbalances are present or the user is actively challenging drift.

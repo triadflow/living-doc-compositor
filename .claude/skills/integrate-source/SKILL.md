@@ -22,7 +22,8 @@ One source in. Zero, one, or several living docs updated — each with the sourc
   2. Edits to the JSON living docs scored MED or higher: new cards, updated profiles, new indicators, new strategic-move entries, new citation-feed entries.
   3. Re-rendered HTML for each edited JSON via `scripts/render-living-doc.mjs`.
   4. Optional edits to the matching dossier period piece(s) under `docs/dossier/<slug>/<period>.html` when the source adds thesis-affecting facts. New footnote added to the fn-ref / rail-note / endnotes three-way mirror.
-  5. A final **report** listing changes per doc and flagging any dossier-piece word-count or note-count spec violations.
+  5. **A Project Graph entry** — one Note node summarizing the source, linked to any new/existing Concepts the source touches, and to the upstream Transcription node when applicable. Created whenever at least one doc scores MED or higher.
+  6. A final **report** listing changes per doc and flagging any dossier-piece word-count or note-count spec violations.
 - **Publish model:** commit only if the user explicitly says "commit" / "publish" / "push". Git is the safety net.
 
 ## Principles
@@ -51,7 +52,7 @@ Regardless of input type, end this step with:
 - **Citation metadata**: title, author(s), venue, publication date, canonical URL.
 - **Short key-facts list** (5–12 bullets) extracted from the content — named entities, hard numbers, dated events.
 
-If the source was a transcription, it is already saved to the graph by `/transcribe`. If the source was a web article, consider saving it as a note via `/projectgraph:zettel` only if the user asks — not by default.
+If the source was a transcription, it is already saved to the graph by `/transcribe` — capture its `transcriptionId` for the linking step in 4c. If the source was a web article or pasted text, the graph note created in step 4c is the canonical graph entry; do not also call `/projectgraph:zettel`.
 
 ### 2. Inventory the monitoring living docs
 
@@ -121,6 +122,45 @@ Both scripts read the `<meta name="dossier-source-commit">` stamped on each doss
 
 If a living-doc JSON is touched but the paired dossier hasn't been republished for this period yet, the change-log simply grows. That is the point: the dossier reader sees the substrate accumulating changes since publication. When the dossier is re-published, the `/dossier` skill will stamp a new `dossier-source-commit`, which resets the anchor.
 
+### 4c. Create a Project Graph entry
+
+Every integrate-source run that scored at least one doc MED or higher must leave a queryable trace in the Project Graph. Without this step the source's substance lives only in the JSONs and is not retrievable by `search_semantic`, `notes_search`, or concept queries — which defeats the point of the graph as the substrate for cross-source synthesis.
+
+Skip this step entirely only if every doc was scored LOW or NONE. A graph note for a source that produced no edits is noise.
+
+Run in this order:
+
+1. **Capture the upstream transcription** (only when the source came through `/transcribe`):
+   - The transcription was created with a `transcriptionId` you should already have from step 1. If not, run `mcp__plugin_projectgraph_projectgraph__transcription_list` filtered by recency or URL and recover it.
+   - Hold the id for linking below.
+
+2. **Look up existing Concepts** the source touches:
+   - For each named entity, theme, or domain term in your key-facts list, run `mcp__plugin_projectgraph_projectgraph__concept_list` (or `search_semantic` query=`"<entity>"`) to see whether a concept already exists.
+   - Reuse over create. Duplicates degrade the graph.
+
+3. **Create or extend Concepts** for genuinely new entities/themes:
+   - `mcp__plugin_projectgraph_projectgraph__concept_create` with a clear name and a one-paragraph description grounded in the source's facts.
+   - Only for entities/themes that show up in MED+ doc edits. Don't create concepts for tangential mentions.
+
+4. **Create one Note** for the source via `mcp__plugin_projectgraph_projectgraph__notes_create`:
+   - **Title:** the source's canonical title.
+   - **Body:** a composed summary that includes (a) the impact table from step 3, (b) the per-doc changes from step 4, (c) the cleaned key-facts list from step 1. This is the body that `notes_search` / `search_semantic` will retrieve later, so write it to be useful at retrieval time, not just as a log.
+   - **Source / URL field:** the canonical URL (YouTube link, article URL, file path, or `pasted-text:<short-hash>` for raw text).
+   - **Tags:** the `docId`s touched at MED+, plus the named-entity tags. Use existing tags where possible.
+
+5. **Link the Note to the surrounding nodes:**
+   - Note → Transcription (if any), via `mcp__plugin_projectgraph_projectgraph__edge_create`.
+   - Note ↔ each Concept (existing or freshly created in step 3), via `concept_link` or `edge_create`.
+   - Note → each touched living-doc Concept, if a Concept node represents the doc; do not invent file-path nodes.
+
+6. **Capture the resulting node IDs** (note id, concept ids, edge ids) and surface them in the final report (step 6) so the user can navigate to them.
+
+**Heuristics for what counts as a Concept-worthy entity from a single source:**
+- A named actor (company, lab, project) that the impact table cites at MED-HIGH or HIGH = create / link a concept.
+- A named protocol, model family, benchmark, or framework introduced in MED+ edits = create / link a concept.
+- A thesis-level claim ("100M AI builders by 2028", "open weights ≠ open models") that the source advances and a doc absorbs = a concept worth tracking under a stable name.
+- A casual mention with no doc impact = not a concept. Don't pollute.
+
 ### 5. Update matching dossier period pieces (thesis-affecting sources only)
 
 A dossier period piece at `docs/dossier/<doc-id-slug>/<period>.html` needs a touch-up when:
@@ -145,7 +185,8 @@ Report to the user:
 1. **Impact table** (from step 3).
 2. **Changes made** — per doc: number of cards edited, new entries added, source citation, re-render status.
 3. **Dossier pieces touched** (if any) — new note number, new word count, flag if over 1,300 or under 800, flag if notes exceed 9.
-4. **Uncommitted** — list file changes, wait for user instruction on commit/push.
+4. **Project Graph entry** — note id, concepts created vs reused, transcription link status. Skipped only if every doc was LOW/NONE.
+5. **Uncommitted** — list file changes, wait for user instruction on commit/push.
 
 ## What not to do
 
@@ -157,6 +198,9 @@ Report to the user:
 - Don't commit / push without an explicit instruction.
 - Don't delete source citations on existing cards when adding new ones — the citation-feed accumulates.
 - Don't hand-edit the "Since this piece was published" aside on a dossier — `scripts/refresh-dossier-strip.mjs` is the source of truth. Same rule for the drift badge on the dossier index (`scripts/refresh-dossier-index.mjs`).
+- Don't skip the step-4c graph write when MED+ edits happened. The graph entry is what makes the source retrievable across sessions; the JSON edits alone are not.
+- Don't create duplicate Concepts. Always check `concept_list` / `search_semantic` before `concept_create`.
+- Don't paste raw transcript text into the Note body. The body should be the composed summary (impact table + per-doc changes + cleaned key facts), not a transcript dump — the transcription itself is already a separate node.
 
 ## Edge cases
 
@@ -171,3 +215,4 @@ Report to the user:
 - `/dossier` — downstream when a period closes. If this skill updates a living doc heavily mid-period, the next `/dossier` run on that doc's current period will carry the refresh.
 - `/convergence-advisor` — parallel. If the source suggests a new convergence type is needed (repeated shape that doesn't fit any existing type), hand off to `/convergence-advisor` rather than silently extending the registry.
 - `/competitor-sync`, `/ai-labor-sync` — more narrowly scoped syncs for specific docs. `/integrate-source` is the generic version when the source touches multiple docs.
+- `/projectgraph:zettel` — superseded for this flow. Step 4c writes the canonical graph note as part of `/integrate-source` itself. Only invoke `/projectgraph:zettel` separately for sources you don't want integrated into living docs (e.g., a one-off insight worth keeping in the graph but not reflected in any tracked doc).

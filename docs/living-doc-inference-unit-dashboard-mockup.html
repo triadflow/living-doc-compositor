@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inference Unit Dashboard Mockup</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --ink: #182230;
+    --muted: #667085;
+    --line: #d8dee8;
+    --line-strong: #b9c4d4;
+    --green: #087f5b;
+    --green-soft: #e7f6ef;
+    --blue: #1d4ed8;
+    --blue-soft: #e8f0ff;
+    --amber: #9a6700;
+    --amber-soft: #fff4d6;
+    --red: #b42318;
+    --red-soft: #ffebe8;
+    --violet: #6d28d9;
+    --violet-soft: #f0e9ff;
+    --slate: #334155;
+    --slate-soft: #eef2f7;
+    --shadow: 0 18px 55px rgba(24, 34, 48, 0.14);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .app {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  .topbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 0 22px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: var(--ink);
+    color: white;
+    font-weight: 800;
+    font-size: 12px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  button {
+    font: inherit;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+    border-radius: 7px;
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+
+  button.primary {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: white;
+    font-weight: 700;
+  }
+
+  .shell {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .stage {
+    min-width: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+  }
+
+  .stage-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .run-id {
+    font-weight: 750;
+  }
+
+  .state-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 9px;
+    color: var(--muted);
+    font-size: 12px;
+    background: #fbfcfe;
+  }
+
+  .state-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 99px;
+    background: var(--blue);
+  }
+
+  .graph-wrap {
+    position: relative;
+    min-height: 720px;
+    overflow: hidden;
+    background:
+      linear-gradient(#edf1f6 1px, transparent 1px),
+      linear-gradient(90deg, #edf1f6 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .edge-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .edge-line {
+    stroke: #8b99aa;
+    stroke-width: 2;
+    fill: none;
+    opacity: 0.86;
+  }
+
+  .edge-line.selected {
+    stroke: var(--blue);
+    stroke-width: 3;
+  }
+
+  .edge-hit {
+    stroke: transparent;
+    stroke-width: 22;
+    fill: none;
+    pointer-events: stroke;
+    cursor: pointer;
+  }
+
+  .edge-label {
+    position: absolute;
+    z-index: 3;
+    max-width: 210px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.94);
+    color: var(--slate);
+    font-size: 12px;
+    font-weight: 650;
+    box-shadow: 0 6px 18px rgba(24, 34, 48, 0.1);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .unit {
+    position: absolute;
+    z-index: 2;
+    width: min(250px, 24vw);
+    min-height: 148px;
+    left: var(--x);
+    top: var(--y);
+    background: white;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--slate);
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(24, 34, 48, 0.12);
+    padding: 12px;
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    transition: opacity 260ms ease, transform 260ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .unit.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .unit.active {
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.18), 0 12px 34px rgba(24, 34, 48, 0.16);
+  }
+
+  .unit[data-kind="worker"] { border-top-color: var(--blue); }
+  .unit[data-kind="reviewer"] { border-top-color: var(--violet); }
+  .unit[data-kind="scan"] { border-top-color: var(--green); }
+  .unit[data-kind="repair"] { border-top-color: var(--amber); }
+  .unit[data-kind="terminal"] { border-top-color: var(--red); }
+
+  .unit-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .unit-title {
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .unit-role {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .status {
+    flex: none;
+    border-radius: 999px;
+    padding: 3px 7px;
+    font-size: 11px;
+    font-weight: 750;
+    border: 1px solid var(--line);
+    color: var(--slate);
+    background: var(--slate-soft);
+  }
+
+  .status.running { color: var(--blue); background: var(--blue-soft); border-color: #b8cbff; }
+  .status.done { color: var(--green); background: var(--green-soft); border-color: #a8dec7; }
+  .status.blocked { color: var(--red); background: var(--red-soft); border-color: #ffc0b9; }
+  .status.waiting { color: var(--amber); background: var(--amber-soft); border-color: #f6d889; }
+
+  .unit-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .metric {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fbfcfe;
+    padding: 6px;
+    min-width: 0;
+  }
+
+  .metric strong {
+    display: block;
+    font-size: 12px;
+  }
+
+  .metric span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .unit-foot {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+    background: #fbfcfe;
+  }
+
+  .tick {
+    min-height: 68px;
+    text-align: left;
+    padding: 10px;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .tick:last-child { border-right: 0; }
+  .tick.active {
+    background: #eef6ff;
+    box-shadow: inset 0 3px 0 var(--blue);
+  }
+
+  .tick strong {
+    display: block;
+    font-size: 12px;
+  }
+
+  .tick span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 3px;
+  }
+
+  .inspector {
+    min-width: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .inspector h2 {
+    margin: 0 0 4px;
+    font-size: 17px;
+  }
+
+  .inspector .muted {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0 0 14px;
+  }
+
+  .contract-block {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+    background: #fbfcfe;
+  }
+
+  .contract-block h3 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .kv {
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
+    border-top: 1px solid #edf1f6;
+  }
+
+  .kv:first-of-type { border-top: 0; }
+  .kv span:first-child { color: var(--muted); }
+  .kv code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+  }
+
+  .log-lines {
+    margin: 0;
+    padding: 10px;
+    border-radius: 7px;
+    background: #17202a;
+    color: #eef3f8;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 1080px) {
+    .shell { grid-template-columns: 1fr; }
+    .inspector { max-height: none; }
+  }
+
+  @media (max-width: 860px) {
+    .topbar { height: auto; align-items: flex-start; flex-direction: column; padding: 14px; }
+    .actions { width: 100%; flex-wrap: wrap; }
+    .graph-wrap {
+      min-height: auto;
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+    .unit {
+      position: relative;
+      width: 100%;
+      left: auto;
+      top: auto;
+    }
+    .edge-layer, .edge-label { display: none; }
+    .timeline { grid-template-columns: 1fr; }
+    .tick { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">LD</div>
+      <div>
+        <h1>Inference Unit Graph</h1>
+        <div class="sub">Contract-bound lifecycle mockup · dashboard-started repair run</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="prev">Prev</button>
+      <button id="play" class="primary">Play</button>
+      <button id="next">Next</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="stage">
+      <div class="stage-head">
+        <div>
+          <div class="run-id">ldhl-20260508T084500Z · live repair calibration</div>
+          <div class="sub">Cards appear when the lifecycle creates a unit. Arrows carry the controlling contract.</div>
+        </div>
+        <div class="state-chip"><span class="state-dot"></span><span id="stageState">worker running</span></div>
+      </div>
+      <div class="graph-wrap" id="graph">
+        <svg class="edge-layer" id="edgeLayer" aria-hidden="true">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b99aa"></path>
+            </marker>
+            <marker id="arrowSelected" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d4ed8"></path>
+            </marker>
+          </defs>
+        </svg>
+        <div id="labels"></div>
+        <div id="units"></div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+    </section>
+
+    <aside class="inspector">
+      <h2 id="inspectTitle">Contract Edge</h2>
+      <p class="muted" id="inspectSubtitle">Select an arrow or step through the lifecycle.</p>
+      <div id="inspectBody"></div>
+    </aside>
+  </main>
+</div>
+
+<script>
+const steps = [
+  { label: "Worker", caption: "objective work", state: "worker running" },
+  { label: "Reviewer", caption: "stop verdict", state: "reviewing worker log" },
+  { label: "Balance scan", caption: "repair order", state: "diagnosing repair order" },
+  { label: "Repair", caption: "skill unit", state: "repair unit running" },
+  { label: "Readiness", caption: "next gate", state: "readiness pending" },
+  { label: "Terminal", caption: "true block", state: "true-blocked" },
+  { label: "Issue", caption: "follow-up", state: "issue created" }
+];
+
+const units = [
+  {
+    id: "worker",
+    title: "Worker inference",
+    role: "objective executor",
+    kind: "worker",
+    x: "5%",
+    y: "11%",
+    appears: 0,
+    statusByStep: ["running", "done", "done", "done", "done", "done", "done"],
+    log: "codex-turns/codex-events.jsonl",
+    result: "worker stopped",
+    validation: "native trace attached",
+    detail: "The worker does objective work and leaves raw JSONL evidence. Its final message is not trusted as closure."
+  },
+  {
+    id: "reviewer",
+    title: "Reviewer inference",
+    role: "stop signal",
+    kind: "reviewer",
+    x: "38%",
+    y: "7%",
+    appears: 1,
+    statusByStep: ["waiting", "running", "done", "done", "done", "done", "done"],
+    log: "reviewer-inference/iteration-1-codex-events.jsonl",
+    result: "repairable",
+    validation: "raw worker log inspected",
+    detail: "The reviewer reads the worker JSONL and emits the authoritative lifecycle signal."
+  },
+  {
+    id: "scan",
+    title: "Balance scan",
+    role: "repair order",
+    kind: "scan",
+    x: "71%",
+    y: "13%",
+    appears: 2,
+    statusByStep: ["waiting", "waiting", "running", "done", "done", "done", "done"],
+    log: "repair-skills/iteration-1/00-living-doc-balance-scan/codex-events.jsonl",
+    result: "orderedSkills",
+    validation: "required paths inspected",
+    detail: "The balance scan classifies the imbalance and produces the ordered repair skill list."
+  },
+  {
+    id: "repair",
+    title: "Catalytic repair",
+    role: "repair skill",
+    kind: "repair",
+    x: "27%",
+    y: "45%",
+    appears: 3,
+    statusByStep: ["waiting", "waiting", "waiting", "running", "blocked", "blocked", "blocked"],
+    log: "repair-skills/iteration-1/01-catalytic-repair-run/codex-events.jsonl",
+    result: "blocked",
+    validation: "unit result valid",
+    detail: "This skill patches and renders the living doc, then blocks on commit policy."
+  },
+  {
+    id: "readiness",
+    title: "Readiness unit",
+    role: "next iteration gate",
+    kind: "repair",
+    x: "61%",
+    y: "48%",
+    appears: 4,
+    statusByStep: ["waiting", "waiting", "waiting", "waiting", "waiting", "waiting", "waiting"],
+    log: "not started",
+    result: "not reached",
+    validation: "not available",
+    detail: "Would check whether the repaired doc can drive the next worker iteration, but the chain stops before it."
+  },
+  {
+    id: "terminal",
+    title: "Terminal state",
+    role: "lifecycle controller",
+    kind: "terminal",
+    x: "43%",
+    y: "73%",
+    appears: 5,
+    statusByStep: ["waiting", "waiting", "waiting", "waiting", "waiting", "blocked", "blocked"],
+    log: "terminal/iteration-1-true-blocked.json",
+    result: "true-blocked",
+    validation: "loopMayContinue false",
+    detail: "The deterministic controller can enforce this state, but the reason comes from the repair unit result."
+  },
+  {
+    id: "issue",
+    title: "GitHub issue #208",
+    role: "blocker record",
+    kind: "terminal",
+    x: "72%",
+    y: "75%",
+    appears: 6,
+    statusByStep: ["waiting", "waiting", "waiting", "waiting", "waiting", "waiting", "done"],
+    log: "github issue",
+    result: "commit policy needed",
+    validation: "human approval boundary",
+    detail: "The supervisor records the blocker and stops instead of patching the system in the same supervision pass."
+  }
+];
+
+const edges = [
+  {
+    id: "worker-reviewer",
+    from: "worker",
+    to: "reviewer",
+    appears: 1,
+    label: "raw worker JSONL",
+    title: "Worker -> Reviewer",
+    contract: "reviewer input contract",
+    prompt: "review worker evidence and emit stop verdict",
+    evidence: "codex-turns/codex-events.jsonl, trace summary",
+    output: "living-doc-harness-stop-verdict/v1",
+    gate: "worker self-report cannot close"
+  },
+  {
+    id: "reviewer-scan",
+    from: "reviewer",
+    to: "scan",
+    appears: 2,
+    label: "repairable verdict",
+    title: "Reviewer -> Balance Scan",
+    contract: "repair handover contract",
+    prompt: "classify imbalance and order skills",
+    evidence: "reviewer verdict, handover, living doc, worker JSONL",
+    output: "living-doc-balance-scan-result/v1",
+    gate: "repair mode allowed"
+  },
+  {
+    id: "scan-repair",
+    from: "scan",
+    to: "repair",
+    appears: 3,
+    label: "orderedSkills[0]",
+    title: "Balance Scan -> Repair Skill",
+    contract: "repair-skill input contract",
+    prompt: "run catalytic-repair-run as independent unit",
+    evidence: "balance scan result, prior results, requiredInspectionPaths",
+    output: "living-doc-repair-skill-result/v1",
+    gate: "run in exact order"
+  },
+  {
+    id: "repair-readiness",
+    from: "repair",
+    to: "readiness",
+    appears: 4,
+    label: "repair result",
+    title: "Repair Skill -> Readiness",
+    contract: "prior repair result handoff",
+    prompt: "check whether next worker iteration is safe",
+    evidence: "changed files, render proof, repair result",
+    output: "readiness result",
+    gate: "only if repair chain complete"
+  },
+  {
+    id: "repair-terminal",
+    from: "repair",
+    to: "terminal",
+    appears: 5,
+    label: "blocked result",
+    title: "Repair Skill -> Terminal State",
+    contract: "blocked repair-chain result",
+    prompt: "none; deterministic terminal enforcement",
+    evidence: "result.json status blocked, validation ok",
+    output: "terminal true-blocked",
+    gate: "loopMayContinue false"
+  },
+  {
+    id: "terminal-issue",
+    from: "terminal",
+    to: "issue",
+    appears: 6,
+    label: "process blocker",
+    title: "Terminal State -> Issue",
+    contract: "supervisor boundary",
+    prompt: "create issue and stop",
+    evidence: "blocker JSON, repair chain, dashboard tail",
+    output: "GitHub issue #208",
+    gate: "no implementation without approval"
+  }
+];
+
+let step = 0;
+let selectedEdgeId = "worker-reviewer";
+let playing = false;
+let timer = null;
+
+const unitRoot = document.getElementById("units");
+const labelRoot = document.getElementById("labels");
+const edgeLayer = document.getElementById("edgeLayer");
+const graph = document.getElementById("graph");
+const timeline = document.getElementById("timeline");
+const stageState = document.getElementById("stageState");
+const inspectTitle = document.getElementById("inspectTitle");
+const inspectSubtitle = document.getElementById("inspectSubtitle");
+const inspectBody = document.getElementById("inspectBody");
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function statusFor(unit) {
+  return unit.statusByStep[Math.min(step, unit.statusByStep.length - 1)] || "waiting";
+}
+
+function renderUnits() {
+  unitRoot.innerHTML = units.map((unit) => {
+    const visible = step >= unit.appears;
+    const status = statusFor(unit);
+    return `<article class="unit ${visible ? "visible" : ""} ${status === "running" ? "active" : ""}" data-id="${esc(unit.id)}" data-kind="${esc(unit.kind)}" style="--x:${esc(unit.x)};--y:${esc(unit.y)}">
+      <div class="unit-head">
+        <div>
+          <h2 class="unit-title">${esc(unit.title)}</h2>
+          <div class="unit-role">${esc(unit.role)}</div>
+        </div>
+        <span class="status ${esc(status)}">${esc(status)}</span>
+      </div>
+      <div class="unit-metrics">
+        <div class="metric"><strong>${status === "running" ? "live" : status === "blocked" ? "stop" : "log"}</strong><span>${esc(unit.log)}</span></div>
+        <div class="metric"><strong>result</strong><span>${esc(unit.result)}</span></div>
+        <div class="metric"><strong>check</strong><span>${esc(unit.validation)}</span></div>
+      </div>
+      <div class="unit-foot">${esc(unit.detail)}</div>
+    </article>`;
+  }).join("");
+}
+
+function unitCenter(id) {
+  const node = unitRoot.querySelector(`[data-id="${id}"]`);
+  const box = node.getBoundingClientRect();
+  const parent = graph.getBoundingClientRect();
+  return {
+    x: box.left - parent.left + box.width / 2,
+    y: box.top - parent.top + box.height / 2,
+    w: box.width,
+    h: box.height
+  };
+}
+
+function edgePath(from, to) {
+  const dx = to.x - from.x;
+  const startX = from.x + Math.sign(dx || 1) * from.w * 0.42;
+  const endX = to.x - Math.sign(dx || 1) * to.w * 0.42;
+  const startY = from.y;
+  const endY = to.y;
+  const mid = Math.max(60, Math.abs(endX - startX) * 0.38);
+  return `M ${startX} ${startY} C ${startX + Math.sign(dx || 1) * mid} ${startY}, ${endX - Math.sign(dx || 1) * mid} ${endY}, ${endX} ${endY}`;
+}
+
+function renderEdges() {
+  edgeLayer.setAttribute("width", graph.clientWidth);
+  edgeLayer.setAttribute("height", graph.clientHeight);
+  const visibleEdges = edges.filter((edge) => step >= edge.appears);
+  edgeLayer.querySelectorAll(".edge-dynamic").forEach((node) => node.remove());
+  labelRoot.innerHTML = "";
+  for (const edge of visibleEdges) {
+    const from = unitCenter(edge.from);
+    const to = unitCenter(edge.to);
+    const d = edgePath(from, to);
+    const selected = selectedEdgeId === edge.id;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    line.setAttribute("d", d);
+    line.setAttribute("class", `edge-dynamic edge-line ${selected ? "selected" : ""}`);
+    line.setAttribute("marker-end", selected ? "url(#arrowSelected)" : "url(#arrow)");
+    edgeLayer.appendChild(line);
+
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    hit.setAttribute("d", d);
+    hit.setAttribute("class", "edge-dynamic edge-hit");
+    hit.addEventListener("click", () => selectEdge(edge.id));
+    edgeLayer.appendChild(hit);
+
+    const label = document.createElement("button");
+    label.className = "edge-label";
+    label.textContent = edge.label;
+    label.style.left = `${(from.x + to.x) / 2 - 86}px`;
+    label.style.top = `${(from.y + to.y) / 2 - 15}px`;
+    label.addEventListener("click", () => selectEdge(edge.id));
+    labelRoot.appendChild(label);
+  }
+}
+
+function renderTimeline() {
+  timeline.innerHTML = steps.map((item, index) => `<button class="tick ${index === step ? "active" : ""}" data-step="${index}">
+    <strong>${index + 1}. ${esc(item.label)}</strong>
+    <span>${esc(item.caption)}</span>
+  </button>`).join("");
+  for (const tick of timeline.querySelectorAll("[data-step]")) {
+    tick.addEventListener("click", () => setStep(Number(tick.dataset.step)));
+  }
+}
+
+function selectEdge(id) {
+  selectedEdgeId = id;
+  render();
+}
+
+function renderInspector() {
+  const edge = edges.find((item) => item.id === selectedEdgeId && step >= item.appears)
+    || edges.filter((item) => step >= item.appears).at(-1)
+    || edges[0];
+  selectedEdgeId = edge.id;
+  inspectTitle.textContent = edge.title;
+  inspectSubtitle.textContent = edge.label;
+  inspectBody.innerHTML = `
+    <div class="contract-block">
+      <h3>Contract</h3>
+      <div class="kv"><span>type</span><code>${esc(edge.contract)}</code></div>
+      <div class="kv"><span>prompt</span><code>${esc(edge.prompt)}</code></div>
+      <div class="kv"><span>evidence</span><code>${esc(edge.evidence)}</code></div>
+      <div class="kv"><span>output</span><code>${esc(edge.output)}</code></div>
+      <div class="kv"><span>controller gate</span><code>${esc(edge.gate)}</code></div>
+    </div>
+    <div class="contract-block">
+      <h3>Live Tail Shape</h3>
+      <pre class="log-lines">${esc(sampleLog(edge))}</pre>
+    </div>
+  `;
+}
+
+function sampleLog(edge) {
+  if (edge.id === "repair-terminal") {
+    return '{"status":"blocked","basis":["commit policy unresolved"],"changedFiles":["docs/living-doc-harness-live-repair-units-calibration.json"]}\\n{"terminal":"true-blocked","loopMayContinue":false}';
+  }
+  if (edge.id === "scan-repair") {
+    return '{"orderedSkills":["catalytic-repair-run","objective-execution-readiness"]}\\n{"requiredInspectionPaths":["living doc","reviewer verdict","worker jsonl"]}';
+  }
+  return '{"type":"command_execution","command":"sed -n ... required-path.json","status":"completed"}\\n{"validation":{"ok":true}}';
+}
+
+function setStep(value) {
+  step = Math.max(0, Math.min(steps.length - 1, value));
+  stageState.textContent = steps[step].state;
+  render();
+}
+
+function render() {
+  renderUnits();
+  renderTimeline();
+  requestAnimationFrame(() => {
+    renderEdges();
+    renderInspector();
+  });
+}
+
+document.getElementById("prev").addEventListener("click", () => setStep(step - 1));
+document.getElementById("next").addEventListener("click", () => setStep(step + 1));
+document.getElementById("play").addEventListener("click", () => {
+  playing = !playing;
+  document.getElementById("play").textContent = playing ? "Pause" : "Play";
+  if (timer) clearInterval(timer);
+  if (playing) {
+    timer = setInterval(() => {
+      if (step >= steps.length - 1) {
+        playing = false;
+        document.getElementById("play").textContent = "Play";
+        clearInterval(timer);
+        return;
+      }
+      setStep(step + 1);
+    }, 1100);
+  }
+});
+
+window.addEventListener("resize", () => requestAnimationFrame(renderEdges));
+render();
+</script>
+</body>
+</html>

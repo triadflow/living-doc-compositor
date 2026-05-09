@@ -10,7 +10,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { attachTraceSummaryToRun, discoverCodexTraceFiles } from './living-doc-harness-trace-reader.mjs';
+import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
+import { writeContractBoundInferenceUnitSnapshot } from './living-doc-harness-inference-unit.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -40,8 +41,8 @@ async function appendJsonl(filePath, event) {
   await writeFile(filePath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', flag: 'a' });
 }
 
-function buildPrompt(doc, { docPath, runId }) {
-  return [
+function buildPrompt(doc, { docPath, runId, lifecycleInput = null }) {
+  const lines = [
     'You are running inside the standalone agentic living-doc harness.',
     '',
     'Objective:',
@@ -52,16 +53,31 @@ function buildPrompt(doc, { docPath, runId }) {
     '',
     'Rules:',
     '- Treat the living doc JSON as the source of objective state.',
-    '- Do not rely on chat memory from the supervising user session.',
     '- Do not claim closure unless acceptance criteria and proof gates are satisfied.',
     '- If blocked, make the blocker explicit with required evidence or decision.',
+    '- Do not run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands from inside this worker process; the lifecycle controller owns review, transition, proof, dashboard, and next-iteration decisions after the worker exits.',
     '',
     'Run context:',
     `- runId: ${runId}`,
     `- livingDocPath: ${docPath}`,
     '',
     'Work from the living doc objective and produce concrete source-system changes or a clear blocker.',
-  ].join('\n');
+  ];
+  if (lifecycleInput) {
+    lines.push(
+      '',
+      'Lifecycle input from previous iteration:',
+      `- mode: ${lifecycleInput.mode || 'unknown'}`,
+      `- previousRunId: ${lifecycleInput.previousRunId || 'none'}`,
+      `- previousIteration: ${lifecycleInput.previousIteration || 'none'}`,
+      `- instruction: ${lifecycleInput.instruction || 'none'}`,
+      `- handoverPath: ${lifecycleInput.handoverPath || 'none'}`,
+      `- outputInputPath: ${lifecycleInput.outputInputPath || 'none'}`,
+      '',
+      'Use this lifecycle input as the next controlled input. Continue while the lifecycle input is actionable.',
+    );
+  }
+  return lines.join('\n');
 }
 
 function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex' }) {
@@ -78,6 +94,39 @@ function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex' }) {
     ],
     stdin: 'prompt.md',
   };
+}
+
+function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null }) {
+  return {
+    schema: 'living-doc-worker-inference-input/v1',
+    runId,
+    role: 'worker',
+    livingDocPath: docPath,
+    objective: doc.objective || null,
+    successCondition: doc.successCondition || null,
+    lifecycleInput: lifecycleInput ? {
+      mode: lifecycleInput.mode || null,
+      previousRunId: lifecycleInput.previousRunId || null,
+      previousIteration: lifecycleInput.previousIteration || null,
+      instruction: lifecycleInput.instruction || null,
+      handoverPath: lifecycleInput.handoverPath || null,
+      outputInputPath: lifecycleInput.outputInputPath || null,
+    } : null,
+    requiredInspectionPaths: [docPath],
+    forbiddenActions: [
+      'run lifecycle finalizer from inside worker inference',
+      'run reviewer inference from inside worker inference',
+      'decide terminal closure without reviewer inference',
+    ],
+  };
+}
+
+function timestampInWindow(value, { startedAt, finishedAt, skewMs = 5000 }) {
+  const timestamp = new Date(value || '').getTime();
+  if (!Number.isFinite(timestamp)) return false;
+  const start = new Date(startedAt).getTime() - skewMs;
+  const finish = new Date(finishedAt).getTime() + skewMs;
+  return timestamp >= start && timestamp <= finish;
 }
 
 function parseArgs(argv) {
@@ -100,6 +149,7 @@ function parseArgs(argv) {
     codexBin: 'codex',
     codexHome: process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
     traceLimit: 10,
+    iteration: 1,
   };
 
   while (args.length) {
@@ -126,6 +176,10 @@ function parseArgs(argv) {
       const value = Number(args.shift());
       if (!Number.isInteger(value) || value < 1) throw new Error('--trace-limit requires an integer >= 1');
       options.traceLimit = value;
+    } else if (flag === '--iteration') {
+      const value = Number(args.shift());
+      if (!Number.isInteger(value) || value < 1) throw new Error('--iteration requires an integer >= 1');
+      options.iteration = value;
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
@@ -143,6 +197,8 @@ export async function createHarnessRun({
   codexBin = 'codex',
   codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
   traceLimit = 10,
+  lifecycleInput = null,
+  iteration = 1,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -163,7 +219,8 @@ export async function createHarnessRun({
   const lastMessagePath = path.join(turnsDir, 'last-message.txt');
   const codexEventsPath = path.join(turnsDir, 'codex-events.jsonl');
   const codexStderrPath = path.join(turnsDir, 'codex-stderr.log');
-  const prompt = buildPrompt(doc, { docPath: relativeDocPath, runId });
+  const prompt = buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput });
+  const workerInputContract = buildWorkerInputContract({ doc, docPath: relativeDocPath, runId, lifecycleInput });
   const promptPath = path.join(runDir, 'prompt.md');
   const absoluteCodexHome = path.resolve(cwd, codexHome);
   const codexCommand = buildCodexCommand({ cwd, lastMessagePath, codexBin });
@@ -188,6 +245,7 @@ export async function createHarnessRun({
       cwd,
       env: {
         CODEX_HOME: absoluteCodexHome,
+        LIVING_DOC_HARNESS_ROLE: 'worker',
       },
       pid: null,
       exitCode: null,
@@ -204,6 +262,14 @@ export async function createHarnessRun({
       nativeTraceRefs: [],
       traceDiscovery: 'trace-discovery.json',
     },
+    lifecycleInput: lifecycleInput ? {
+      mode: lifecycleInput.mode || null,
+      previousRunId: lifecycleInput.previousRunId || null,
+      previousIteration: lifecycleInput.previousIteration || null,
+      instruction: lifecycleInput.instruction || null,
+      handoverPath: lifecycleInput.handoverPath || null,
+      outputInputPath: lifecycleInput.outputInputPath || null,
+    } : null,
   };
 
   const state = {
@@ -235,6 +301,42 @@ export async function createHarnessRun({
     command: codexCommand,
   });
 
+  const initialWorkerUnit = await writeContractBoundInferenceUnitSnapshot({
+    runDir,
+    iteration,
+    sequence: 1,
+    unitId: 'worker',
+    role: 'worker',
+    prompt,
+    inputContract: workerInputContract,
+    mode: execute ? 'external-headless-codex-starting' : 'prepared',
+    status: execute ? 'starting' : 'prepared',
+    basis: [
+      execute
+        ? 'Worker inference unit prepared before launching the externally managed headless Codex process.'
+        : 'Worker inference unit prepared without launching Codex because execute is false.',
+    ],
+    outputContract: {
+      schema: 'living-doc-worker-output/v1',
+      status: execute ? 'starting' : 'prepared',
+      runId,
+      livingDocPath: relativeDocPath,
+      lifecycleInput: workerInputContract.lifecycleInput,
+      nextAuthority: 'reviewer-inference',
+    },
+    now,
+  });
+  contract.artifacts.workerInferenceUnit = {
+    result: path.relative(runDir, initialWorkerUnit.resultPath),
+    validation: path.relative(runDir, initialWorkerUnit.validationPath),
+    inputContract: path.relative(runDir, initialWorkerUnit.inputContractPath),
+    prompt: path.relative(runDir, initialWorkerUnit.promptPath),
+    codexEvents: path.relative(runDir, initialWorkerUnit.codexEventsPath),
+    lastMessage: path.relative(runDir, initialWorkerUnit.lastMessagePath),
+    stderr: path.relative(runDir, initialWorkerUnit.stderrPath),
+  };
+  await writeJson(path.join(runDir, 'contract.json'), contract);
+
   if (!execute) {
     await appendJsonl(path.join(runDir, 'events.jsonl'), {
       event: 'execution-skipped',
@@ -251,6 +353,7 @@ export async function createHarnessRun({
     env: {
       ...process.env,
       CODEX_HOME: absoluteCodexHome,
+      LIVING_DOC_HARNESS_ROLE: 'worker',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -288,13 +391,21 @@ export async function createHarnessRun({
     limit: traceLimit,
   });
   const startedMs = new Date(processStartedAt).getTime() - 2000;
-  const candidateTraces = discovered.filter((trace) => new Date(trace.modifiedAt).getTime() >= startedMs);
+  const modifiedWindowTraces = discovered.filter((trace) => new Date(trace.modifiedAt).getTime() >= startedMs);
+  const candidateTraces = [];
+  for (const trace of modifiedWindowTraces) {
+    const summary = await summarizeCodexTrace(trace.path);
+    if (timestampInWindow(summary.firstTimestamp, { startedAt: processStartedAt, finishedAt })) {
+      candidateTraces.push(trace);
+    }
+  }
   const traceDiscovery = {
     schema: 'living-doc-harness-trace-discovery/v1',
     runId,
     codexHomeHash: sha256(absoluteCodexHome),
     processStartedAt,
     processFinishedAt: finishedAt,
+    scannedModifiedCount: modifiedWindowTraces.length,
     candidateCount: candidateTraces.length,
     candidates: candidateTraces.map((trace) => ({
       pathHash: sha256(trace.path),
@@ -313,6 +424,50 @@ export async function createHarnessRun({
     await attachTraceSummaryToRun({ runDir, tracePath: trace.path, now: finishedAt });
   }
   const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
+  const finalWorkerUnit = await writeContractBoundInferenceUnitSnapshot({
+    runDir,
+    iteration,
+    sequence: 1,
+    unitId: 'worker',
+    role: 'worker',
+    prompt,
+    inputContract: workerInputContract,
+    sourcePaths: {
+      codexEventsPath,
+      stderrPath: codexStderrPath,
+      lastMessagePath,
+    },
+    mode: 'external-headless-codex',
+    status: finalContract.status,
+    basis: [
+      `Worker headless Codex process exited with code ${exitCode}.`,
+      'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',
+    ],
+    outputContract: {
+      schema: 'living-doc-worker-output/v1',
+      status: finalContract.status,
+      runId,
+      exitCode,
+      livingDocPath: relativeDocPath,
+      lifecycleInput: workerInputContract.lifecycleInput,
+      codexEventsPath: path.relative(runDir, codexEventsPath),
+      lastMessagePath: path.relative(runDir, lastMessagePath),
+      stderrPath: path.relative(runDir, codexStderrPath),
+      nativeTraceRefs: finalContract.artifacts.nativeTraceRefs,
+      nextAuthority: 'reviewer-inference',
+    },
+    now: finishedAt,
+  });
+  finalContract.artifacts.workerInferenceUnit = {
+    result: path.relative(runDir, finalWorkerUnit.resultPath),
+    validation: path.relative(runDir, finalWorkerUnit.validationPath),
+    inputContract: path.relative(runDir, finalWorkerUnit.inputContractPath),
+    prompt: path.relative(runDir, finalWorkerUnit.promptPath),
+    codexEvents: path.relative(runDir, finalWorkerUnit.codexEventsPath),
+    lastMessage: path.relative(runDir, finalWorkerUnit.lastMessagePath),
+    stderr: path.relative(runDir, finalWorkerUnit.stderrPath),
+  };
+  await writeJson(path.join(runDir, 'contract.json'), finalContract);
   const finalState = JSON.parse(await readFile(path.join(runDir, 'state.json'), 'utf8'));
   finalState.nextAction = finalContract.artifacts.nativeTraceRefs.length
     ? 'emit iteration evidence template from attached native trace summaries'

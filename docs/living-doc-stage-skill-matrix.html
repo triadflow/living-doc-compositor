@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Stage Skill Matrix</title>
+<meta name="description" content="Matrix view of living-doc stages, chemistry-aligned skills, stage signals, and expected outputs." />
+<style>
+  :root {
+    --bg: #f5f2ec;
+    --paper: #fffdf8;
+    --ink: #1d2528;
+    --muted: #667176;
+    --line: #d8d0c4;
+    --soft: #eee7dc;
+    --green: #0c6b5e;
+    --green-bg: #edf8f2;
+    --blue: #285f8f;
+    --blue-bg: #edf4fb;
+    --amber: #946316;
+    --amber-bg: #fff7e6;
+    --red: #8d2f2f;
+    --red-bg: #fff1ef;
+    --violet: #62508c;
+    --violet-bg: #f4f1fb;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1240px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, .92);
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 760;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 50px 0 78px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+    gap: 28px;
+    align-items: start;
+    margin-bottom: 28px;
+  }
+
+  .eyebrow {
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 920px;
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .95;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 900px;
+    margin: 0;
+    color: #344044;
+    font-size: 21px;
+    line-height: 1.42;
+  }
+
+  .summary,
+  section,
+  .card,
+  .matrix-row,
+  .law-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .06);
+  }
+
+  .summary { padding: 18px; }
+
+  .summary h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary li + li { margin-top: 8px; }
+
+  .stage-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 24px 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .stage-chip {
+    min-height: 92px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 12px;
+  }
+
+  .stage-chip span {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .stage-chip strong {
+    display: block;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  section {
+    margin-top: 26px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 19px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    max-width: 940px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .body { padding: 22px; }
+
+  .matrix {
+    display: grid;
+    gap: 10px;
+  }
+
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 170px 1.1fr 1.2fr 1.15fr 1fr;
+    gap: 0;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .matrix-row.header {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .cell {
+    padding: 13px 14px;
+    border-right: 1px solid var(--line);
+  }
+
+  .header .cell { border-color: rgba(255,255,255,.16); }
+  .cell:last-child { border-right: 0; }
+
+  .stage-name {
+    font-weight: 800;
+    color: var(--green);
+  }
+
+  .cell p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .header .cell p { color: var(--paper); }
+
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #fff;
+    padding: 3px 7px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #263236;
+  }
+
+  .law-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .law-card {
+    min-height: 176px;
+    padding: 15px;
+    box-shadow: none;
+  }
+
+  .law-card strong {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 16px;
+  }
+
+  .law-card span {
+    display: block;
+    margin-bottom: 9px;
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .law-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .green { background: var(--green-bg); border-color: #b9d8cf; }
+  .blue { background: var(--blue-bg); border-color: #bfd3e4; }
+  .amber { background: var(--amber-bg); border-color: #ead19a; }
+  .red { background: var(--red-bg); border-color: #e2beb9; }
+  .violet { background: var(--violet-bg); border-color: #d6cfe6; }
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    padding: 16px;
+    box-shadow: none;
+  }
+
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: .92em;
+    background: var(--soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  footer {
+    padding: 0 0 40px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 1080px) {
+    .hero,
+    .split,
+    .law-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .matrix-row,
+    .matrix-row.header {
+      grid-template-columns: 1fr;
+    }
+
+    .matrix-row.header { display: none; }
+
+    .cell {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .cell:last-child { border-bottom: 0; }
+
+    .cell::before {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .cell.stage-col::before { content: "Stage"; }
+    .cell.signal-col::before { content: "Signal"; }
+    .cell.skill-col::before { content: "Skills"; }
+    .cell.law-col::before { content: "Chemistry law"; }
+    .cell.output-col::before { content: "Output"; }
+  }
+
+  @media (max-width: 620px) {
+    nav { display: none; }
+    .stage-strip { grid-template-columns: repeat(7, 150px); }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./index.html">
+        <span class="mark">LD</span>
+        <span>Living Doc Compositor</span>
+      </a>
+      <nav aria-label="Page navigation">
+        <a href="#matrix">Matrix</a>
+        <a href="#laws">Laws</a>
+        <a href="#use">Use</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Living doc stages / skill alignment</div>
+        <h1>Stage Skill Matrix</h1>
+        <p class="lede">
+          A living doc stage is the current condition of the document as a working system. The stage is inferred from objective clarity, convergence-type structure, proof state, source-system evidence, and tension between those parts.
+        </p>
+      </div>
+      <aside class="summary">
+        <h2>Core reading</h2>
+        <ul>
+          <li>Stages are not decorative status labels.</li>
+          <li>Each stage has a different valid skill response.</li>
+          <li>Chemistry skills mainly govern unstable transformations.</li>
+          <li>Early shaping skills make later execution possible.</li>
+        </ul>
+      </aside>
+    </div>
+
+    <div class="stage-strip" aria-label="Living doc stage sequence">
+      <div class="stage-chip"><span>01</span><strong>Raw / emerging</strong></div>
+      <div class="stage-chip"><span>02</span><strong>Shaped</strong></div>
+      <div class="stage-chip"><span>03</span><strong>Executable</strong></div>
+      <div class="stage-chip"><span>04</span><strong>In motion</strong></div>
+      <div class="stage-chip"><span>05</span><strong>Out of balance</strong></div>
+      <div class="stage-chip"><span>06</span><strong>Closure candidate</strong></div>
+      <div class="stage-chip"><span>07</span><strong>Closed / pivoted / deferred / blocked</strong></div>
+    </div>
+
+    <section id="matrix">
+      <div class="section-head">
+        <h2>The Matrix</h2>
+        <p>The same living doc can move through these stages during one session. The right skill depends on what is unstable or underdefined at that moment.</p>
+      </div>
+      <div class="body">
+        <div class="matrix" role="table" aria-label="Living doc stage skill matrix">
+          <div class="matrix-row header" role="row">
+            <div class="cell" role="columnheader">Stage</div>
+            <div class="cell" role="columnheader">Signal</div>
+            <div class="cell" role="columnheader">Aligned skills</div>
+            <div class="cell" role="columnheader">Chemistry law</div>
+            <div class="cell" role="columnheader">Expected output</div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">Raw / emerging</span><p>Session intent exists, but the objective is broad, aspirational, or still mixed with approach.</p></div>
+            <div class="cell signal-col"><p>Useful direction, weak accountability, no closure gates, unclear source proof.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">objective-acceptance-shaping</span><span class="tag">context-derived-doc</span></div></div>
+            <div class="cell law-col"><p>Initial conditions. Define what must be conserved before the system starts moving.</p></div>
+            <div class="cell output-col"><p>Clear objective, accountable terms, first acceptance criteria, scope boundaries.</p></div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">Shaped</span><p>The objective is clear enough to inspect, but the doc may still lack execution rails.</p></div>
+            <div class="cell signal-col"><p>Objective and criteria exist, but proof surfaces, next actions, tickets, or convergence-type fit may be thin.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">objective-execution-readiness</span><span class="tag">crystallize</span><span class="tag">convergence-advisor</span></div></div>
+            <div class="cell law-col"><p>Activation setup. The document must accumulate enough structure to support a valid transformation.</p></div>
+            <div class="cell output-col"><p>Readiness state: executable, repair-first, too-vague, blocked, or misframed.</p></div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">Executable</span><p>The living doc can drive work without hidden interpretation.</p></div>
+            <div class="cell signal-col"><p>Objective terms map to closure gates, source proof is named, and the next operation is visible.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">inference-living-doc-run-codex</span><span class="tag">living-doc</span><span class="tag">method-reading</span></div></div>
+            <div class="cell law-col"><p>Reaction path. Begin only along a path that conserves the objective.</p></div>
+            <div class="cell output-col"><p>Issue spine, implementation plan, proof commands, current living-doc state.</p></div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">In motion</span><p>Implementation, doc state, issues, proof, and source system are changing together.</p></div>
+            <div class="cell signal-col"><p>Commits and tickets appear; acceptance criteria are being satisfied or contradicted.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">living-doc</span><span class="tag">reaction-path-validator</span><span class="tag">explainability-sync</span></div></div>
+            <div class="cell law-col"><p>Conservation. Partial progress must not erase unresolved objective mass.</p></div>
+            <div class="cell output-col"><p>Updated doc, rendered state, committed changes, explicit remaining false terms.</p></div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">Out of balance</span><p>The structure exists, but objective, proof, issues, user feedback, or source evidence disagree.</p></div>
+            <div class="cell signal-col"><p>User rejects closure, proof is stale, issues close too early, or source-system evidence contradicts the doc.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">living-doc-balance-scan</span><span class="tag">equilibrium-rebalance</span><span class="tag">catalytic-repair-run</span></div></div>
+            <div class="cell law-col"><p>Equilibrium. Restore agreement between objective pressure, proof state, source state, and next action.</p></div>
+            <div class="cell output-col"><p>Classified imbalance, repaired doc, updated issues, verified source state, detailed commit.</p></div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">Closure candidate</span><p>The work looks done, but the closure claim must survive challenge.</p></div>
+            <div class="cell signal-col"><p>Green tests, rendered pages, closed tickets, or final language appear before every objective term is accounted for.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">objective-conservation-audit</span><span class="tag">activation-energy-review</span><span class="tag">reaction-path-validator</span></div></div>
+            <div class="cell law-col"><p>Activation energy. Closure requires proof that crosses the objective threshold, not artifact accumulation.</p></div>
+            <div class="cell output-col"><p>Complete, partial, blocked, deferred, pivoted, or repair-first closure decision.</p></div>
+          </div>
+
+          <div class="matrix-row" role="row">
+            <div class="cell stage-col"><span class="stage-name">Closed / pivoted / deferred / blocked</span><p>The living doc reaches a stable end state or a named non-completion state.</p></div>
+            <div class="cell signal-col"><p>Every accountable term is completed, blocked, deferred with trigger, pivoted with rationale, or explicitly out of scope.</p></div>
+            <div class="cell skill-col"><div class="tag-list"><span class="tag">objective-conservation-audit</span><span class="tag">activation-energy-review</span><span class="tag">living-doc</span></div></div>
+            <div class="cell law-col"><p>Mass balance. Nothing objective-owned disappears into summary language or future-work fog.</p></div>
+            <div class="cell output-col"><p>Final living-doc state, rendered artifact, issue state alignment, residual risks or reopen triggers.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="laws">
+      <div class="section-head">
+        <h2>Chemistry Alignment</h2>
+        <p>The chemistry concept is strongest when a living doc is changing state. These laws describe what a skill must protect during the transformation.</p>
+      </div>
+      <div class="body">
+        <div class="law-grid">
+          <div class="law-card green">
+            <span>Conservation</span>
+            <strong>Objective mass cannot disappear.</strong>
+            <p>Every accountable objective term must reappear as complete, blocked, deferred, pivoted, out of scope, or unresolved.</p>
+          </div>
+          <div class="law-card amber">
+            <span>Activation energy</span>
+            <strong>Closure needs a real threshold.</strong>
+            <p>Passing tests, rendered pages, or closed tickets are not enough unless they prove the objective.</p>
+          </div>
+          <div class="law-card blue">
+            <span>Equilibrium</span>
+            <strong>State surfaces must agree.</strong>
+            <p>The document, source system, issues, proof, and user feedback cannot point to different truths.</p>
+          </div>
+          <div class="law-card violet">
+            <span>Catalysis</span>
+            <strong>A skill lowers repair cost.</strong>
+            <p>The skill accelerates the right transformation without changing what must be conserved.</p>
+          </div>
+          <div class="law-card red">
+            <span>Reaction path</span>
+            <strong>Not every stage jump is valid.</strong>
+            <p>A useful slice cannot jump straight to final closure while objective-owned work remains unaccounted.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="use">
+      <div class="section-head">
+        <h2>How To Use The Matrix</h2>
+        <p>Use the matrix to choose the next skill from the living doc's current condition, not from the artifact you hope it has become.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="card">
+            <h3>If the objective is soft</h3>
+            <p>Run <code>objective-acceptance-shaping</code>. Do not start by checking readiness when the objective itself still cannot close.</p>
+          </div>
+          <div class="card">
+            <h3>If the doc looks ready</h3>
+            <p>Run <code>objective-execution-readiness</code>. The question is whether a later agent can tell what remains false.</p>
+          </div>
+          <div class="card">
+            <h3>If closure feels slippery</h3>
+            <p>Run the chemistry skills. First classify the imbalance, then conserve objective terms before accepting closure.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    Static matrix page for the living-doc stage and chemistry-skill operating model. Companion to
+    <a href="./living-doc-governance-chemistry-skills.html">Skills as Deep Repair for Objective Drift</a>.
+  </footer>
+</body>
+</html>

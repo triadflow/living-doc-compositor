@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agentic Living Doc Harness System Overview</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18212f;
+      --muted: #607086;
+      --line: #d9e0ea;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --green: #0f766e;
+      --blue: #1d4ed8;
+      --amber: #a16207;
+      --red: #b91c1c;
+      --violet: #6d28d9;
+      --slate: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    header.page {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 28px;
+    }
+    .wrap { max-width: 1240px; margin: 0 auto; }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 28px; line-height: 1.15; }
+    h2 { font-size: 18px; margin-bottom: 12px; }
+    h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+    p { margin: 0; }
+    .subtitle { color: var(--muted); margin-top: 8px; max-width: 820px; }
+    main { padding: 24px; }
+    section { margin-bottom: 18px; }
+    .band {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .status {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--green);
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 78px;
+      background: #fbfcfe;
+    }
+    .stat span { display: block; color: var(--muted); font-size: 12px; }
+    .stat strong { display: block; margin-top: 5px; font-size: 15px; }
+    .grid-2 { display: grid; grid-template-columns: 1.25fr .75fr; gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .loop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .loop-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+    .loop-card.worker { border-left: 4px solid var(--violet); }
+    .loop-card.governance { border-left: 4px solid var(--green); }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(110px, 1fr));
+      gap: 10px;
+      align-items: stretch;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+      min-height: 126px;
+      position: relative;
+    }
+    .node:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      width: 8px;
+      border-top: 2px solid var(--line);
+    }
+    .node .k { font-weight: 700; margin-bottom: 6px; }
+    .node .d { color: var(--muted); font-size: 13px; }
+    .node.green { border-top: 4px solid var(--green); }
+    .node.blue { border-top: 4px solid var(--blue); }
+    .node.amber { border-top: 4px solid var(--amber); }
+    .node.violet { border-top: 4px solid var(--violet); }
+    .node.red { border-top: 4px solid var(--red); }
+    .node.slate { border-top: 4px solid var(--slate); }
+    .matrix {
+      display: grid;
+      grid-template-columns: 190px repeat(4, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--panel);
+    }
+    .cell {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      min-height: 68px;
+    }
+    .cell:nth-child(5n) { border-right: 0; }
+    .cell.head { background: #eef3f8; font-weight: 700; min-height: auto; }
+    .cell.rowhead { font-weight: 700; background: #fbfcfe; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 12px;
+      margin: 0 4px 4px 0;
+      background: #fff;
+    }
+    .tag.pass { border-color: #99d6c9; color: var(--green); background: #ecfdf5; }
+    .tag.warn { border-color: #f1c27d; color: var(--amber); background: #fff8eb; }
+    .artifact-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .artifact {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+    .artifact code { display: block; margin-top: 4px; color: var(--slate); overflow-wrap: anywhere; }
+    .small { color: var(--muted); font-size: 13px; }
+    .callout {
+      border-left: 4px solid var(--green);
+      padding: 12px 14px;
+      background: #eefaf7;
+      border-radius: 8px;
+    }
+    pre {
+      margin: 10px 0 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow-x: auto;
+      background: #17202a;
+      color: #eef3f8;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .component-map {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .component-map div {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .component-map div:nth-child(odd) {
+      border-right: 1px solid var(--line);
+      font-weight: 700;
+      background: #fbfcfe;
+      overflow-wrap: anywhere;
+    }
+    .component-map div:nth-last-child(-n + 2) { border-bottom: 0; }
+    ul { margin: 0; padding-left: 18px; }
+    li + li { margin-top: 5px; }
+    @media (max-width: 960px) {
+      .status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-2, .grid-3, .artifact-list, .loop-grid, .component-map { grid-template-columns: 1fr; }
+      .component-map div:nth-child(odd) { border-right: 0; }
+      .matrix { grid-template-columns: 150px repeat(4, minmax(180px, 1fr)); overflow-x: auto; }
+    }
+    @media (max-width: 640px) {
+      header.page { padding: 20px; }
+      main { padding: 14px; }
+      .status { grid-template-columns: 1fr; }
+      h1 { font-size: 23px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page">
+    <div class="wrap">
+      <h1>Agentic Living Doc Harness</h1>
+      <p class="subtitle">A governed loop for taking one living document from an objective-bearing state through headless execution, native trace inspection, stop diagnosis, repair routing, proof finalization, and dashboard-visible closure.</p>
+      <div class="status">
+        <div class="stat"><span>Current state</span><strong>closed-live-proof</strong></div>
+        <div class="stat"><span>Acceptance criteria</span><strong>11 satisfied</strong></div>
+        <div class="stat"><span>Live run</span><strong>exitCode 0</strong></div>
+        <div class="stat"><span>Final verdict</span><strong>objective-proven</strong></div>
+        <div class="stat"><span>Trace evidence</span><strong>264 lines</strong></div>
+        <div class="stat"><span>Issue spine</span><strong>#185-#193 closed</strong></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="grid-2">
+      <div class="band">
+        <h2>What The System Does</h2>
+        <p>The harness turns a living doc into the control surface for a headless Codex run. The worker can edit source files and the living doc, but closure is decided outside the worker from native trace refs, objective state, proof gates, terminal state, and sanitized evidence artifacts.</p>
+      </div>
+      <div class="band">
+        <h2>Closed Proof</h2>
+        <p class="small">Run <code>ldh-20260507T113500Z-doc-living-doc-agentic-harness</code> executed headless, attached a native trace summary, scaffolded evidence, finalized iteration 1 as closed, wrote a valid proof, emitted an evidence bundle, and rendered the dashboard.</p>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>The Two Loops</h2>
+      <div class="loop-grid">
+        <div class="loop-card worker">
+          <h3>Worker Loop</h3>
+          <p>Codex runs headless against one living doc objective. It performs the implementation work, updates files, may update the living doc, and emits wrapper events plus native trace files. This loop is allowed to make progress, but it is not allowed to certify its own completion.</p>
+        </div>
+        <div class="loop-card governance">
+          <h3>Governance Loop</h3>
+          <p>The harness inspects what happened after the worker stops. It reads trace summaries, compares proof against objective terms and acceptance criteria, classifies the stop, routes repair skills when needed, and only then writes terminal state.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Runtime Loop</h2>
+      <div class="flow" aria-label="Runtime loop">
+        <div class="node blue"><div class="k">1. Living doc</div><div class="d">Objective, success condition, acceptance criteria, invariants, issue spine, and proof ladder.</div></div>
+        <div class="node violet"><div class="k">2. Standalone runner</div><div class="d">Creates a run directory and launches <code>codex exec --json</code> outside the active user session.</div></div>
+        <div class="node slate"><div class="k">3. Native trace</div><div class="d">Discovers Codex JSONL traces, writes sanitized summaries, and attaches trace refs to the run.</div></div>
+        <div class="node amber"><div class="k">4. Stop diagnosis</div><div class="d">Infers whether the stop is repairable, resumable, closed, blocked, pivoted, deferred, or budget-exhausted.</div></div>
+        <div class="node blue"><div class="k">5. Skill routing</div><div class="d">Maps verdicts to living-doc skills and records repair handovers or closure audits.</div></div>
+        <div class="node green"><div class="k">6. Finalizer</div><div class="d">Writes evidence, verdict, terminal state, proof validation, bundle, and dashboard state.</div></div>
+        <div class="node green"><div class="k">7. Dashboard</div><div class="d">Shows run state, gates, blockers, trace summaries, evidence artifacts, and recommendation.</div></div>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Component Ownership</h2>
+      <div class="component-map">
+        <div>docs/living-doc-agentic-harness.json</div>
+        <div>The governed objective instance: objective, success condition, acceptance criteria, invariants, issue spine, proof ladder, and closed-live-proof state.</div>
+        <div>scripts/living-doc-harness-runner.mjs</div>
+        <div>Creates standalone run directories and launches the worker through <code>codex exec --json</code>. In execute mode it also discovers native trace files and attaches sanitized summaries.</div>
+        <div>scripts/living-doc-harness-trace-reader.mjs</div>
+        <div>Finds Codex JSONL rollout traces, creates privacy-safe summaries, hashes the trace evidence, and records trace references without committing raw content.</div>
+        <div>scripts/living-doc-harness-stop-negotiation.mjs</div>
+        <div>Classifies why the run stopped by comparing wrapper state, native trace refs, objective terms, acceptance criteria proof, blockers, and remaining work.</div>
+        <div>scripts/living-doc-harness-skill-router.mjs</div>
+        <div>Turns the stop verdict into concrete next actions: repair skills, final audits, resume instructions, blocker records, or closure recommendation.</div>
+        <div>scripts/living-doc-harness-iteration.mjs</div>
+        <div>Finalizes one iteration by writing evidence, stop verdict, skill handover, terminal state, proof validation, evidence bundle, and dashboard data.</div>
+        <div>scripts/living-doc-harness-evidence-dashboard.mjs</div>
+        <div>Builds the committed sanitized proof surfaces: evidence bundle, evidence summary, and static dashboard.</div>
+      </div>
+    </section>
+
+    <section class="grid-3">
+      <div class="band">
+        <h2>Control Layer</h2>
+        <ul>
+          <li>Objective and success condition stay in the living doc.</li>
+          <li>Governance fingerprint guards section/card structure.</li>
+          <li>Acceptance criteria carry proof requirements and current proof.</li>
+          <li>Issue spine keeps GitHub state tied to objective state.</li>
+        </ul>
+      </div>
+      <div class="band">
+        <h2>Inference Layer</h2>
+        <ul>
+          <li>Worker runs headless through <code>codex exec --json</code>.</li>
+          <li>Worker output is evidence, not authority.</li>
+          <li>Native traces are summarized, hashed, and kept private.</li>
+          <li>Stop reason is inferred by the harness after the run.</li>
+        </ul>
+      </div>
+      <div class="band">
+        <h2>Proof Layer</h2>
+        <ul>
+          <li>Iteration proof must validate before closure.</li>
+          <li>Evidence bundles omit raw prompts, logs, traces, and message content.</li>
+          <li>Dashboard provides the operator inspection surface.</li>
+          <li>Terminal states prevent silent continuation after true blocks.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Verdict And Skill Routing</h2>
+      <div class="matrix">
+        <div class="cell head">Stop verdict</div>
+        <div class="cell head">Meaning</div>
+        <div class="cell head">Skill route</div>
+        <div class="cell head">Terminal state</div>
+        <div class="cell head">Operator posture</div>
+
+        <div class="cell rowhead">repairable</div>
+        <div class="cell">Proof or objective state is unsatisfied.</div>
+        <div class="cell"><span class="tag">balance scan</span><span class="tag">catalytic repair</span><span class="tag">readiness</span></div>
+        <div class="cell">repair-resumed</div>
+        <div class="cell">Repair and run again.</div>
+
+        <div class="cell rowhead">resumable</div>
+        <div class="cell">Worker stopped early while next action exists.</div>
+        <div class="cell"><span class="tag">reaction path</span><span class="tag">resume worker</span></div>
+        <div class="cell">repair-resumed</div>
+        <div class="cell">Continue without user handoff.</div>
+
+        <div class="cell rowhead">closure-candidate</div>
+        <div class="cell">Worker claims done but proof is incomplete.</div>
+        <div class="cell"><span class="tag">conservation audit</span><span class="tag">activation review</span><span class="tag">reaction path</span></div>
+        <div class="cell">repair-resumed</div>
+        <div class="cell">Reject premature closure.</div>
+
+        <div class="cell rowhead">closed</div>
+        <div class="cell">Objective terms and acceptance criteria are proven.</div>
+        <div class="cell"><span class="tag pass">final audits</span></div>
+        <div class="cell">closed</div>
+        <div class="cell">Stop the loop.</div>
+
+        <div class="cell rowhead">true-block</div>
+        <div class="cell">A source, permission, proof authority, privacy, or platform boundary is missing.</div>
+        <div class="cell"><span class="tag warn">blocker record</span><span class="tag">reaction path</span></div>
+        <div class="cell">true-blocked</div>
+        <div class="cell">Wait for outside state change.</div>
+
+        <div class="cell rowhead">pivot</div>
+        <div class="cell">The original objective no longer matches the valid direction of work.</div>
+        <div class="cell"><span class="tag warn">objective shaping</span><span class="tag">conservation audit</span></div>
+        <div class="cell">pivoted</div>
+        <div class="cell">Create a new objective, do not pretend the old one closed.</div>
+
+        <div class="cell rowhead">deferred</div>
+        <div class="cell">The objective is valid, but completion depends on a later condition.</div>
+        <div class="cell"><span class="tag warn">deferral trigger</span><span class="tag">terminal record</span></div>
+        <div class="cell">deferred</div>
+        <div class="cell">Record the trigger that can reopen the run.</div>
+
+        <div class="cell rowhead">budget-exhausted</div>
+        <div class="cell">The run consumed its allowed iteration or time budget without proof.</div>
+        <div class="cell"><span class="tag warn">operator review</span><span class="tag">repair plan</span></div>
+        <div class="cell">budget-exhausted</div>
+        <div class="cell">Expose remaining distance and decide whether to continue.</div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="band">
+        <h2>Committed Proof Surfaces</h2>
+        <div class="artifact-list">
+          <div class="artifact"><strong>Living doc</strong><code>docs/living-doc-agentic-harness.json</code></div>
+          <div class="artifact"><strong>Rendered living doc</strong><code>docs/living-doc-agentic-harness.html</code></div>
+          <div class="artifact"><strong>Dashboard</strong><code>docs/living-doc-harness-dashboard.html</code></div>
+          <div class="artifact"><strong>Evidence bundle</strong><code>evidence/living-doc-harness/ldh-20260507T113500Z-doc-living-doc-agentic-harness/bundle.json</code></div>
+          <div class="artifact"><strong>Evidence summary</strong><code>evidence/living-doc-harness/ldh-20260507T113500Z-doc-living-doc-agentic-harness/summary.md</code></div>
+          <div class="artifact"><strong>Harness tests</strong><code>tests/contract/living-doc-harness-*.spec.mjs</code></div>
+        </div>
+      </div>
+      <div class="band">
+        <h2>Privacy Boundary</h2>
+        <p>The committed proof surfaces are sanitized. Raw prompts, wrapper logs, native trace payloads, and message content stay out of the evidence bundle and dashboard. Raw local run logs remain in <code>.living-doc-runs/</code> and are intentionally not committed.</p>
+        <p style="margin-top:12px"><span class="tag pass">rawPromptIncluded=false</span><span class="tag pass">rawWrapperLogIncluded=false</span><span class="tag pass">rawNativeTraceIncluded=false</span><span class="tag pass">rawMessageContentIncluded=false</span></p>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>Operator Commands</h2>
+      <p class="small">The runner and finalizer are deliberately separate so the worker can run headless and the governance loop can inspect the evidence after it stops.</p>
+      <pre><code>node scripts/living-doc-harness-runner.mjs start docs/living-doc-agentic-harness.json \
+  --runs-dir .living-doc-runs \
+  --execute \
+  --now 2026-05-07T11:35:00.000Z
+
+node scripts/living-doc-harness-iteration.mjs evidence-template \
+  .living-doc-runs/&lt;run-id&gt;
+
+node scripts/living-doc-harness-iteration.mjs finalize \
+  .living-doc-runs/&lt;run-id&gt; \
+  --iteration 1 \
+  --evidence .living-doc-runs/&lt;run-id&gt;/artifacts/iteration-1-evidence.json</code></pre>
+    </section>
+
+    <section class="band">
+      <h2>How Future Runs Use It</h2>
+      <div class="callout">
+        <p>For a new living doc, the same harness starts from that document's objective, runs Codex headless, attaches native trace summaries, scaffolds iteration evidence, finalizes the stop verdict, and renders the dashboard. Closure is never inherited from this run; each living doc instance must satisfy its own proof gates.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

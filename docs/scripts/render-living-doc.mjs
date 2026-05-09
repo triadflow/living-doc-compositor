@@ -304,6 +304,247 @@ function shouldRenderReferenceChips(lines) {
   return lines.length > 1 && lines.every((line) => line.length <= 40 && !/[:`/.]/.test(line));
 }
 
+function isRenderableMermaid(value) {
+  return /^\s*flowchart\s+(TD|TB|BT|RL|LR)\b/i.test(String(value ?? ''));
+}
+
+function mermaidNodeShape(token) {
+  if (/\{\s*"/.test(token)) return 'diamond';
+  if (/\(\s*"/.test(token)) return 'round';
+  return 'rect';
+}
+
+function decodeMermaidLabel(value) {
+  return String(value ?? '')
+    .replace(/\\n/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/\\"/g, '"')
+    .trim();
+}
+
+function parseMermaidEndpoint(token, nodes) {
+  const normalized = String(token ?? '').trim().replace(/;$/, '');
+  const match = normalized.match(/^([A-Za-z0-9_:-]+)(?:\s*(\[\s*"([\s\S]*?)"\s*\]|\{\s*"([\s\S]*?)"\s*\}|\(\s*"([\s\S]*?)"\s*\)))?$/);
+  if (!match) return normalized;
+  const id = match[1];
+  const label = decodeMermaidLabel(match[3] ?? match[4] ?? match[5] ?? '');
+  const existing = nodes.get(id) || { id, label: id, shape: 'rect' };
+  nodes.set(id, {
+    ...existing,
+    label: label || existing.label || id,
+    shape: mermaidNodeShape(normalized),
+  });
+  return id;
+}
+
+function parseMermaidFlowchart(source) {
+  const lines = String(source ?? '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const firstLine = lines[0] || '';
+  const direction = firstLine.match(/^flowchart\s+([A-Z]+)/i)?.[1]?.toUpperCase() || 'TD';
+  const nodes = new Map();
+  const edges = [];
+
+  for (const line of lines.slice(1)) {
+    if (line.startsWith('%%')) continue;
+    let match = line.match(/^(.+?)\s*--\s*"([^"]+)"\s*-->\s*(.+)$/);
+    if (match) {
+      edges.push({
+        from: parseMermaidEndpoint(match[1], nodes),
+        to: parseMermaidEndpoint(match[3], nodes),
+        label: decodeMermaidLabel(match[2]),
+      });
+      continue;
+    }
+    match = line.match(/^(.+?)\s*-->\|([^|]+)\|\s*(.+)$/);
+    if (match) {
+      edges.push({
+        from: parseMermaidEndpoint(match[1], nodes),
+        to: parseMermaidEndpoint(match[3], nodes),
+        label: decodeMermaidLabel(match[2]),
+      });
+      continue;
+    }
+    match = line.match(/^(.+?)\s*-->\s*(.+)$/);
+    if (match) {
+      edges.push({
+        from: parseMermaidEndpoint(match[1], nodes),
+        to: parseMermaidEndpoint(match[2], nodes),
+        label: '',
+      });
+      continue;
+    }
+    parseMermaidEndpoint(line, nodes);
+  }
+
+  return { direction, nodes: [...nodes.values()], edges };
+}
+
+function wrapSvgLines(label, maxChars = 24) {
+  const sourceLines = String(label ?? '').split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const lines = [];
+  for (const sourceLine of sourceLines.length ? sourceLines : ['']) {
+    const words = sourceLine.split(/\s+/).filter(Boolean);
+    let current = '';
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length > maxChars && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    }
+    if (current) lines.push(current);
+  }
+  return lines.slice(0, 4);
+}
+
+function renderSvgText(lines, x, y, options = {}) {
+  const anchor = options.anchor || 'middle';
+  const className = options.className || 'mermaid-node-label';
+  const escapedLines = lines.length ? lines : [''];
+  const startY = y - ((escapedLines.length - 1) * 8);
+  return `<text class="${className}" x="${x}" y="${startY}" text-anchor="${anchor}">${escapedLines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : 16}">${escapeHtml(line)}</tspan>`).join('')}</text>`;
+}
+
+function renderMermaidFlowchartSvg(source) {
+  const graph = parseMermaidFlowchart(source);
+  if (graph.nodes.length === 0) return '';
+
+  const outgoing = new Map();
+  const incoming = new Map(graph.nodes.map((node) => [node.id, 0]));
+  for (const edge of graph.edges) {
+    if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
+    outgoing.get(edge.from).push(edge.to);
+    incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
+  }
+
+  const layersById = new Map();
+  const roots = graph.nodes.filter((node) => (incoming.get(node.id) ?? 0) === 0);
+  const queue = (roots.length ? roots : graph.nodes).map((node) => {
+    layersById.set(node.id, 0);
+    return node.id;
+  });
+  for (let index = 0; index < queue.length; index += 1) {
+    const nodeId = queue[index];
+    const nextLayer = (layersById.get(nodeId) ?? 0) + 1;
+    for (const targetId of outgoing.get(nodeId) ?? []) {
+      if (!layersById.has(targetId)) {
+        layersById.set(targetId, nextLayer);
+        queue.push(targetId);
+      }
+    }
+  }
+  for (const node of graph.nodes) {
+    if (!layersById.has(node.id)) layersById.set(node.id, 0);
+  }
+
+  const layers = new Map();
+  for (const node of graph.nodes) {
+    const layer = layersById.get(node.id) ?? 0;
+    if (!layers.has(layer)) layers.set(layer, []);
+    layers.get(layer).push(node);
+  }
+
+  const horizontal = ['LR', 'RL'].includes(graph.direction);
+  const nodeWidth = 188;
+  const gapX = 68;
+  const gapY = 30;
+  const margin = 24;
+  const coords = new Map();
+  const sortedLayers = [...layers.keys()].sort((a, b) => a - b);
+  const maxLayerSize = Math.max(...[...layers.values()].map((items) => items.length), 1);
+
+  for (const layer of sortedLayers) {
+    const items = layers.get(layer);
+    items.sort((a, b) => a.id.localeCompare(b.id));
+    items.forEach((node, index) => {
+      const labelLines = wrapSvgLines(node.label);
+      const height = Math.max(52, 28 + labelLines.length * 16);
+      const width = node.shape === 'diamond' ? 156 : nodeWidth;
+      const x = horizontal
+        ? margin + layer * (nodeWidth + gapX)
+        : margin + index * (nodeWidth + gapX);
+      const y = horizontal
+        ? margin + index * (80 + gapY)
+        : margin + layer * (80 + gapY);
+      coords.set(node.id, { x, y, width, height, labelLines, shape: node.shape });
+    });
+  }
+
+  const maxLayer = Math.max(...sortedLayers, 0);
+  const svgWidth = horizontal
+    ? margin * 2 + (maxLayer + 1) * nodeWidth + maxLayer * gapX
+    : margin * 2 + maxLayerSize * nodeWidth + Math.max(0, maxLayerSize - 1) * gapX;
+  const svgHeight = horizontal
+    ? margin * 2 + maxLayerSize * 80 + Math.max(0, maxLayerSize - 1) * gapY
+    : margin * 2 + (maxLayer + 1) * 80 + maxLayer * gapY;
+
+  const edgeHtml = graph.edges.map((edge, index) => {
+    const from = coords.get(edge.from);
+    const to = coords.get(edge.to);
+    if (!from || !to) return '';
+    const fromX = horizontal ? from.x + from.width : from.x + from.width / 2;
+    const fromY = horizontal ? from.y + from.height / 2 : from.y + from.height;
+    const toX = horizontal ? to.x : to.x + to.width / 2;
+    const toY = horizontal ? to.y + to.height / 2 : to.y;
+    const midX = (fromX + toX) / 2;
+    const midY = (fromY + toY) / 2;
+    const bend = horizontal
+      ? `C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`
+      : `C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+    const label = edge.label
+      ? `<text class="mermaid-edge-label" x="${midX}" y="${midY - 6}" text-anchor="middle">${escapeHtml(edge.label)}</text>`
+      : '';
+    return `<g class="mermaid-edge" data-edge-index="${index}"><path d="M ${fromX} ${fromY} ${bend}" marker-end="url(#arrowhead)"/>${label}</g>`;
+  }).join('');
+
+  const nodeHtml = graph.nodes.map((node) => {
+    const c = coords.get(node.id);
+    if (!c) return '';
+    const cx = c.x + c.width / 2;
+    const cy = c.y + c.height / 2;
+    if (c.shape === 'diamond') {
+      const points = `${cx},${c.y} ${c.x + c.width},${cy} ${cx},${c.y + c.height} ${c.x},${cy}`;
+      return `<g class="mermaid-node mermaid-node-diamond"><polygon points="${points}"/>${renderSvgText(c.labelLines, cx, cy + 4)}</g>`;
+    }
+    const radius = c.shape === 'round' ? 18 : 10;
+    return `<g class="mermaid-node"><rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="${radius}"/>${renderSvgText(c.labelLines, cx, cy + 4)}</g>`;
+  }).join('');
+
+  return `<svg class="mermaid-svg" viewBox="0 0 ${svgWidth} ${svgHeight}" role="img" aria-label="Rendered Mermaid flowchart">
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M 0 0 L 10 4 L 0 8 z" class="mermaid-arrowhead"/>
+      </marker>
+    </defs>
+    ${edgeHtml}
+    ${nodeHtml}
+  </svg>`;
+}
+
+function renderMermaidSource(source) {
+  return `<details class="mermaid-source"><summary>Mermaid source</summary><pre><code>${escapeHtml(source)}</code></pre></details>`;
+}
+
+function renderMermaidDiagram(note) {
+  const normalized = normalizeNote(note);
+  if (!normalized) return '';
+  if (!isRenderableMermaid(normalized.text)) return renderNotes([normalized]);
+  const titleHtml = normalized.title ? `<h4 class="mermaid-title">${escapeHtml(normalized.title)}</h4>` : '';
+  const svg = renderMermaidFlowchartSvg(normalized.text);
+  return `<article class="mermaid-card">${titleHtml}<div class="mermaid-rendered">${svg || `<pre><code>${escapeHtml(normalized.text)}</code></pre>`}</div>${renderMermaidSource(normalized.text)}</article>`;
+}
+
+function renderDiagramDetails(items, label) {
+  if (!items || items.length === 0) return '';
+  return `
+    <details class="details-block mermaid-details" open>
+      <summary>${escapeHtml(label)} (${items.length})</summary>
+      <div class="mermaid-stack">${items.map(renderMermaidDiagram).join('')}</div>
+    </details>`;
+}
+
 function normalizeNote(note) {
   if (typeof note === 'string') {
     return { text: note, role: 'description', tone: null, title: '' };
@@ -1337,8 +1578,11 @@ function renderNotes(items) {
     </div>`;
 }
 
-function renderDetails(items, label) {
+function renderDetails(items, label, fieldKey = '') {
   if (!items || items.length === 0) return '';
+  if (fieldKey === 'diagrams' || items.some((item) => isRenderableMermaid(typeof item === 'string' ? item : item?.text ?? item?.value))) {
+    return renderDiagramDetails(items, label);
+  }
   return `
     <details class="details-block">
       <summary>${escapeHtml(label)} (${items.length})</summary>
@@ -1390,7 +1634,7 @@ function renderCardItem(item, convergenceType, sectionId) {
   // Details fields
   const detailsHtml = (ct.detailsFields ?? [])
     .filter((df) => item[df.key] && item[df.key].length > 0)
-    .map((df) => renderDetails(item[df.key], df.label))
+    .map((df) => renderDetails(item[df.key], df.label, df.key))
     .join('');
 
   // Item-level ID for anchoring
@@ -2811,6 +3055,40 @@ const html = `<!doctype html>
         display: inline-flex; align-items: center; padding: 3px 10px;
         border-radius: 999px; background: var(--card); border: 1px solid var(--line);
         color: var(--muted); font-size: 12px; font-weight: 600;
+      }
+      .mermaid-details[open] { padding-bottom: 10px; }
+      .mermaid-stack { margin-top: 12px; display: grid; gap: 14px; }
+      .mermaid-card {
+        border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
+        background: color-mix(in srgb, var(--accent) 3%, var(--card));
+        border-radius: 10px; padding: 12px;
+      }
+      .mermaid-title { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--ink); }
+      .mermaid-rendered {
+        overflow-x: auto; border-radius: 8px; border: 1px solid var(--line);
+        background: var(--card); padding: 10px;
+      }
+      .mermaid-svg { display: block; min-width: 640px; max-width: 100%; height: auto; }
+      .mermaid-edge path { fill: none; stroke: color-mix(in srgb, var(--muted) 70%, var(--line)); stroke-width: 1.8; }
+      .mermaid-arrowhead { fill: color-mix(in srgb, var(--muted) 70%, var(--line)); }
+      .mermaid-node rect, .mermaid-node polygon {
+        fill: color-mix(in srgb, var(--accent) 7%, var(--card));
+        stroke: color-mix(in srgb, var(--accent) 35%, var(--line));
+        stroke-width: 1.4;
+      }
+      .mermaid-node-label {
+        fill: var(--ink); font-size: 12px; font-weight: 650;
+        dominant-baseline: middle; pointer-events: none;
+      }
+      .mermaid-edge-label {
+        fill: var(--muted); font-size: 11px; font-weight: 700;
+        paint-order: stroke; stroke: var(--card); stroke-width: 5px; stroke-linejoin: round;
+      }
+      .mermaid-source { margin-top: 10px; }
+      .mermaid-source summary { color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+      .mermaid-source pre {
+        overflow-x: auto; margin: 8px 0 0; padding: 10px; border-radius: 8px;
+        background: var(--neutral-bg); color: var(--neutral-ink); font-size: 12px; line-height: 1.5;
       }
       .badge {
         display: inline-flex; align-items: center; justify-content: center;

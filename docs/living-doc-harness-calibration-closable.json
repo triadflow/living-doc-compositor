@@ -1,0 +1,157 @@
+{
+  "docId": "doc:living-doc-harness-calibration-closable",
+  "title": "Harness Calibration - Closable Fixture",
+  "subtitle": "Small living doc used to test whether the headless harness can close a bounded objective",
+  "brand": "LD",
+  "scope": "Harness calibration fixture",
+  "owner": "Living Docs",
+  "version": "calibration-v1",
+  "canonicalOrigin": "docs/living-doc-harness-calibration-closable.json",
+  "sourceCoverage": "Deterministic local fixture with one target JSON file and one rendered living doc.",
+  "updated": "2026-05-07T12:35:00.000Z",
+  "objective": "Complete the closable harness calibration fixture by making exactly the bounded source-system change described here: update tests/fixtures/harness-calibration-target.json so calibrationId remains closable-001, status becomes completed, completed becomes true, renderedMarker becomes CALIBRATION-CLOSED-001, and evidence contains one entry naming docs/living-doc-harness-calibration-closable.json as the governing living doc. Then update this living doc so its status snapshot and acceptance criteria record the completed state and render docs/living-doc-harness-calibration-closable.html. Do not change unrelated files.",
+  "successCondition": "The target JSON contains the completed marker, this living doc records that the calibration objective is complete, the rendered HTML exists, and the harness can inspect the run as a closed or otherwise correctly diagnosed run from artifacts rather than chat memory.",
+  "runState": {
+    "currentPhase": "closed",
+    "documentReady": true,
+    "objectiveReady": true,
+    "nextObjectiveAction": "no-next-iteration-objective-closed"
+  },
+  "objectiveFacets": [
+    {
+      "id": "facet-bounded-source-change",
+      "name": "Bounded source-system change",
+      "description": "Only the calibration target JSON and this calibration living doc should change."
+    },
+    {
+      "id": "facet-rendered-proof",
+      "name": "Rendered proof",
+      "description": "The living doc render must exist after the source-system change."
+    },
+    {
+      "id": "facet-harness-classification",
+      "name": "Harness classification",
+      "description": "The harness should have enough evidence to classify the run without trusting the worker final message."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "facet-bounded-source-change",
+      "sectionId": "acceptance-criteria",
+      "cardIds": [
+        "criterion-target-json-completed"
+      ]
+    },
+    {
+      "facetId": "facet-rendered-proof",
+      "sectionId": "acceptance-criteria",
+      "cardIds": [
+        "criterion-living-doc-rendered"
+      ]
+    },
+    {
+      "facetId": "facet-harness-classification",
+      "sectionId": "verification-checkpoints",
+      "cardIds": [
+        "checkpoint-harness-finalization"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "invariant-small-scope",
+      "name": "Small scope",
+      "statement": "This calibration run is invalid if unrelated project files are changed to satisfy the objective."
+    },
+    {
+      "id": "invariant-artifact-proof",
+      "name": "Artifact proof",
+      "statement": "Closure must be based on target file state, rendered doc state, native trace refs, and harness proof artifacts."
+    }
+  ],
+  "metaFingerprint": "sha256:2baa7704a19789b84637af14997d4ca4ebb22ead51f431c7bb35b9781c9de6fa",
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "rationale": "Keeps the tiny calibration state visible before and after the headless run.",
+      "updated": "2026-05-07T12:35:00.000Z",
+      "data": [
+        {
+          "id": "snapshot-calibration-state",
+          "name": "Closable calibration state",
+          "status": "completed",
+          "updated": "2026-05-07T12:35:00.000Z",
+          "summary": "Completed state. The target JSON now records completion, the required marker is present, and this living doc is the governing artifact for the calibration closure.",
+          "targetFile": "tests/fixtures/harness-calibration-target.json",
+          "requiredMarker": "CALIBRATION-CLOSED-001",
+          "completed": true,
+          "governingLivingDoc": "docs/living-doc-harness-calibration-closable.json",
+          "renderedHtml": "docs/living-doc-harness-calibration-closable.html"
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "rationale": "Defines the closure boundary for the calibration fixture. Every criterion is directly checkable from local files.",
+      "updated": "2026-05-07T12:35:00.000Z",
+      "data": [
+        {
+          "id": "criterion-target-json-completed",
+          "name": "Target JSON records completion",
+          "status": "satisfied",
+          "updated": "2026-05-07T12:35:00.000Z",
+          "objectiveTerm": "update tests/fixtures/harness-calibration-target.json so status becomes completed, completed becomes true, renderedMarker becomes CALIBRATION-CLOSED-001",
+          "criterion": "tests/fixtures/harness-calibration-target.json keeps calibrationId closable-001 and contains status completed, completed true, renderedMarker CALIBRATION-CLOSED-001, and an evidence entry that names this living doc.",
+          "proofRequired": "Read the target JSON after the headless run and verify the exact fields.",
+          "acceptanceTest": "node -e \"const f=require('./tests/fixtures/harness-calibration-target.json'); if(f.calibrationId!=='closable-001'||f.status!=='completed'||f.completed!==true||f.renderedMarker!=='CALIBRATION-CLOSED-001'||!f.evidence?.some(e=>e.livingDoc==='docs/living-doc-harness-calibration-closable.json')) process.exit(1)\"",
+          "currentProof": "Passed. The target JSON keeps calibrationId closable-001, has status completed, completed true, renderedMarker CALIBRATION-CLOSED-001, and has one evidence entry naming docs/living-doc-harness-calibration-closable.json as the governing living doc."
+        },
+        {
+          "id": "criterion-living-doc-rendered",
+          "name": "Living doc records and renders completion",
+          "status": "satisfied",
+          "updated": "2026-05-07T12:35:00.000Z",
+          "objectiveTerm": "update this living doc so its status snapshot and acceptance criteria record the completed state and render docs/living-doc-harness-calibration-closable.html",
+          "criterion": "This living doc records completed state in the status snapshot, the two acceptance criteria are marked satisfied, and docs/living-doc-harness-calibration-closable.html exists after rendering.",
+          "proofRequired": "Read this JSON and check that the rendered HTML exists.",
+          "acceptanceTest": "test -f docs/living-doc-harness-calibration-closable.html",
+          "currentProof": "Passed. This JSON records completed state in runState, status snapshot, and acceptance criteria, and docs/living-doc-harness-calibration-closable.html is rendered from this source."
+        }
+      ]
+    },
+    {
+      "id": "verification-checkpoints",
+      "title": "Verification Checkpoints",
+      "convergenceType": "verification-checkpoints",
+      "rationale": "Names the checks the operator should run before finalizing the harness iteration as closed.",
+      "updated": "2026-05-07T12:35:00.000Z",
+      "data": [
+        {
+          "id": "checkpoint-target-file",
+          "name": "Target file check",
+          "status": "completed",
+          "updated": "2026-05-07T12:35:00.000Z",
+          "check": "Verified the target JSON contains CALIBRATION-CLOSED-001 and completed true."
+        },
+        {
+          "id": "checkpoint-rendered-html",
+          "name": "Rendered HTML check",
+          "status": "completed",
+          "updated": "2026-05-07T12:35:00.000Z",
+          "check": "Verified docs/living-doc-harness-calibration-closable.html exists after rendering."
+        },
+        {
+          "id": "checkpoint-harness-finalization",
+          "name": "Harness finalization check",
+          "status": "completed",
+          "updated": "2026-05-07T12:35:00.000Z",
+          "check": "The run artifacts can classify closure from completed objective state, completed acceptance criteria, rendered HTML, and changed-file refs."
+        }
+      ]
+    }
+  ]
+}

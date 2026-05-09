@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Living Doc Harness Proof Dashboard Layer</title>
+<meta name="description" content="Static presentation of the proof, contract metadata, blocker, trace, and dashboard layer needed around an agentic living-doc harness." />
+<style>
+  :root {
+    --bg: #f5f2ec;
+    --paper: #fffdf8;
+    --ink: #1d2528;
+    --muted: #667176;
+    --line: #d8d0c4;
+    --soft: #eee7dc;
+    --green: #0c6b5e;
+    --green-bg: #edf8f2;
+    --blue: #285f8f;
+    --blue-bg: #edf4fb;
+    --amber: #946316;
+    --amber-bg: #fff7e6;
+    --red: #8d2f2f;
+    --red-bg: #fff1ef;
+    --violet: #62508c;
+    --violet-bg: #f4f1fb;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    width: min(1240px, calc(100% - 32px));
+    margin: 0 auto;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 253, 248, .92);
+    backdrop-filter: blur(12px);
+  }
+
+  .top {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 760;
+    text-decoration: none;
+  }
+
+  .mark {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  nav {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  nav a { text-decoration: none; }
+
+  main { padding: 50px 0 80px; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(330px, .92fr);
+    gap: 28px;
+    align-items: start;
+    margin-bottom: 28px;
+  }
+
+  .eyebrow {
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    max-width: 960px;
+    margin: 10px 0 16px;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .95;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 920px;
+    margin: 0;
+    color: #344044;
+    font-size: 21px;
+    line-height: 1.42;
+  }
+
+  .summary,
+  section,
+  .card,
+  .gate,
+  .bundle-card,
+  .trace-card,
+  .block-card,
+  .handover-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    box-shadow: 0 12px 32px rgba(31, 37, 40, .06);
+  }
+
+  .summary { padding: 18px; }
+
+  .summary h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+
+  .summary ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .summary li + li { margin-top: 8px; }
+
+  .strips {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin: 24px 0;
+  }
+
+  .strip {
+    min-height: 112px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fffaf2;
+    padding: 14px;
+  }
+
+  .strip span {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .strip strong {
+    display: block;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  section {
+    margin-top: 26px;
+    overflow: hidden;
+  }
+
+  .section-head {
+    padding: 19px 22px;
+    border-bottom: 1px solid var(--line);
+    background: #fbf7ef;
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .section-head p {
+    max-width: 1000px;
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .body { padding: 22px; }
+
+  .split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .triple {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .gate-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .gate {
+    min-height: 142px;
+    padding: 14px;
+    box-shadow: none;
+  }
+
+  .gate span {
+    display: inline-flex;
+    margin-bottom: 9px;
+    border-radius: 5px;
+    background: var(--soft);
+    padding: 3px 7px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gate strong,
+  .bundle-card strong,
+  .trace-card strong,
+  .block-card strong,
+  .handover-card strong,
+  .card h3 {
+    display: block;
+    margin: 0 0 7px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .gate p,
+  .bundle-card p,
+  .trace-card p,
+  .block-card p,
+  .handover-card p,
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .bundle-grid,
+  .trace-grid,
+  .block-grid,
+  .handover-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .bundle-card,
+  .trace-card,
+  .block-card,
+  .handover-card,
+  .card {
+    padding: 15px;
+    box-shadow: none;
+  }
+
+  .green { background: var(--green-bg); border-color: #b9d8cf; }
+  .blue { background: var(--blue-bg); border-color: #bfd3e4; }
+  .amber { background: var(--amber-bg); border-color: #ead19a; }
+  .red { background: var(--red-bg); border-color: #e2beb9; }
+  .violet { background: var(--violet-bg); border-color: #d6cfe6; }
+
+  .rule {
+    margin: 0;
+    padding: 18px 20px;
+    border-left: 5px solid var(--green);
+    border-radius: 8px;
+    background: var(--green-bg);
+    color: #263236;
+    font-size: 20px;
+    line-height: 1.38;
+  }
+
+  .pseudo {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #263236;
+    color: #f7f2ea;
+    overflow: auto;
+  }
+
+  pre {
+    margin: 0;
+    padding: 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: .92em;
+    background: var(--soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  .path {
+    color: #263236;
+    font-family: var(--mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .matrix {
+    display: grid;
+    gap: 10px;
+  }
+
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 170px 1fr 1.2fr 1fr;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .matrix-row.header {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .cell {
+    padding: 13px 14px;
+    border-right: 1px solid var(--line);
+  }
+
+  .header .cell { border-color: rgba(255,255,255,.16); }
+  .cell:last-child { border-right: 0; }
+  .cell p { margin: 0; color: var(--muted); font-size: 14px; }
+  .header .cell p { color: var(--paper); }
+
+  footer {
+    padding: 0 0 40px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 1080px) {
+    .hero,
+    .split,
+    .triple,
+    .gate-grid,
+    .bundle-grid,
+    .trace-grid,
+    .block-grid,
+    .handover-grid,
+    .strips,
+    .matrix-row {
+      grid-template-columns: 1fr;
+    }
+
+    .matrix-row.header { display: none; }
+    .cell { border-right: 0; border-bottom: 1px solid var(--line); }
+    .cell:last-child { border-bottom: 0; }
+  }
+
+  @media (max-width: 620px) {
+    nav { display: none; }
+    .lede { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./index.html">
+        <span class="mark">LD</span>
+        <span>Living Doc Compositor</span>
+      </a>
+      <nav aria-label="Page navigation">
+        <a href="#pattern">Pattern</a>
+        <a href="#contract">Contract</a>
+        <a href="#negotiation">Stop Layer</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#blockers">Blockers</a>
+        <a href="#trace">Trace</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">Proof harness / dashboard handoff</div>
+        <h1>Proof Layer for the Living Doc Harness</h1>
+        <p class="lede">
+          The agentic harness should not only loop Codex and repair skills. It needs a proof layer: frozen run contracts, state events, sanitized evidence bundles, true blocker semantics, traceable inference logs, and a separate stop-negotiation layer that diagnoses why a run really stopped.
+        </p>
+      </div>
+      <aside class="summary">
+        <h2>Transferred from TrackAndBack</h2>
+        <ul>
+          <li>Freeze a run contract before execution starts.</li>
+          <li>Record state transitions as append-only events.</li>
+          <li>Write sanitized evidence bundles for every terminal state.</li>
+          <li>Treat worker stops as raw evidence, not trusted self-report.</li>
+          <li>Show gates, blockers, layers, and trace links in a dashboard.</li>
+        </ul>
+      </aside>
+    </div>
+
+    <div class="strips" aria-label="Proof layer pillars">
+      <div class="strip"><span>01</span><strong>frozen contract</strong></div>
+      <div class="strip"><span>02</span><strong>state and events</strong></div>
+      <div class="strip"><span>03</span><strong>governance verdict</strong></div>
+      <div class="strip"><span>04</span><strong>sanitized evidence</strong></div>
+      <div class="strip"><span>05</span><strong>dashboard traceability</strong></div>
+    </div>
+
+    <section id="pattern">
+      <div class="section-head">
+        <h2>The Reference Pattern</h2>
+        <p>TrackAndBack already uses a mature version of this idea. The worker does not trust the final model response. It records a run contract, proof state, replay evidence, governance verdict, and dashboard-visible gates.</p>
+      </div>
+      <div class="body">
+        <div class="triple">
+          <div class="card green">
+            <h3>Run directory</h3>
+            <p><code>contract.json</code>, <code>state.json</code>, and <code>events.jsonl</code> make the run resumable and inspectable outside chat history.</p>
+          </div>
+          <div class="card blue">
+            <h3>Evidence bundle</h3>
+            <p>Hashes and summaries preserve proof without exposing raw private material, local paths, secrets, or raw logs.</p>
+          </div>
+          <div class="card amber">
+            <h3>Dashboard gates</h3>
+            <p>The dashboard derives Record, Source, Proof, Result, Replay, Governance, Evidence, and Blocker posture from files.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contract">
+      <div class="section-head">
+        <h2>Living Doc Harness Contract</h2>
+        <p>The living-doc equivalent should freeze the objective and acceptance surface before each headless run, then record what the model and repair skills changed.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="pseudo" aria-label="Living doc run directory shape">
+<pre>.living-doc-runs/&lt;run-id&gt;/
+  contract.json
+  state.json
+  events.jsonl
+  skill-invocations.jsonl
+  codex-turns/
+    turn-001.jsonl
+    turn-002.jsonl
+  artifacts/
+    living-doc.before.json
+    living-doc.after.json
+    rendered.html
+    proof-results.json
+
+evidence/living-doc-harness/&lt;run-id&gt;/
+  bundle.json
+  summary.md</pre>
+          </div>
+          <div>
+            <blockquote class="rule">
+              The contract is the durable handoff between inference attempts. If Codex stops, the next action must come from the contract, state, evidence, and skill verdict, not from vague memory of the session.
+            </blockquote>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="negotiation">
+      <div class="section-head">
+        <h2>Stop-Negotiation Inference Layer</h2>
+        <p>The living-doc domain is more open than a parser proof factory. The real reason a model stopped is often implicit in the trace, not stated correctly in the final message.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div>
+            <blockquote class="rule">
+              Do not prompt the worker to produce perfect stop reasons. Let the worker run naturally, then let a separate inference layer diagnose the stop from evidence.
+            </blockquote>
+          </div>
+          <div class="pseudo" aria-label="Stop negotiation layer flow">
+<pre>worker_result = run_codex_headless(contract)
+
+stop_evidence = collect(
+  final_message,
+  native_trace,
+  tool_calls,
+  edits,
+  proof_results,
+  living_doc_before_after
+)
+
+stop_verdict = analyze_stop(stop_evidence)
+
+route(stop_verdict):
+  true_block       -> write_blocker
+  repairable       -> invoke_skill_bundle
+  premature_handoff -> resume_with_delta
+  closure_candidate -> closure_audit
+  proof_failure    -> proof_repair_or_block
+  budget_exhausted -> record_remaining_false_terms</pre>
+          </div>
+        </div>
+
+        <div class="bundle-grid" style="margin-top:14px;">
+          <div class="bundle-card green">
+            <strong>Worker role</strong>
+            <p>Execute against the objective. Keep working while a valid next action exists. Do not optimize for explaining why it stopped.</p>
+          </div>
+          <div class="bundle-card blue">
+            <strong>Stop layer role</strong>
+            <p>Read the trace and classify the real stop condition after the run. The final assistant message is only one evidence source.</p>
+          </div>
+          <div class="bundle-card amber">
+            <strong>Dashboard role</strong>
+            <p>Expose the diagnosis, confidence, evidence links, recommended skill, blocker status, and resume recommendation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Why Not Prompt For Clear Stops?</h2>
+        <p>Clear stop prompting sounds useful, but it can create permission to stop too early. The harness should inspect behavior rather than trust self-classification.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="card red">
+            <h3>Risky prompt pressure</h3>
+            <p>If the worker is asked to stop cleanly whenever uncertain, it may convert ordinary reasoning difficulty into a user handoff. That makes the harness polite but weak.</p>
+          </div>
+          <div class="card green">
+            <h3>Better separation</h3>
+            <p>The worker gets an execution prompt. The stop-negotiation layer gets the diagnostic prompt. The system keeps action and diagnosis separate.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Proof Gates</h2>
+        <p>The dashboard should make the living-doc run legible as gates. Each gate can be done, pending, blocked, residual, or failed.</p>
+      </div>
+      <div class="body">
+        <div class="gate-grid">
+          <div class="gate green"><span>01</span><strong>Objective</strong><p>Objective exists, is stable, and has accountable terms.</p></div>
+          <div class="gate blue"><span>02</span><strong>Acceptance</strong><p>Criteria are tied to objective terms and name proof.</p></div>
+          <div class="gate amber"><span>03</span><strong>Stage</strong><p>The current living-doc stage is known and transition is valid.</p></div>
+          <div class="gate violet"><span>04</span><strong>Source</strong><p>Required files, issues, tools, registry, MCP, or external sources are available.</p></div>
+          <div class="gate red"><span>05</span><strong>Stop</strong><p>Stop reason is classified as repairable, blocked, closure candidate, or budget exhausted.</p></div>
+          <div class="gate green"><span>06</span><strong>Skill repair</strong><p>Skill invocation produced a concrete verdict and patch or blocker.</p></div>
+          <div class="gate blue"><span>07</span><strong>Proof</strong><p>Commands, artifacts, source state, and rendered doc prove or disprove the claim.</p></div>
+          <div class="gate amber"><span>08</span><strong>Closure</strong><p>Completion is accepted only when objective terms are conserved.</p></div>
+          <div class="gate violet"><span>09</span><strong>Evidence</strong><p>Bundle and summary are written with privacy checks.</p></div>
+          <div class="gate red"><span>10</span><strong>Trace</strong><p>Native inference logs are available locally and summarized safely.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <div class="section-head">
+        <h2>Dashboard Surface</h2>
+        <p>The dashboard is not just reporting. It is the operator view of the harness contract: where the objective stands, why the run stopped, what skill ran, and whether proof is clean enough to resume or close.</p>
+      </div>
+      <div class="body">
+        <div class="bundle-grid">
+          <div class="bundle-card green">
+            <strong>Run board</strong>
+            <p>List living-doc harness runs by objective, stage, stop reason, terminal state, updated time, and active blocker.</p>
+          </div>
+          <div class="bundle-card blue">
+            <strong>Gate strip</strong>
+            <p>Show objective, acceptance, source, skill repair, proof, closure, evidence, and trace status as executable gates.</p>
+          </div>
+          <div class="bundle-card amber">
+            <strong>Evidence drawer</strong>
+            <p>Expose sanitized bundle path, artifact hashes, proof commands, rendered doc path, and privacy flags.</p>
+          </div>
+          <div class="bundle-card violet">
+            <strong>Skill timeline</strong>
+            <p>Show which skill ran after which stop, its verdict, patch summary, and whether it resumed, blocked, or pivoted.</p>
+          </div>
+          <div class="bundle-card red">
+            <strong>Blocker queue</strong>
+            <p>Separate true blockers from repairable stops, with reason codes, owner layer, required user decision, and issue links.</p>
+          </div>
+          <div class="bundle-card green">
+            <strong>Trace viewer</strong>
+            <p>Open sanitized trace summaries and local native session log references when a stop or closure claim needs inspection.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="blockers">
+      <div class="section-head">
+        <h2>True Block Mode</h2>
+        <p>A true block is not a failed loop. It is a controlled terminal state that protects the objective from false progress.</p>
+      </div>
+      <div class="body">
+        <div class="matrix">
+          <div class="matrix-row header">
+            <div class="cell">Block type</div>
+            <div class="cell">Signal</div>
+            <div class="cell">Harness action</div>
+            <div class="cell">Dashboard output</div>
+          </div>
+          <div class="matrix-row">
+            <div class="cell"><strong>source unavailable</strong></div>
+            <div class="cell"><p>Required repo, file, issue, MCP tool, or external source cannot be accessed.</p></div>
+            <div class="cell"><p>Stop, write blocker, avoid speculative repair.</p></div>
+            <div class="cell"><p>Reason code, missing source, required authority, issue link.</p></div>
+          </div>
+          <div class="matrix-row">
+            <div class="cell"><strong>objective undecidable</strong></div>
+            <div class="cell"><p>Objective cannot be made accountable from available context.</p></div>
+            <div class="cell"><p>Run shaping skill, then block for user decision if still ambiguous.</p></div>
+            <div class="cell"><p>Open questions, proposed objective alternatives, decision needed.</p></div>
+          </div>
+          <div class="matrix-row">
+            <div class="cell"><strong>proof authority missing</strong></div>
+            <div class="cell"><p>No command, artifact, API, or source-system check can prove the acceptance criterion.</p></div>
+            <div class="cell"><p>Record proof-surface blocker and do not claim closure.</p></div>
+            <div class="cell"><p>Gate failure, required proof surface, owning layer.</p></div>
+          </div>
+          <div class="matrix-row">
+            <div class="cell"><strong>premature handoff</strong></div>
+            <div class="cell"><p>The worker asks the user to decide, but the trace shows available structure, tools, or skills could continue.</p></div>
+            <div class="cell"><p>Classify as repairable or resumable; generate a narrow resume delta instead of blocking.</p></div>
+            <div class="cell"><p>Stop verdict, evidence lines, recommended skill or next action.</p></div>
+          </div>
+          <div class="matrix-row">
+            <div class="cell"><strong>privacy boundary</strong></div>
+            <div class="cell"><p>Trace or source contains raw private material that cannot be exposed in shared evidence.</p></div>
+            <div class="cell"><p>Keep raw locally, write sanitized bundle and hash references.</p></div>
+            <div class="cell"><p>Privacy flags, excluded artifact hashes, safe summary.</p></div>
+          </div>
+          <div class="matrix-row">
+            <div class="cell"><strong>platform gap</strong></div>
+            <div class="cell"><p>The current tools or runtime cannot express the needed operation.</p></div>
+            <div class="cell"><p>Create blocker issue and stop; do not bury platform work inside the same run.</p></div>
+            <div class="cell"><p>Layer hypothesis, failing trace, acceptance criteria for unblock.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="trace">
+      <div class="section-head">
+        <h2>Inference Traceability</h2>
+        <p>The wrapper log is not enough. The harness needs native Codex turn logs and skill invocation logs so a dashboard can inspect why the model stopped, what it tried, and whether the repair was justified.</p>
+      </div>
+      <div class="body">
+        <div class="trace-grid">
+          <div class="trace-card green">
+            <strong>Native turn logs</strong>
+            <p>Store full local <code>.jsonl</code> event streams for each Codex headless attempt. Keep them local by default.</p>
+          </div>
+          <div class="trace-card blue">
+            <strong>Sanitized summaries</strong>
+            <p>Extract stop reason, commands run, tool failures, closure claims, and final proposal without raw private payloads.</p>
+          </div>
+          <div class="trace-card amber">
+            <strong>Trace-to-skill link</strong>
+            <p>Each skill invocation should point to the stop event that caused it and the patch or blocker it produced.</p>
+          </div>
+          <div class="trace-card violet">
+            <strong>Evidence hashes</strong>
+            <p>Hash logs, rendered docs, contracts, state, and artifacts so the dashboard can prove what it summarized.</p>
+          </div>
+          <div class="trace-card red">
+            <strong>Inspection route</strong>
+            <p>When a run blocks or hands off prematurely, the dashboard should tell the operator which trace segment to inspect, not just show the final message.</p>
+          </div>
+          <div class="trace-card green">
+            <strong>Closure replay</strong>
+            <p>A closure verdict should be reproducible from the living doc, evidence bundle, proof commands, and trace summary.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Metadata Handovers</h2>
+        <p>Every loop boundary should write a compact handover object. This lets the next inference attempt resume from proof state instead of chat memory.</p>
+      </div>
+      <div class="body">
+        <div class="handover-grid">
+          <div class="handover-card">
+            <strong>Run handover</strong>
+            <p class="path">run_id, objective_hash, living_doc_path, stage, current_acceptance_status, source_refs</p>
+          </div>
+          <div class="handover-card">
+            <strong>Stop handover</strong>
+            <p class="path">claimed_stop, inferred_stop_type, confidence, reason_code, turn_log_ref, final_message_hash, attempted_actions</p>
+          </div>
+          <div class="handover-card">
+            <strong>Stop-negotiation handover</strong>
+            <p class="path">verdict, evidence_refs, recommended_skill, resume_prompt_delta, requires_user_decision</p>
+          </div>
+          <div class="handover-card">
+            <strong>Skill handover</strong>
+            <p class="path">skill_name, input_stage, verdict, patch_ref, blocker_ref, resume_recommendation</p>
+          </div>
+          <div class="handover-card">
+            <strong>Proof handover</strong>
+            <p class="path">commands, exit_codes, artifacts, rendered_doc_hash, acceptance_gate_results</p>
+          </div>
+          <div class="handover-card">
+            <strong>Blocker handover</strong>
+            <p class="path">stage, reason_code, owning_layer, required_decision, issue_url, acceptance_to_unblock</p>
+          </div>
+          <div class="handover-card">
+            <strong>Resume handover</strong>
+            <p class="path">next_action, required_context_bundle, unresolved_false_terms, budget_remaining</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Resulting Architecture</h2>
+        <p>The living-doc harness becomes a governed proof loop, not just an agent loop.</p>
+      </div>
+      <div class="body">
+        <div class="split">
+          <div class="card red">
+            <h3>Without proof layer</h3>
+            <p>Codex runs, stops, summarizes, and waits. The user must infer whether the stop was ambiguity, blocker, proof failure, or premature closure.</p>
+          </div>
+          <div class="card green">
+            <h3>With proof layer</h3>
+            <p>The harness records why it stopped, which skill repaired it, what evidence changed, whether closure is valid, and what the dashboard should inspect.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    Static proof layer page. Companion to
+    <a href="./living-doc-agentic-harness-loop.html">Living Doc Agentic Harness Loop</a> and
+    <a href="./living-doc-stage-skill-matrix.html">Living Doc Stage Skill Matrix</a>.
+  </footer>
+</body>
+</html>
