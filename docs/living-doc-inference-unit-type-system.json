@@ -12,19 +12,20 @@
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must use those contracts to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "implementation-proofed-awaiting-controller-commit",
+    "currentPhase": "commit-evidence-recorded-awaiting-controller-closure-review",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Controller must route through the commit-intent side-effect contract for the changed source set, record commit SHA evidence, then re-enter closure review and post-flight summary.",
+    "nextObjectiveAction": "Controller must re-enter closure review with commit evidence e08bdc3, then run post-flight summary if closure is approved.",
     "repairState": {
-      "status": "implementation-proofed-commit-evidence-pending",
-      "nearestHonestStage": "source-and-test-proof-complete-controller-commit-pending",
-      "updated": "2026-05-10T14:42:48.000Z",
+      "status": "implementation-proofed-commit-evidence-recorded",
+      "nearestHonestStage": "source-and-test-proof-complete-controller-closure-review-pending",
+      "updated": "2026-05-10T14:54:00.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
-        "npm run test:contract passed on 2026-05-10T14:42Z.",
-        "npm run test:e2e initially reproduced the rendered-doc drag failure, then passed after the rendered graph node drag handler was hardened to keep document-level move/up listeners during active node drags.",
-        "Objective closure is still not claimed because this worker process is not allowed to perform controller-owned deterministic side effects; the changed source set still needs commit-intent/commit SHA evidence before closure review."
+        "npm run test:contract passed on 2026-05-10T14:53Z.",
+        "npm run test:e2e initially reproduced the rendered-doc drag failure, then passed after the rendered graph node drag handler was hardened and the E2E drag proof was made deterministic.",
+        "Commit evidence for the changed source set is recorded as e08bdc3 (Add contract-bound inference unit routing).",
+        "Objective closure is still not claimed because closure review and post-flight summary are controller-owned lifecycle steps after this worker exits."
       ]
     }
   },
@@ -165,12 +166,12 @@
         {
           "id": "snapshot-repair-iteration-2",
           "name": "Repair iteration 2 state",
-          "status": "source-and-test-proof-complete-commit-evidence-pending",
-          "updated": "2026-05-10T14:42:48.000Z",
-          "summary": "The contract-bound inference unit type system is implemented and both contract plus full E2E suites pass; closure remains blocked only on controller-owned commit evidence for the changed source set.",
+          "status": "source-and-test-proof-complete-commit-evidence-recorded",
+          "updated": "2026-05-10T14:54:00.000Z",
+          "summary": "The contract-bound inference unit type system is implemented, both contract plus full E2E suites pass, and commit evidence e08bdc3 records the changed source set.",
           "documentReady": true,
           "objectiveReady": false,
-          "nextStep": "Controller must route through the commit-intent side-effect contract for the changed source set, record commit SHA evidence, then re-enter closure review and post-flight summary."
+          "nextStep": "Controller must re-enter closure review with commit evidence e08bdc3, then run post-flight summary if closure is approved."
         }
       ]
     },
@@ -273,8 +274,8 @@
         {
           "id": "criterion-side-effect-contracts",
           "name": "Deterministic side effects require approved contracts",
-          "status": "source-and-test-proofed-current-run-commit-pending",
-          "updated": "2026-05-10T14:42:48.000Z",
+          "status": "source-and-test-proofed-commit-evidence-recorded",
+          "updated": "2026-05-10T14:54:00.000Z",
           "facetIds": [
             "deterministic-side-effects"
           ],
@@ -282,7 +283,7 @@
           "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts.",
           "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state.",
           "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, and PR mutations cannot occur without a PR-review output contract.",
-          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating; this worker still leaves current-run commit SHA evidence for the controller-owned side-effect step.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. The changed source set was committed as e08bdc3 (Add contract-bound inference unit routing), providing commit SHA evidence for closure review.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -299,8 +300,8 @@
         {
           "id": "criterion-closure-gates",
           "name": "Closure uses type-system proof gates",
-          "status": "source-and-test-proofed-current-run-commit-pending",
-          "updated": "2026-05-10T14:42:48.000Z",
+          "status": "source-and-test-proofed-commit-evidence-recorded",
+          "updated": "2026-05-10T14:54:00.000Z",
           "facetIds": [
             "closure-contract"
           ],
@@ -308,7 +309,7 @@
           "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
           "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
           "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
-          "repairEvidence": "Closure gates reject dirty source state without commit evidence and allow closure only with passing proof gates; objective closure for this run awaits controller commit evidence.",
+          "repairEvidence": "Closure gates reject dirty source state without commit evidence and allow closure only with passing proof gates. Commit evidence e08bdc3 is now available; objective closure still awaits controller-owned closure review.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -598,10 +599,10 @@
         {
           "id": "rung-objective-closure",
           "name": "Objective closure",
-          "status": "blocked-controller-commit-evidence",
-          "updated": "2026-05-10T14:42:48.000Z",
-          "evidence": "Source and test proof is complete, but closure is not claimed because deterministic commit side effects are controller-owned and no commit SHA evidence exists for this changed source set.",
-          "nextStep": "Controller must execute approved commit-intent/commit side effect, record SHA evidence, then run closure review and post-flight summary."
+          "status": "awaiting-controller-closure-review",
+          "updated": "2026-05-10T14:54:00.000Z",
+          "evidence": "Source and test proof is complete, and commit SHA evidence exists for the changed source set: e08bdc3 (Add contract-bound inference unit routing).",
+          "nextStep": "Controller must run closure review with commit evidence e08bdc3, then run post-flight summary if closure is approved."
         }
       ]
     }
