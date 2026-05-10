@@ -170,11 +170,15 @@
 
       <p>But there was still a leak in the lifecycle: the handoff.</p>
 
-      <p>When a session stopped, I was still the one deciding what happened next. I read the last message. I checked whether the proof was real or only closure-shaped. I decided whether the next move should be another worker run, a repair skill, a balance scan, a blocker issue, or a closure review. Then I typed the next instruction.</p>
+      <p>When a session stopped, I was still the one deciding what happened next. I read the last message. I checked whether the proof was real or only closure-shaped: it looked finished, but did not actually prove the objective. I decided whether the next move should be another worker run, a repair skill, a balance scan, a blocker issue, or a closure review. Then I typed the next instruction.</p>
 
       <p>That is fine for exploration. It is not enough for the system we are trying to build.</p>
 
-      <p>I use "substrate" to mean the shared surface that work happens on, not a report produced after the work is finished. The standalone lifecycle harness moves the handoff into the system: it starts bounded model runs, captures their logs and artifacts, asks other runs to review what happened, and writes the next input contract. For that to work, every unit needs to operate over the same conserved state. The living doc is that conserved state.</p>
+      <p>I use "substrate" to mean the shared surface that work happens on, not a report produced after the work is finished.</p>
+
+      <p>The standalone lifecycle harness moves the handoff into the system. Here, harness means the process around the model call. It starts a bounded model run, captures raw logs and artifacts, asks another run to review what happened, and writes the next input contract.</p>
+
+      <p>In this project, each bounded model run is an inference unit. A unit has a role: worker, reviewer, balance scan, repair skill, closure review, or post-flight summary. For that to work, every unit needs to operate over the same conserved state. The living doc is that conserved state.</p>
 
       <div class="terms-box" aria-label="Terms used in this note">
         <h2>Terms used in this note</h2>
@@ -202,12 +206,13 @@
         </dl>
       </div>
 
-      <p>Earlier notes in this series explain the parts around this idea: a registry gives the document shared terms, governance makes claims testable, repair skills fix drift, and acceptance criteria tell Codex what "done" means. This note focuses on the next problem: what happens when the model run stops.</p>
+      <p>Earlier notes in this series describe the surrounding machinery: shared terms, testable claims, repair paths, and acceptance criteria. This note focuses on the next problem: what happens when the model run stops.</p>
 
       <p>The controller around the inference units has a small rule. If the objective is proven, it may close. If the user explicitly stops it, it may stop. Everything else becomes the next contract-bound inference unit. A repairable state is not closure. A blocker issue is not closure. A failed proof path is not closure. A runtime limitation is not closure.</p>
 
+      <h2>The concrete case</h2>
+
       <div class="source-card">
-        <strong>The concrete case</strong>
         <p>The current example is a dashboard run about <code>commitIntent</code> evidence. In plain terms, the goal was to show when a repair unit changed the living doc, prove that the dashboard data came from artifacts, and prove that the lifecycle loop stopped only when the objective was closed or the user explicitly stopped it.</p>
         <p>The run is captured in <code>docs/living-doc-harness-commit-intent-dashboard.json</code>.</p>
       </div>
@@ -226,7 +231,7 @@
 
       <h2>Read the run graph</h2>
 
-      <p>Read the graph as a lifecycle, not as an architecture diagram. Each card is either a model run or a lifecycle object. Each arrow is a handoff.</p>
+      <p>Read the graph as a lifecycle trace, not as a static architecture diagram. Each card is either a model run or a lifecycle object. Each arrow is a handoff.</p>
 
       <p>The dashboard graph is not a picture drawn after the work. It is a projection of lifecycle artifacts. The labels on the arrows are the control decisions that moved the run forward.</p>
 
@@ -256,11 +261,9 @@
 
       <h2>Why this is substrate</h2>
 
-      <p>Substrate is the right word because the living doc is the surface every unit can re-enter. The worker reads the objective and changes the system. The reviewer reads the raw JSONL log and the document state. The balance scan reads imbalance. A repair skill changes the doc, proof, issue state, or relationship surface. The closure review checks whether the objective and acceptance criteria are actually conserved.</p>
+      <p>Substrate is the right word because the living doc is the surface every unit can re-enter. A report is read after the work. A substrate is used during the work. The worker reads the objective and changes the system. The reviewer reads the raw JSONL log and the document state. The balance scan reads imbalance. A repair skill changes the doc, proof, issue state, or relationship surface. The closure review checks whether the objective and acceptance criteria are actually conserved.</p>
 
       <div class="contrast-lines">
-        <p>A report is read after the work.</p>
-        <p>A substrate is used during the work.</p>
         <p>A report explains a completed path.</p>
         <p>A substrate helps choose the next path.</p>
       </div>
