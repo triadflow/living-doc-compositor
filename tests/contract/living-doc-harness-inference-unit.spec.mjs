@@ -28,6 +28,10 @@ import { writeFileSync } from 'node:fs';
 const args = process.argv.slice(2);
 const outputPath = args[args.indexOf('-o') + 1];
 const inspectedPath = ${JSON.stringify(inspectedPath)};
+const hasIgnoreUserConfig = args.includes('--ignore-user-config');
+const sandboxIndex = args.indexOf('--sandbox');
+const sandboxMode = sandboxIndex >= 0 ? args[sandboxIndex + 1] : null;
+const hasLocalMcpOverride = args.some((arg) => arg.includes('mcp_servers.living_doc_compositor.command'));
 
 process.stdin.resume();
 process.stdin.on('end', () => {
@@ -43,9 +47,19 @@ process.stdin.on('end', () => {
   }));
   setTimeout(() => {
     writeFileSync(outputPath, JSON.stringify({
-      status: 'no-op',
+      status: 'blocked',
       basis: ['fake codex inspected the required evidence path before exit'],
-      outputContract: { schema: 'fake/v1', ok: true },
+      outputContract: {
+        schema: 'living-doc-harness-closure-review/v1',
+        approved: false,
+        reasonCode: 'fake-streaming-proof',
+        confidence: 'high',
+        basis: ['fake codex inspected the required evidence path before exit'],
+        terminalAllowed: false,
+        hasIgnoreUserConfig,
+        sandboxMode,
+        hasLocalMcpOverride,
+      },
     }, null, 2));
     console.log(JSON.stringify({ type: 'turn.completed' }));
   }, 500);
@@ -54,16 +68,19 @@ process.stdin.on('end', () => {
   await chmod(fakeCodex, 0o755);
 
   const runDir = path.join(tmp, 'run');
-  const eventsPath = path.join(runDir, 'inference-units', 'iteration-1', '01-streaming-unit', 'codex-events.jsonl');
+  const eventsPath = path.join(runDir, 'inference-units', 'iteration-1', '01-closure-review', 'codex-events.jsonl');
   let settled = false;
   const resultPromise = runContractBoundInferenceUnit({
     runDir,
-    unitId: 'streaming-unit',
-    role: 'repair-skill',
+    unitId: 'closure-review',
+    role: 'closure-review',
     prompt: 'Inspect the required path and return JSON.',
     inputContract: {
-      schema: 'test/v1',
+      schema: 'living-doc-harness-closure-review-input/v1',
       requiredInspectionPaths: [inspectedPath],
+    },
+    outputContract: {
+      schema: 'living-doc-harness-closure-review/v1',
     },
     execute: true,
     codexBin: fakeCodex,
@@ -87,7 +104,13 @@ process.stdin.on('end', () => {
   const result = await resultPromise;
   assert.equal(result.validation.ok, true);
   assert.equal(result.result.mode, 'headless-codex');
-  assert.equal(result.result.status, 'no-op');
+  assert.equal(result.result.status, 'blocked');
+  assert.equal(result.result.outputContract.hasIgnoreUserConfig, true);
+  assert.equal(result.result.outputContract.sandboxMode, 'danger-full-access');
+  assert.equal(result.result.outputContract.hasLocalMcpOverride, true);
+  assert.equal(result.result.toolProfile.name, 'local-harness');
+  assert.equal(result.result.toolProfile.sandboxMode, 'danger-full-access');
+  assert.deepEqual(result.result.toolProfile.mcpAllowlist, ['living_doc_compositor']);
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

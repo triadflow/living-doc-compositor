@@ -19,6 +19,7 @@ const CLASSIFICATIONS = new Set([
   'repairable',
   'closure-candidate',
   'closed',
+  'user-stopped',
   'true-block',
   'pivot',
   'deferred',
@@ -27,8 +28,8 @@ const CLASSIFICATIONS = new Set([
 
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 const GATE_STATUS = new Set(['pass', 'fail', 'warn', 'pending', 'not-applicable']);
-const NEXT_MODES = new Set(['resume', 'repair', 'close', 'block', 'pivot', 'defer', 'stop-budget', 'none']);
-const TERMINAL_CLASSIFICATIONS = new Set(['closed', 'true-block', 'pivot', 'deferred', 'budget-exhausted']);
+const NEXT_MODES = new Set(['resume', 'repair', 'continuation', 'close', 'user-stop', 'none']);
+const TERMINAL_CLASSIFICATIONS = new Set(['closed', 'user-stopped']);
 
 let _schema = null;
 export async function loadHarnessContractSchema() {
@@ -206,7 +207,7 @@ function validateNextIteration(contract, violations) {
 function validateTerminal(contract, violations) {
   const classification = contract.stopVerdict?.classification;
   if (!TERMINAL_CLASSIFICATIONS.has(classification)) return;
-  if (classification === 'closed') return;
+  if (classification === 'closed' || classification === 'user-stopped') return;
 
   const terminal = requireObject(contract, 'terminal', '$', violations);
   if (!terminal) return;
@@ -271,12 +272,25 @@ function validateSemanticRules(contract, violations, warnings, summary) {
     }
   }
 
-  if (TERMINAL_CLASSIFICATIONS.has(classification) && classification !== 'closed') {
-    if (next.allowed !== false) {
-      push(violations, { path: '$.nextIteration.allowed', rule: 'terminal-contract', message: `${classification} contracts must stop iteration until an explicit outside decision changes state` });
+  if (classification === 'user-stopped') {
+    if (next.allowed !== false || next.mode !== 'user-stop') {
+      push(violations, { path: '$.nextIteration', rule: 'user-stop-contract', message: 'user-stopped contracts must stop with allowed=false and mode="user-stop"' });
     }
     if (gates.closureAllowed === true) {
-      push(violations, { path: '$.proofGates.closureAllowed', rule: 'terminal-contract', message: `${classification} is terminal but not closed` });
+      push(violations, { path: '$.proofGates.closureAllowed', rule: 'user-stop-contract', message: 'user-stopped is not objective closure' });
+    }
+    return;
+  }
+
+  if (classification && classification !== 'closed') {
+    if (next.allowed !== true) {
+      push(violations, { path: '$.nextIteration.allowed', rule: 'continuation-contract', message: `${classification} contracts must continue until objective closure or explicit user stop` });
+    }
+    if (next.mode === 'none' || next.mode === 'user-stop') {
+      push(violations, { path: '$.nextIteration.mode', rule: 'continuation-contract', message: `${classification} cannot use a terminal nextIteration mode` });
+    }
+    if (gates.closureAllowed === true) {
+      push(violations, { path: '$.proofGates.closureAllowed', rule: 'continuation-contract', message: `${classification} is not objective closure` });
     }
   }
 

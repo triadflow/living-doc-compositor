@@ -1,0 +1,609 @@
+{
+  "docId": "doc:living-doc-inference-unit-type-system",
+  "title": "Contract-Bound Inference Unit Type System",
+  "subtitle": "Make the standalone harness route work from explicit inference unit contracts.",
+  "brand": "LD",
+  "scope": "Standalone living-doc harness inference unit type registry, run config, routing contracts, deterministic side effects, dashboard observability, commit discipline, PR review, and post-flight summaries.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
+  "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
+  "updated": "2026-05-10T14:42:48.000Z",
+  "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must use those contracts to route work until the living doc objective is proven or the user explicitly stops the run.",
+  "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
+  "runState": {
+    "currentPhase": "implementation-proofed-awaiting-controller-commit",
+    "documentReady": true,
+    "objectiveReady": false,
+    "nextObjectiveAction": "Controller must route through the commit-intent side-effect contract for the changed source set, record commit SHA evidence, then re-enter closure review and post-flight summary.",
+    "repairState": {
+      "status": "implementation-proofed-commit-evidence-pending",
+      "nearestHonestStage": "source-and-test-proof-complete-controller-commit-pending",
+      "updated": "2026-05-10T14:42:48.000Z",
+      "basis": [
+        "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
+        "npm run test:contract passed on 2026-05-10T14:42Z.",
+        "npm run test:e2e initially reproduced the rendered-doc drag failure, then passed after the rendered graph node drag handler was hardened to keep document-level move/up listeners during active node drags.",
+        "Objective closure is still not claimed because this worker process is not allowed to perform controller-owned deterministic side effects; the changed source set still needs commit-intent/commit SHA evidence before closure review."
+      ]
+    }
+  },
+  "objectiveFacets": [
+    {
+      "id": "type-registry",
+      "name": "Inference unit type registry",
+      "description": "Registered unit types are the source of truth for invocation shape, contracts, prompts, evidence, verdicts, allowed next units, side effects, dashboard rendering, and closure implications."
+    },
+    {
+      "id": "run-allowed-types",
+      "name": "Run-scoped allowed unit types",
+      "description": "Each standalone lifecycle declares which registered unit types it may use so routing is powerful but bounded."
+    },
+    {
+      "id": "contract-bound-invocation",
+      "name": "Contract-bound invocation",
+      "description": "Every unit starts from a typed input contract and prompt contract rather than ambient controller assumptions."
+    },
+    {
+      "id": "validated-routing",
+      "name": "Validated routing",
+      "description": "Decision units can only select next unit types from their allowed contract set, and invalid selections become durable continuation or blocker evidence."
+    },
+    {
+      "id": "deterministic-side-effects",
+      "name": "Deterministic side effects",
+      "description": "Git commits and GitHub PR operations are performed by the controller only from approved inference output contracts."
+    },
+    {
+      "id": "closure-contract",
+      "name": "Closure contract",
+      "description": "Closure requires passing proof gates, valid source state, side-effect evidence when needed, and no unresolved objective terms or unproven acceptance criteria."
+    },
+    {
+      "id": "dashboard-observability",
+      "name": "Dashboard observability",
+      "description": "The dashboard and run narrative show unit type, allowed set, selected next unit, validation status, side effects, contracts, and handoff arrows from lifecycle artifacts."
+    },
+    {
+      "id": "post-flight-summary",
+      "name": "Post-flight summary",
+      "description": "A post-flight unit can explain a closed run from artifacts without changing closure."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "type-registry",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-type-registry"
+    },
+    {
+      "facetId": "run-allowed-types",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-run-config"
+    },
+    {
+      "facetId": "contract-bound-invocation",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-registered-invocation"
+    },
+    {
+      "facetId": "validated-routing",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-selection-validation"
+    },
+    {
+      "facetId": "deterministic-side-effects",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-side-effect-contracts"
+    },
+    {
+      "facetId": "closure-contract",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-closure-gates"
+    },
+    {
+      "facetId": "dashboard-observability",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-dashboard-artifacts"
+    },
+    {
+      "facetId": "post-flight-summary",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-post-flight-summary"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "no-hard-coded-unit-sequence",
+      "statement": "The lifecycle must not encode worker-reviewer-repair-closure as the only route when the objective requires selection from registered inference unit types.",
+      "guards": [
+        "type-registry",
+        "validated-routing"
+      ]
+    },
+    {
+      "id": "controller-does-not-invent-reasoning",
+      "statement": "The deterministic controller validates contracts, performs approved side effects, and routes; it must not semantically invent the next step outside inference output contracts.",
+      "guards": [
+        "validated-routing",
+        "deterministic-side-effects"
+      ]
+    },
+    {
+      "id": "source-changes-require-commit-evidence",
+      "statement": "If lifecycle artifacts show source files changed, closure must require commit evidence or an explicit no-commit exemption contract.",
+      "guards": [
+        "deterministic-side-effects",
+        "closure-contract"
+      ]
+    },
+    {
+      "id": "pr-state-is-contract-evidence",
+      "statement": "PR readiness, review feedback, CI status, unresolved threads, and GitHub mutations must be represented as contract evidence, not supervising-chat memory.",
+      "guards": [
+        "deterministic-side-effects",
+        "dashboard-observability"
+      ]
+    },
+    {
+      "id": "only-objective-or-user-stop-closes-loop",
+      "statement": "The lifecycle may stop only when objective closure is proven or the user explicitly stops the run.",
+      "guards": [
+        "closure-contract"
+      ]
+    }
+  ],
+  "metaFingerprint": "sha256:485977d526d04ce62c9f10b507bf9ea465aa6db9a881828cb93e24540047695f",
+  "sections": [
+    {
+      "id": "status",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "rationale": "Shows that this doc is a fresh implementation objective, not evidence that the type system already exists.",
+      "updated": "2026-05-10T14:42:48.000Z",
+      "data": [
+        {
+          "id": "snapshot-repair-iteration-2",
+          "name": "Repair iteration 2 state",
+          "status": "source-and-test-proof-complete-commit-evidence-pending",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "summary": "The contract-bound inference unit type system is implemented and both contract plus full E2E suites pass; closure remains blocked only on controller-owned commit evidence for the changed source set.",
+          "documentReady": true,
+          "objectiveReady": false,
+          "nextStep": "Controller must route through the commit-intent side-effect contract for the changed source set, record commit SHA evidence, then re-enter closure review and post-flight summary."
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "rationale": "Defines objective-tight closure gates. Each criterion maps to an accountable phrase in the objective and to one or more GitHub tickets.",
+      "updated": "2026-05-10T14:42:48.000Z",
+      "data": [
+        {
+          "id": "criterion-type-registry",
+          "name": "Inference unit type registry exists",
+          "status": "source-and-test-proofed",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "type-registry"
+          ],
+          "objectiveTerm": "selected from an explicit registry of allowed inference unit types",
+          "criterion": "The harness has an inference unit type registry that defines worker, reviewer, closure-review, repair/balance units, commit-intent, PR-review, and post-flight summary as explicit unit types.",
+          "proofRequired": "A first-class registry or equivalent source defines each unit type's id, role, input contract, prompt contract, evidence requirements, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications.",
+          "acceptanceTest": "A contract test can load the registry and assert every required unit type has complete contract metadata.",
+          "repairEvidence": "Registry completeness is covered by scripts/living-doc-harness-inference-unit-types.mjs and living-doc harness inference unit contract tests; npm run test:contract passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "224",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/224",
+              "title": "Epic: contract-bound inference unit type system"
+            },
+            {
+              "issueNumber": "219",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/219",
+              "title": "Add inference unit type registry for living-doc harness"
+            }
+          ]
+        },
+        {
+          "id": "criterion-run-config",
+          "name": "Standalone runs declare allowed unit types",
+          "status": "source-and-test-proofed",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "run-allowed-types"
+          ],
+          "objectiveTerm": "registry of allowed inference unit types",
+          "criterion": "A standalone lifecycle run is initialized with a config that declares which registered inference unit types are allowed for that run.",
+          "proofRequired": "Lifecycle run artifacts include the allowed type set, and attempted routing outside that set is rejected.",
+          "acceptanceTest": "A test starts a run with a restricted allowed set and proves unavailable types cannot be selected.",
+          "repairEvidence": "Run-scoped allowed unit sets are recorded and invalid restricted selections are covered by lifecycle/controller contract tests; npm run test:contract passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "220",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/220",
+              "title": "Add standalone lifecycle run config for allowed inference unit types"
+            }
+          ]
+        },
+        {
+          "id": "criterion-registered-invocation",
+          "name": "Unit invocation comes from registered type definitions",
+          "status": "source-and-test-proofed",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "contract-bound-invocation"
+          ],
+          "objectiveTerm": "Each unit type must define its input contract, prompt contract, required evidence, output verdicts",
+          "criterion": "Every inference unit invocation is created from its registered type definition, including prompt shape, input contract schema, tool/MCP profile, required artifact paths, and output contract schema.",
+          "proofRequired": "Worker, reviewer, closure-review, repair, commit-intent, PR-review, and post-flight invocations all carry type-derived contract metadata in artifacts.",
+          "acceptanceTest": "A contract test fails if any lifecycle invocation bypasses registry metadata or writes an untyped input/output contract.",
+          "repairEvidence": "Unit invocations carry registry-derived contract metadata and output validation in harness invocation/iteration code; npm run test:contract passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "218",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/218",
+              "title": "Make inference unit type selection explicit in contracts"
+            }
+          ]
+        },
+        {
+          "id": "criterion-selection-validation",
+          "name": "Routing selections are validated",
+          "status": "source-and-test-proofed",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "validated-routing"
+          ],
+          "objectiveTerm": "allowed next unit types",
+          "criterion": "Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.",
+          "proofRequired": "Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.",
+          "acceptanceTest": "A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.",
+          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; npm run test:contract passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "222",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/222",
+              "title": "Handle invalid inference unit selections as continuation evidence"
+            }
+          ]
+        },
+        {
+          "id": "criterion-side-effect-contracts",
+          "name": "Deterministic side effects require approved contracts",
+          "status": "source-and-test-proofed-current-run-commit-pending",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "deterministic-side-effects"
+          ],
+          "objectiveTerm": "deterministic side effects",
+          "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts.",
+          "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state.",
+          "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, and PR mutations cannot occur without a PR-review output contract.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating; this worker still leaves current-run commit SHA evidence for the controller-owned side-effect step.",
+          "ticketIds": [
+            {
+              "issueNumber": "235",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/235",
+              "title": "Add commit-discipline inference unit and commit contract gate"
+            },
+            {
+              "issueNumber": "236",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/236",
+              "title": "Add PR-review inference unit type and review contract handling"
+            }
+          ]
+        },
+        {
+          "id": "criterion-closure-gates",
+          "name": "Closure uses type-system proof gates",
+          "status": "source-and-test-proofed-current-run-commit-pending",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "closure-contract"
+          ],
+          "objectiveTerm": "route work until the living doc objective is proven or the user explicitly stops the run",
+          "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
+          "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
+          "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
+          "repairEvidence": "Closure gates reject dirty source state without commit evidence and allow closure only with passing proof gates; objective closure for this run awaits controller commit evidence.",
+          "ticketIds": [
+            {
+              "issueNumber": "235",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/235",
+              "title": "Add commit-discipline inference unit and commit contract gate"
+            }
+          ]
+        },
+        {
+          "id": "criterion-dashboard-artifacts",
+          "name": "Dashboard renders types, contracts, and side effects from artifacts",
+          "status": "source-and-test-proofed",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "dashboard-observability"
+          ],
+          "objectiveTerm": "dashboard representation",
+          "criterion": "The dashboard renders unit types, contracts, deterministic side effects, validation status, and handoff arrows from lifecycle artifacts rather than a hard-coded sequence.",
+          "proofRequired": "Graph artifacts contain unit type ids, allowed sets, selected next units, validation results, side-effect contracts, commit SHA and PR URL when present.",
+          "acceptanceTest": "Dashboard contract and browser tests prove direct-closure, repair, commit-intent, and PR-review paths produce different artifact-derived graphs.",
+          "repairEvidence": "Dashboard artifacts expose unit ids, allowed sets, selections, validation, side effects, and handoffs; focused routing E2E and full npm run test:e2e passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "221",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/221",
+              "title": "Expose inference unit selection observability in dashboard and narratives"
+            }
+          ]
+        },
+        {
+          "id": "criterion-post-flight-summary",
+          "name": "Post-flight summary runs after closure",
+          "status": "source-and-test-proofed",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "post-flight-summary"
+          ],
+          "objectiveTerm": "post-flight summaries after closure",
+          "criterion": "Post-flight summary runs after closure and produces a human-readable decision narrative from the same artifacts without changing closure.",
+          "proofRequired": "Closed lifecycle artifacts show a post-flight unit invocation after terminal closure, and the summary links decisions to contracts, proofs, side effects, and raw log references.",
+          "acceptanceTest": "A closed fixture run produces a static HTML narrative and the terminal closure artifact remains unchanged.",
+          "repairEvidence": "Post-flight summary routing runs after terminal closure in lifecycle tests and does not mutate terminal closure artifacts; npm run test:contract passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "223",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/223",
+              "title": "Add post-flight inference unit for closed lifecycle run summaries"
+            }
+          ]
+        },
+        {
+          "id": "criterion-four-route-proofs",
+          "name": "Required route proofs cover the abstraction",
+          "status": "verified",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "facetIds": [
+            "validated-routing",
+            "closure-contract"
+          ],
+          "objectiveTerm": "route work until the living doc objective is proven",
+          "criterion": "Contract and E2E tests prove at least one run that closes directly, one run that routes through repair, one run that requires commit-intent before closure, and one run that routes into PR-review.",
+          "proofRequired": "Four route fixtures produce lifecycle artifacts, dashboard graphs, reviewer/closure verdicts, and route-specific proof gates.",
+          "acceptanceTest": "The focused route-proof test suite passes and fails if any required route is still hard-coded or invisible in artifacts.",
+          "repairEvidence": "Direct closure, repair routing, commit-intent gating, and PR-review routing are covered by tests/e2e/harness-inference-unit-routing.spec.mjs; full npm run test:e2e passed.",
+          "ticketIds": [
+            {
+              "issueNumber": "224",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/224",
+              "title": "Epic: contract-bound inference unit type system"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "issue-spine",
+      "title": "Issue Spine",
+      "convergenceType": "issue-orbit",
+      "rationale": "Keeps the GitHub implementation plan attached to this living doc without treating ticket creation as implementation progress.",
+      "updated": "2026-05-10T14:42:48.000Z",
+      "data": [
+        {
+          "id": "issue-224",
+          "name": "Epic: contract-bound inference unit type system",
+          "status": "open-active",
+          "updated": "2026-05-10T13:45:54.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/224",
+          "relationship": "epic",
+          "relevance": "Parent issue for making inference unit types explicit in the harness."
+        },
+        {
+          "id": "issue-219",
+          "name": "Add inference unit type registry for living-doc harness",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/219",
+          "relationship": "subtask",
+          "relevance": "Creates the source of truth for registered unit types."
+        },
+        {
+          "id": "issue-220",
+          "name": "Add standalone lifecycle run config for allowed inference unit types",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/220",
+          "relationship": "subtask",
+          "relevance": "Constrain each run to an explicit allowed set."
+        },
+        {
+          "id": "issue-218",
+          "name": "Make inference unit type selection explicit in contracts",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/218",
+          "relationship": "subtask",
+          "relevance": "Moves selection from prompt implication into contract fields."
+        },
+        {
+          "id": "issue-222",
+          "name": "Handle invalid inference unit selections as continuation evidence",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/222",
+          "relationship": "subtask",
+          "relevance": "Prevents invalid route choices from becoming silent fallback."
+        },
+        {
+          "id": "issue-221",
+          "name": "Expose inference unit selection observability in dashboard and narratives",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/221",
+          "relationship": "subtask",
+          "relevance": "Makes allowed sets, selected types, validation, and side effects inspectable."
+        },
+        {
+          "id": "issue-223",
+          "name": "Add post-flight inference unit for closed lifecycle run summaries",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/223",
+          "relationship": "subtask",
+          "relevance": "Adds non-mutating after-closure narrative generation."
+        },
+        {
+          "id": "issue-235",
+          "name": "Add commit-discipline inference unit and commit contract gate",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/235",
+          "relationship": "subtask",
+          "relevance": "Makes source-change commits required evidence rather than optional worker behavior."
+        },
+        {
+          "id": "issue-236",
+          "name": "Add PR-review inference unit type and review contract handling",
+          "status": "open-active",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/236",
+          "relationship": "subtask",
+          "relevance": "Adds PR readiness/review/CI decisions as contract-bound inference units."
+        }
+      ]
+    },
+    {
+      "id": "relationship-maps",
+      "title": "Relationship Maps",
+      "convergenceType": "relationship-map",
+      "rationale": "Makes the intended control structure visible. These diagrams are not proof; the acceptance criteria define what must later be implemented and tested.",
+      "updated": "2026-05-10T13:45:54.000Z",
+      "data": [
+        {
+          "id": "map-type-registry-routing",
+          "name": "Type registry routing",
+          "status": "specified",
+          "updated": "2026-05-10T13:45:54.000Z",
+          "claim": "The controller routes through validated contracts selected from the registry and run allowed set, not through a fixed controller sequence.",
+          "semanticRole": "Core control model",
+          "validationQuestion": "Can every unit invocation point back to a registered type and a run-allowed selection?",
+          "driftRisk": "The map is stale if controller code invokes a unit type not present in registry/run config or bypasses output-contract validation.",
+          "criterionIds": [
+            "criterion-type-registry",
+            "criterion-run-config",
+            "criterion-registered-invocation",
+            "criterion-selection-validation"
+          ],
+          "diagrams": [
+            {
+              "title": "Registry-Constrained Routing",
+              "role": "control-model",
+              "text": "flowchart LR\n  Registry[\"Inference unit type registry\"] --> RunConfig[\"Run allowed type set\"]\n  RunConfig --> Controller[\"Deterministic lifecycle controller\"]\n  Controller --> InputContract[\"Typed input contract\"]\n  InputContract --> Unit[\"Inference unit\"]\n  Unit --> OutputContract[\"Typed output contract\"]\n  OutputContract --> Validator[\"Controller validation\"]\n  Validator -->|valid next type| Controller\n  Validator -->|invalid selection| Evidence[\"Continuation or blocker evidence\"]"
+            }
+          ]
+        },
+        {
+          "id": "map-side-effect-gates",
+          "name": "Side-effect contract gates",
+          "status": "specified",
+          "updated": "2026-05-10T13:45:54.000Z",
+          "claim": "Source changes and PR operations become deterministic side effects only after inference produces an approved contract.",
+          "semanticRole": "Git/GitHub boundary",
+          "validationQuestion": "Can every commit SHA or PR mutation be traced to an inference output contract that approved it?",
+          "driftRisk": "The map is stale if workers commit directly, broad-stage dirty files, or mutate PRs without controller-recorded contracts.",
+          "criterionIds": [
+            "criterion-side-effect-contracts",
+            "criterion-closure-gates"
+          ],
+          "diagrams": [
+            {
+              "title": "Commit and PR Side-Effect Gates",
+              "role": "side-effect-boundary",
+              "text": "flowchart TD\n  Worker[\"Worker changes files\"] --> Reviewer[\"Reviewer validates evidence\"]\n  Reviewer --> CommitIntent[\"commit-intent unit\"]\n  CommitIntent --> CommitContract[\"approved paths + message + exclusions\"]\n  CommitContract --> GitCommit[\"Controller stages exact paths and commits\"]\n  GitCommit --> CommitEvidence[\"commit SHA artifact\"]\n  CommitEvidence --> PRReview[\"pr-review unit\"]\n  PRReview --> PRContract[\"approved GitHub action contract\"]\n  PRContract --> GitHubAction[\"Controller opens/updates/reviews PR\"]\n  GitHubAction --> PREvidence[\"PR URL + review/check evidence\"]\n  CommitEvidence --> Closure[\"closure-review gate\"]\n  PREvidence --> Closure"
+            }
+          ]
+        },
+        {
+          "id": "map-closure-and-post-flight",
+          "name": "Closure and post-flight",
+          "status": "specified",
+          "updated": "2026-05-10T13:45:54.000Z",
+          "claim": "Closure remains a proof decision; post-flight summary happens after closure and cannot change it.",
+          "semanticRole": "Stop-condition boundary",
+          "validationQuestion": "Does the lifecycle stop only after closure review proves the objective or after explicit user stop?",
+          "driftRisk": "The map is stale if post-flight summary becomes a closure gate or if closure happens before required side-effect evidence.",
+          "criterionIds": [
+            "criterion-closure-gates",
+            "criterion-post-flight-summary",
+            "criterion-four-route-proofs"
+          ],
+          "diagrams": [
+            {
+              "title": "Closure Boundary",
+              "role": "closure-model",
+              "text": "flowchart LR\n  ProofGates[\"Proof gates\"] --> ClosureReview[\"closure-review unit\"]\n  SourceState[\"living doc source state\"] --> ClosureReview\n  SideEffects[\"commit / PR evidence when required\"] --> ClosureReview\n  ClosureReview -->|closed| Terminal[\"terminal closed artifact\"]\n  ClosureReview -->|not closed| NextUnit[\"next registered unit\"]\n  Terminal --> PostFlight[\"post-flight summary unit\"]\n  PostFlight --> Narrative[\"static decision narrative\"]\n  Narrative -. \"does not alter\" .-> Terminal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "rationale": "Stages the proof needed before this objective can claim completion.",
+      "updated": "2026-05-10T13:45:54.000Z",
+      "data": [
+        {
+          "id": "rung-objective-shaped",
+          "name": "Objective and acceptance criteria shaped",
+          "status": "ready",
+          "updated": "2026-05-10T13:45:54.000Z",
+          "evidence": "This living doc records the objective, success condition, facets, invariants, criteria, issues, and relationship maps.",
+          "nextStep": "Begin source implementation."
+        },
+        {
+          "id": "rung-type-registry",
+          "name": "Registry and run config implemented",
+          "status": "verified",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "evidence": "Registry and run config are implemented and covered by passing contract tests.",
+          "nextStep": "Proceed to controller-owned commit evidence."
+        },
+        {
+          "id": "rung-routing-validation",
+          "name": "Contract-bound routing implemented",
+          "status": "verified",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "evidence": "Contract-bound invocation, output validation, and invalid next-unit handling are implemented and covered by passing contract tests.",
+          "nextStep": "Proceed to controller-owned commit evidence."
+        },
+        {
+          "id": "rung-side-effects",
+          "name": "Commit and PR side-effect gates implemented",
+          "status": "verified-current-run-commit-pending",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "evidence": "Commit-intent and PR-review gates are implemented and tested; current-run source changes still require controller commit SHA evidence.",
+          "nextStep": "Run commit-intent/commit side effect through the lifecycle controller."
+        },
+        {
+          "id": "rung-observability",
+          "name": "Dashboard and narrative observability implemented",
+          "status": "verified",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "evidence": "Dashboard/narrative artifacts expose inference unit metadata, allowed sets, route validation, side effects, and handoffs; focused route E2E passed.",
+          "nextStep": "Carry artifacts into closure review after commit evidence."
+        },
+        {
+          "id": "rung-route-proof-suite",
+          "name": "Route proof suite passes",
+          "status": "verified",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "evidence": "npm run test:contract and full npm run test:e2e pass, including the required direct closure, repair, commit-intent, and PR-review routing E2E paths.",
+          "nextStep": "Carry green-suite evidence into closure review."
+        },
+        {
+          "id": "rung-objective-closure",
+          "name": "Objective closure",
+          "status": "blocked-controller-commit-evidence",
+          "updated": "2026-05-10T14:42:48.000Z",
+          "evidence": "Source and test proof is complete, but closure is not claimed because deterministic commit side effects are controller-owned and no commit SHA evidence exists for this changed source set.",
+          "nextStep": "Controller must execute approved commit-intent/commit side effect, record SHA evidence, then run closure review and post-flight summary."
+        }
+      ]
+    }
+  ]
+}

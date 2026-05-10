@@ -13,7 +13,7 @@ import { runContractBoundInferenceUnit } from './living-doc-harness-inference-un
 
 const __filename = fileURLToPath(import.meta.url);
 
-const CLASSIFICATIONS = new Set(['closed', 'repairable', 'resumable', 'closure-candidate', 'true-block', 'pivot', 'deferred', 'budget-exhausted']);
+const CLASSIFICATIONS = new Set(['closed', 'user-stopped', 'repairable', 'resumable', 'closure-candidate', 'true-block', 'pivot', 'deferred', 'budget-exhausted']);
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 
 function arr(value) {
@@ -103,8 +103,17 @@ function validateHardGates(verdict, evidence) {
     if (verdict.nextIteration.allowed !== false) {
       throw new Error('reviewer closed verdict must not allow a next iteration');
     }
+  } else if (classification === 'user-stopped') {
+    if (verdict.nextIteration.allowed !== false || verdict.nextIteration.mode !== 'user-stop') {
+      throw new Error('reviewer user-stopped verdict must use nextIteration.allowed false and mode user-stop');
+    }
   } else if (closureAllowed) {
     throw new Error('reviewer closureAllowed true is only valid for closed verdicts');
+  } else {
+    const allowedModes = new Set(['continuation', 'repair', 'resume']);
+    if (verdict.nextIteration.allowed !== true || !allowedModes.has(verdict.nextIteration.mode)) {
+      throw new Error('reviewer non-closure verdicts must continue with mode continuation, repair, or resume');
+    }
   }
   return true;
 }
@@ -329,7 +338,7 @@ Return this JSON shape:
 {
   "schema": "living-doc-harness-stop-verdict/v1",
   "stopVerdict": {
-    "classification": "closed|repairable|resumable|closure-candidate|true-block|pivot|deferred|budget-exhausted",
+    "classification": "closed|user-stopped|repairable|resumable|closure-candidate|true-block|pivot|deferred|budget-exhausted",
     "reasonCode": "short-kebab-case",
     "confidence": "low|medium|high",
     "closureAllowed": false,
@@ -337,12 +346,13 @@ Return this JSON shape:
   },
   "nextIteration": {
     "allowed": true,
-    "mode": "repair|resume|none|block|pivot|defer|stop-budget",
+    "mode": "repair|resume|continuation|none|user-stop",
     "instruction": "what should happen next"
   }
 }
 
 Hard rule: only use classification "closed" when closureAllowed is true and the evidence shows no unresolved objective terms, no unproven acceptance criteria, native trace refs are present, acceptance criteria pass, rendered doc proof exists, evidence bundle proof exists, and the objective is actually proven.
+Hard rule: for every classification except "closed" and an explicit "user-stopped" lifecycle control signal, nextIteration.allowed must be true and nextIteration.mode must be "continuation", "repair", or "resume". A blocker, runtime limitation, failed proof, issue creation, pivot pressure, deferral, or budget boundary is not a lifecycle stop.
 
 Frozen evidence:
 ${JSON.stringify(input, null, 2)}
@@ -360,6 +370,7 @@ export async function writeReviewerInferenceVerdict({
   executeReviewer = false,
   codexBin = 'codex',
   cwd = process.cwd(),
+  allowedUnitTypes = null,
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!evidence) throw new Error('evidence is required');
@@ -385,6 +396,7 @@ export async function writeReviewerInferenceVerdict({
     terminalSignal: evidence.terminalSignal || null,
     sourceState: evidence.sourceState || null,
   };
+  if (allowedUnitTypes) input.runConfig = { schema: 'living-doc-harness-run-inference-config/v1', allowedUnitTypes };
   input.requiredInspectionPaths = rawWorkerJsonlPaths(logInspection);
   await writeJson(inputPath, input);
   const prompt = reviewerPrompt(input);
@@ -419,6 +431,8 @@ export async function writeReviewerInferenceVerdict({
     sequence: 2,
     unitId: 'reviewer-inference',
     role: 'reviewer',
+    unitTypeId: 'reviewer-inference',
+    allowedUnitTypes: allowedUnitTypes || undefined,
     prompt,
     inputContract: input,
     fixtureResult,

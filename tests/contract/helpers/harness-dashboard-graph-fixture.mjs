@@ -19,8 +19,10 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
   const repairRoot = path.join(prepared.runDir, 'repair-skills', 'iteration-1');
   const repairUnitDir = path.join(repairRoot, '01-live-repair-unit');
   const docUpdateUnitDir = path.join(repairRoot, '02-doc-update-unit');
+  const readinessUnitDir = path.join(repairRoot, '03-objective-execution-readiness');
   await mkdir(repairUnitDir, { recursive: true });
   await mkdir(docUpdateUnitDir, { recursive: true });
+  await mkdir(readinessUnitDir, { recursive: true });
 
   await writeFile(path.join(repairUnitDir, 'prompt.md'), 'hidden local prompt\n', 'utf8');
   await writeFile(path.join(repairUnitDir, 'input-contract.json'), `${JSON.stringify({
@@ -61,6 +63,96 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
     },
   }, null, 2)}\n`, 'utf8');
   await writeFile(path.join(docUpdateUnitDir, 'validation.json'), `${JSON.stringify({ ok: true }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(readinessUnitDir, 'prompt.md'), 'hidden local readiness prompt\n', 'utf8');
+  await writeFile(path.join(readinessUnitDir, 'input-contract.json'), `${JSON.stringify({
+    schema: 'living-doc-repair-skill-chain-input/v1',
+    unitRole: 'repair-skill',
+    skill: 'objective-execution-readiness',
+    sequence: 3,
+    requiredInspectionPaths: ['/tmp/required-evidence.json'],
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(readinessUnitDir, 'codex-events.jsonl'), '{"type":"thread.started"}\n', 'utf8');
+  await writeFile(path.join(readinessUnitDir, 'result.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-inference-unit-result/v1',
+    unitId: 'objective-execution-readiness',
+    role: 'repair-skill',
+    status: 'aligned',
+    outputContract: {
+      schema: 'living-doc-repair-skill-result/v1',
+      skill: 'objective-execution-readiness',
+      sequence: 3,
+      status: 'aligned',
+      changedFiles: [],
+      commitIntent: {
+        required: false,
+        reason: 'Readiness inspection changed no files in the dashboard graph fixture.',
+        message: '',
+        body: [],
+        changedFiles: [],
+      },
+      nextRecommendedAction: 'continue-repair-chain',
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(readinessUnitDir, 'validation.json'), `${JSON.stringify({ ok: true }, null, 2)}\n`, 'utf8');
+  const repairChainResultPath = path.join(repairRoot, 'repair-chain-result.json');
+  await writeFile(repairChainResultPath, `${JSON.stringify({
+    schema: 'living-doc-repair-skill-chain-result/v1',
+    runId: prepared.runId,
+    iteration: 1,
+    createdAt: '2026-05-07T12:00:08.000Z',
+    status: 'complete',
+    livingDocPath: 'tests/fixtures/minimal-doc.json',
+    renderedHtmlPath: 'tests/fixtures/minimal-doc.html',
+    skillResults: [
+      {
+        skill: 'doc-update-unit',
+        sequence: 2,
+        status: 'repaired',
+        resultPath: 'repair-skills/iteration-1/02-doc-update-unit/result.json',
+        validationPath: 'repair-skills/iteration-1/02-doc-update-unit/validation.json',
+        changedFiles: [
+          'tests/fixtures/minimal-doc.json',
+          'tests/fixtures/minimal-doc.html',
+        ],
+        commitPolicy: {
+          mode: 'commit-intent-only',
+          gitCommitAllowed: false,
+        },
+        commitIntent: {
+          required: true,
+          reason: 'Repair-chain fixture deferred the commit because repair units run under commit-intent-only policy.',
+          message: 'Repair minimal living doc fixture from repair chain',
+          body: [
+            'This body comes from repair-chain-result.json, not from the per-unit result fixture.',
+          ],
+          changedFiles: [
+            'tests/fixtures/minimal-doc.json',
+            'tests/fixtures/minimal-doc.html',
+          ],
+        },
+      },
+      {
+        skill: 'objective-execution-readiness',
+        sequence: 3,
+        status: 'aligned',
+        resultPath: 'repair-skills/iteration-1/03-objective-execution-readiness/result.json',
+        validationPath: 'repair-skills/iteration-1/03-objective-execution-readiness/validation.json',
+        changedFiles: [],
+        commitPolicy: {
+          mode: 'commit-intent-only',
+          gitCommitAllowed: false,
+        },
+        commitIntent: {
+          required: false,
+          reason: 'No files changed during readiness in the repair-chain fixture.',
+          message: '',
+          body: [],
+          changedFiles: [],
+        },
+      },
+    ],
+    nextRecommendedAction: 'continue-repair-chain',
+  }, null, 2)}\n`, 'utf8');
 
   const reviewerDir = path.join(prepared.runDir, 'reviewer-inference');
   const outputInputDir = path.join(prepared.runDir, 'output-input');
@@ -72,7 +164,7 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
   const reviewerInputPath = path.join(reviewerDir, 'iteration-1-input.json');
   const reviewerPromptPath = path.join(reviewerDir, 'iteration-1-prompt.md');
   const reviewerVerdictPath = path.join(reviewerDir, 'iteration-1-verdict.json');
-  const terminalPath = path.join(terminalDir, 'iteration-1-true-blocked.json');
+  const terminalPath = path.join(terminalDir, 'iteration-1-continuation-required.json');
   const outputInputPath = path.join(outputInputDir, 'iteration-1.json');
 
   await writeFile(reviewerPromptPath, 'Inspect the raw worker JSONL and classify the lifecycle transition.\n', 'utf8');
@@ -106,18 +198,18 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
   }, null, 2)}\n`, 'utf8');
   await writeFile(terminalPath, `${JSON.stringify({
     id: 'blocker-graph-fixture',
-    kind: 'true-blocked',
-    status: 'terminal',
+    kind: 'continuation-required',
+    status: 'repair-resumed',
     reasonCode: 'graph-fixture-blocked',
-    loopMayContinue: false,
-    nextAction: 'create issue and stop',
+    loopMayContinue: true,
+    nextAction: 'continue through the next contract-bound inference unit',
   }, null, 2)}\n`, 'utf8');
   await writeFile(path.join(prepared.runDir, 'terminal-states.jsonl'), `${JSON.stringify({
     id: 'blocker-graph-fixture',
-    kind: 'true-blocked',
-    status: 'terminal',
+    kind: 'continuation-required',
+    status: 'repair-resumed',
     reasonCode: 'graph-fixture-blocked',
-    loopMayContinue: false,
+    loopMayContinue: true,
     createdAt: '2026-05-07T12:00:20.000Z',
   })}\n`, 'utf8');
   await writeFile(path.join(prepared.runDir, 'blockers.jsonl'), `${JSON.stringify({
@@ -133,14 +225,14 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
     iteration: 1,
     previousOutput: {
       classification: 'true-block',
-      terminalKind: 'true-blocked',
+      terminalKind: 'continuation-required',
       reviewerVerdictPath: 'reviewer-inference/iteration-1-verdict.json',
-      terminalPath: 'terminal/iteration-1-true-blocked.json',
+      terminalPath: 'terminal/iteration-1-continuation-required.json',
     },
     nextAction: {
-      action: 'stop-terminal-state',
-      allowed: false,
-      reason: 'Graph fixture terminal state.',
+      action: 'start-next-worker-iteration',
+      allowed: true,
+      reason: 'Graph fixture continuation state.',
     },
   }, null, 2)}\n`, 'utf8');
 
@@ -153,11 +245,10 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
     createdAt: '2026-05-07T12:00:30.000Z',
     docPath: 'tests/fixtures/minimal-doc.json',
     lifecycleDir,
-    maxIterations: 1,
     iterationCount: 1,
     finalState: {
-      kind: 'true-blocked',
-      reason: 'Graph fixture terminal state.',
+      kind: 'continuation-required',
+      reason: 'Graph fixture continuation state.',
       runId: prepared.runId,
     },
     iterations: [
@@ -166,13 +257,14 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
         runId: prepared.runId,
         runDir: prepared.runDir,
         classification: 'true-block',
-        terminalKind: 'true-blocked',
+        terminalKind: 'continuation-required',
         nextAction: {
-          action: 'stop-terminal-state',
-          allowed: false,
+          action: 'start-next-worker-iteration',
+          allowed: true,
         },
         outputInputPath,
         reviewerVerdictPath,
+        repairSkillResultPath: repairChainResultPath,
         proofValid: true,
       },
     ],
@@ -185,6 +277,7 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
     runId: prepared.runId,
     runDir: prepared.runDir,
     lifecycleId,
+    lifecycleDir,
     cleanup: () => rm(tmp, { recursive: true, force: true }),
   };
 }

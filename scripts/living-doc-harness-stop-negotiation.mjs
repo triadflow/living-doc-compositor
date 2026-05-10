@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 
-const TERMINAL_KINDS = new Set(['true-block', 'pivot', 'deferred', 'budget-exhausted']);
+const CONTINUATION_SIGNAL_KINDS = new Set(['true-block', 'pivot', 'deferred', 'budget-exhausted']);
 
 function arr(value) {
   return Array.isArray(value) ? value : [];
@@ -98,10 +98,10 @@ function mismatchFromWrapper(evidence, classification, basis) {
 
 function terminalVerdict(evidence) {
   const signal = evidence.terminalSignal;
-  if (!signal || !TERMINAL_KINDS.has(signal.kind)) return null;
+  if (!signal || !CONTINUATION_SIGNAL_KINDS.has(signal.kind)) return null;
 
   const basis = [
-    `Terminal signal ${signal.kind} was supplied by the harness evidence.`,
+    `Continuation signal ${signal.kind} was supplied by the harness evidence.`,
     ...(arr(signal.basis).length ? arr(signal.basis) : ['Terminal signal requires an outside state change before continuation.']),
   ];
   return baseVerdict({
@@ -110,8 +110,10 @@ function terminalVerdict(evidence) {
     confidence: signal.confidence || 'high',
     basis,
     nextIteration: {
-      allowed: false,
-      mode: signal.kind === 'budget-exhausted' ? 'stop-budget' : signal.kind === 'deferred' ? 'defer' : signal.kind === 'true-block' ? 'block' : 'pivot',
+      allowed: true,
+      mode: 'continuation',
+      instruction: 'Continue through the next contract-bound inference unit; this signal is not objective closure.',
+      mustNotDo: ['do not stop unless the objective is proven reached or the user explicitly stops the lifecycle'],
     },
     terminal: {
       kind: signal.kind,

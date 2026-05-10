@@ -19,6 +19,7 @@ function repairableVerdict() {
       allowed: true,
       mode: 'repair',
       instruction: 'Run balance scan and the ordered repair skill chain before resuming worker inference.',
+      mustNotDo: ['Do not stop before objective closure or explicit user stop.'],
     },
   };
 }
@@ -140,7 +141,6 @@ try {
     evidenceDir: path.join(tmp, 'evidence'),
     dashboardPath: path.join(tmp, 'dashboard.html'),
     evidenceSequencePath: sequencePath,
-    maxIterations: 3,
     executeRepairSkills: true,
     now: '2026-05-08T05:50:00.000Z',
   });
@@ -162,6 +162,9 @@ try {
   const balanceInput = JSON.parse(await readFile(path.join(firstRunDir, 'repair-skills', 'iteration-1', '00-living-doc-balance-scan', 'input-contract.json'), 'utf8'));
   assert.equal(balanceInput.unitRole, 'balance-scan');
   assert.equal(balanceInput.rawWorkerJsonlPaths.length >= 1, true);
+  assert.equal(balanceInput.toolProfile.name, 'local-repair');
+  assert.equal(balanceInput.toolProfile.sandboxMode, 'danger-full-access');
+  assert.deepEqual(balanceInput.toolProfile.mcpAllowlist, ['living_doc_compositor']);
 
   for (const [index, skill] of orderedSkills.entries()) {
     const dir = path.join(firstRunDir, 'repair-skills', 'iteration-1', `${String(index + 1).padStart(2, '0')}-${skill}`);
@@ -171,6 +174,9 @@ try {
     const events = await readFile(path.join(dir, 'codex-events.jsonl'), 'utf8');
     assert.equal(input.skill, skill);
     assert.equal(input.sequence, index + 1);
+    assert.equal(input.toolProfile.name, 'local-repair');
+    assert.equal(input.toolProfile.sandboxMode, 'danger-full-access');
+    assert.deepEqual(input.toolProfile.mcpAllowlist, ['living_doc_compositor']);
     assert.equal(input.commitPolicy.mode, 'commit-intent-only');
     assert.equal(input.commitPolicy.gitCommitAllowed, false);
     assert.equal(resultArtifact.schema, 'living-doc-contract-bound-inference-result/v1');
@@ -242,15 +248,14 @@ try {
     evidenceDir: path.join(tmp, 'blocked-evidence'),
     dashboardPath: path.join(tmp, 'blocked-dashboard.html'),
     evidenceSequencePath: blockedSequencePath,
-    maxIterations: 3,
     executeRepairSkills: true,
     now: '2026-05-08T06:20:00.000Z',
   });
-  assert.equal(blocked.iterationCount, 1);
-  assert.equal(blocked.finalState.kind, 'true-blocked');
+  assert.equal(blocked.iterationCount, 2);
+  assert.equal(blocked.finalState.kind, 'closed');
   assert.equal(blocked.iterations[0].classification, 'true-block');
-  assert.equal(blocked.iterations[0].terminalKind, 'true-blocked');
-  assert.equal(blocked.iterations[0].nextAction.action, 'stop-terminal-state');
+  assert.equal(blocked.iterations[0].terminalKind, 'continuation-required');
+  assert.equal(blocked.iterations[0].nextAction.action, 'start-next-worker-iteration');
   const blockedChain = JSON.parse(await readFile(path.resolve(process.cwd(), blocked.iterations[0].repairSkillResultPath), 'utf8'));
   assert.equal(blockedChain.status, 'blocked');
   assert.equal(blockedChain.skillResults.length, 1);
@@ -302,6 +307,15 @@ try {
         traceMessage: 'Commit-intent proof is complete.',
         reviewerVerdict: closedVerdict(),
       },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Commit-policy blocker was routed into continuation and resolved.',
+        reviewerVerdict: closedVerdict(),
+      },
     ],
   }, null, 2)}\n`, 'utf8');
 
@@ -311,7 +325,6 @@ try {
     evidenceDir: path.join(tmp, 'commit-policy-evidence'),
     dashboardPath: path.join(tmp, 'commit-policy-dashboard.html'),
     evidenceSequencePath: commitPolicySequencePath,
-    maxIterations: 3,
     executeRepairSkills: true,
     now: '2026-05-08T06:40:00.000Z',
   });
@@ -350,6 +363,15 @@ try {
           ],
         },
       },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Commit-policy blocker was routed into continuation and resolved.',
+        reviewerVerdict: closedVerdict(),
+      },
     ],
   }, null, 2)}\n`, 'utf8');
   const commitBlocked = await runHarnessLifecycle({
@@ -358,17 +380,17 @@ try {
     evidenceDir: path.join(tmp, 'commit-blocked-evidence'),
     dashboardPath: path.join(tmp, 'commit-blocked-dashboard.html'),
     evidenceSequencePath: commitBlockedSequencePath,
-    maxIterations: 2,
     executeRepairSkills: true,
     now: '2026-05-08T06:50:00.000Z',
   });
-  assert.equal(commitBlocked.finalState.kind, 'true-blocked');
+  assert.equal(commitBlocked.finalState.kind, 'closed');
   assert.equal(commitBlocked.iterations[0].classification, 'true-block');
   const commitBlockedChain = JSON.parse(await readFile(path.resolve(process.cwd(), commitBlocked.iterations[0].repairSkillResultPath), 'utf8'));
   assert.equal(commitBlockedChain.skillResults[0].reasonCode, 'repair-skill-commit-policy-blocked');
   assert.equal(commitBlockedChain.skillResults[0].commitIntent.required, true);
-  const commitBlockedTerminal = JSON.parse(await readFile(path.resolve(process.cwd(), commitBlocked.iterations[0].runDir, 'terminal', 'iteration-1-true-blocked.json'), 'utf8'));
+  const commitBlockedTerminal = JSON.parse(await readFile(path.resolve(process.cwd(), commitBlocked.iterations[0].runDir, 'terminal', 'iteration-1-continuation-required.json'), 'utf8'));
   assert.equal(commitBlockedTerminal.stopVerdict.reasonCode, 'repair-skill-commit-policy-blocked');
+  assert.equal(commitBlockedTerminal.loopMayContinue, true);
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

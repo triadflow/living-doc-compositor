@@ -72,7 +72,7 @@ function sourceClosureDoc(docPath) {
 function reviewerVerdict(classification, {
   closureAllowed = false,
   reasonCode = classification === 'closed' ? 'objective-proven' : classification === 'true-block' ? 'missing-source' : 'proof-or-objective-unsatisfied',
-  mode = classification === 'closed' ? 'none' : classification === 'true-block' ? 'block' : 'repair',
+  mode = classification === 'closed' ? 'none' : classification === 'user-stopped' ? 'user-stop' : classification === 'true-block' ? 'block' : 'repair',
   instruction = 'Run the appropriate repair or proof-producing action for the unresolved objective state.',
   terminal = null,
 } = {}) {
@@ -86,9 +86,10 @@ function reviewerVerdict(classification, {
       basis: ['Reviewer inference fixture read the frozen evidence and emitted this lifecycle verdict.'],
     },
     nextIteration: {
-      allowed: classification !== 'closed' && !['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification),
+      allowed: !['closed', 'user-stopped'].includes(classification),
       mode,
       instruction,
+      mustNotDo: classification === 'closed' ? [] : ['Do not stop before objective closure or explicit user stop.'],
     },
     ...(terminal ? { terminal } : {}),
   };
@@ -125,6 +126,12 @@ try {
         closureAllowed: true,
         finalMessageSummary: 'Lifecycle controller proof is complete.',
         filesChanged: ['scripts/living-doc-harness-lifecycle.mjs'],
+        sideEffectEvidence: {
+          commit: {
+            sha: 'abc1234',
+            required: true,
+          },
+        },
         traceMessage: 'Iteration two produced terminal proof.',
         reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
       },
@@ -137,13 +144,14 @@ try {
     evidenceDir: path.join(tmp, 'evidence'),
     dashboardPath: path.join(tmp, 'dashboard.html'),
     evidenceSequencePath: sequencePath,
-    maxIterations: 3,
     now: '2026-05-07T12:40:00.000Z',
   });
 
   assert.equal(result.schema, 'living-doc-harness-lifecycle-result/v1');
   assert.equal(result.iterationCount, 2);
   assert.equal(result.finalState.kind, 'closed');
+  assert.match(result.finalState.postFlightSummaryPath, /iteration-2-post-flight-summary\.md$/);
+  assert.match(result.finalState.postFlightUnitResultPath, /inference-units\/iteration-2\/04-post-flight-summary\/result\.json$/);
   assert.equal(result.iterations[0].classification, 'closure-candidate');
   assert.equal(result.iterations[0].terminalKind, 'repair-resumed');
   assert.equal(result.iterations[0].nextAction.action, 'start-next-worker-iteration');
@@ -192,7 +200,7 @@ try {
         },
         reviewerVerdict: reviewerVerdict('true-block', {
           reasonCode: 'missing-source',
-          mode: 'block',
+          mode: 'continuation',
           terminal: {
             kind: 'true-block',
             reasonCode: 'missing-source',
@@ -207,6 +215,7 @@ try {
         stageAfter: 'closed',
         acceptanceCriteriaSatisfied: 'pass',
         closureAllowed: true,
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
       },
     ],
   }, null, 2)}\n`, 'utf8');
@@ -216,17 +225,83 @@ try {
     evidenceDir: path.join(tmp, 'terminal-evidence'),
     dashboardPath: path.join(tmp, 'terminal-dashboard.html'),
     evidenceSequencePath: terminalSequencePath,
-    maxIterations: 3,
     now: '2026-05-07T12:50:00.000Z',
   });
-  assert.equal(terminal.iterationCount, 1);
-  assert.equal(terminal.finalState.kind, 'true-blocked');
-  assert.equal(terminal.iterations[0].nextAction.action, 'stop-terminal-state');
+  assert.equal(terminal.iterationCount, 2);
+  assert.equal(terminal.finalState.kind, 'closed');
+  assert.equal(terminal.iterations[0].classification, 'true-block');
+  assert.equal(terminal.iterations[0].terminalKind, 'continuation-required');
+  assert.equal(terminal.iterations[0].nextAction.action, 'start-next-worker-iteration');
+  const trueBlockOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), terminal.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(trueBlockOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(trueBlockOutputInput.terminalAction, null);
+
+  const trueBlockBatchSequencePath = path.join(tmp, 'true-block-batch-sequence.json');
+  await writeFile(trueBlockBatchSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'blocked',
+        acceptanceCriteriaSatisfied: 'fail',
+        closureAllowed: false,
+        traceMessage: 'Runtime proof surface unavailable in this worker batch.',
+        terminalSignal: {
+          kind: 'true-block',
+          reasonCode: 'runtime-proof-surface-unavailable',
+          owningLayer: 'runtime',
+          requiredDecision: 'Resume in a runtime that can inspect the proof surface.',
+          unblockCriteria: ['proof surface is available to a continuation worker'],
+          basis: ['The current worker batch cannot inspect the runtime proof surface.'],
+        },
+        reviewerVerdict: reviewerVerdict('true-block', {
+          reasonCode: 'runtime-proof-surface-unavailable',
+          mode: 'continuation',
+          terminal: {
+            kind: 'true-block',
+            reasonCode: 'runtime-proof-surface-unavailable',
+            owningLayer: 'runtime',
+            requiredDecision: 'Resume in a runtime that can inspect the proof surface.',
+            unblockCriteria: ['proof surface is available to a continuation worker'],
+            basis: ['The current worker batch cannot inspect the runtime proof surface.'],
+          },
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Continuation worker reached objective closure after the true block was carried forward.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const trueBlockBatch = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'true-block-batch-runs'),
+    evidenceDir: path.join(tmp, 'true-block-batch-evidence'),
+    dashboardPath: path.join(tmp, 'true-block-batch-dashboard.html'),
+    evidenceSequencePath: trueBlockBatchSequencePath,
+    now: '2026-05-07T12:52:00.000Z',
+  });
+  assert.equal(trueBlockBatch.iterationCount, 2);
+  assert.equal(trueBlockBatch.finalState.kind, 'closed');
+  assert.equal(trueBlockBatch.iterations[0].classification, 'true-block');
+  assert.equal(trueBlockBatch.iterations[0].terminalKind, 'continuation-required');
+  assert.equal(trueBlockBatch.iterations[0].nextAction.action, 'start-next-worker-iteration');
+  assert.equal(trueBlockBatch.iterations[0].nextAction.allowed, true);
+  assert.equal(trueBlockBatch.iterations[1].classification, 'closed');
+  const trueBlockBatchOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), trueBlockBatch.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(trueBlockBatchOutputInput.previousOutput.classification, 'true-block');
+  assert.equal(trueBlockBatchOutputInput.previousOutput.terminalKind, 'continuation-required');
+  assert.equal(trueBlockBatchOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(trueBlockBatchOutputInput.terminalAction, null);
+  assert.equal(trueBlockBatchOutputInput.nextInput.mode, 'continuation');
+  assert.match(trueBlockBatchOutputInput.nextAction.reason, /unresolved objective state/);
 
   const deniedClosureSequencePath = path.join(tmp, 'denied-closure-sequence.json');
   const fakeClosureReviewPath = path.join(tmp, 'fake-closure-review.mjs');
+  const fakeClosureReviewCountPath = `${fakeClosureReviewPath}.count`;
   await writeFile(fakeClosureReviewPath, `#!/usr/bin/env node
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const outputPath = args[args.indexOf('-o') + 1];
@@ -243,13 +318,18 @@ for (const requiredPath of required) {
     }
   }));
 }
+const countPath = ${JSON.stringify(fakeClosureReviewCountPath)};
+const current = existsSync(countPath) ? Number(readFileSync(countPath, 'utf8') || '0') || 0 : 0;
+const next = current + 1;
+writeFileSync(countPath, String(next));
 writeFileSync(outputPath, JSON.stringify({
   schema: 'living-doc-harness-closure-review/v1',
-  approved: false,
-  reasonCode: 'fixture-denied-closure',
+  status: next > 1 ? 'approved' : 'blocked',
+  approved: next > 1,
+  reasonCode: next > 1 ? 'fixture-approved-closure' : 'fixture-denied-closure',
   confidence: 'high',
-  basis: ['Fake closure-review inference denied closure after inspecting required paths.'],
-  terminalAllowed: false
+  basis: [next > 1 ? 'Fake closure-review inference approved closure on the resumed iteration.' : 'Fake closure-review inference denied closure after inspecting required paths.'],
+  terminalAllowed: next > 1
 }) + '\\n');
 `, 'utf8');
   await chmod(fakeClosureReviewPath, 0o755);
@@ -267,6 +347,18 @@ writeFileSync(outputPath, JSON.stringify({
           reasonCode: 'objective-proven-by-reviewer',
         }),
       },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Resumed worker preserved closure evidence and the closure review approves it.',
+        reviewerVerdict: reviewerVerdict('closed', {
+          closureAllowed: true,
+          reasonCode: 'objective-proven-by-reviewer',
+        }),
+      },
     ],
   }, null, 2)}\n`, 'utf8');
   const deniedClosure = await runHarnessLifecycle({
@@ -275,51 +367,18 @@ writeFileSync(outputPath, JSON.stringify({
     evidenceDir: path.join(tmp, 'denied-closure-evidence'),
     dashboardPath: path.join(tmp, 'denied-closure-dashboard.html'),
     evidenceSequencePath: deniedClosureSequencePath,
-    maxIterations: 1,
     executeClosureReview: true,
     codexBin: fakeClosureReviewPath,
     now: '2026-05-07T12:55:00.000Z',
   });
-  assert.equal(deniedClosure.iterationCount, 1);
-  assert.equal(deniedClosure.finalState.kind, 'true-blocked');
+  assert.equal(deniedClosure.iterationCount, 2);
+  assert.equal(deniedClosure.finalState.kind, 'closed');
   assert.match(deniedClosure.iterations[0].closureReviewResultPath, /inference-units\/iteration-1\/03-closure-review\/result\.json$/);
   assert.match(deniedClosure.iterations[0].postReviewSelectionPath, /artifacts\/iteration-1-post-review-selection\.json$/);
   const deniedOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), deniedClosure.iterations[0].outputInputPath), 'utf8'));
-  assert.equal(deniedOutputInput.nextUnit.unitId, 'closure-review');
-  assert.equal(deniedOutputInput.terminalAction.kind, 'true-blocked');
-  assert.equal(deniedOutputInput.terminalAction.reasonCode, 'closure-review-denied');
-  assert.equal(deniedOutputInput.postReviewSelection.nextUnit.status, 'blocked');
-
-  const budgetSequencePath = path.join(tmp, 'budget-sequence.json');
-  await writeFile(budgetSequencePath, `${JSON.stringify({
-    iterations: [
-      {
-        stageAfter: 'worker-claimed-done',
-        unresolvedObjectiveTerms: ['still missing'],
-        unprovenAcceptanceCriteria: ['criterion-owned-lifecycle-controller'],
-        acceptanceCriteriaSatisfied: 'fail',
-        closureAllowed: false,
-        wrapperSummary: { claimedStatus: 'done' },
-        reviewerVerdict: reviewerVerdict('closure-candidate', {
-          reasonCode: 'closure-proof-incomplete',
-          mode: 'repair',
-        }),
-      },
-    ],
-  }, null, 2)}\n`, 'utf8');
-  const budget = await runHarnessLifecycle({
-    docPath,
-    runsDir: path.join(tmp, 'budget-runs'),
-    evidenceDir: path.join(tmp, 'budget-evidence'),
-    dashboardPath: path.join(tmp, 'budget-dashboard.html'),
-    evidenceSequencePath: budgetSequencePath,
-    maxIterations: 1,
-    now: '2026-05-07T13:00:00.000Z',
-  });
-  assert.equal(budget.iterationCount, 1);
-  assert.equal(budget.finalState.kind, 'budget-exhausted');
-  const budgetState = JSON.parse(await readFile(path.resolve(process.cwd(), budget.iterations[0].runDir, 'state.json'), 'utf8'));
-  assert.equal(budgetState.lifecycleStage, 'budget-exhausted');
+  assert.equal(deniedOutputInput.nextUnit.unitId, 'continuation-inference');
+  assert.equal(deniedOutputInput.terminalAction, null);
+  assert.equal(deniedOutputInput.postReviewSelection.nextUnit.status, 'selected');
 
   const sourceClosureDocPath = path.join(tmp, 'source-closure-doc.json');
   const sourceClosureHtmlPath = sourceClosureDocPath.replace(/\.json$/i, '.html');
@@ -351,8 +410,8 @@ if (next === 1) {
   doc.runState.currentPhase = 'completed';
   doc.runState.objectiveReady = true;
   doc.runState.nextObjectiveAction = 'closed';
-  for (const criterion of doc.sections[0].data) {
-    criterion.status = 'completed';
+  for (const [index, criterion] of doc.sections[0].data.entries()) {
+    criterion.status = index === 0 ? 'contract-proven' : 'browser-and-ui-proven';
     criterion.updated = '2026-05-07T13:22:00.000Z';
   }
   writeFileSync(outputPath, 'phase 2 complete; objectiveReady true');
@@ -369,7 +428,6 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
     runsDir: path.join(tmp, 'source-closure-runs'),
     evidenceDir: path.join(tmp, 'source-closure-evidence'),
     dashboardPath: path.join(tmp, 'source-closure-dashboard.html'),
-    maxIterations: 3,
     execute: true,
     codexBin: fakeCodexPath,
     codexHome: tmp,
@@ -400,6 +458,58 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
   assert.match(sourceClosure.iterations[1].reviewerVerdictPath, /reviewer-inference\/iteration-2-verdict\.json$/);
   assert.match(sourceClosure.iterations[1].closureReviewResultPath, /inference-units\/iteration-2\/03-closure-review\/result\.json$/);
 
+  const proofRouteSequencePath = path.join(tmp, 'proof-route-sequence.json');
+  await writeFile(proofRouteSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Controller-owned deterministic proof route passed before reviewer closure.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const proofRouteLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'proof-route-runs'),
+    evidenceDir: path.join(tmp, 'proof-route-evidence'),
+    dashboardPath: path.join(tmp, 'proof-route-dashboard.html'),
+    evidenceSequencePath: proofRouteSequencePath,
+    executeProofRoutes: true,
+    proofRoutes: [
+      {
+        id: 'controller-owned-fixture-proof',
+        kind: 'command',
+        command: `${process.execPath} -e "console.log('controller-proof-ok')"`,
+        required: true,
+        acceptanceCriteria: ['criterion-owned-controller-proof'],
+      },
+    ],
+    now: '2026-05-07T13:05:00.000Z',
+  });
+  assert.equal(proofRouteLifecycle.iterationCount, 1);
+  assert.equal(proofRouteLifecycle.finalState.kind, 'closed');
+  const proofRouteEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    proofRouteLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(proofRouteEvidence.controllerProofRoutes.routeCount, 1);
+  assert.equal(proofRouteEvidence.controllerProofRoutes.results[0].status, 'passed');
+  assert.equal(proofRouteEvidence.proofGates.controllerProofRoutes, 'pass');
+  const proofRouteProof = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    proofRouteLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-proof.json',
+  ), 'utf8'));
+  assert.equal(proofRouteProof.controllerProofRoutes.results[0].routeId, 'controller-owned-fixture-proof');
+  assert.equal(proofRouteProof.controllerProofRoutes.results[0].closureAllowedContribution, 'pass');
+
   const cliResultDir = path.join(tmp, 'cli-runs');
   const cli = spawnSync(process.execPath, [
     'scripts/living-doc-harness-lifecycle.mjs',
@@ -413,8 +523,6 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
     path.join(tmp, 'cli-dashboard.html'),
     '--evidence-sequence',
     sequencePath,
-    '--max-iterations',
-    '3',
     '--now',
     '2026-05-07T13:10:00.000Z',
   ], {

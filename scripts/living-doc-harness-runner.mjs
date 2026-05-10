@@ -12,10 +12,16 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
 import { writeContractBoundInferenceUnitSnapshot } from './living-doc-harness-inference-unit.mjs';
+import { resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
+import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const DEFAULT_RUNS_DIR = '.living-doc-runs';
+
+function arr(value) {
+  return Array.isArray(value) ? value : [];
+}
 
 function sha256(text) {
   return `sha256:${createHash('sha256').update(text).digest('hex')}`;
@@ -80,12 +86,13 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null }) {
   return lines.join('\n');
 }
 
-function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex' }) {
+function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex', toolProfile }) {
   return {
     command: codexBin,
     args: [
       'exec',
       '--json',
+      ...arr(toolProfile?.codexArgs),
       '-C',
       cwd,
       '-o',
@@ -96,11 +103,16 @@ function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex' }) {
   };
 }
 
-function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null }) {
+function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, toolProfile = null, allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES }) {
   return {
     schema: 'living-doc-worker-inference-input/v1',
     runId,
     role: 'worker',
+    runConfig: {
+      schema: 'living-doc-harness-run-inference-config/v1',
+      allowedUnitTypes,
+      initialUnitType: 'worker',
+    },
     livingDocPath: docPath,
     objective: doc.objective || null,
     successCondition: doc.successCondition || null,
@@ -113,6 +125,7 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null }
       outputInputPath: lifecycleInput.outputInputPath || null,
     } : null,
     requiredInspectionPaths: [docPath],
+    toolProfile,
     forbiddenActions: [
       'run lifecycle finalizer from inside worker inference',
       'run reviewer inference from inside worker inference',
@@ -150,6 +163,8 @@ function parseArgs(argv) {
     codexHome: process.env.CODEX_HOME || path.join(os.homedir(), '.codex'),
     traceLimit: 10,
     iteration: 1,
+    toolProfile: 'local-harness',
+    allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   };
 
   while (args.length) {
@@ -180,6 +195,14 @@ function parseArgs(argv) {
       const value = Number(args.shift());
       if (!Number.isInteger(value) || value < 1) throw new Error('--iteration requires an integer >= 1');
       options.iteration = value;
+    } else if (flag === '--tool-profile') {
+      const value = args.shift();
+      if (!value) throw new Error('--tool-profile requires a value');
+      options.toolProfile = value;
+    } else if (flag === '--allowed-unit-types') {
+      const value = args.shift();
+      if (!value) throw new Error('--allowed-unit-types requires a comma-separated value');
+      options.allowedUnitTypes = value.split(',').map((item) => item.trim()).filter(Boolean);
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
@@ -199,6 +222,8 @@ export async function createHarnessRun({
   traceLimit = 10,
   lifecycleInput = null,
   iteration = 1,
+  toolProfile = 'local-harness',
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -219,11 +244,24 @@ export async function createHarnessRun({
   const lastMessagePath = path.join(turnsDir, 'last-message.txt');
   const codexEventsPath = path.join(turnsDir, 'codex-events.jsonl');
   const codexStderrPath = path.join(turnsDir, 'codex-stderr.log');
-  const prompt = buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput });
-  const workerInputContract = buildWorkerInputContract({ doc, docPath: relativeDocPath, runId, lifecycleInput });
+  const resolvedToolProfile = resolveInferenceToolProfile(toolProfile, { cwd });
+  const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
+  const prompt = `${buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput })}
+
+Harness tool profile:
+${JSON.stringify(resolvedToolProfile, null, 2)}
+`;
+  const workerInputContract = buildWorkerInputContract({
+    doc,
+    docPath: relativeDocPath,
+    runId,
+    lifecycleInput,
+    toolProfile: resolvedToolProfile,
+    allowedUnitTypes: normalizedAllowedUnitTypes,
+  });
   const promptPath = path.join(runDir, 'prompt.md');
   const absoluteCodexHome = path.resolve(cwd, codexHome);
-  const codexCommand = buildCodexCommand({ cwd, lastMessagePath, codexBin });
+  const codexCommand = buildCodexCommand({ cwd, lastMessagePath, codexBin, toolProfile: resolvedToolProfile });
 
   const contract = {
     schema: 'living-doc-harness-run/v1',
@@ -247,10 +285,25 @@ export async function createHarnessRun({
         CODEX_HOME: absoluteCodexHome,
         LIVING_DOC_HARNESS_ROLE: 'worker',
       },
+      toolProfile: {
+        name: resolvedToolProfile.name,
+        isolation: resolvedToolProfile.isolation,
+        sandboxMode: resolvedToolProfile.sandboxMode,
+        mcpMode: resolvedToolProfile.mcpMode,
+        mcpAllowlist: resolvedToolProfile.mcpAllowlist,
+        mcpDenylist: resolvedToolProfile.mcpDenylist,
+        pluginDenylist: resolvedToolProfile.pluginDenylist,
+      },
       pid: null,
       exitCode: null,
       startedAt: null,
       finishedAt: null,
+    },
+    runConfig: {
+      schema: 'living-doc-harness-run-inference-config/v1',
+      allowedUnitTypes: normalizedAllowedUnitTypes,
+      initialUnitType: 'worker',
+      registrySchema: 'living-doc-harness-inference-unit-type-registry/v1',
     },
     artifacts: {
       state: 'state.json',
@@ -307,6 +360,8 @@ export async function createHarnessRun({
     sequence: 1,
     unitId: 'worker',
     role: 'worker',
+    unitTypeId: 'worker',
+    allowedUnitTypes: normalizedAllowedUnitTypes,
     prompt,
     inputContract: workerInputContract,
     mode: execute ? 'external-headless-codex-starting' : 'prepared',
@@ -325,6 +380,8 @@ export async function createHarnessRun({
       nextAuthority: 'reviewer-inference',
     },
     now,
+    cwd,
+    toolProfile: resolvedToolProfile,
   });
   contract.artifacts.workerInferenceUnit = {
     result: path.relative(runDir, initialWorkerUnit.resultPath),
@@ -430,6 +487,8 @@ export async function createHarnessRun({
     sequence: 1,
     unitId: 'worker',
     role: 'worker',
+    unitTypeId: 'worker',
+    allowedUnitTypes: normalizedAllowedUnitTypes,
     prompt,
     inputContract: workerInputContract,
     sourcePaths: {
@@ -457,6 +516,8 @@ export async function createHarnessRun({
       nextAuthority: 'reviewer-inference',
     },
     now: finishedAt,
+    cwd,
+    toolProfile: resolvedToolProfile,
   });
   finalContract.artifacts.workerInferenceUnit = {
     result: path.relative(runDir, finalWorkerUnit.resultPath),

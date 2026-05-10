@@ -20,6 +20,15 @@ function rel(runDir, filePath) {
 
 function closureApprovedFromEvidence({ evidence, verdict }) {
   const gates = evidence?.proofGates || {};
+  const sideEffects = evidence?.sideEffectEvidence || {};
+  const sourceChanged = evidence?.sourceFilesChanged === true || sideEffects.commit?.required === true;
+  const commitGateSatisfied = !sourceChanged
+    || sideEffects.commit?.sha
+    || sideEffects.commit?.exemption?.approved === true
+    || sideEffects.commit?.notRequired === true;
+  const prGateSatisfied = evidence?.prReviewRequired === true
+    ? Boolean(sideEffects.prReview?.url || sideEffects.prReview?.notRequired === true)
+    : true;
   return verdict?.stopVerdict?.classification === 'closed'
     && (verdict.stopVerdict.closureAllowed === true || verdict.proofGates?.closureAllowed === true)
     && gates.standaloneRun === 'pass'
@@ -30,7 +39,9 @@ function closureApprovedFromEvidence({ evidence, verdict }) {
     && gates.closureAllowed === true
     && arr(evidence?.objectiveState?.unresolvedObjectiveTerms).length === 0
     && arr(evidence?.objectiveState?.unprovenAcceptanceCriteria).length === 0
-    && arr(evidence?.workerEvidence?.nativeInferenceTraceRefs).length > 0;
+    && arr(evidence?.workerEvidence?.nativeInferenceTraceRefs).length > 0
+    && commitGateSatisfied
+    && prGateSatisfied;
 }
 
 function closureReviewPrompt(input) {
@@ -55,6 +66,7 @@ Return this JSON shape:
 }
 
 Only set approved true and terminalAllowed true when the reviewer verdict is closed, closureAllowed is true, all proof gates pass, native trace evidence exists, no objective terms remain unresolved, and no acceptance criteria remain unproven.
+If source files changed, require sideEffectEvidence.commit.sha or an explicit approved no-commit exemption. If PR review is configured, require sideEffectEvidence.prReview evidence.
 
 Frozen closure-review input:
 ${JSON.stringify(input, null, 2)}
@@ -87,6 +99,7 @@ export async function runClosureReviewUnit({
   executeClosureReview = false,
   codexBin = 'codex',
   cwd = process.cwd(),
+  allowedUnitTypes = null,
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!evidence) throw new Error('evidence is required');
@@ -110,6 +123,7 @@ export async function runClosureReviewUnit({
     reviewerInferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
     objectiveState: evidence.objectiveState,
     proofGates: evidence.proofGates,
+    sideEffectEvidence: evidence.sideEffectEvidence || null,
     workerEvidence: evidence.workerEvidence,
     stopVerdict: verdict.stopVerdict,
     nextIteration: verdict.nextIteration,
@@ -140,6 +154,8 @@ export async function runClosureReviewUnit({
     sequence: 3,
     unitId: 'closure-review',
     role: 'closure-review',
+    unitTypeId: 'closure-review',
+    allowedUnitTypes: allowedUnitTypes || undefined,
     prompt,
     inputContract: input,
     fixtureResult,

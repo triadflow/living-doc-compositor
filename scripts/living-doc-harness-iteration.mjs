@@ -18,6 +18,10 @@ import { writeTerminalState } from './living-doc-harness-terminal-state.mjs';
 import { renderDashboard, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
 import { attachTraceSummaryToRun } from './living-doc-harness-trace-reader.mjs';
 import { validateHarnessContract } from './validate-living-doc-harness-contract.mjs';
+import {
+  DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  validateNextUnitSelection,
+} from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -92,9 +96,12 @@ function repairChainBlockedVerdict(originalVerdict, repairRun) {
       ],
     },
     nextIteration: {
-      allowed: false,
-      mode: 'block',
-      instruction: 'Stop the lifecycle and inspect the blocked repair-skill inference unit before resuming.',
+      allowed: true,
+      mode: 'continuation',
+      instruction: 'Continue through a blocker-resolution inference unit; inspect the blocked repair-skill inference unit, resolve or reroute it, and feed the result into the next worker iteration.',
+      mustNotDo: [
+        'Do not stop the lifecycle unless the objective is closed or the user explicitly stops it.',
+      ],
     },
     terminal: {
       kind: 'true-block',
@@ -133,9 +140,12 @@ function closureReviewBlockedVerdict(originalVerdict, closureReview) {
       ],
     },
     nextIteration: {
-      allowed: false,
-      mode: 'block',
-      instruction: 'Stop the lifecycle and resolve the closure-review denial before any next inference unit runs.',
+      allowed: true,
+      mode: 'continuation',
+      instruction: 'Continue through a blocker-resolution inference unit; repair the proof ordering or evidence contract that caused closure review to deny terminal closure.',
+      mustNotDo: [
+        'Do not stop the lifecycle unless the objective is closed or the user explicitly stops it.',
+      ],
     },
     terminal: {
       kind: 'true-block',
@@ -156,20 +166,79 @@ function closureReviewBlockedVerdict(originalVerdict, closureReview) {
   };
 }
 
+function continuationVerdict(verdict) {
+  const classification = verdict?.stopVerdict?.classification;
+  if (!classification || classification === 'closed' || classification === 'user-stopped') return verdict;
+  if (verdict.nextIteration?.allowed === true && verdict.nextIteration?.mode && !['none', 'user-stop'].includes(verdict.nextIteration.mode)) {
+    return verdict;
+  }
+  return {
+    ...verdict,
+    nextIteration: {
+      ...verdict.nextIteration,
+      allowed: true,
+      mode: verdict.nextIteration?.mode && !['none', 'user-stop'].includes(verdict.nextIteration.mode)
+        ? verdict.nextIteration.mode
+        : 'continuation',
+      instruction: verdict.nextIteration?.instruction || 'Continue through the next contract-bound inference unit until the living-doc objective is reached.',
+      mustNotDo: arr(verdict.nextIteration?.mustNotDo).length
+        ? verdict.nextIteration.mustNotDo
+        : [
+          'Do not stop the lifecycle unless the objective is closed or the user explicitly stops it.',
+          'Do not treat blocker classification, ticket creation, failed proof, or runtime limitation as terminal.',
+        ],
+    },
+  };
+}
+
 function terminalKindFromVerdict(verdict) {
   const classification = verdict?.stopVerdict?.classification;
   if (classification === 'closed') return 'closed';
-  if (classification === 'true-block') return 'true-blocked';
-  if (classification === 'pivot') return 'pivoted';
-  if (classification === 'deferred') return 'deferred';
-  if (classification === 'budget-exhausted') return 'budget-exhausted';
+  if (classification === 'user-stopped') return 'user-stopped';
+  if (['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification)) return 'continuation-required';
   if (['repairable', 'resumable', 'closure-candidate'].includes(classification)) return 'repair-resumed';
   return 'unknown';
+}
+
+function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes }) {
+  if (!selected.nextUnit) {
+    selected.contractValidation = {
+      ok: true,
+      reasonCode: selected.terminalAction ? 'terminal-action-selected' : 'no-next-unit-selected',
+      allowedUnitTypes,
+    };
+    return selected;
+  }
+  const validation = validateNextUnitSelection({
+    currentUnitTypeId: 'reviewer-inference',
+    selectedUnitTypeId: selected.nextUnit.unitId,
+    allowedUnitTypes,
+  });
+  selected.contractValidation = validation;
+  if (validation.ok) return selected;
+  selected.nextUnit = {
+    unitId: 'continuation-inference',
+    role: 'continuation',
+    reasonCode: validation.reasonCode,
+    requiredInputPaths: [
+      evidencePath ? path.relative(runDir, evidencePath) : null,
+      reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+    ].filter(Boolean),
+    expectedOutputSchema: 'living-doc-continuation-result/v1',
+    status: 'selected',
+  };
+  selected.contractValidation = validateNextUnitSelection({
+    currentUnitTypeId: 'reviewer-inference',
+    selectedUnitTypeId: selected.nextUnit.unitId,
+    allowedUnitTypes,
+  });
+  return selected;
 }
 
 function buildPostReviewSelection({
   runDir,
   evidencePath,
+  evidence,
   reviewer,
   verdict,
   effectiveVerdict,
@@ -178,6 +247,7 @@ function buildPostReviewSelection({
   iteration,
   now,
   executeRepairSkills,
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
 }) {
   const classification = verdict?.stopVerdict?.classification || 'unknown';
   const selected = {
@@ -196,6 +266,38 @@ function buildPostReviewSelection({
   };
 
   if (classification === 'closed') {
+    const sideEffects = evidence?.sideEffectEvidence || {};
+    const sourceChanged = evidence?.sourceFilesChanged === true || sideEffects.commit?.required === true;
+    const commitSatisfied = !sourceChanged
+      || sideEffects.commit?.sha
+      || sideEffects.commit?.exemption?.approved === true
+      || sideEffects.commit?.notRequired === true;
+    const prSatisfied = evidence?.prReviewRequired === true
+      ? Boolean(sideEffects.prReview?.url || sideEffects.prReview?.notRequired === true)
+      : true;
+
+    if (!commitSatisfied) {
+      selected.nextUnit = {
+        unitId: 'commit-intent',
+        role: 'commit-intent',
+        reasonCode: 'source-changes-require-commit-evidence',
+        requiredInputPaths: [evidencePath ? path.relative(runDir, evidencePath) : null, reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null].filter(Boolean),
+        expectedOutputSchema: 'living-doc-harness-commit-intent-result/v1',
+        status: 'selected',
+      };
+      return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
+    }
+    if (!prSatisfied) {
+      selected.nextUnit = {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'pr-review-required-by-run-config',
+        requiredInputPaths: [evidencePath ? path.relative(runDir, evidencePath) : null, reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null].filter(Boolean),
+        expectedOutputSchema: 'living-doc-harness-pr-review-result/v1',
+        status: 'selected',
+      };
+      return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
+    }
     selected.nextUnit = {
       unitId: 'closure-review',
       role: 'closure-review',
@@ -212,29 +314,55 @@ function buildPostReviewSelection({
       status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
     };
     if (closureReview) {
-      selected.terminalAction = closureReview.review.terminalAllowed
-        ? {
+      if (closureReview.review.terminalAllowed) {
+        selected.terminalAction = {
           kind: 'closed',
           reasonCode: closureReview.review.reasonCode,
           selectedBy: 'closure-review',
-        }
-        : {
-          kind: 'true-blocked',
-          reasonCode: 'closure-review-denied',
-          selectedBy: 'closure-review',
-          blockerReasonCode: closureReview.review.reasonCode || 'closure-review-denied',
         };
+      } else {
+        selected.nextUnit = {
+          unitId: 'continuation-inference',
+          role: 'continuation',
+          reasonCode: 'closure-review-denied',
+          requiredInputPaths: [
+            evidencePath ? path.relative(runDir, evidencePath) : null,
+            reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+            closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
+            closureReview?.unit?.codexEventsPath ? path.relative(runDir, closureReview.unit.codexEventsPath) : null,
+          ].filter(Boolean),
+          expectedOutputSchema: 'living-doc-continuation-result/v1',
+          status: 'selected',
+        };
+      }
     }
-    return selected;
+    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
+  }
+
+  if (classification === 'user-stopped') {
+    selected.terminalAction = {
+      kind: 'user-stopped',
+      reasonCode: verdict?.stopVerdict?.reasonCode || 'user-stopped',
+      selectedBy: 'user-stop',
+    };
+    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
 
   if (['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification)) {
-    selected.terminalAction = {
-      kind: terminalKindFromVerdict(effectiveVerdict || verdict),
-      reasonCode: (effectiveVerdict || verdict)?.stopVerdict?.reasonCode || classification,
-      selectedBy: 'reviewer-verdict',
+    selected.nextUnit = {
+      unitId: 'continuation-inference',
+      role: 'continuation',
+      reasonCode: verdict?.stopVerdict?.reasonCode || classification,
+      requiredInputPaths: [
+        evidencePath ? path.relative(runDir, evidencePath) : null,
+        reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+        reviewer?.artifact?.inferenceUnitResultPath || null,
+        reviewer?.artifact?.codexEventsPath || null,
+      ].filter(Boolean),
+      expectedOutputSchema: 'living-doc-continuation-result/v1',
+      status: 'selected',
     };
-    return selected;
+    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
 
   if (verdict?.nextIteration?.allowed !== false && verdict?.nextIteration?.mode === 'repair') {
@@ -259,13 +387,20 @@ function buildPostReviewSelection({
         status: 'selected',
       };
     if (repairRun && ['blocked', 'failed'].includes(repairRun.chain?.status)) {
-      selected.terminalAction = {
-        kind: 'true-blocked',
+      selected.nextUnit = {
+        unitId: 'continuation-inference',
+        role: 'continuation',
         reasonCode: 'repair-skill-chain-blocked',
-        selectedBy: 'repair-skill-chain',
+        requiredInputPaths: [
+          evidencePath ? path.relative(runDir, evidencePath) : null,
+          reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+          repairRun?.chainPath ? path.relative(runDir, repairRun.chainPath) : null,
+        ].filter(Boolean),
+        expectedOutputSchema: 'living-doc-continuation-result/v1',
+        status: 'selected',
       };
     }
-    return selected;
+    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
 
   if (verdict?.nextIteration?.allowed !== false) {
@@ -276,7 +411,7 @@ function buildPostReviewSelection({
       expectedOutputSchema: 'living-doc-worker-output/v1',
       status: 'selected',
     };
-    return selected;
+    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
 
   selected.terminalAction = {
@@ -284,7 +419,46 @@ function buildPostReviewSelection({
     reasonCode: (effectiveVerdict || verdict)?.stopVerdict?.reasonCode || 'no-valid-next-unit',
     selectedBy: 'reviewer-verdict',
   };
-  return selected;
+  return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
+}
+
+function sideEffectGateBlockedVerdict(verdict, selection) {
+  const unitId = selection?.nextUnit?.unitId;
+  if (verdict?.stopVerdict?.classification !== 'closed' || !['commit-intent', 'pr-review'].includes(unitId)) return null;
+  const reasonCode = selection.nextUnit.reasonCode || `${unitId}-required-before-closure`;
+  return {
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'true-block',
+      reasonCode,
+      confidence: verdict.stopVerdict.confidence || 'high',
+      closureAllowed: false,
+      basis: [
+        `Reviewer selected closure, but ${unitId} contract evidence is required before closure-review may run.`,
+        ...arr(verdict.stopVerdict.basis),
+      ],
+    },
+    nextIteration: {
+      allowed: true,
+      mode: 'continuation',
+      instruction: `Continue through the ${unitId} contract and return its side-effect evidence before closure review.`,
+      mustNotDo: [
+        'Do not persist closed terminal state until side-effect contract evidence is present.',
+      ],
+    },
+    terminal: {
+      kind: 'true-block',
+      reasonCode,
+      owningLayer: unitId,
+      requiredDecision: `Execute or exempt the ${unitId} contract evidence required for closure.`,
+      requiredProof: selection.nextUnit.expectedOutputSchema,
+      unblockCriteria: [
+        `${unitId} result artifact exists and validates against its registered output contract.`,
+        'Closure review receives sideEffectEvidence satisfying the configured gate.',
+      ],
+      basis: [`Missing ${unitId} contract evidence.`],
+    },
+  };
 }
 
 function arr(value) {
@@ -427,6 +601,7 @@ async function buildIterationProof({ runDir, evidence, verdict, reviewer, closur
     } : null,
     stopVerdict: verdict.stopVerdict,
     skillsApplied: skillsAppliedFromRouting(routing, repairRun),
+    controllerProofRoutes: evidence.controllerProofRoutes || null,
     proofGates: proofGatesAfterBundle(evidence),
     nextIteration: verdict.nextIteration,
     ...(verdict.terminal ? { terminal: verdict.terminal } : {}),
@@ -453,6 +628,7 @@ export async function finalizeHarnessIteration({
   executeRepairSkillUnits = false,
   repairSkillPlan = null,
   codexBin = 'codex',
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!evidencePath) throw new Error('evidencePath is required');
@@ -481,8 +657,9 @@ export async function finalizeHarnessIteration({
     executeReviewer,
     codexBin,
     cwd: process.cwd(),
+    allowedUnitTypes,
   });
-  const verdict = reviewer.verdict;
+  const verdict = continuationVerdict(reviewer.verdict);
   const evidenceSnapshotPath = path.join(artifactsDir, `iteration-${iteration}-evidence.json`);
   const verdictPath = path.join(artifactsDir, `iteration-${iteration}-stop-verdict.json`);
   await writeJson(evidenceSnapshotPath, finalEvidence);
@@ -492,6 +669,7 @@ export async function finalizeHarnessIteration({
   const initialPostReviewSelection = buildPostReviewSelection({
     runDir,
     evidencePath: closureEvidencePath,
+    evidence: finalEvidence,
     reviewer,
     verdict,
     effectiveVerdict: verdict,
@@ -500,6 +678,7 @@ export async function finalizeHarnessIteration({
     iteration,
     now,
     executeRepairSkills,
+    allowedUnitTypes,
   });
 
   const closureReview = initialPostReviewSelection.nextUnit?.unitId === 'closure-review'
@@ -514,6 +693,7 @@ export async function finalizeHarnessIteration({
       executeClosureReview,
       codexBin,
       cwd: process.cwd(),
+      allowedUnitTypes,
     })
     : null;
 
@@ -541,10 +721,14 @@ export async function finalizeHarnessIteration({
       codexBin,
       cwd: process.cwd(),
       now,
+      allowedUnitTypes,
     })
     : null;
   let effectiveVerdict = verdict;
-  if (verdict.stopVerdict?.classification === 'closed' && closureReview && (!closureReview.review.approved || !closureReview.review.terminalAllowed)) {
+  const sideEffectBlockedVerdict = sideEffectGateBlockedVerdict(verdict, initialPostReviewSelection);
+  if (sideEffectBlockedVerdict) {
+    effectiveVerdict = sideEffectBlockedVerdict;
+  } else if (verdict.stopVerdict?.classification === 'closed' && closureReview && (!closureReview.review.approved || !closureReview.review.terminalAllowed)) {
     effectiveVerdict = closureReviewBlockedVerdict(verdict, closureReview);
   } else if (['blocked', 'failed'].includes(repairRun?.chain?.status)) {
     effectiveVerdict = repairChainBlockedVerdict(verdict, repairRun);
@@ -555,6 +739,7 @@ export async function finalizeHarnessIteration({
   const postReviewSelectionArtifact = buildPostReviewSelection({
     runDir,
     evidencePath: closureEvidencePath,
+    evidence: finalEvidence,
     reviewer,
     verdict,
     effectiveVerdict,
@@ -563,6 +748,7 @@ export async function finalizeHarnessIteration({
     iteration,
     now,
     executeRepairSkills,
+    allowedUnitTypes,
   });
   const postReviewSelectionPath = path.join(artifactsDir, `iteration-${iteration}-post-review-selection.json`);
   await writeJson(postReviewSelectionPath, postReviewSelectionArtifact);

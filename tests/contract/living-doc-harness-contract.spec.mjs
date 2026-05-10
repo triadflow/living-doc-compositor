@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import { loadHarnessContractSchema, validateHarnessContract } from '../../scripts/validate-living-doc-harness-contract.mjs';
+import {
+  HARNESS_INFERENCE_UNIT_REGISTRY,
+  validateNextUnitSelection,
+  validateRegistryCompleteness,
+} from '../../scripts/living-doc-harness-inference-unit-types.mjs';
 
 const hashA = `sha256:${'a'.repeat(64)}`;
 const hashB = `sha256:${'b'.repeat(64)}`;
@@ -62,20 +67,20 @@ function baseContract(overrides = {}) {
   return structuredClone(Object.assign(contract, overrides));
 }
 
-function validTerminal(classification, extra = {}) {
+function validContinuation(classification) {
   return baseContract({
     objectiveState: {
       objectiveHash: hashC,
       stageBefore: 'implementing',
-      stageAfter: classification,
-      unresolvedObjectiveTerms: ['objective requires outside decision'],
+      stageAfter: 'continuation-required',
+      unresolvedObjectiveTerms: ['objective still requires continuation work'],
       unprovenAcceptanceCriteria: ['criterion-e2e-demo'],
     },
     stopVerdict: {
       classification,
       reasonCode: `${classification}-reason`,
       confidence: 'high',
-      basis: [`${classification} is the valid terminal state for this fixture.`],
+      basis: [`${classification} is continuation evidence for this fixture.`],
     },
     proofGates: {
       standaloneRun: 'pass',
@@ -86,14 +91,10 @@ function validTerminal(classification, extra = {}) {
       closureAllowed: false,
     },
     nextIteration: {
-      allowed: false,
-      mode: classification === 'budget-exhausted' ? 'stop-budget' : classification === 'deferred' ? 'defer' : classification === 'true-block' ? 'block' : classification,
-    },
-    terminal: {
-      kind: classification,
-      reasonCode: `${classification}-reason`,
-      basis: [`${classification} was proven from native trace and objective state.`],
-      ...extra,
+      allowed: true,
+      mode: 'continuation',
+      instruction: `Continue after ${classification}; it is not objective closure.`,
+      mustNotDo: ['do not stop unless the objective is proven reached or the user explicitly stops'],
     },
   });
 }
@@ -162,18 +163,39 @@ assert.equal(schema.title, 'living-doc-harness-iteration-proof/v1');
   assert.equal(validateHarnessContract(contract).ok, true);
 }
 
-// Terminal states are explicit and do not allow silent continuation.
-for (const terminal of [
-  validTerminal('true-block', {
-    owningLayer: 'source-authority',
-    requiredDecision: 'User must grant access to the required source repository.',
-    unblockCriteria: ['source repository is available to the standalone harness'],
-  }),
-  validTerminal('pivot'),
-  validTerminal('deferred'),
-  validTerminal('budget-exhausted'),
+// Non-closure classifications validate only as explicit continuation handovers.
+for (const continuation of [
+  validContinuation('true-block'),
+  validContinuation('pivot'),
+  validContinuation('deferred'),
+  validContinuation('budget-exhausted'),
 ]) {
-  assert.equal(validateHarnessContract(terminal).ok, true, terminal.stopVerdict.classification);
+  assert.equal(validateHarnessContract(continuation).ok, true, continuation.stopVerdict.classification);
+}
+
+// Explicit user stop is terminal without pretending the objective is proven.
+{
+  const contract = baseContract({
+    stopVerdict: {
+      classification: 'user-stopped',
+      reasonCode: 'user-explicit-stop',
+      confidence: 'high',
+      basis: ['User explicitly stopped the lifecycle.'],
+    },
+    proofGates: {
+      standaloneRun: 'pass',
+      nativeTraceInspected: 'pass',
+      livingDocRendered: 'pass',
+      acceptanceCriteriaSatisfied: 'fail',
+      evidenceBundleWritten: 'pass',
+      closureAllowed: false,
+    },
+    nextIteration: {
+      allowed: false,
+      mode: 'user-stop',
+    },
+  });
+  assert.equal(validateHarnessContract(contract).ok, true);
 }
 
 // Wrapper-only evidence is invalid.
@@ -232,6 +254,45 @@ for (const terminal of [
   const result = validateHarnessContract(contract);
   assert.equal(result.ok, false);
   assert.ok(result.violations.some((v) => v.path === '$.nextIteration.instruction'));
+}
+
+// Inference unit type registry is complete and enforces run-scoped routing.
+{
+  const requiredTypes = [
+    'worker',
+    'reviewer-inference',
+    'closure-review',
+    'living-doc-balance-scan',
+    'repair-skill',
+    'commit-intent',
+    'pr-review',
+    'continuation-inference',
+    'post-flight-summary',
+  ];
+  const result = validateRegistryCompleteness(HARNESS_INFERENCE_UNIT_REGISTRY);
+  assert.equal(result.ok, true);
+  for (const unitTypeId of requiredTypes) {
+    const type = HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes[unitTypeId];
+    assert.ok(type, `${unitTypeId} must be registered`);
+    assert.ok(type.inputContract.schema);
+    assert.ok(type.promptContract.template);
+    assert.ok(type.requiredEvidence.length > 0);
+    assert.ok(type.outputVerdicts.length > 0);
+    assert.ok(Array.isArray(type.allowedNextUnitTypes));
+    assert.ok(Array.isArray(type.deterministicSideEffects));
+    assert.ok(type.dashboard.label);
+    assert.ok(type.closureImplications);
+  }
+  assert.equal(validateNextUnitSelection({
+    currentUnitTypeId: 'reviewer-inference',
+    selectedUnitTypeId: 'commit-intent',
+    allowedUnitTypes: requiredTypes,
+  }).ok, true);
+  assert.equal(validateNextUnitSelection({
+    currentUnitTypeId: 'reviewer-inference',
+    selectedUnitTypeId: 'commit-intent',
+    allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference'],
+  }).reasonCode, 'selected-unit-type-not-allowed-for-run');
 }
 
 console.log('living-doc harness contract spec: all assertions passed');

@@ -84,21 +84,21 @@ try {
       iteration: i + 1,
       now: `2026-05-07T08:1${i}:00.000Z`,
     });
-    assert.equal(result.record.kind, 'true-blocked');
-    assert.equal(result.record.loopMayContinue, false);
+    assert.equal(result.record.kind, 'continuation-required');
+    assert.equal(result.record.loopMayContinue, true);
     assert.ok(result.record.blockerRef);
     assert.equal(result.blocker.reasonCode, reasonCode);
     assert.equal(result.blocker.dashboardVisible, true);
     assert.ok(result.blocker.unblockCriteria.length > 0);
     assert.equal(validateTerminalStateRecord(result.record).ok, true);
     const resume = await canResumeRun(run.runDir);
-    assert.equal(resume.allowed, false);
-    assert.match(resume.reason, /true block/);
+    assert.equal(resume.allowed, true);
+    assert.match(resume.reason, /continuation/i);
     const blockersJsonl = await readFile(path.join(run.runDir, 'blockers.jsonl'), 'utf8');
     assert.match(blockersJsonl, new RegExp(reasonCode));
   }
 
-  // Budget exhaustion is terminal non-closure.
+  // Budget exhaustion is a batch boundary, not lifecycle termination.
   {
     const run = await makeRun(tmp, '2026-05-07T08:20:00.000Z');
     const ev = evidence({
@@ -110,13 +110,13 @@ try {
     });
     const verdict = inferStopNegotiation(ev);
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 7, now: '2026-05-07T08:21:00.000Z' });
-    assert.equal(result.record.kind, 'budget-exhausted');
-    assert.equal(result.record.status, 'terminal-non-closure');
-    assert.equal(result.record.loopMayContinue, false);
-    assert.equal((await canResumeRun(run.runDir)).allowed, false);
+    assert.equal(result.record.kind, 'continuation-required');
+    assert.equal(result.record.status, 'repair-resumed');
+    assert.equal(result.record.loopMayContinue, true);
+    assert.equal((await canResumeRun(run.runDir)).allowed, true);
   }
 
-  // Pivot and deferral are terminal until outside state changes.
+  // Pivot and deferral pressure remain continuation evidence unless the user explicitly stops.
   for (const kind of ['pivot', 'deferred']) {
     const run = await makeRun(tmp, kind === 'pivot' ? '2026-05-07T08:30:00.000Z' : '2026-05-07T08:40:00.000Z');
     const ev = evidence({
@@ -128,9 +128,9 @@ try {
     });
     const verdict = inferStopNegotiation(ev);
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 8, now: '2026-05-07T08:41:00.000Z' });
-    assert.equal(result.record.kind, kind === 'pivot' ? 'pivoted' : 'deferred');
-    assert.equal(result.record.loopMayContinue, false);
-    assert.equal((await canResumeRun(run.runDir)).allowed, false);
+    assert.equal(result.record.kind, 'continuation-required');
+    assert.equal(result.record.loopMayContinue, true);
+    assert.equal((await canResumeRun(run.runDir)).allowed, true);
   }
 
   // Closed is terminal, but not a blocker.
@@ -172,7 +172,7 @@ try {
     assert.equal((await canResumeRun(run.runDir)).allowed, true);
   }
 
-  // CLI can write and can-resume blocks after true-block.
+  // CLI can write and can-resume continues after true-block continuation evidence.
   {
     const run = await makeRun(tmp, '2026-05-07T09:10:00.000Z');
     const ev = terminalEvidence('missing-source');
@@ -190,8 +190,8 @@ try {
       cwd: process.cwd(),
       encoding: 'utf8',
     });
-    assert.equal(resumeResult.status, 1);
-    assert.match(resumeResult.stdout, /true block/);
+    assert.equal(resumeResult.status, 0);
+    assert.match(resumeResult.stdout, /continuation/i);
   }
 } finally {
   await rm(tmp, { recursive: true, force: true });

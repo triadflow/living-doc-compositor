@@ -8,7 +8,8 @@
 
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -108,7 +109,10 @@ async function listLifecycleDirs(runsDir) {
       .map((entry) => path.join(runsDir, entry.name));
     const withResults = [];
     for (const dir of dirs) {
-      if (await exists(path.join(dir, 'lifecycle-result.json'))) withResults.push(dir);
+      if (
+        await exists(path.join(dir, 'lifecycle-result.json'))
+        || await exists(path.join(dir, 'active-lifecycle.json'))
+      ) withResults.push(dir);
     }
     return withResults;
   } catch {
@@ -124,6 +128,71 @@ async function tailTextFile(filePath, { lines = 80, maxBytes = 250000 } = {}) {
   } catch {
     return [];
   }
+}
+
+async function fileFingerprint(filePath) {
+  try {
+    const info = await stat(filePath);
+    return {
+      exists: true,
+      size: info.size,
+      mtimeMs: Math.trunc(info.mtimeMs),
+    };
+  } catch {
+    return {
+      exists: false,
+      size: 0,
+      mtimeMs: 0,
+    };
+  }
+}
+
+async function readJsonlTail(filePath, { lines = 120 } = {}) {
+  const rawLines = await tailTextFile(filePath, { lines, maxBytes: 350000 });
+  return rawLines.map((line, index) => {
+    try {
+      const parsed = JSON.parse(line);
+      return {
+        line,
+        index,
+        parsed,
+        event: parsed.event || parsed.type || parsed.name || 'jsonl-entry',
+        at: parsed.at || parsed.timestamp || null,
+      };
+    } catch {
+      return {
+        line,
+        index,
+        parsed: null,
+        event: 'text-line',
+        at: null,
+      };
+    }
+  });
+}
+
+function eventHash(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 20);
+}
+
+function streamEvent(type, payload = {}, { at = null, source = 'dashboard-server', ordinal = null } = {}) {
+  const createdAt = at || payload.at || new Date().toISOString();
+  const body = {
+    schema: 'living-doc-harness-dashboard-event/v1',
+    type,
+    at: createdAt,
+    source,
+    ordinal,
+    payload,
+    privacy: {
+      localOperatorOnly: true,
+      rawPromptIncluded: false,
+      rawNativeTraceIncluded: false,
+      supervisingChatStateIncluded: false,
+    },
+  };
+  body.eventId = `${type}:${eventHash({ type, source, payload, ordinal })}`;
+  return body;
 }
 
 async function readRunTail(runDir, { lines = 80 } = {}) {
@@ -150,6 +219,25 @@ async function readJson(filePath, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function summarizeToolProfile(profile) {
+  if (!profile || typeof profile !== 'object') return null;
+  return {
+    name: profile.name || null,
+    isolation: profile.isolation || null,
+    sandboxMode: profile.sandboxMode || null,
+    mcpMode: profile.mcpMode || null,
+    mcpAllowlist: arr(profile.mcpAllowlist),
+  };
+}
+
+function firstToolProfile(...candidates) {
+  for (const candidate of candidates) {
+    const profile = summarizeToolProfile(candidate?.toolProfile || candidate?.process?.toolProfile);
+    if (profile?.name) return profile;
+  }
+  return null;
 }
 
 function iterationNumberFromDirName(name) {
@@ -209,6 +297,7 @@ async function listRepairUnits(runDir, { cwd } = {}) {
         role: result?.role || input.unitRole || null,
         status,
         mode: result?.mode || null,
+        toolProfile: firstToolProfile(result, input),
         validationOk: validation?.ok ?? null,
         hasCodexEvents,
         hasResult,
@@ -216,6 +305,10 @@ async function listRepairUnits(runDir, { cwd } = {}) {
         commit: outputContract.commit || outputContract.gitCommit || null,
         commitSha: outputContract.commitSha || outputContract.commitHash || outputContract.gitCommitSha || outputContract.commit?.sha || outputContract.gitCommit?.sha || null,
         commitMessage: outputContract.commitMessage || outputContract.commit?.message || outputContract.gitCommit?.message || null,
+        commitPolicy: outputContract.commitPolicy || null,
+        commitIntent: hasResult ? normalizeDashboardCommitIntent(outputContract.commitIntent, {
+          changedFiles: arr(outputContract.changedFiles),
+        }) : null,
         paths: {
           promptPath: relativeTo(cwd, path.join(unitDir, 'prompt.md')),
           inputContractPath: relativeTo(cwd, inputPath),
@@ -324,6 +417,34 @@ function predictLifecycleIdentity({ docPath, cwd, runsDir, now }) {
   };
 }
 
+async function writeActiveLifecycleSnapshot({
+  lifecycleDir,
+  resultId,
+  docPath,
+  createdAt,
+  supervisorPid = null,
+  toolProfile = null,
+  executeProofRoutes = false,
+  command = null,
+} = {}) {
+  await mkdir(lifecycleDir, { recursive: true });
+  const snapshot = {
+    schema: 'living-doc-harness-active-lifecycle/v1',
+    resultId,
+    createdAt,
+    updatedAt: new Date().toISOString(),
+    docPath,
+    status: 'running',
+    finalState: { kind: 'running' },
+    supervisorPid,
+    executeProofRoutes: executeProofRoutes === true,
+    toolProfile,
+    command,
+  };
+  await writeFile(path.join(lifecycleDir, 'active-lifecycle.json'), `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+  return snapshot;
+}
+
 async function startBackgroundLifecycle({
   docPath,
   cwd,
@@ -334,11 +455,12 @@ async function startBackgroundLifecycle({
   codexBin = 'codex',
   codexHome = null,
   traceLimit = 10,
-  maxIterations = 3,
   execute = false,
   executeReviewer = null,
   executeRepairSkills = false,
   executeRepairSkillUnits = false,
+  executeProofRoutes = false,
+  toolProfile = 'local-harness',
   evidenceSequencePath = null,
 } = {}) {
   const identity = predictLifecycleIdentity({ docPath, cwd, runsDir, now });
@@ -352,8 +474,6 @@ async function startBackgroundLifecycle({
     evidenceDir,
     '--dashboard',
     dashboardPath,
-    '--max-iterations',
-    String(maxIterations),
     '--now',
     now,
     '--codex-bin',
@@ -368,16 +488,34 @@ async function startBackgroundLifecycle({
   if (executeReviewer === false) args.push('--no-execute-reviewer');
   if (executeRepairSkills) args.push('--execute-repair-skills');
   if (executeRepairSkillUnits) args.push('--execute-repair-skill-units');
+  if (executeProofRoutes) args.push('--execute-proof-routes');
+  if (toolProfile) args.push('--tool-profile', toolProfile);
 
   const child = spawn(process.execPath, args, {
     cwd,
     stdio: 'ignore',
     detached: true,
   });
+  await writeActiveLifecycleSnapshot({
+    lifecycleDir: identity.lifecycleDir,
+    resultId: identity.resultId,
+    docPath,
+    createdAt: now,
+    supervisorPid: child.pid,
+    toolProfile,
+    executeProofRoutes,
+    command: {
+      command: process.execPath,
+      args,
+      cwd,
+    },
+  });
   child.unref();
   return {
     ...identity,
     supervisorPid: child.pid,
+    toolProfile,
+    executeProofRoutes,
   };
 }
 
@@ -402,6 +540,45 @@ function shortCommit(value) {
   return text ? text.slice(0, 10) : '';
 }
 
+function normalizeDashboardCommitIntent(intent, { changedFiles = [] } = {}) {
+  const files = arr(changedFiles);
+  if (!intent || typeof intent !== 'object') {
+    if (!files.length) {
+      return {
+        required: false,
+        reason: 'No changed files were reported by the repair unit.',
+        message: '',
+        body: [],
+        changedFiles: [],
+      };
+    }
+    return null;
+  }
+  const intentFiles = Array.isArray(intent.changedFiles) ? intent.changedFiles : files;
+  return {
+    required: intent.required === true,
+    reason: intent.reason || (intent.required === true ? 'Repair unit proposed a deferred commit.' : 'Repair unit did not require a commit.'),
+    message: intent.message || '',
+    body: Array.isArray(intent.body) ? intent.body : (intent.body ? [String(intent.body)] : []),
+    changedFiles: intentFiles,
+  };
+}
+
+function commitIntentForDashboard({ unit, chainSkillResult = null, changedFiles = [] } = {}) {
+  const hasChainIntent = chainSkillResult?.commitIntent && typeof chainSkillResult.commitIntent === 'object';
+  const hasUnitIntent = unit?.commitIntent && typeof unit.commitIntent === 'object';
+  if (!hasChainIntent && !hasUnitIntent && !chainSkillResult && unit?.hasResult !== true) return null;
+  const evidence = normalizeDashboardCommitIntent(
+    hasChainIntent ? chainSkillResult.commitIntent : (hasUnitIntent ? unit.commitIntent : null),
+    { changedFiles },
+  );
+  if (!evidence) return null;
+  return {
+    ...evidence,
+    source: hasChainIntent ? 'repair-chain-result' : (hasUnitIntent ? 'repair-unit-result' : 'changed-files'),
+  };
+}
+
 function resolveArtifactRef({ cwd, baseDir, ref }) {
   if (!ref) return null;
   if (path.isAbsolute(ref)) return ref;
@@ -411,6 +588,15 @@ function resolveArtifactRef({ cwd, baseDir, ref }) {
 
 function safeEntryName(value) {
   return /^[a-zA-Z0-9_.-]+$/.test(String(value || ''));
+}
+
+function repairChainSkillResultForUnit(repairChain, unit, { cwd } = {}) {
+  const skillResults = arr(repairChain?.skillResults);
+  return skillResults.find((item) =>
+    (item.sequence ?? null) === (unit.sequence ?? null)
+    || (item.skill && item.skill === unit.unitId)
+    || (cwd && item.resultPath && unit.paths?.resultPath && samePath(cwd, item.resultPath, unit.paths.resultPath))
+  ) || null;
 }
 
 function graphNode(id, fields = {}) {
@@ -446,22 +632,28 @@ function graphEdge(id, from, to, fields = {}) {
   };
 }
 
-async function collectDashboardLifecycles({ runsDir, cwd }) {
+export async function collectDashboardLifecycles({ runsDir, cwd }) {
   const lifecycleDirs = await listLifecycleDirs(runsDir);
   const lifecycles = [];
   const errors = [];
   for (const lifecycleDir of lifecycleDirs) {
     try {
-      const result = await readJson(path.join(lifecycleDir, 'lifecycle-result.json'), {});
+      const resultPath = path.join(lifecycleDir, 'lifecycle-result.json');
+      const activePath = path.join(lifecycleDir, 'active-lifecycle.json');
+      const result = await readJson(resultPath, null);
+      const active = result ? null : await readJson(activePath, {});
+      const source = result || active;
       lifecycles.push({
         schema: 'living-doc-harness-dashboard-lifecycle/v1',
-        resultId: result.resultId || path.basename(lifecycleDir),
+        resultId: source.resultId || path.basename(lifecycleDir),
         lifecycleDir: relativeTo(cwd, lifecycleDir),
-        createdAt: result.createdAt || null,
-        docPath: result.docPath || null,
-        finalState: result.finalState || null,
-        iterationCount: result.iterationCount ?? (result.iterations || []).length,
-        maxIterations: result.maxIterations ?? null,
+        createdAt: source.createdAt || null,
+        docPath: source.docPath || null,
+        finalState: source.finalState || (active?.status ? { kind: active.status } : null),
+        iterationCount: result?.iterationCount ?? (result?.iterations || []).length,
+        active: !result,
+        supervisorPid: active?.supervisorPid ?? null,
+        toolProfile: active?.toolProfile || null,
       });
     } catch (err) {
       errors.push({
@@ -474,8 +666,302 @@ async function collectDashboardLifecycles({ runsDir, cwd }) {
   return { lifecycles, errors };
 }
 
-async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
+async function findActiveLifecycleRuns({ runsDir, cwd, docPath, createdAt }) {
+  const runDirs = await listRunDirs(runsDir);
+  const startedAt = Date.parse(createdAt || '') || 0;
+  const candidates = [];
+  for (const runDir of runDirs) {
+    const contract = await readJson(path.join(runDir, 'contract.json'), null);
+    const state = await readJson(path.join(runDir, 'state.json'), {});
+    const sourcePath = contract?.livingDoc?.sourcePath || state.docPath || null;
+    if (docPath && sourcePath !== docPath) continue;
+    const runCreatedAt = Date.parse(contract?.createdAt || state.updatedAt || '') || 0;
+    if (startedAt && !runCreatedAt) continue;
+    if (startedAt && runCreatedAt < startedAt - 15000) continue;
+    if (startedAt && runCreatedAt > startedAt + 60 * 60 * 1000) continue;
+    candidates.push({ runDir, contract, state, runCreatedAt });
+  }
+  candidates.sort((a, b) => a.runCreatedAt - b.runCreatedAt || String(a.runDir).localeCompare(String(b.runDir)));
+  return candidates;
+}
+
+async function findActiveLifecycleRun(options) {
+  const candidates = await findActiveLifecycleRuns(options);
+  return candidates[candidates.length - 1] || null;
+}
+
+async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activePath }) {
+  const active = await readJson(activePath || path.join(lifecycleDir, 'active-lifecycle.json'), null);
+  if (!active?.schema) throw new Error(`lifecycle result not found: ${path.basename(lifecycleDir)}`);
+
+  const nodes = [];
+  const edges = [];
+  const nodeIds = new Set();
+  const addNode = (node) => {
+    if (nodeIds.has(node.id)) return;
+    nodeIds.add(node.id);
+    nodes.push(node);
+  };
+  const addEdge = (edge) => {
+    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) return;
+    edges.push(edge);
+  };
+
+  const livingDocNodeId = 'operated-living-doc';
+  const livingDocPath = active.docPath || null;
+  const renderedLivingDocPath = htmlPathForDoc(livingDocPath);
+  const livingDoc = livingDocPath ? await readJson(path.resolve(cwd, livingDocPath), null) : null;
+  addNode(graphNode(livingDocNodeId, {
+    type: 'living-doc',
+    role: 'living-doc',
+    label: livingDoc?.title || path.basename(livingDocPath || 'living-doc', '.json'),
+    status: livingDoc?.runState?.objectiveReady === true || livingDoc?.objectiveReady === true
+      ? 'objective-ready'
+      : (livingDoc?.runState?.currentPhase || livingDoc?.status?.currentPhase || livingDoc?.version || 'active'),
+    artifactPaths: {
+      livingDocPath: relativeTo(cwd, livingDocPath),
+      renderedHtmlPath: relativeTo(cwd, renderedLivingDocPath),
+    },
+    meta: {
+      docId: livingDoc?.docId || null,
+      title: livingDoc?.title || null,
+      objectiveReady: livingDoc?.runState?.objectiveReady ?? livingDoc?.objectiveReady ?? null,
+      currentPhase: livingDoc?.runState?.currentPhase || livingDoc?.status?.currentPhase || null,
+      objective: livingDoc?.objective || null,
+      successCondition: livingDoc?.successCondition || null,
+    },
+  }));
+
+  const lifecycleNodeId = 'lifecycle-controller';
+  addNode(graphNode(lifecycleNodeId, {
+    type: 'lifecycle',
+    role: 'controller',
+    label: active.resultId || path.basename(lifecycleDir),
+    status: active.status || active.finalState?.kind || 'running',
+    artifactPaths: {
+      activeLifecyclePath: relativeTo(cwd, path.join(lifecycleDir, 'active-lifecycle.json')),
+      lifecycleResultPath: relativeTo(cwd, path.join(lifecycleDir, 'lifecycle-result.json')),
+    },
+    meta: {
+      createdAt: active.createdAt || null,
+      docPath: active.docPath || null,
+      supervisorPid: active.supervisorPid ?? null,
+      toolProfile: active.toolProfile || null,
+      executeProofRoutes: active.executeProofRoutes === true,
+    },
+  }));
+
+  const activeRuns = await findActiveLifecycleRuns({
+    runsDir,
+    cwd,
+    docPath: active.docPath,
+    createdAt: active.createdAt,
+  });
+
+  for (const [index, activeRun] of activeRuns.entries()) {
+    const { runDir, contract, state } = activeRun;
+    const runId = contract?.runId || path.basename(runDir);
+    const previousIteration = Number(contract?.lifecycleInput?.previousIteration);
+    const iteration = Number.isFinite(previousIteration) ? previousIteration + 1 : index + 1;
+    const workerUnit = contract?.artifacts?.workerInferenceUnit || {};
+    const workerId = `iteration-${iteration}-worker`;
+    addNode(graphNode(workerId, {
+      type: 'inference-unit',
+      role: 'worker',
+      label: `Iteration ${iteration} worker`,
+      status: state.status || contract?.status || 'running',
+      iteration,
+      artifactPaths: {
+        runDir: relativeTo(cwd, runDir),
+        promptPath: workerUnit.prompt
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.prompt }))
+          : relativeTo(cwd, path.join(runDir, 'prompt.md')),
+        inputContractPath: workerUnit.inputContract
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.inputContract }))
+          : relativeTo(cwd, path.join(runDir, 'contract.json')),
+        statePath: relativeTo(cwd, path.join(runDir, 'state.json')),
+        eventsPath: relativeTo(cwd, path.join(runDir, 'events.jsonl')),
+        codexEventsPath: workerUnit.codexEvents
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.codexEvents }))
+          : relativeTo(cwd, path.join(runDir, 'codex-turns', 'codex-events.jsonl')),
+        stderrPath: workerUnit.stderr
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.stderr }))
+          : relativeTo(cwd, path.join(runDir, 'codex-turns', 'codex-stderr.log')),
+        lastMessagePath: workerUnit.lastMessage
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.lastMessage }))
+          : relativeTo(cwd, path.join(runDir, 'codex-turns', 'last-message.txt')),
+        resultPath: workerUnit.result
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.result }))
+          : null,
+        validationPath: workerUnit.validation
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
+          : null,
+      },
+      meta: {
+        runId,
+        toolProfile: summarizeToolProfile(contract?.process?.toolProfile),
+        pid: contract?.process?.pid ?? null,
+        exitCode: contract?.process?.exitCode ?? null,
+      },
+    }));
+    addEdge(graphEdge(`lifecycle-to-worker-${iteration}`, lifecycleNodeId, workerId, {
+      label: 'start worker iteration',
+      status: 'recorded',
+      contract: {
+        inputContractPath: workerUnit.inputContract
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.inputContract }))
+          : relativeTo(cwd, path.join(runDir, 'contract.json')),
+        promptPath: workerUnit.prompt
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.prompt }))
+          : relativeTo(cwd, path.join(runDir, 'prompt.md')),
+      },
+      gate: 'worker-contract-required',
+      lifecycleEffect: 'start-worker',
+    }));
+
+    let previousNodeId = workerId;
+    const reviewerVerdictPath = path.join(runDir, 'reviewer-inference', `iteration-${iteration}-verdict.json`);
+    const reviewerVerdict = await readJson(reviewerVerdictPath, null);
+    const reviewerUnitDir = path.join(runDir, 'inference-units', `iteration-${iteration}`, '02-reviewer-inference');
+    const reviewerUnitResultPath = path.join(reviewerUnitDir, 'result.json');
+    const reviewerUnitResult = await readJson(reviewerUnitResultPath, null);
+    const reviewerInputPath = path.join(runDir, 'reviewer-inference', `iteration-${iteration}-input.json`);
+    const reviewerInput = await readJson(reviewerInputPath, {});
+    const reviewerExists = Boolean(
+      reviewerVerdict
+      || reviewerUnitResult
+      || await exists(reviewerInputPath)
+      || await exists(path.join(reviewerUnitDir, 'input-contract.json'))
+    );
+    if (reviewerExists) {
+      const reviewerResult = reviewerVerdict?.inferenceUnitResultPath
+        ? await readJson(resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerVerdict.inferenceUnitResultPath }), null)
+        : reviewerUnitResult;
+      const reviewerStopVerdict = reviewerVerdict?.verdict?.stopVerdict
+        || reviewerUnitResult?.outputContract?.stopVerdict
+        || {};
+      const reviewerNextIteration = reviewerVerdict?.verdict?.nextIteration
+        || reviewerUnitResult?.outputContract?.nextIteration
+        || {};
+      const reviewerPromptRef = reviewerVerdict?.promptPath
+        || reviewerUnitResult?.promptPath
+        || `reviewer-inference/iteration-${iteration}-prompt.md`;
+      const reviewerCodexEventsRef = reviewerVerdict?.codexEventsPath
+        || reviewerUnitResult?.codexEventsPath
+        || path.join('inference-units', `iteration-${iteration}`, '02-reviewer-inference', 'codex-events.jsonl');
+      const reviewerStderrRef = reviewerVerdict?.stderrPath
+        || reviewerUnitResult?.stderrPath
+        || path.join('inference-units', `iteration-${iteration}`, '02-reviewer-inference', 'stderr.log');
+      const reviewerId = `iteration-${iteration}-reviewer`;
+      addNode(graphNode(reviewerId, {
+        type: 'inference-unit',
+        role: 'reviewer',
+        label: `Iteration ${iteration} reviewer`,
+        status: reviewerStopVerdict.classification || reviewerUnitResult?.status || 'running',
+        iteration,
+        artifactPaths: {
+          promptPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerPromptRef })),
+          inputContractPath: relativeTo(cwd, reviewerInputPath),
+          evidencePath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerVerdict?.evidencePath })),
+          codexEventsPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerCodexEventsRef })),
+          resultPath: reviewerVerdict ? relativeTo(cwd, reviewerVerdictPath) : relativeTo(cwd, reviewerUnitResultPath),
+          stderrPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerStderrRef })),
+        },
+        meta: {
+          reasonCode: reviewerStopVerdict.reasonCode || null,
+          closureAllowed: reviewerStopVerdict.closureAllowed ?? null,
+          rawWorkerJsonlPaths: reviewerInput.rawWorkerJsonlPaths || reviewerInput.workerEvidence?.rawWorkerJsonlPaths || [],
+          toolProfile: firstToolProfile(reviewerResult, reviewerInput),
+        },
+      }));
+      addEdge(graphEdge(`worker-to-reviewer-${iteration}`, workerId, reviewerId, {
+        label: 'raw worker evidence review',
+        status: 'recorded',
+        contract: {
+          promptPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerPromptRef })),
+          inputContractPath: relativeTo(cwd, reviewerInputPath),
+          evidencePaths: reviewerInput.rawWorkerJsonlPaths || reviewerInput.workerEvidence?.rawWorkerJsonlPaths || [],
+          resultPath: reviewerVerdict ? relativeTo(cwd, reviewerVerdictPath) : relativeTo(cwd, reviewerUnitResultPath),
+          codexEventsPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerCodexEventsRef })),
+        },
+        gate: 'reviewer-verdict-required',
+        lifecycleEffect: reviewerNextIteration.mode || reviewerStopVerdict.classification || null,
+      }));
+      previousNodeId = reviewerId;
+    }
+
+    const repairUnits = await listRepairUnits(runDir, { cwd });
+    let lastRepairNodeId = null;
+    for (const unit of repairUnits) {
+      const unitNodeId = `iteration-${iteration}-repair-${unit.sequence ?? unit.unitId}`;
+      const role = unit.sequence === 0 || unit.unitId === 'living-doc-balance-scan' ? 'balance-scan' : 'repair-skill';
+      addNode(graphNode(unitNodeId, {
+        type: 'inference-unit',
+        role,
+        label: `${unit.sequence ?? '?'} · ${unit.unitId}`,
+        status: unit.status,
+        iteration,
+        artifactPaths: unit.paths,
+        meta: {
+          runId,
+          unitKey: unit.unitKey,
+          sequence: unit.sequence ?? null,
+          validationOk: unit.validationOk,
+          hasResult: unit.hasResult,
+          hasCodexEvents: unit.hasCodexEvents,
+          toolProfile: unit.toolProfile,
+        },
+      }));
+      addEdge(graphEdge(`repair-chain-edge-${iteration}-${unit.sequence ?? unit.unitId}`, lastRepairNodeId || previousNodeId, unitNodeId, {
+        label: role === 'balance-scan' ? 'diagnose repair order' : 'ordered repair handoff',
+        status: unit.status,
+        contract: {
+          promptPath: unit.paths.promptPath,
+          inputContractPath: unit.paths.inputContractPath,
+          resultPath: unit.paths.resultPath,
+          validationPath: unit.paths.validationPath,
+          codexEventsPath: unit.paths.codexEventsPath,
+        },
+        gate: role === 'balance-scan' ? 'balance-scan-required' : 'ordered-repair-unit-required',
+        lifecycleEffect: role === 'balance-scan' ? 'ordered-skill-list' : 'repair-skill-result',
+      }));
+      lastRepairNodeId = unitNodeId;
+    }
+  }
+
+  const activeInferenceUnit = [...nodes].reverse().find((node) =>
+    node.type === 'inference-unit'
+    && isActiveInferenceStatus(node.status)
+  ) || null;
+
+  return {
+    schema: 'living-doc-harness-inference-graph/v1',
+    resultId: active.resultId || path.basename(lifecycleDir),
+    lifecycleDir: relativeTo(cwd, lifecycleDir),
+    generatedAt: new Date().toISOString(),
+    finalState: active.finalState || { kind: active.status || 'running' },
+    activeInferenceUnitId: activeInferenceUnit?.id || null,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+    nodes,
+    edges,
+    privacy: {
+      committedEvidence: false,
+      localOperatorOnly: true,
+      rawPromptIncluded: false,
+      rawNativeTraceIncluded: false,
+      rawLogPayloadIncluded: false,
+      pathReferencesIncluded: true,
+    },
+  };
+}
+
+export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
   const resultPath = path.join(lifecycleDir, 'lifecycle-result.json');
+  const activePath = path.join(lifecycleDir, 'active-lifecycle.json');
+  if (!await exists(resultPath) && await exists(activePath)) {
+    return collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activePath });
+  }
   const lifecycle = await readJson(resultPath, null);
   if (!lifecycle?.schema) throw new Error(`lifecycle result not found: ${path.basename(lifecycleDir)}`);
 
@@ -528,7 +1014,6 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       createdAt: lifecycle.createdAt || null,
       docPath: lifecycle.docPath || null,
       iterationCount: lifecycle.iterationCount ?? null,
-      maxIterations: lifecycle.maxIterations ?? null,
     },
   }));
 
@@ -572,6 +1057,7 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         runId,
         classification: iterationRecord.classification || null,
         terminalKind: iterationRecord.terminalKind || null,
+        toolProfile: summarizeToolProfile(contract.process?.toolProfile),
       },
     }));
     addEdge(graphEdge(`lifecycle-to-worker-${iteration}`, lifecycleNodeId, workerId, {
@@ -594,6 +1080,9 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     if (reviewerVerdict) {
       const reviewerInputPath = resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerVerdict.reviewerInputPath });
       const reviewerInput = await readJson(reviewerInputPath, {});
+      const reviewerResult = reviewerVerdict.inferenceUnitResultPath
+        ? await readJson(resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerVerdict.inferenceUnitResultPath }), null)
+        : null;
       const reviewerId = `iteration-${iteration}-reviewer`;
       addNode(graphNode(reviewerId, {
         type: 'inference-unit',
@@ -613,6 +1102,7 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           reasonCode: reviewerVerdict.verdict?.stopVerdict?.reasonCode || null,
           closureAllowed: reviewerVerdict.verdict?.stopVerdict?.closureAllowed ?? null,
           rawWorkerJsonlPaths: reviewerInput.rawWorkerJsonlPaths || reviewerInput.workerEvidence?.rawWorkerJsonlPaths || [],
+          toolProfile: firstToolProfile(reviewerResult, reviewerInput),
         },
       }));
       addEdge(graphEdge(`worker-to-reviewer-${iteration}`, workerId, reviewerId, {
@@ -635,6 +1125,8 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const iterationProof = await readJson(iterationProofPath, null);
     if (iterationProof?.closureReview?.inferenceUnitResultPath) {
       const closureReview = iterationProof.closureReview;
+      const closureReviewInput = await readJson(resolveArtifactRef({ cwd, baseDir: runDir, ref: closureReview.inferenceUnitInputContractPath }), null);
+      const closureReviewResult = await readJson(resolveArtifactRef({ cwd, baseDir: runDir, ref: closureReview.inferenceUnitResultPath }), null);
       const closureReviewId = `iteration-${iteration}-closure-review`;
       addNode(graphNode(closureReviewId, {
         type: 'inference-unit',
@@ -653,6 +1145,7 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           approved: closureReview.approved,
           terminalAllowed: closureReview.terminalAllowed,
           reasonCode: closureReview.reasonCode,
+          toolProfile: firstToolProfile(closureReviewResult, closureReviewInput),
         },
       }));
       addEdge(graphEdge(`reviewer-to-closure-review-${iteration}`, previousNodeId, closureReviewId, {
@@ -676,6 +1169,12 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const repairChain = await readJson(repairChainPath, null);
     let lastRepairNodeId = null;
     for (const unit of repairUnits) {
+      const chainSkillResult = repairChainSkillResultForUnit(repairChain, unit, { cwd });
+      const changedFiles = Array.isArray(chainSkillResult?.changedFiles)
+        ? chainSkillResult.changedFiles
+        : arr(unit.changedFiles);
+      const commitIntent = commitIntentForDashboard({ unit, chainSkillResult, changedFiles });
+      const commitPolicy = chainSkillResult?.commitPolicy || unit.commitPolicy || null;
       const unitNodeId = `iteration-${iteration}-repair-${unit.sequence ?? unit.unitId}`;
       const role = unit.sequence === 0 || unit.unitId === 'living-doc-balance-scan' ? 'balance-scan' : 'repair-skill';
       addNode(graphNode(unitNodeId, {
@@ -693,6 +1192,9 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           hasResult: unit.hasResult,
           hasCodexEvents: unit.hasCodexEvents,
           orderedSkills: role === 'balance-scan' ? repairChain?.balanceScan?.orderedSkills || [] : [],
+          commitPolicy,
+          commitIntent,
+          toolProfile: unit.toolProfile,
         },
       }));
       addEdge(graphEdge(`repair-chain-edge-${iteration}-${unit.sequence ?? unit.unitId}`, lastRepairNodeId || previousNodeId, unitNodeId, {
@@ -708,7 +1210,6 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         gate: role === 'balance-scan' ? 'balance-scan-required' : 'ordered-repair-unit-required',
         lifecycleEffect: role === 'balance-scan' ? 'ordered-skill-list' : 'repair-skill-result',
       }));
-      const changedFiles = arr(unit.changedFiles);
       const changedLivingDoc = changedFiles.some((file) => samePath(cwd, file, livingDocPath) || samePath(cwd, file, renderedLivingDocPath));
       if (changedLivingDoc) {
         const commitSha = unit.commitSha || unit.commit?.sha || null;
@@ -719,6 +1220,8 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
             changedFiles,
             commitSha,
             commitMessage: unit.commitMessage || unit.commit?.message || null,
+            commitPolicy,
+            commitIntent,
             resultPath: unit.paths.resultPath,
             validationPath: unit.paths.validationPath,
             codexEventsPath: unit.paths.codexEventsPath,
@@ -811,7 +1314,7 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       addEdge(graphEdge(`terminal-to-blocker-${iteration}-${blockerId}`, previousNodeId, blockerId, {
         label: 'blocker record',
         status: blocker.reasonCode || 'blocked',
-        lifecycleEffect: 'true-blocked',
+        lifecycleEffect: 'continuation-required',
       }));
       if (blocker.issueRef) {
         const issueId = `issue-${String(blocker.issueRef).replace(/^#/, '')}`;
@@ -834,12 +1337,18 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     }
   }
 
+  const activeInferenceUnit = [...nodes].reverse().find((node) =>
+    node.type === 'inference-unit'
+    && isActiveInferenceStatus(node.status)
+  ) || null;
+
   return {
     schema: 'living-doc-harness-inference-graph/v1',
     resultId: lifecycle.resultId || path.basename(lifecycleDir),
     lifecycleDir: relativeTo(cwd, lifecycleDir),
     generatedAt: new Date().toISOString(),
     finalState: lifecycle.finalState || null,
+    activeInferenceUnitId: activeInferenceUnit?.id || null,
     nodeCount: nodes.length,
     edgeCount: edges.length,
     nodes,
@@ -852,6 +1361,283 @@ async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       rawLogPayloadIncluded: false,
       pathReferencesIncluded: true,
     },
+  };
+}
+
+function graphArtifactPaths(graph) {
+  const refs = [];
+  for (const node of graph?.nodes || []) {
+    for (const [kind, ref] of Object.entries(node.artifactPaths || {})) {
+      if (!ref) continue;
+      refs.push({
+        ownerType: 'node',
+        ownerId: node.id,
+        kind,
+        path: ref,
+      });
+    }
+  }
+  for (const edge of graph?.edges || []) {
+    for (const [kind, ref] of Object.entries(edge.contract || {})) {
+      if (!ref || typeof ref !== 'string') continue;
+      refs.push({
+        ownerType: 'edge',
+        ownerId: edge.id,
+        kind,
+        path: ref,
+      });
+    }
+  }
+  return refs;
+}
+
+function resolveDashboardPath(cwd, ref) {
+  if (!ref || typeof ref !== 'string') return null;
+  return path.isAbsolute(ref) ? ref : path.resolve(cwd, ref);
+}
+
+async function graphArtifactEvents(graph, { cwd }) {
+  const events = [];
+  for (const ref of graphArtifactPaths(graph)) {
+    const absolutePath = resolveDashboardPath(cwd, ref.path);
+    if (!absolutePath) continue;
+    const fingerprint = await fileFingerprint(absolutePath);
+    events.push(streamEvent('artifact_update', {
+      resultId: graph.resultId,
+      ownerType: ref.ownerType,
+      ownerId: ref.ownerId,
+      kind: ref.kind,
+      path: ref.path,
+      exists: fingerprint.exists,
+      size: fingerprint.size,
+      mtimeMs: fingerprint.mtimeMs,
+    }, { source: 'local-artifact' }));
+  }
+  return events;
+}
+
+async function graphLogEvents(graph, { cwd, lines = 30 }) {
+  const events = [];
+  for (const node of graph?.nodes || []) {
+    if (node.type !== 'inference-unit') continue;
+    const paths = node.artifactPaths || {};
+    const logRefs = [
+      ['codexEvents', paths.codexEventsPath],
+      ['stderr', paths.stderrPath],
+      ['lastMessage', paths.lastMessagePath],
+      ['result', paths.resultPath],
+      ['validation', paths.validationPath],
+    ].filter(([, ref]) => ref);
+    for (const [kind, ref] of logRefs) {
+      const absolutePath = resolveDashboardPath(cwd, ref);
+      const tail = absolutePath ? await tailTextFile(absolutePath, { lines }) : [];
+      if (!tail.length) continue;
+      const fingerprint = await fileFingerprint(absolutePath);
+      events.push(streamEvent('log_append', {
+        resultId: graph.resultId,
+        nodeId: node.id,
+        role: node.role,
+        runId: node.meta?.runId || null,
+        unitKey: node.meta?.unitKey || null,
+        kind,
+        path: ref,
+        lines: tail,
+        size: fingerprint.size,
+        mtimeMs: fingerprint.mtimeMs,
+      }, { source: 'local-log-tail' }));
+    }
+  }
+  return events;
+}
+
+function isActiveInferenceStatus(status) {
+  return ['starting', 'running', 'prepared'].includes(String(status || '').toLowerCase());
+}
+
+function isFinishedInferenceStatus(status) {
+  const normalized = String(status || '').toLowerCase();
+  return normalized && !['unknown', 'starting', 'running', 'prepared'].includes(normalized);
+}
+
+function lifecycleTransitionEvents(graph) {
+  const events = [];
+  events.push(streamEvent('lifecycle_started', {
+    resultId: graph.resultId,
+    lifecycleDir: graph.lifecycleDir,
+    finalState: graph.finalState,
+    activeInferenceUnitId: graph.activeInferenceUnitId,
+  }, { at: graph.nodes?.find((node) => node.id === 'lifecycle-controller')?.meta?.createdAt || null, source: 'persisted-lifecycle' }));
+
+  for (const node of graph.nodes || []) {
+    if (node.type !== 'inference-unit') continue;
+    const payload = {
+      resultId: graph.resultId,
+      nodeId: node.id,
+      role: node.role,
+      status: node.status,
+      iteration: node.iteration,
+      artifactPaths: node.artifactPaths,
+      contractPath: node.artifactPaths?.inputContractPath || null,
+      logPath: node.artifactPaths?.codexEventsPath || node.artifactPaths?.stderrPath || null,
+      meta: node.meta,
+    };
+    events.push(streamEvent('inference_unit_started', payload, { source: 'graph-artifact-state' }));
+    if (isFinishedInferenceStatus(node.status)) {
+      events.push(streamEvent('inference_unit_finished', payload, { source: 'graph-artifact-state' }));
+    }
+  }
+
+  const finalKind = String(graph.finalState?.kind || '').toLowerCase();
+  if (finalKind === 'closed') {
+    events.push(streamEvent('lifecycle_closed', {
+      resultId: graph.resultId,
+      finalState: graph.finalState,
+      activeInferenceUnitId: graph.activeInferenceUnitId,
+    }, { source: 'persisted-lifecycle' }));
+  } else if (finalKind.includes('error') || finalKind.includes('fail')) {
+    events.push(streamEvent('lifecycle_error', {
+      resultId: graph.resultId,
+      finalState: graph.finalState,
+      activeInferenceUnitId: graph.activeInferenceUnitId,
+    }, { source: 'persisted-lifecycle' }));
+  } else if (finalKind && finalKind !== 'running') {
+    events.push(streamEvent('lifecycle_blocked', {
+      resultId: graph.resultId,
+      finalState: graph.finalState,
+      activeInferenceUnitId: graph.activeInferenceUnitId,
+      blockers: (graph.nodes || []).filter((node) => node.type === 'blocker').map((node) => ({
+        nodeId: node.id,
+        status: node.status,
+        reasonCode: node.label,
+        artifactPaths: node.artifactPaths,
+        meta: node.meta,
+      })),
+    }, { source: 'persisted-lifecycle' }));
+  }
+
+  return events;
+}
+
+async function collectLifecycleEventHistory(lifecycleDir, { cwd, runsDir, includeLogs = true } = {}) {
+  const graph = await collectLifecycleGraph(lifecycleDir, { cwd, runsDir });
+  const graphSnapshot = { ...graph, generatedAt: null };
+  const events = [];
+  events.push(streamEvent('lifecycle_snapshot', {
+    resultId: graph.resultId,
+    lifecycleDir: graph.lifecycleDir,
+    finalState: graph.finalState,
+    activeInferenceUnitId: graph.activeInferenceUnitId,
+    graph: graphSnapshot,
+  }, { source: 'persisted-lifecycle' }));
+  events.push(...lifecycleTransitionEvents(graph));
+
+  const lifecycleEventPath = path.join(lifecycleDir, 'events.jsonl');
+  for (const item of await readJsonlTail(lifecycleEventPath, { lines: 200 })) {
+    events.push(streamEvent('lifecycle_event', {
+      resultId: graph.resultId,
+      path: relativeTo(cwd, lifecycleEventPath),
+      event: item.event,
+      record: item.parsed,
+      line: item.line,
+    }, { at: item.at, source: 'lifecycle-events-jsonl', ordinal: item.index }));
+  }
+
+  for (const iteration of await readJson(path.join(lifecycleDir, 'lifecycle-result.json'), {}).then((result) => arr(result.iterations))) {
+    const runDir = path.resolve(cwd, iteration.runDir || path.join(runsDir, iteration.runId || ''));
+    const runEventsPath = path.join(runDir, 'events.jsonl');
+    for (const item of await readJsonlTail(runEventsPath, { lines: 160 })) {
+      events.push(streamEvent('run_event', {
+        resultId: graph.resultId,
+        runId: iteration.runId || path.basename(runDir),
+        iteration: iteration.iteration,
+        path: relativeTo(cwd, runEventsPath),
+        event: item.event,
+        record: item.parsed,
+        line: item.line,
+      }, { at: item.at, source: 'run-events-jsonl', ordinal: item.index }));
+    }
+  }
+
+  for (const node of graph.nodes || []) {
+    if (node.type !== 'inference-unit') continue;
+    events.push(streamEvent('inference_unit_state', {
+      resultId: graph.resultId,
+      nodeId: node.id,
+      role: node.role,
+      status: node.status,
+      iteration: node.iteration,
+      artifactPaths: node.artifactPaths,
+      contractPath: node.artifactPaths?.inputContractPath || null,
+      logPath: node.artifactPaths?.codexEventsPath || node.artifactPaths?.stderrPath || null,
+      meta: node.meta,
+    }, { source: 'graph-artifact-state' }));
+  }
+
+  for (const edge of graph.edges || []) {
+    events.push(streamEvent('contract_handoff', {
+      resultId: graph.resultId,
+      edgeId: edge.id,
+      from: edge.from,
+      to: edge.to,
+      label: edge.label,
+      status: edge.status,
+      gate: edge.gate,
+      lifecycleEffect: edge.lifecycleEffect,
+      contract: edge.contract,
+    }, { source: 'graph-contract-edge' }));
+  }
+
+  events.push(...await graphArtifactEvents(graph, { cwd }));
+  if (includeLogs) events.push(...await graphLogEvents(graph, { cwd }));
+  events.push(streamEvent('graph_update', {
+    resultId: graph.resultId,
+    activeInferenceUnitId: graph.activeInferenceUnitId,
+    nodeCount: graph.nodeCount,
+    edgeCount: graph.edgeCount,
+    graph: graphSnapshot,
+  }, { source: 'artifact-derived-graph' }));
+  return {
+    schema: 'living-doc-harness-dashboard-event-history/v1',
+    resultId: graph.resultId,
+    generatedAt: new Date().toISOString(),
+    eventCount: events.length,
+    events,
+    privacy: {
+      localOperatorOnly: true,
+      rawPromptIncluded: false,
+      rawNativeTraceIncluded: false,
+      supervisingChatStateIncluded: false,
+    },
+  };
+}
+
+async function readGraphNodeTail(lifecycleDir, nodeId, { cwd, runsDir, lines = 80 } = {}) {
+  const graph = await collectLifecycleGraph(lifecycleDir, { cwd, runsDir });
+  const node = (graph.nodes || []).find((item) => item.id === nodeId);
+  if (!node) throw new Error(`graph node not found: ${nodeId}`);
+  const paths = node.artifactPaths || {};
+  const safeLines = Number.isInteger(lines) && lines > 0 && lines <= 300 ? lines : 80;
+  const read = (ref, max = safeLines) => ref
+    ? tailTextFile(resolveDashboardPath(cwd, ref), { lines: Math.min(max, safeLines) })
+    : [];
+  return {
+    schema: 'living-doc-harness-graph-node-tail/v1',
+    resultId: graph.resultId,
+    nodeId,
+    role: node.role,
+    status: node.status,
+    artifactPaths: paths,
+    privacy: {
+      committedEvidence: false,
+      localOperatorOnly: true,
+      rawPromptIncluded: false,
+      rawNativeTraceIncluded: false,
+    },
+    codexEvents: await read(paths.codexEventsPath),
+    stderr: await read(paths.stderrPath, 80),
+    lastMessage: await read(paths.lastMessagePath, 80),
+    result: await read(paths.resultPath, 80),
+    validation: await read(paths.validationPath, 80),
   };
 }
 
@@ -980,6 +1766,92 @@ function sendHtml(res, status, body) {
   res.end(body);
 }
 
+function websocketAccept(key) {
+  return createHash('sha1')
+    .update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
+    .digest('base64');
+}
+
+function websocketFrame(text) {
+  const payload = Buffer.from(text);
+  const length = payload.length;
+  if (length < 126) {
+    return Buffer.concat([Buffer.from([0x81, length]), payload]);
+  }
+  if (length < 65536) {
+    const header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 126;
+    header.writeUInt16BE(length, 2);
+    return Buffer.concat([header, payload]);
+  }
+  const header = Buffer.alloc(10);
+  header[0] = 0x81;
+  header[1] = 127;
+  header.writeBigUInt64BE(BigInt(length), 2);
+  return Buffer.concat([header, payload]);
+}
+
+function websocketSend(socket, body) {
+  if (socket.destroyed) return;
+  socket.write(websocketFrame(JSON.stringify(body)));
+}
+
+function closeWebsocket(socket, code = 1000) {
+  if (socket.destroyed) return;
+  const payload = Buffer.alloc(2);
+  payload.writeUInt16BE(code, 0);
+  socket.write(Buffer.from([0x88, payload.length, ...payload]));
+  socket.end();
+}
+
+function startLifecycleWebsocketStream(socket, { lifecycleDir, cwd, runsDir }) {
+  let seenEventIds = new Set();
+  let lastGraphHash = null;
+  let stopped = false;
+
+  const publish = async () => {
+    if (stopped || socket.destroyed) return;
+    try {
+      const history = await collectLifecycleEventHistory(lifecycleDir, { cwd, runsDir, includeLogs: true });
+      const graphEvent = history.events.find((event) => event.type === 'graph_update');
+      const graphHash = graphEvent ? eventHash(graphEvent.payload.graph) : null;
+      if (graphHash && graphHash !== lastGraphHash) {
+        lastGraphHash = graphHash;
+        seenEventIds.delete(graphEvent.eventId);
+      }
+      for (const event of history.events) {
+        if (seenEventIds.has(event.eventId)) continue;
+        seenEventIds.add(event.eventId);
+        websocketSend(socket, event);
+      }
+    } catch (err) {
+      websocketSend(socket, streamEvent('stream_error', {
+        error: String(err.message || err),
+      }, { source: 'dashboard-websocket' }));
+    }
+  };
+
+  websocketSend(socket, streamEvent('stream_opened', {
+    lifecycleDir: relativeTo(cwd, lifecycleDir),
+    eventSource: 'local-harness-artifacts',
+  }, { source: 'dashboard-websocket' }));
+  publish();
+  const interval = setInterval(publish, 750);
+  socket.on('close', () => {
+    stopped = true;
+    clearInterval(interval);
+  });
+  socket.on('end', () => {
+    stopped = true;
+    clearInterval(interval);
+  });
+  socket.on('error', () => {
+    stopped = true;
+    clearInterval(interval);
+  });
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -997,7 +1869,7 @@ function readBody(req) {
   });
 }
 
-function dashboardHtml({ runsDir, evidenceDir }) {
+export function dashboardHtml({ runsDir, evidenceDir }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1042,7 +1914,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
     .run-item[data-rec="close"] { border-left-color:var(--green); }
     .run-item[data-rec="resume"] { border-left-color:var(--blue); }
     .run-item[data-rec="block"] { border-left-color:var(--red); }
-    .run-item[data-rec="pivot"], .run-item[data-rec="defer"], .run-item[data-rec="stop-budget"] { border-left-color:var(--amber); }
+    .run-item[data-rec="continuation"] { border-left-color:var(--amber); }
     .run-item.active { outline:2px solid #9dd6c8; }
     .run-title { font-weight:700; overflow-wrap:anywhere; }
     .run-meta { color:var(--muted); font-size:12px; margin-top:3px; }
@@ -1072,7 +1944,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
     .lifecycle-title { min-width:0; font-size:13px; font-weight:800; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
     .lifecycle-status { flex:none; max-width:118px; border:1px solid var(--line); border-radius:999px; padding:2px 7px; background:#eef2f7; color:var(--slate); font-size:10px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .lifecycle-status.closed { color:var(--green); background:#e7f6ef; border-color:#a8dec7; }
-    .lifecycle-status.true-blocked, .lifecycle-status.budget-exhausted, .lifecycle-status.terminal-non-closure { color:var(--red); background:#ffebe8; border-color:#ffc0b9; }
+    .lifecycle-status.continuation-required { color:var(--amber); background:#fff4dc; border-color:#ffd98c; }
     .lifecycle-status.repair-resumed, .lifecycle-status.repairable, .lifecycle-status.running { color:var(--blue); background:#e8f0ff; border-color:#b8cbff; }
     .lifecycle-chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
     .lifecycle-chip { border:1px solid #d7dfeb; border-radius:999px; padding:2px 7px; color:var(--slate); background:#f8fafc; font-size:11px; font-weight:650; }
@@ -1091,6 +1963,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
     .graph-node-card { position:absolute; z-index:2; width:178px; height:72px; overflow:hidden; text-align:left; border:1px solid var(--line); border-top:3px solid var(--slate); border-radius:7px; background:#fff; padding:7px; box-shadow:0 7px 18px rgba(24,34,48,.1); opacity:1; transform:translateY(0); transition:box-shadow .18s ease, border-color .18s ease; cursor:grab; user-select:none; touch-action:none; }
     .graph-node-card.dragging { cursor:grabbing; box-shadow:0 0 0 3px rgba(29,78,216,.2), 0 16px 44px rgba(24,34,48,.22); }
     .graph-node-card.active { box-shadow:0 0 0 3px rgba(29,78,216,.18), 0 12px 34px rgba(24,34,48,.16); }
+    .graph-node-card.current-unit { border-color:#1d4ed8; box-shadow:0 0 0 3px rgba(29,78,216,.22), 0 14px 34px rgba(29,78,216,.18); }
     .graph-node-card[data-role="worker"] { border-top-color:var(--blue); }
     .graph-node-card[data-role="reviewer"] { border-top-color:var(--violet); }
     .graph-node-card[data-role="balance-scan"] { border-top-color:var(--green); }
@@ -1108,7 +1981,8 @@ function dashboardHtml({ runsDir, evidenceDir }) {
     .graph-status { flex:none; max-width:72px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid var(--line); border-radius:999px; padding:1px 5px; font-size:9px; font-weight:750; color:var(--slate); background:#eef2f7; }
     .graph-status.running, .graph-status.prepared { color:var(--blue); background:#e8f0ff; border-color:#b8cbff; }
     .graph-status.closed, .graph-status.complete, .graph-status.satisfied { color:var(--green); background:#e7f6ef; border-color:#a8dec7; }
-    .graph-status.blocked, .graph-status.true-blocked, .graph-status.open { color:var(--red); background:#ffebe8; border-color:#ffc0b9; }
+    .graph-status.blocked, .graph-status.open { color:var(--red); background:#ffebe8; border-color:#ffc0b9; }
+    .graph-status.continuation-required { color:var(--amber); background:#fff4dc; border-color:#ffd98c; }
     .graph-card-title { font-size:11.5px; font-weight:800; line-height:1.18; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
     .graph-card-proof { margin-top:4px; color:var(--muted); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .graph-inspector { border:1px solid var(--line); border-radius:8px; background:#f8fafc; min-height:640px; max-height:780px; overflow:auto; }
@@ -1132,6 +2006,9 @@ function dashboardHtml({ runsDir, evidenceDir }) {
     .inspector-action { width:100%; margin-top:2px; border-color:#b8cbff; background:#eef6ff; color:var(--blue); font-weight:800; }
     #graphTailBox { margin:8px 0 0; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:7px; padding:10px; background:#17202a; color:#eef3f8; font-size:11px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
     .graph-path-list { margin:8px 0 0; padding-left:18px; }
+    .event-stream { max-height:150px; overflow:auto; display:grid; gap:6px; margin-top:8px; }
+    .event-row { border-top:1px solid #eef2f7; padding-top:6px; color:var(--slate); font-size:11px; }
+    .event-row:first-child { border-top:0; padding-top:0; }
     .muted { color:var(--muted); }
     .empty { color:var(--muted); padding:12px 0; }
     .error { color:var(--red); }
@@ -1195,7 +2072,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
     </section>
   </main>
   <script>
-    const state = { runs: [], lifecycles: [], lifecycleGraph: null, selectedLifecycleId: null, selectedGraphNodeId: null, selectedGraphEdgeId: null, selectedRunId: null, selectedRepairUnitKey: null, graphPositionOverrides: {}, graphDrag: null, graphClickSuppressedNodeId: null, loading: false };
+    const state = { runs: [], lifecycles: [], lifecycleGraph: null, selectedLifecycleId: null, selectedGraphNodeId: null, selectedGraphEdgeId: null, selectedRunId: null, selectedRepairUnitKey: null, graphPositionOverrides: {}, graphDrag: null, graphClickSuppressedNodeId: null, loading: false, streamSocket: null, streamLifecycleId: null, streamEvents: [], graphNodeTails: {}, selectedTailNodeId: null };
     const el = (id) => document.getElementById(id);
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
     const listItems = (items, render = (x) => esc(x)) => items?.length ? '<ul>' + items.map((item) => '<li>' + render(item) + '</li>').join('') + '</ul>' : '<span class="muted">none</span>';
@@ -1213,6 +2090,80 @@ function dashboardHtml({ runsDir, evidenceDir }) {
 
     function graphEdgeById(id) {
       return (state.lifecycleGraph?.edges || []).find((edge) => edge.id === id) || null;
+    }
+
+    function rememberStreamEvent(event) {
+      if (!event?.eventId || state.streamEvents.some((item) => item.eventId === event.eventId)) return;
+      state.streamEvents = [event, ...state.streamEvents].slice(0, 80);
+    }
+
+    function cacheStreamEventPayload(event) {
+      if (event.type !== 'log_append') return;
+      const nodeId = event.payload?.nodeId;
+      if (!nodeId) return;
+      state.graphNodeTails[nodeId] = state.graphNodeTails[nodeId] || {};
+      state.graphNodeTails[nodeId][event.payload.kind || 'log'] = event.payload.lines || [];
+    }
+
+    function currentActiveUnitId() {
+      return state.lifecycleGraph?.activeInferenceUnitId || null;
+    }
+
+    function applyStreamEvent(event) {
+      rememberStreamEvent(event);
+      cacheStreamEventPayload(event);
+      if (event.type === 'lifecycle_snapshot' || event.type === 'graph_update') {
+        const graph = event.payload?.graph;
+        if (graph) {
+          const previousActive = currentActiveUnitId();
+          state.lifecycleGraph = graph;
+          if (!state.graphPositionOverrides || state.streamLifecycleId !== state.selectedLifecycleId) state.graphPositionOverrides = loadGraphLayout();
+          const activeId = graph.activeInferenceUnitId || null;
+          if (activeId && (!state.selectedGraphNodeId || state.selectedGraphNodeId === previousActive)) {
+            state.selectedGraphNodeId = activeId;
+            state.selectedGraphEdgeId = null;
+          }
+          renderGraph();
+          if (state.selectedGraphNodeId) refreshGraphNodeTail(state.selectedGraphNodeId);
+        }
+      } else if (event.type === 'log_append') {
+        if (event.payload?.nodeId === state.selectedGraphNodeId) renderGraphInspector();
+      } else {
+        renderGraphInspector();
+      }
+    }
+
+    function streamUrlForLifecycle(resultId) {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return protocol + '//' + location.host + '/ws/lifecycles/' + encodeURIComponent(resultId);
+    }
+
+    function connectLifecycleStream() {
+      if (!state.selectedLifecycleId || typeof WebSocket === 'undefined') return;
+      if (state.streamSocket && state.streamLifecycleId === state.selectedLifecycleId && state.streamSocket.readyState < 2) return;
+      if (state.streamSocket) state.streamSocket.close();
+      state.streamLifecycleId = state.selectedLifecycleId;
+      const socket = new WebSocket(streamUrlForLifecycle(state.selectedLifecycleId));
+      state.streamSocket = socket;
+      const status = el('graphStatus');
+      if (status) status.textContent = 'connecting';
+      socket.addEventListener('open', () => {
+        if (el('graphStatus')) el('graphStatus').textContent = 'live';
+      });
+      socket.addEventListener('message', (message) => {
+        try {
+          applyStreamEvent(JSON.parse(message.data));
+        } catch (err) {
+          rememberStreamEvent({ eventId: 'client-parse-error:' + Date.now(), type: 'stream_error', at: new Date().toISOString(), payload: { error: String(err.message || err) } });
+          renderGraphInspector();
+        }
+      });
+      socket.addEventListener('close', () => {
+        if (state.streamSocket === socket && el('graphStatus')) el('graphStatus').textContent = 'offline';
+      });
+      socket.addEventListener('error', () => {
+        if (el('graphStatus')) el('graphStatus').textContent = 'stream error';
+      });
     }
 
     function graphRole(node) {
@@ -1373,7 +2324,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
       const proofText = graphRole(node) === 'living-doc'
         ? shortPath(paths.livingDocPath || meta.docId || 'living doc')
         : 'it ' + (node.iteration ?? '-') + ' · val ' + (meta.validationOk ?? (paths.validationPath ? 'path' : '-')) + ' · log ' + (meta.hasCodexEvents ?? Boolean(paths.codexEventsPath));
-      return '<button class="graph-node-card ' + (state.selectedGraphNodeId === node.id ? 'active' : '') + (state.graphDrag?.nodeId === node.id ? ' dragging' : '') + '" style="left:' + esc(pos.x) + 'px;top:' + esc(pos.y) + 'px;width:' + esc(pos.w) + 'px;height:' + esc(pos.h) + 'px" data-graph-node-id="' + esc(node.id) + '" data-role="' + esc(graphRole(node)) + '" data-kind="' + esc(graphKind(node)) + '">' +
+      return '<button class="graph-node-card ' + (state.selectedGraphNodeId === node.id ? 'active' : '') + (state.lifecycleGraph?.activeInferenceUnitId === node.id ? ' current-unit' : '') + (state.graphDrag?.nodeId === node.id ? ' dragging' : '') + '" style="left:' + esc(pos.x) + 'px;top:' + esc(pos.y) + 'px;width:' + esc(pos.w) + 'px;height:' + esc(pos.h) + 'px" data-graph-node-id="' + esc(node.id) + '" data-role="' + esc(graphRole(node)) + '" data-kind="' + esc(graphKind(node)) + '">' +
         '<div class="graph-node-top"><span class="graph-node-role">' + esc(graphRoleLabel(node)) + '</span><span class="graph-status ' + esc(graphStatusClass(node.status)) + '">' + esc(node.status) + '</span></div>' +
         '<div class="graph-node-head"><div class="graph-card-title">' + esc(graphNodeTitle(node)) + '</div></div>' +
         '<div class="graph-card-proof">' + esc(proofText) + '</div>' +
@@ -1459,6 +2410,42 @@ function dashboardHtml({ runsDir, evidenceDir }) {
         : '<p class="muted">' + esc(emptyText) + '</p>';
     }
 
+    function renderCommitIntentSection(intent) {
+      if (!intent) {
+        return '<section class="inspector-section"><h3>Commit Intent</h3><p class="muted">No commit intent evidence recorded.</p></section>';
+      }
+      return '<section class="inspector-section"><h3>Commit Intent</h3>' +
+        inspectorFields([
+          ['Required', intent.required === true ? 'required' : 'not required'],
+          ['Source', intent.source || 'artifact'],
+          ['Reason', intent.reason || 'none'],
+          ['Message', intent.message || 'none'],
+        ]) +
+        '<h3>Body</h3>' + listItems(intent.body || [], (item) => '<code>' + esc(item) + '</code>') +
+        '<h3>Changed Files</h3>' + listItems(intent.changedFiles || [], (item) => '<code>' + esc(item) + '</code>') +
+      '</section>';
+    }
+
+    function renderEventStreamSection() {
+      const rows = state.streamEvents.slice(0, 18).map((event) => {
+        const target = event.payload?.nodeId || event.payload?.edgeId || event.payload?.event || event.payload?.kind || event.payload?.resultId || '';
+        return '<div class="event-row"><strong>' + esc(event.type) + '</strong> <span class="muted">' + esc(target) + '</span></div>';
+      }).join('');
+      return '<section class="inspector-section"><h3>Live Events</h3><div class="event-stream">' + (rows || '<p class="muted">No streamed events received yet.</p>') + '</div></section>';
+    }
+
+    function renderTailSectionsForNode(node) {
+      const cached = state.graphNodeTails[node.id] || {};
+      const sections = [
+        ['codex events', cached.codexEvents],
+        ['stderr', cached.stderr],
+        ['last message', cached.lastMessage],
+        ['result', cached.result],
+        ['validation', cached.validation]
+      ];
+      return sections.map(([name, lines]) => '## ' + name + '\\n' + (lines?.length ? lines.join('\\n') : '(empty)')).join('\\n\\n');
+    }
+
     function renderGraphInspector() {
       const target = el('graphInspector');
       if (!target) return;
@@ -1466,6 +2453,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
       const node = !edge && state.selectedGraphNodeId ? graphNodeById(state.selectedGraphNodeId) : null;
       if (edge) {
         const contractRows = Object.entries(edge.contract || {}).filter(([, value]) => value !== null && value !== undefined && value !== '');
+        const commitIntent = edge.contract?.commitIntent || null;
         target.innerHTML = '<div class="inspector-header">' +
           '<div class="inspector-kicker">Contract arrow</div>' +
           '<div class="inspector-title-row"><div class="inspector-title">' + esc(edge.label || edge.type || 'Contract handoff') + '</div><span class="graph-status ' + esc(graphStatusClass(edge.status)) + '">' + esc(edge.status || 'unknown') + '</span></div>' +
@@ -1478,14 +2466,17 @@ function dashboardHtml({ runsDir, evidenceDir }) {
             ['Type', edge.type || 'contract-handoff'],
             ['Status', edge.status || 'unknown'],
           ]) +
+          renderCommitIntentSection(commitIntent) +
           '<section class="inspector-section"><h3>Contract Evidence</h3>' + inspectorList(contractRows, 'No contract evidence paths recorded.') + '</section>' +
+          renderEventStreamSection() +
         '</div>';
         return;
       }
       if (node) {
         const pathRows = Object.entries(node.artifactPaths || {}).filter(([, value]) => value);
         const metaRows = Object.entries(node.meta || {}).filter(([, value]) => value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && !value.length));
-        const tailButton = (node.meta?.runId && node.meta?.unitKey) ? '<button id="graphTailButton" class="inspector-action">Tail unit log</button><pre id="graphTailBox" style="display:none"></pre>' : '';
+        const hasTail = Boolean(node.artifactPaths?.codexEventsPath || node.artifactPaths?.stderrPath || node.artifactPaths?.lastMessagePath || node.artifactPaths?.resultPath || node.artifactPaths?.validationPath);
+        const tailBox = hasTail ? '<button id="graphTailButton" class="inspector-action">Refresh selected unit log</button><pre id="graphTailBox">' + esc(renderTailSectionsForNode(node)) + '</pre>' : '';
         target.innerHTML = '<div class="inspector-header">' +
           '<div class="inspector-kicker">' + esc(graphRole(node) === 'living-doc' ? 'Operated living doc' : 'Inference unit') + '</div>' +
           '<div class="inspector-title-row"><div class="inspector-title">' + esc(graphNodeTitle(node)) + '</div><span class="graph-status ' + esc(graphStatusClass(node.status)) + '">' + esc(node.status || 'unknown') + '</span></div>' +
@@ -1498,15 +2489,40 @@ function dashboardHtml({ runsDir, evidenceDir }) {
             ['Validation', node.meta?.validationOk ?? (node.artifactPaths?.validationPath ? 'path' : 'none')],
             ['Log', node.meta?.hasCodexEvents ?? Boolean(node.artifactPaths?.codexEventsPath)],
           ]) +
+          (graphRole(node) === 'repair-skill' ? renderCommitIntentSection(node.meta?.commitIntent || null) : '') +
           '<section class="inspector-section"><h3>Artifact Paths</h3>' + inspectorList(pathRows, 'No artifact paths recorded.') + '</section>' +
           '<section class="inspector-section"><h3>Metadata</h3>' + inspectorList(metaRows, 'No metadata recorded.') + '</section>' +
-          tailButton +
+          tailBox +
+          renderEventStreamSection() +
         '</div>';
         const button = document.getElementById('graphTailButton');
-        if (button) button.addEventListener('click', () => refreshGraphUnitTail(node.meta.runId, node.meta.unitKey));
+        if (button) button.addEventListener('click', () => refreshGraphNodeTail(node.id));
+        if (hasTail && state.selectedTailNodeId !== node.id) refreshGraphNodeTail(node.id);
         return;
       }
-      target.innerHTML = '<div class="inspector-header"><div class="inspector-kicker">Inspector</div><div class="inspector-title">Select a card or arrow</div><div class="inspector-subtitle">Inference-unit cards and contract arrows open their evidence here.</div></div>';
+      target.innerHTML = '<div class="inspector-header"><div class="inspector-kicker">Inspector</div><div class="inspector-title">Select a card or arrow</div><div class="inspector-subtitle">Inference-unit cards and contract arrows open their evidence here.</div></div><div class="inspector-body">' + renderEventStreamSection() + '</div>';
+    }
+
+    async function refreshGraphNodeTail(nodeId) {
+      if (!state.selectedLifecycleId || !nodeId) return;
+      state.selectedTailNodeId = nodeId;
+      const box = document.getElementById('graphTailBox');
+      if (box) box.style.display = 'block';
+      try {
+        const response = await fetch('/api/lifecycles/' + encodeURIComponent(state.selectedLifecycleId) + '/nodes/' + encodeURIComponent(nodeId) + '/tail?lines=80');
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'server error');
+        state.graphNodeTails[nodeId] = {
+          codexEvents: payload.codexEvents || [],
+          stderr: payload.stderr || [],
+          lastMessage: payload.lastMessage || [],
+          result: payload.result || [],
+          validation: payload.validation || []
+        };
+        if (box && state.selectedGraphNodeId === nodeId) box.textContent = renderTailSectionsForNode({ id: nodeId });
+      } catch (err) {
+        if (box) box.textContent = String(err.message || err);
+      }
     }
 
     async function refreshGraphUnitTail(runId, unitKey) {
@@ -1654,14 +2670,38 @@ function dashboardHtml({ runsDir, evidenceDir }) {
         if (!response.ok) throw new Error(payload.error || 'server error');
         state.lifecycleGraph = payload;
         state.graphPositionOverrides = loadGraphLayout();
+        if (payload.activeInferenceUnitId && !state.selectedGraphNodeId && !state.selectedGraphEdgeId) state.selectedGraphNodeId = payload.activeInferenceUnitId;
         if (!payload.nodes?.some((node) => node.id === state.selectedGraphNodeId)) state.selectedGraphNodeId = null;
         if (!payload.edges?.some((edge) => edge.id === state.selectedGraphEdgeId)) state.selectedGraphEdgeId = null;
+        await loadLifecycleEventHistory();
         renderGraph();
+        connectLifecycleStream();
       } catch (err) {
         state.lifecycleGraph = null;
         el('graphBoard').innerHTML = '<div class="error">' + esc(err.message || err) + '</div>';
         el('graphStatus').textContent = 'error';
         renderGraphInspector();
+      }
+    }
+
+    async function loadLifecycleEventHistory() {
+      if (!state.selectedLifecycleId) return;
+      if (state.streamLifecycleId !== state.selectedLifecycleId) state.streamEvents = [];
+      try {
+        const response = await fetch('/api/lifecycles/' + encodeURIComponent(state.selectedLifecycleId) + '/events');
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'server error');
+        for (const event of payload.events || []) {
+          rememberStreamEvent(event);
+          cacheStreamEventPayload(event);
+        }
+      } catch (err) {
+        rememberStreamEvent({
+          eventId: 'history-load-error:' + state.selectedLifecycleId + ':' + Date.now(),
+          type: 'stream_error',
+          at: new Date().toISOString(),
+          payload: { error: String(err.message || err) }
+        });
       }
     }
 
@@ -1687,7 +2727,7 @@ function dashboardHtml({ runsDir, evidenceDir }) {
         '</div>' +
         '<div class="lifecycle-chip-row">' +
           '<span class="lifecycle-chip">' + esc(lifecycleCreatedLabel(item)) + '</span>' +
-          '<span class="lifecycle-chip">' + esc(item.iterationCount ?? 0) + '/' + esc(item.maxIterations ?? '?') + ' iterations</span>' +
+          '<span class="lifecycle-chip">' + esc(item.iterationCount ?? 0) + ' iteration' + ((item.iterationCount ?? 0) === 1 ? '' : 's') + '</span>' +
         '</div>' +
         '<div class="lifecycle-path">' + esc(shortPath(item.docPath || 'unknown doc')) + '</div>' +
       '</button>';
@@ -1880,7 +2920,6 @@ function dashboardHtml({ runsDir, evidenceDir }) {
       try {
         const lifecycle = el('lifecycleRun').checked;
         const evidenceSequencePath = el('evidenceSequencePath').value.trim();
-        const maxIterations = Number(el('maxIterations').value || '3');
         const response = await fetch(lifecycle ? '/api/lifecycles' : '/api/runs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1888,9 +2927,10 @@ function dashboardHtml({ runsDir, evidenceDir }) {
             docPath,
             execute: el('executeRun').checked,
             evidenceSequencePath: evidenceSequencePath || undefined,
-            maxIterations: Number.isInteger(maxIterations) && maxIterations > 0 ? maxIterations : 3,
             executeRepairSkills: el('repairSkills').checked,
-            executeRepairSkillUnits: el('repairSkills').checked && el('executeRun').checked
+            executeRepairSkillUnits: el('repairSkills').checked && el('executeRun').checked,
+            executeProofRoutes: lifecycle && el('executeRun').checked,
+            toolProfile: 'local-harness'
           })
         });
         const payload = await response.json();
@@ -1924,11 +2964,14 @@ export function createDashboardServer({
   cwd = process.cwd(),
   runsDir = '.living-doc-runs',
   evidenceDir = 'evidence/living-doc-harness',
+  startHarnessRun = startBackgroundHarnessRun,
+  startLifecycle = startBackgroundLifecycle,
+  writeBundle = writeEvidenceBundle,
 } = {}) {
   const absoluteRunsDir = path.resolve(cwd, runsDir);
   const absoluteEvidenceDir = path.resolve(cwd, evidenceDir);
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
       if (req.method === 'OPTIONS') {
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1983,10 +3026,44 @@ export function createDashboardServer({
         const resultId = decodeURIComponent(lifecycleGraphMatch[1]);
         if (!safeEntryName(resultId)) return sendJson(res, 400, { error: 'invalid lifecycle result id' });
         const lifecycleDir = path.join(absoluteRunsDir, resultId);
-        if (!await exists(path.join(lifecycleDir, 'lifecycle-result.json'))) {
+        if (
+          !await exists(path.join(lifecycleDir, 'lifecycle-result.json'))
+          && !await exists(path.join(lifecycleDir, 'active-lifecycle.json'))
+        ) {
           return sendJson(res, 404, { error: `lifecycle not found: ${resultId}` });
         }
         return sendJson(res, 200, await collectLifecycleGraph(lifecycleDir, { cwd, runsDir: absoluteRunsDir }));
+      }
+
+      const lifecycleEventsMatch = url.pathname.match(/^\/api\/lifecycles\/([^/]+)\/events$/);
+      if (req.method === 'GET' && lifecycleEventsMatch) {
+        const resultId = decodeURIComponent(lifecycleEventsMatch[1]);
+        if (!safeEntryName(resultId)) return sendJson(res, 400, { error: 'invalid lifecycle result id' });
+        const lifecycleDir = path.join(absoluteRunsDir, resultId);
+        if (
+          !await exists(path.join(lifecycleDir, 'lifecycle-result.json'))
+          && !await exists(path.join(lifecycleDir, 'active-lifecycle.json'))
+        ) {
+          return sendJson(res, 404, { error: `lifecycle not found: ${resultId}` });
+        }
+        return sendJson(res, 200, await collectLifecycleEventHistory(lifecycleDir, { cwd, runsDir: absoluteRunsDir }));
+      }
+
+      const graphNodeTailMatch = url.pathname.match(/^\/api\/lifecycles\/([^/]+)\/nodes\/([^/]+)\/tail$/);
+      if (req.method === 'GET' && graphNodeTailMatch) {
+        const resultId = decodeURIComponent(graphNodeTailMatch[1]);
+        const nodeId = decodeURIComponent(graphNodeTailMatch[2]);
+        if (!safeEntryName(resultId)) return sendJson(res, 400, { error: 'invalid lifecycle result id' });
+        if (!/^[a-zA-Z0-9_.-]+$/.test(nodeId)) return sendJson(res, 400, { error: 'invalid graph node id' });
+        const lifecycleDir = path.join(absoluteRunsDir, resultId);
+        if (
+          !await exists(path.join(lifecycleDir, 'lifecycle-result.json'))
+          && !await exists(path.join(lifecycleDir, 'active-lifecycle.json'))
+        ) {
+          return sendJson(res, 404, { error: `lifecycle not found: ${resultId}` });
+        }
+        const lines = Number(url.searchParams.get('lines') || 80);
+        return sendJson(res, 200, await readGraphNodeTail(lifecycleDir, nodeId, { cwd, runsDir: absoluteRunsDir, lines }));
       }
 
       const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
@@ -2052,7 +3129,7 @@ export function createDashboardServer({
         const execute = body.execute === true;
         if (execute) {
           const now = body.now || new Date().toISOString();
-          const result = await startBackgroundHarnessRun({
+          const result = await startHarnessRun({
             docPath: body.docPath,
             runsDir: absoluteRunsDir,
             cwd,
@@ -2094,7 +3171,7 @@ export function createDashboardServer({
         const body = await readBody(req);
         if (!body?.docPath) return sendJson(res, 400, { error: 'missing docPath' });
         const now = body.now || new Date().toISOString();
-        const result = await startBackgroundLifecycle({
+        const result = await startLifecycle({
           docPath: body.docPath,
           runsDir: absoluteRunsDir,
           evidenceDir: absoluteEvidenceDir,
@@ -2104,13 +3181,29 @@ export function createDashboardServer({
           codexBin: body.codexBin || 'codex',
           codexHome: body.codexHome,
           traceLimit: Number.isInteger(body.traceLimit) ? body.traceLimit : 10,
-          maxIterations: Number.isInteger(body.maxIterations) ? body.maxIterations : 3,
           execute: body.execute === true,
           executeReviewer: typeof body.executeReviewer === 'boolean' ? body.executeReviewer : null,
           executeRepairSkills: body.executeRepairSkills === true,
           executeRepairSkillUnits: body.executeRepairSkillUnits === true,
+          executeProofRoutes: body.executeProofRoutes === true,
+          toolProfile: body.toolProfile || 'local-harness',
           evidenceSequencePath: body.evidenceSequencePath || null,
         });
+        if (
+          result.lifecycleDir
+          && !await exists(path.join(result.lifecycleDir, 'lifecycle-result.json'))
+          && !await exists(path.join(result.lifecycleDir, 'active-lifecycle.json'))
+        ) {
+          await writeActiveLifecycleSnapshot({
+            lifecycleDir: result.lifecycleDir,
+            resultId: result.resultId,
+            docPath: body.docPath,
+            createdAt: now,
+            supervisorPid: result.supervisorPid ?? null,
+            toolProfile: result.toolProfile || body.toolProfile || 'local-harness',
+            executeProofRoutes: result.executeProofRoutes === true,
+          });
+        }
         return sendJson(res, 202, {
           schema: 'living-doc-harness-dashboard-lifecycle-started/v1',
           resultId: result.resultId,
@@ -2118,6 +3211,8 @@ export function createDashboardServer({
           executed: body.execute === true,
           background: true,
           supervisorPid: result.supervisorPid,
+          toolProfile: result.toolProfile || body.toolProfile || 'local-harness',
+          executeProofRoutes: result.executeProofRoutes === true,
           nextAction: 'watch /api/runs, /api/runs/:runId/tail, and repair-unit tails until lifecycle-result.json appears',
         });
       }
@@ -2129,7 +3224,7 @@ export function createDashboardServer({
         if (!await exists(path.join(runDir, 'contract.json'))) {
           return sendJson(res, 404, { error: `run not found: ${body.runId}` });
         }
-        const result = await writeEvidenceBundle({ runDir, outDir: absoluteEvidenceDir });
+        const result = await writeBundle({ runDir, outDir: absoluteEvidenceDir });
         return sendJson(res, 200, {
           schema: 'living-doc-harness-dashboard-bundle-written/v1',
           runId: result.bundle.runId,
@@ -2144,6 +3239,54 @@ export function createDashboardServer({
       return sendJson(res, 500, { error: String(err.message || err) });
     }
   });
+
+  server.on('upgrade', async (req, socket) => {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const match = url.pathname.match(/^\/ws\/lifecycles\/([^/]+)$/);
+      if (!match) {
+        socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      const resultId = decodeURIComponent(match[1]);
+      const key = req.headers['sec-websocket-key'];
+      if (!safeEntryName(resultId) || !key) {
+        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      const lifecycleDir = path.join(absoluteRunsDir, resultId);
+      if (
+        !await exists(path.join(lifecycleDir, 'lifecycle-result.json'))
+        && !await exists(path.join(lifecycleDir, 'active-lifecycle.json'))
+      ) {
+        socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      socket.write([
+        'HTTP/1.1 101 Switching Protocols',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        `Sec-WebSocket-Accept: ${websocketAccept(key)}`,
+        '\r\n',
+      ].join('\r\n'));
+      startLifecycleWebsocketStream(socket, {
+        lifecycleDir,
+        cwd,
+        runsDir: absoluteRunsDir,
+      });
+      socket.on('data', (chunk) => {
+        if ((chunk[0] & 0x0f) === 0x8) closeWebsocket(socket);
+      });
+    } catch (err) {
+      socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+      socket.destroy();
+    }
+  });
+
+  return server;
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;

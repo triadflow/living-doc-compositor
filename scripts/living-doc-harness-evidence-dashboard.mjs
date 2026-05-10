@@ -62,6 +62,24 @@ async function listFiles(dir, predicate = () => true) {
   }
 }
 
+async function listFilesRecursive(dir, predicate = () => true) {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      const entryPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...await listFilesRecursive(entryPath, predicate));
+      } else if (entry.isFile() && predicate(entry.name, entryPath)) {
+        files.push(entryPath);
+      }
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
+
 async function listDirs(dir) {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -91,10 +109,8 @@ function relative(runDir, filePath) {
 function deriveRecommendation({ state, terminal, handover }) {
   const stage = terminal?.kind || state?.lifecycleStage || '';
   if (stage === 'closed') return 'close';
-  if (stage === 'true-blocked') return 'block';
-  if (stage === 'pivoted') return 'pivot';
-  if (stage === 'deferred') return 'defer';
-  if (stage === 'budget-exhausted') return 'stop-budget';
+  if (stage === 'user-stopped') return 'user-stop';
+  if (stage === 'continuation-required') return 'continuation';
   if (stage === 'repair-resumed') return 'resume';
   if (handover?.nextIteration?.mode) return handover.nextIteration.mode;
   if (state?.status === 'prepared') return 'resume';
@@ -108,7 +124,7 @@ function proofGates({ contract, state, terminal, handover, traceRefs, skillInvoc
     livingDocRendered: handover?.livingDoc?.render?.status === 0 || Boolean(contract?.livingDoc?.renderedHtml) ? 'pass' : 'pending',
     skillRouting: skillInvocations.length > 0 || Boolean(handover?.actions?.length) ? 'pass' : 'pending',
     terminalState: terminal ? 'pass' : 'pending',
-    blockersVisible: blockers.length > 0 ? 'pass' : terminal?.kind === 'true-blocked' ? 'fail' : 'not-applicable',
+    blockersVisible: blockers.length > 0 ? 'pass' : terminal?.stopVerdict?.classification === 'true-block' ? 'fail' : 'not-applicable',
     evidenceBundle: 'pass',
     closureAllowed: terminal?.kind === 'closed' ? 'pass' : 'not-applicable',
     lifecycleStage: state?.lifecycleStage || terminal?.kind || 'unknown',
@@ -132,6 +148,7 @@ export async function collectRunEvidence(runDir) {
   const proofFiles = await listFiles(path.join(runDir, 'artifacts'), (name) => /^iteration-\d+-proof\.json$/.test(name));
   const verdictFiles = await listFiles(path.join(runDir, 'artifacts'), (name) => /^iteration-\d+-stop-verdict\.json$/.test(name));
   const reviewerFiles = await listFiles(path.join(runDir, 'reviewer-inference'), (name) => /^iteration-\d+-verdict\.json$/.test(name));
+  const inferenceUnitResultFiles = await listFilesRecursive(path.join(runDir, 'inference-units'), (name) => name === 'result.json');
   const repairIterationDirs = await listDirs(path.join(runDir, 'repair-skills'));
   const repairChainFiles = [];
   for (const dir of repairIterationDirs) {
@@ -165,6 +182,27 @@ export async function collectRunEvidence(runDir) {
   const latestVerdict = latestVerdictPath ? await readJson(latestVerdictPath) : null;
   const latestReviewerVerdict = latestReviewerPath ? await readJson(latestReviewerPath) : null;
   const latestRepairChain = latestRepairChainPath ? await readJson(latestRepairChainPath) : null;
+  const inferenceUnits = [];
+  for (const file of inferenceUnitResultFiles) {
+    const result = await readJson(file);
+    if (!result) continue;
+    inferenceUnits.push({
+      unitId: result.unitId,
+      role: result.role,
+      status: result.status,
+      mode: result.mode,
+      sequence: result.sequence,
+      iteration: result.iteration,
+      resultPath: relative(runDir, file),
+      inputContractPath: result.inputContractPath,
+      promptPath: result.promptPath,
+      allowedNextUnitTypes: result.unitType?.allowedNextUnitTypes || [],
+      deterministicSideEffects: result.unitType?.deterministicSideEffects || [],
+      dashboard: result.unitType?.dashboard || null,
+      closureImplications: result.unitType?.closureImplications || null,
+    });
+  }
+  inferenceUnits.sort((a, b) => (a.iteration - b.iteration) || (a.sequence - b.sequence) || String(a.unitId).localeCompare(String(b.unitId)));
   const traceRefs = [
     ...(contract?.artifacts?.nativeTraceRefs || []),
     ...traceSummaries.map((summary) => ({
@@ -199,6 +237,7 @@ export async function collectRunEvidence(runDir) {
     latestReviewerVerdictPath: relative(runDir, latestReviewerPath),
     latestRepairChain,
     latestRepairChainPath: relative(runDir, latestRepairChainPath),
+    inferenceUnits,
     traceRefs: uniqueTraceRefs,
     traceSummaries,
     proofGates: gates,
@@ -279,6 +318,7 @@ export async function writeEvidenceBundle({
       orderedSkills: facts.latestRepairChain.balanceScan?.orderedSkills || [],
       resultCount: facts.latestRepairChain.skillResults?.length || 0,
     } : null,
+    inferenceUnits: facts.inferenceUnits,
     traceRefs: facts.traceRefs.map((ref) => ({
       summaryPath: ref.summaryPath || null,
       traceHash: ref.traceHash || null,
@@ -362,6 +402,9 @@ function renderRunCard(bundle) {
   const traces = (bundle.traceRefs || [])
     .map((ref) => `<li>${esc(ref.summaryPath || ref.traceHash)} · ${esc(ref.lineCount || 'unknown')} lines</li>`)
     .join('') || '<li>none</li>';
+  const units = (bundle.inferenceUnits || [])
+    .map((unit) => `<li>${esc(unit.iteration)}.${esc(unit.sequence)} ${esc(unit.unitId)} · ${esc(unit.status)} · next: ${esc((unit.allowedNextUnitTypes || []).join(', ') || 'none')} · side effects: ${esc((unit.deterministicSideEffects || []).join(', ') || 'none')}</li>`)
+    .join('') || '<li>none</li>';
   const objective = bundle.objectiveRef || {};
   const renderedRefs = (bundle.renderedDocRefs || [])
     .map((ref) => `<li>${esc(ref)}</li>`)
@@ -389,6 +432,7 @@ function renderRunCard(bundle) {
       <div class="grid">
         <div><h3>Blockers</h3><ul>${blockers}</ul></div>
         <div><h3>Skills</h3><ul>${skills}</ul></div>
+        <div><h3>Inference Units</h3><ul>${units}</ul></div>
         <div><h3>Native Trace Summaries</h3><ul>${traces}</ul></div>
         <div><h3>Rendered Docs</h3><ul>${renderedRefs}</ul></div>
         <div class="wide"><h3>Evidence Artifacts</h3><ul>${artifactRefs}</ul></div>

@@ -10,6 +10,14 @@ import { createWriteStream } from 'node:fs';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
+import {
+  DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  getInferenceUnitType,
+  registryMetadataForUnit,
+  validateInferenceUnitAllowed,
+} from './living-doc-harness-inference-unit-types.mjs';
+
 function arr(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -62,10 +70,19 @@ function extractJson(text) {
   }
 }
 
-async function runCodex({ codexBin, cwd, prompt, stdoutPath, stderrPath, lastMessagePath }) {
+async function runCodex({ codexBin, cwd, prompt, stdoutPath, stderrPath, lastMessagePath, toolProfile }) {
   await mkdir(path.dirname(stdoutPath), { recursive: true });
   return new Promise((resolve, reject) => {
-    const child = spawn(codexBin, ['exec', '--json', '-C', cwd, '-o', lastMessagePath, '-'], {
+    const child = spawn(codexBin, [
+      'exec',
+      '--json',
+      ...arr(toolProfile?.codexArgs),
+      '-C',
+      cwd,
+      '-o',
+      lastMessagePath,
+      '-',
+    ], {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -163,12 +180,45 @@ export function validateInferenceUnitResult(result) {
   if (!result?.outputContract || typeof result.outputContract !== 'object') {
     violations.push({ path: '$.outputContract', message: 'outputContract is required' });
   }
+  if (!result?.unitType || typeof result.unitType !== 'object') {
+    violations.push({ path: '$.unitType', message: 'unitType registry metadata is required' });
+  } else {
+    for (const key of ['unitTypeId', 'inputContractSchema', 'outputContractSchema', 'allowedNextUnitTypes', 'deterministicSideEffects', 'dashboard', 'closureImplications']) {
+      if (result.unitType[key] == null) violations.push({ path: `$.unitType.${key}`, message: `${key} is required` });
+    }
+  }
   for (const key of ['promptPath', 'inputContractPath', 'codexEventsPath', 'lastMessagePath']) {
     if (typeof result?.[key] !== 'string' || !result[key]) {
       violations.push({ path: `$.${key}`, message: `${key} is required` });
     }
   }
+  try {
+    const type = getInferenceUnitType(result?.unitType?.unitTypeId || result?.unitId);
+    if (!type.outputVerdicts.includes(result?.status)) {
+      violations.push({ path: '$.status', message: `status must be one of registered output verdicts: ${type.outputVerdicts.join(', ')}` });
+    }
+    if (result?.outputContract?.schema !== type.outputContract.schema) {
+      violations.push({ path: '$.outputContract.schema', message: `outputContract schema must be ${type.outputContract.schema}` });
+    }
+    for (const field of arr(type.outputContract.requiredFields)) {
+      if (result?.outputContract?.[field] == null) {
+        violations.push({ path: `$.outputContract.${field}`, message: `${field} is required by ${type.id} output contract` });
+      }
+    }
+  } catch (err) {
+    violations.push({ path: '$.unitType.unitTypeId', message: err.message });
+  }
   return { ok: violations.length === 0, violations };
+}
+
+function statusFromRawResult(rawResult) {
+  if (rawResult?.status) return rawResult.status;
+  if (rawResult?.verdict) return rawResult.verdict;
+  if (rawResult?.schema === 'living-doc-harness-stop-verdict/v1') return rawResult.stopVerdict?.classification;
+  if (rawResult?.schema === 'living-doc-harness-closure-review/v1') {
+    return rawResult.approved === true && rawResult.terminalAllowed === true ? 'approved' : 'blocked';
+  }
+  return 'no-op';
 }
 
 export async function runContractBoundInferenceUnit({
@@ -178,6 +228,8 @@ export async function runContractBoundInferenceUnit({
   sequence = 1,
   unitId,
   role,
+  unitTypeId = unitId,
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   prompt,
   inputContract,
   outputContract = null,
@@ -186,12 +238,16 @@ export async function runContractBoundInferenceUnit({
   codexBin = 'codex',
   cwd = process.cwd(),
   now = new Date().toISOString(),
+  toolProfile = 'local-harness',
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!unitId) throw new Error('unitId is required');
   if (!role) throw new Error('role is required');
   if (!prompt) throw new Error('prompt is required');
   if (!inputContract || typeof inputContract !== 'object') throw new Error('inputContract is required');
+  const typeValidation = validateInferenceUnitAllowed({ unitTypeId, allowedUnitTypes });
+  if (!typeValidation.ok) throw new Error(typeValidation.message);
+  const unitType = registryMetadataForUnit(unitTypeId, typeValidation.allowedUnitTypes);
 
   const sequenceLabel = String(sequence).padStart(2, '0');
   const unitDir = path.join(runDir, rootDir, `iteration-${iteration}`, `${sequenceLabel}-${slug(unitId)}`);
@@ -202,19 +258,55 @@ export async function runContractBoundInferenceUnit({
   const lastMessagePath = path.join(unitDir, 'last-message.txt');
   const resultPath = path.join(unitDir, 'result.json');
   const validationPath = path.join(unitDir, 'validation.json');
+  const resolvedToolProfile = resolveInferenceToolProfile(toolProfile, { cwd });
+  const inputContractWithToolProfile = {
+    ...inputContract,
+    unitType,
+    allowedUnitTypes: typeValidation.allowedUnitTypes,
+    toolProfile: resolvedToolProfile,
+  };
+  const promptWithToolProfile = `${prompt}
+
+Harness tool profile:
+${JSON.stringify(resolvedToolProfile, null, 2)}
+`;
 
   await mkdir(unitDir, { recursive: true });
-  await writeFile(promptPath, prompt, 'utf8');
-  await writeJson(inputContractPath, inputContract);
+  await writeFile(promptPath, promptWithToolProfile, 'utf8');
+  await writeJson(inputContractPath, inputContractWithToolProfile);
 
   let rawResult;
   let mode = 'fixture';
   if (execute) {
     mode = 'headless-codex';
-    const stdout = await runCodex({ codexBin, cwd, prompt, stdoutPath: codexEventsPath, stderrPath, lastMessagePath });
+    await appendJsonl(path.join(runDir, 'events.jsonl'), {
+      event: 'inference-tool-profile-selected',
+      at: now,
+      unitId,
+      role,
+      iteration,
+      sequence,
+      toolProfile: {
+        name: resolvedToolProfile.name,
+        isolation: resolvedToolProfile.isolation,
+        sandboxMode: resolvedToolProfile.sandboxMode,
+        mcpMode: resolvedToolProfile.mcpMode,
+        mcpAllowlist: resolvedToolProfile.mcpAllowlist,
+        mcpDenylist: resolvedToolProfile.mcpDenylist,
+      },
+    });
+    const stdout = await runCodex({
+      codexBin,
+      cwd,
+      prompt: promptWithToolProfile,
+      stdoutPath: codexEventsPath,
+      stderrPath,
+      lastMessagePath,
+      toolProfile: resolvedToolProfile,
+    });
     await assertRequiredInspectionPaths({
       eventsPath: codexEventsPath,
-      requiredInspectionPaths: inputContract.requiredInspectionPaths,
+      requiredInspectionPaths: inputContractWithToolProfile.requiredInspectionPaths,
     });
     const lastMessage = await readFile(lastMessagePath, 'utf8').catch(() => stdout);
     rawResult = extractJson(lastMessage || stdout);
@@ -241,6 +333,7 @@ export async function runContractBoundInferenceUnit({
     schema: 'living-doc-contract-bound-inference-result/v1',
     unitId,
     role,
+    unitType,
     mode,
     iteration,
     sequence,
@@ -250,9 +343,18 @@ export async function runContractBoundInferenceUnit({
     codexEventsPath: path.relative(runDir, codexEventsPath),
     lastMessagePath: path.relative(runDir, lastMessagePath),
     stderrPath: path.relative(runDir, stderrPath),
-    status: rawResult.status || rawResult.verdict || 'no-op',
+    status: statusFromRawResult(rawResult),
     basis: arr(rawResult.basis).length ? rawResult.basis : ['Inference unit completed without a detailed basis.'],
     outputContract: rawResult.outputContract || rawResult,
+    toolProfile: {
+      name: resolvedToolProfile.name,
+      isolation: resolvedToolProfile.isolation,
+      sandboxMode: resolvedToolProfile.sandboxMode,
+      mcpMode: resolvedToolProfile.mcpMode,
+      mcpAllowlist: resolvedToolProfile.mcpAllowlist,
+      mcpDenylist: resolvedToolProfile.mcpDenylist,
+      pluginDenylist: resolvedToolProfile.pluginDenylist,
+    },
   };
   const validation = validateInferenceUnitResult(result);
   await writeJson(resultPath, result);
@@ -294,6 +396,8 @@ export async function writeContractBoundInferenceUnitSnapshot({
   sequence = 1,
   unitId,
   role,
+  unitTypeId = unitId,
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   prompt,
   inputContract,
   sourcePaths = {},
@@ -302,12 +406,17 @@ export async function writeContractBoundInferenceUnitSnapshot({
   basis = ['Inference unit snapshot was recorded from an externally managed process.'],
   outputContract = {},
   now = new Date().toISOString(),
+  toolProfile = 'local-harness',
+  cwd = process.cwd(),
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!unitId) throw new Error('unitId is required');
   if (!role) throw new Error('role is required');
   if (!prompt) throw new Error('prompt is required');
   if (!inputContract || typeof inputContract !== 'object') throw new Error('inputContract is required');
+  const typeValidation = validateInferenceUnitAllowed({ unitTypeId, allowedUnitTypes });
+  if (!typeValidation.ok) throw new Error(typeValidation.message);
+  const unitType = registryMetadataForUnit(unitTypeId, typeValidation.allowedUnitTypes);
 
   const sequenceLabel = String(sequence).padStart(2, '0');
   const unitDir = path.join(runDir, rootDir, `iteration-${iteration}`, `${sequenceLabel}-${slug(unitId)}`);
@@ -318,10 +427,22 @@ export async function writeContractBoundInferenceUnitSnapshot({
   const lastMessagePath = path.join(unitDir, 'last-message.txt');
   const resultPath = path.join(unitDir, 'result.json');
   const validationPath = path.join(unitDir, 'validation.json');
+  const resolvedToolProfile = resolveInferenceToolProfile(toolProfile, { cwd });
+  const inputContractWithToolProfile = {
+    ...inputContract,
+    unitType,
+    allowedUnitTypes: typeValidation.allowedUnitTypes,
+    toolProfile: resolvedToolProfile,
+  };
+  const promptWithToolProfile = `${prompt}
+
+Harness tool profile:
+${JSON.stringify(resolvedToolProfile, null, 2)}
+`;
 
   await mkdir(unitDir, { recursive: true });
-  await writeFile(promptPath, prompt, 'utf8');
-  await writeJson(inputContractPath, inputContract);
+  await writeFile(promptPath, promptWithToolProfile, 'utf8');
+  await writeJson(inputContractPath, inputContractWithToolProfile);
   await copyIfExists(sourcePaths.codexEventsPath, codexEventsPath);
   await copyIfExists(sourcePaths.stderrPath, stderrPath);
   await copyIfExists(sourcePaths.lastMessagePath, lastMessagePath);
@@ -330,6 +451,7 @@ export async function writeContractBoundInferenceUnitSnapshot({
     schema: 'living-doc-contract-bound-inference-result/v1',
     unitId,
     role,
+    unitType,
     mode,
     iteration,
     sequence,
@@ -342,6 +464,15 @@ export async function writeContractBoundInferenceUnitSnapshot({
     status,
     basis: arr(basis).length ? basis : ['Inference unit snapshot recorded.'],
     outputContract,
+    toolProfile: {
+      name: resolvedToolProfile.name,
+      isolation: resolvedToolProfile.isolation,
+      sandboxMode: resolvedToolProfile.sandboxMode,
+      mcpMode: resolvedToolProfile.mcpMode,
+      mcpAllowlist: resolvedToolProfile.mcpAllowlist,
+      mcpDenylist: resolvedToolProfile.mcpDenylist,
+      pluginDenylist: resolvedToolProfile.pluginDenylist,
+    },
   };
   const validation = validateInferenceUnitResult(result);
   await writeJson(resultPath, result);

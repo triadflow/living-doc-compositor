@@ -12,8 +12,9 @@ import { fileURLToPath } from 'node:url';
 
 import { createHarnessRun } from './living-doc-harness-runner.mjs';
 import { finalizeHarnessIteration, writeIterationEvidenceTemplate } from './living-doc-harness-iteration.mjs';
-import { writeTerminalState } from './living-doc-harness-terminal-state.mjs';
-import { renderDashboard, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
+import { loadProofRoutesFromDoc, runProofRoutes } from './living-doc-harness-proof-route.mjs';
+import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
+import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -76,9 +77,12 @@ function statusIsComplete(value) {
   const status = String(value || '').toLowerCase();
   return status === 'closed'
     || status === 'done'
+    || status === 'pass'
     || status === 'passed'
     || status === 'complete'
     || status === 'completed'
+    || status.endsWith('-proven')
+    || status.endsWith('-green')
     || status.startsWith('satisfied')
     || status.startsWith('complete-');
 }
@@ -137,38 +141,23 @@ async function writeJsonlText(filePath, text) {
   await writeFile(filePath, text, 'utf8');
 }
 
-function terminalVerdict({ reasonCode = 'max-iterations-exhausted', basis = [] } = {}) {
-  return {
-    schema: 'living-doc-harness-stop-verdict/v1',
-    stopVerdict: {
-      classification: 'budget-exhausted',
-      reasonCode,
-      confidence: 'high',
-      basis: basis.length ? basis : ['Lifecycle controller reached maxIterations before terminal closure.'],
-    },
-    nextIteration: {
-      allowed: false,
-      mode: 'stop-budget',
-    },
-    terminal: {
-      kind: 'budget-exhausted',
-      reasonCode,
-      basis: basis.length ? basis : ['Lifecycle controller reached maxIterations before terminal closure.'],
-    },
-  };
-}
-
 function nextInputFromFinalization({ finalization, outputInputPath }) {
-  const mode = finalization.nextIteration?.mode || 'repair';
+  const mode = ['none', 'user-stop'].includes(finalization.nextIteration?.mode)
+    ? 'continuation'
+    : finalization.nextIteration?.mode || 'continuation';
   return {
     mode,
     previousRunId: finalization.runId,
     previousIteration: finalization.iteration,
-    instruction: finalization.nextIteration?.instruction || 'Continue from the previous repair handover.',
+    instruction: finalization.nextIteration?.instruction || 'Continue from the previous non-closure state until the living-doc objective is reached.',
     handoverPath: finalization.handoverPath ? path.relative(process.cwd(), finalization.handoverPath) : null,
     repairSkillResultPath: finalization.repairSkillResultPath ? path.relative(process.cwd(), finalization.repairSkillResultPath) : null,
     outputInputPath: path.relative(process.cwd(), outputInputPath),
   };
+}
+
+function lifecycleMayStop(finalization) {
+  return finalization.terminalKind === 'closed' || finalization.terminalKind === 'user-stopped';
 }
 
 async function writeOutputInput({
@@ -228,6 +217,7 @@ async function buildEvidenceFromPlan({
   docPath,
   cwd,
   now,
+  proofRouteBundle = null,
 }) {
   const sourceState = await deriveSourceStateEvidence({ docPath, cwd });
   const sourceClosureAllowed = sourceState?.closureAllowed === true;
@@ -273,6 +263,37 @@ async function buildEvidenceFromPlan({
     ...(plan.requiredProof ? { requiredProof: plan.requiredProof } : {}),
     ...(plan.issueRef ? { issueRef: plan.issueRef } : {}),
     ...(sourceState ? { sourceState } : {}),
+    ...(hasOwn(plan, 'sourceFilesChanged') ? { sourceFilesChanged: plan.sourceFilesChanged === true } : {}),
+    ...(plan.sideEffectEvidence ? { sideEffectEvidence: plan.sideEffectEvidence } : {}),
+    ...(hasOwn(plan, 'prReviewRequired') ? { prReviewRequired: plan.prReviewRequired === true } : {}),
+    ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
+    ...(plan.prReview ? { prReview: plan.prReview } : {}),
+    ...(proofRouteBundle ? {
+      controllerProofRoutes: {
+        schema: proofRouteBundle.schema,
+        routeCount: proofRouteBundle.routeCount,
+        passed: proofRouteBundle.passed,
+        failed: proofRouteBundle.failed,
+        blocked: proofRouteBundle.blocked,
+        results: proofRouteBundle.results.map((result) => ({
+          routeId: result.routeId,
+          proofRoute: result.proofRoute,
+          status: result.status,
+          required: result.required,
+          failureClass: result.failureClass,
+          command: result.command,
+          resultPath: path.relative(runDir, result.resultPath),
+          stdoutPath: result.stdoutPath,
+          stderrPath: result.stderrPath,
+          acceptanceCriteria: result.acceptanceCriteria,
+          closureAllowedContribution: result.closureAllowedContribution,
+        })),
+      },
+      proofGates: {
+        ...template.evidence.proofGates,
+        controllerProofRoutes: proofRouteBundle.failed === 0 && proofRouteBundle.blocked === 0 ? 'pass' : proofRouteBundle.blocked > 0 ? 'blocked' : 'fail',
+      },
+    } : {}),
   };
   await writeJson(evidencePath, evidence);
   return { evidence, evidencePath };
@@ -286,26 +307,65 @@ async function loadEvidenceSequence(filePath) {
   throw new Error('evidence sequence must be an array or contain iterations[]');
 }
 
-async function applyBudgetExhausted({
+async function runPostFlightSummaryUnit({
   runDir,
   runId,
   iteration,
-  evidence,
+  finalization,
   now,
-  evidenceDir,
-  dashboardPath,
-  runsDir,
+  cwd,
+  allowedUnitTypes,
 }) {
-  const verdict = terminalVerdict();
-  const terminal = await writeTerminalState({ runDir, verdict, evidence, iteration, now });
-  const bundle = await writeEvidenceBundle({ runDir, outDir: evidenceDir, now });
-  const dashboard = await renderDashboard({ runsDir, evidenceDir, outPath: dashboardPath, now });
-  return {
+  const summaryPath = path.join(runDir, 'artifacts', `iteration-${iteration}-post-flight-summary.md`);
+  const summary = [
+    `# Post-Flight Summary: ${runId}`,
+    '',
+    `Created: ${now}`,
+    `Terminal kind: ${finalization.terminalKind}`,
+    `Classification: ${finalization.classification}`,
+    `Proof valid: ${finalization.proofValid === true ? 'true' : 'false'}`,
+    `Terminal artifact: ${path.relative(runDir, finalization.terminalPath)}`,
+    `Proof artifact: ${path.relative(runDir, finalization.proofPath)}`,
+    '',
+  ].join('\n');
+  await writeFile(summaryPath, summary, 'utf8');
+  const input = {
+    schema: 'living-doc-harness-post-flight-summary-input/v1',
     runId,
-    terminalKind: terminal.record.kind,
-    terminalPath: terminal.terminalPath,
-    bundlePath: bundle.bundlePath,
-    dashboardPath: dashboard.outPath,
+    iteration,
+    terminalPath: path.relative(runDir, finalization.terminalPath),
+    proofPath: path.relative(runDir, finalization.proofPath),
+    lifecycleResultPath: null,
+    requiredInspectionPaths: [finalization.terminalPath, finalization.proofPath],
+  };
+  const unit = await runContractBoundInferenceUnit({
+    runDir,
+    rootDir: 'inference-units',
+    iteration,
+    sequence: 4,
+    unitId: 'post-flight-summary',
+    role: 'post-flight-summary',
+    unitTypeId: 'post-flight-summary',
+    allowedUnitTypes,
+    prompt: `Write a post-flight summary from the closed run artifacts.\n\n${JSON.stringify(input, null, 2)}`,
+    inputContract: input,
+    fixtureResult: {
+      status: 'written',
+      basis: ['Post-flight summary was written from terminal and proof artifacts after closure.'],
+      outputContract: {
+        schema: 'living-doc-harness-post-flight-summary/v1',
+        status: 'written',
+        summaryPath: path.relative(runDir, summaryPath),
+        basis: ['Terminal closure was already persisted; this unit only summarizes closed-run artifacts.'],
+      },
+    },
+    execute: false,
+    cwd,
+    now,
+  });
+  return {
+    summaryPath,
+    unit,
   };
 }
 
@@ -314,7 +374,6 @@ export async function runHarnessLifecycle({
   runsDir = '.living-doc-runs',
   evidenceDir = 'evidence/living-doc-harness',
   dashboardPath = 'docs/living-doc-harness-dashboard.html',
-  maxIterations = 3,
   execute = false,
   evidenceSequencePath = null,
   cwd = process.cwd(),
@@ -327,15 +386,19 @@ export async function runHarnessLifecycle({
   reviewerVerdictSequence = null,
   executeRepairSkills = false,
   executeRepairSkillUnits = false,
+  executeProofRoutes = false,
+  proofRoutes = null,
+  toolProfile = 'local-harness',
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
-  if (!Number.isInteger(maxIterations) || maxIterations < 1) throw new Error('maxIterations must be an integer >= 1');
 
   const evidenceSequence = await loadEvidenceSequence(evidenceSequencePath);
   const reviewerSequence = reviewerVerdictSequence || evidenceSequence.map((item) => item?.reviewerVerdict || null);
   const absoluteRunsDir = path.resolve(cwd, runsDir);
   const absoluteEvidenceDir = path.resolve(cwd, evidenceDir);
   const absoluteDashboardPath = path.resolve(cwd, dashboardPath);
+  const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
   const resultId = `ldhl-${timestampForId(now)}-${path.basename(docPath, '.json').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   const lifecycleDir = path.join(absoluteRunsDir, resultId);
   await mkdir(lifecycleDir, { recursive: true });
@@ -344,8 +407,9 @@ export async function runHarnessLifecycle({
   let lifecycleInput = null;
   let finalState = null;
   let lastEvidence = null;
+  const docProofRoutes = proofRoutes || await loadProofRoutesFromDoc(docPath, { cwd });
 
-  for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
+  for (let iteration = 1; ; iteration += 1) {
     const iterationNow = addMs(now, iteration * 1000);
     const plan = evidenceSequence[iteration - 1] || {};
     const run = await createHarnessRun({
@@ -359,7 +423,19 @@ export async function runHarnessLifecycle({
       traceLimit,
       lifecycleInput,
       iteration,
+      toolProfile,
+      allowedUnitTypes: normalizedAllowedUnitTypes,
     });
+    const iterationProofRoutes = arr(plan.proofRoutes).length ? plan.proofRoutes : docProofRoutes;
+    const proofRouteBundle = executeProofRoutes && iterationProofRoutes.length
+      ? await runProofRoutes({
+        runDir: run.runDir,
+        iteration,
+        routes: iterationProofRoutes,
+        cwd,
+        now: addMs(iterationNow, 125),
+      })
+      : null;
     const { evidence, evidencePath } = await buildEvidenceFromPlan({
       run,
       runDir: run.runDir,
@@ -368,6 +444,7 @@ export async function runHarnessLifecycle({
       docPath,
       cwd,
       now: addMs(iterationNow, 250),
+      proofRouteBundle,
     });
     lastEvidence = evidence;
     const finalization = await finalizeHarnessIteration({
@@ -387,26 +464,23 @@ export async function runHarnessLifecycle({
       executeRepairSkillUnits: plan.executeRepairSkillUnits === true || executeRepairSkillUnits,
       repairSkillPlan: plan.repairSkillPlan || null,
       codexBin,
+      allowedUnitTypes: normalizedAllowedUnitTypes,
     });
 
-    const canContinue = finalization.terminalKind === 'repair-resumed';
-    const nextAction = canContinue && iteration < maxIterations
+    const mayStop = lifecycleMayStop(finalization);
+    const nextAction = !mayStop
       ? {
         action: 'start-next-worker-iteration',
         allowed: true,
-        reason: finalization.nextIteration?.instruction || 'Stop verdict allows repair or resume.',
+        reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
       }
-      : canContinue
-        ? {
-          action: 'stop-budget-exhausted',
-          allowed: false,
-          reason: `maxIterations ${maxIterations} reached before terminal closure.`,
-        }
-        : {
-          action: 'stop-terminal-state',
-          allowed: false,
-          reason: `Terminal state ${finalization.terminalKind} reached.`,
-        };
+      : {
+        action: 'stop-terminal-state',
+        allowed: false,
+        reason: finalization.terminalKind === 'closed'
+          ? 'Objective closure reached.'
+          : 'User explicitly stopped the lifecycle.',
+      };
 
     const provisionalOutputInputPath = path.join(run.runDir, 'output-input', `iteration-${iteration}.json`);
     const nextInput = nextAction.allowed
@@ -432,11 +506,11 @@ export async function runHarnessLifecycle({
       nextAction,
       outputInputPath: outputInput.outputInputPath,
       reviewerVerdictPath: finalization.reviewerVerdictPath,
-    repairSkillResultPath: finalization.repairSkillResultPath,
-    closureReviewResultPath: finalization.closureReviewResultPath,
-    postReviewSelectionPath: finalization.postReviewSelectionPath,
-    proofValid: finalization.proofValid,
-  });
+      repairSkillResultPath: finalization.repairSkillResultPath,
+      closureReviewResultPath: finalization.closureReviewResultPath,
+      postReviewSelectionPath: finalization.postReviewSelectionPath,
+      proofValid: finalization.proofValid,
+    });
 
     await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
       event: 'lifecycle-iteration-complete',
@@ -454,30 +528,24 @@ export async function runHarnessLifecycle({
       postReviewSelectionPath: finalization.postReviewSelectionPath ? path.relative(lifecycleDir, finalization.postReviewSelectionPath) : null,
     });
 
-    if (!canContinue) {
+    if (mayStop) {
+      const postFlight = finalization.terminalKind === 'closed'
+        ? await runPostFlightSummaryUnit({
+          runDir: run.runDir,
+          runId: run.runId,
+          iteration,
+          finalization,
+          now: addMs(iterationNow, 850),
+          cwd,
+          allowedUnitTypes: normalizedAllowedUnitTypes,
+        })
+        : null;
       finalState = {
         kind: finalization.terminalKind,
         reason: nextAction.reason,
         runId: run.runId,
-      };
-      break;
-    }
-
-    if (iteration >= maxIterations) {
-      const budget = await applyBudgetExhausted({
-        runDir: run.runDir,
-        runId: run.runId,
-        iteration,
-        evidence,
-        now: addMs(iterationNow, 900),
-        evidenceDir: absoluteEvidenceDir,
-        dashboardPath: absoluteDashboardPath,
-        runsDir: absoluteRunsDir,
-      });
-      finalState = {
-        kind: budget.terminalKind,
-        reason: nextAction.reason,
-        runId: run.runId,
+        postFlightSummaryPath: postFlight?.summaryPath ? path.relative(cwd, postFlight.summaryPath) : null,
+        postFlightUnitResultPath: postFlight?.unit?.resultPath ? path.relative(cwd, postFlight.unit.resultPath) : null,
       };
       break;
     }
@@ -495,7 +563,6 @@ export async function runHarnessLifecycle({
     docPath,
     docHash: await fileHash(path.resolve(cwd, docPath)),
     lifecycleDir,
-    maxIterations,
     iterationCount: iterations.length,
     finalState: finalState || {
       kind: 'unknown',
@@ -536,7 +603,7 @@ function parseArgs(argv) {
   const args = [...argv];
   const command = args.shift();
   if (command !== 'run') {
-    throw new Error('usage: living-doc-harness-lifecycle.mjs run <doc.json> [--runs-dir <dir>] [--max-iterations <n>] [--execute] [--evidence-sequence <json>]');
+    throw new Error('usage: living-doc-harness-lifecycle.mjs run <doc.json> [--runs-dir <dir>] [--execute] [--execute-proof-routes] [--evidence-sequence <json>]');
   }
   const docPath = args.shift();
   if (!docPath) throw new Error('run requires <doc.json>');
@@ -545,7 +612,6 @@ function parseArgs(argv) {
     runsDir: '.living-doc-runs',
     evidenceDir: 'evidence/living-doc-harness',
     dashboardPath: 'docs/living-doc-harness-dashboard.html',
-    maxIterations: 3,
     execute: false,
     evidenceSequencePath: null,
     now: new Date().toISOString(),
@@ -556,6 +622,9 @@ function parseArgs(argv) {
     executeClosureReview: null,
     executeRepairSkills: false,
     executeRepairSkillUnits: false,
+    executeProofRoutes: false,
+    toolProfile: 'local-harness',
+    allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   };
   while (args.length) {
     const flag = args.shift();
@@ -568,9 +637,6 @@ function parseArgs(argv) {
     } else if (flag === '--dashboard') {
       options.dashboardPath = args.shift();
       if (!options.dashboardPath) throw new Error('--dashboard requires a value');
-    } else if (flag === '--max-iterations') {
-      options.maxIterations = Number(args.shift());
-      if (!Number.isInteger(options.maxIterations) || options.maxIterations < 1) throw new Error('--max-iterations requires an integer >= 1');
     } else if (flag === '--execute') {
       options.execute = true;
     } else if (flag === '--evidence-sequence') {
@@ -601,6 +667,15 @@ function parseArgs(argv) {
       options.executeRepairSkills = true;
     } else if (flag === '--execute-repair-skill-units') {
       options.executeRepairSkillUnits = true;
+    } else if (flag === '--execute-proof-routes') {
+      options.executeProofRoutes = true;
+    } else if (flag === '--tool-profile') {
+      options.toolProfile = args.shift();
+      if (!options.toolProfile) throw new Error('--tool-profile requires a value');
+    } else if (flag === '--allowed-unit-types') {
+      const value = args.shift();
+      if (!value) throw new Error('--allowed-unit-types requires a comma-separated value');
+      options.allowedUnitTypes = value.split(',').map((item) => item.trim()).filter(Boolean);
     } else {
       throw new Error(`unknown option: ${flag}`);
     }

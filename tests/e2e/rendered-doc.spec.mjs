@@ -61,10 +61,38 @@ test('opens rendered HTML and launches the embedded compositor with current docu
   const graphNodeTransformBeforeDrag = await draggableGraphNode.getAttribute('transform');
   const graphNodeBox = await draggableGraphNode.locator('.json-graph-node-hit').boundingBox();
   expect(graphNodeBox).toBeTruthy();
-  await page.mouse.move(graphNodeBox.x + graphNodeBox.width / 2, graphNodeBox.y + graphNodeBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(graphNodeBox.x + graphNodeBox.width / 2 + 44, graphNodeBox.y + graphNodeBox.height / 2 + 18);
-  await page.mouse.up();
+  const dragStart = {
+    x: graphNodeBox.x + graphNodeBox.width / 2,
+    y: graphNodeBox.y + graphNodeBox.height / 2,
+  };
+  const dragEnd = { x: dragStart.x + 44, y: dragStart.y + 18 };
+  await draggableGraphNode.dispatchEvent('pointerdown', {
+    button: 0,
+    buttons: 1,
+    pointerId: 1,
+    clientX: dragStart.x,
+    clientY: dragStart.y,
+  });
+  await page.evaluate(({ x, y }) => {
+    document.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      clientX: x,
+      clientY: y,
+    }));
+  }, dragEnd);
+  await page.evaluate(({ x, y }) => {
+    document.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      buttons: 0,
+      pointerId: 1,
+      clientX: x,
+      clientY: y,
+    }));
+  }, dragEnd);
   await expect.poll(() => draggableGraphNode.getAttribute('transform')).not.toBe(graphNodeTransformBeforeDrag);
 
   await page.locator('#comp-toggle').click();

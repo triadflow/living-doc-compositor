@@ -1,8 +1,8 @@
 // Terminal-state writer for the standalone living-doc harness.
 //
-// This records loop-stopping states as durable artifacts. A true block, pivot,
-// deferral, budget exhaustion, or closure must be visible in the run directory
-// before the harness is allowed to stop or resume.
+// This records durable lifecycle state artifacts. Only objective closure or an
+// explicit user stop halts the loop; true blocks, pivot pressure, deferral, and
+// budget exhaustion are continuation evidence for the next inference unit.
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,10 +12,11 @@ const __filename = fileURLToPath(import.meta.url);
 
 const CLASS_TO_KIND = {
   closed: 'closed',
-  'true-block': 'true-blocked',
-  pivot: 'pivoted',
-  deferred: 'deferred',
-  'budget-exhausted': 'budget-exhausted',
+  'user-stopped': 'user-stopped',
+  'true-block': 'continuation-required',
+  pivot: 'continuation-required',
+  deferred: 'continuation-required',
+  'budget-exhausted': 'continuation-required',
   repairable: 'repair-resumed',
   resumable: 'repair-resumed',
   'closure-candidate': 'repair-resumed',
@@ -61,21 +62,20 @@ function terminalKindFor(verdict) {
 
 function terminalStatusFor(kind) {
   if (kind === 'closed') return 'closed';
-  if (kind === 'repair-resumed') return 'repair-resumed';
-  return 'terminal-non-closure';
+  if (kind === 'user-stopped') return 'user-stopped';
+  if (kind === 'repair-resumed' || kind === 'continuation-required') return 'repair-resumed';
+  return 'unknown';
 }
 
 function mayContinueFor(kind) {
-  return kind === 'repair-resumed';
+  return kind === 'repair-resumed' || kind === 'continuation-required';
 }
 
 function nextActionFor(kind, terminal = {}) {
   if (kind === 'closed') return 'no-next-iteration-objective-closed';
+  if (kind === 'user-stopped') return 'no-next-iteration-user-stopped';
   if (kind === 'repair-resumed') return 'resume-from-repair-handover';
-  if (kind === 'true-blocked') return terminal.requiredDecision || 'external decision required before resume';
-  if (kind === 'pivoted') return 'start a new objective after pivot approval';
-  if (kind === 'deferred') return terminal.resumeTrigger || 'wait for deferral trigger';
-  if (kind === 'budget-exhausted') return 'increase budget or close as budget-exhausted';
+  if (kind === 'continuation-required') return terminal.requiredDecision || terminal.resumeTrigger || 'continue through the next contract-bound inference unit';
   return 'inspect terminal-state artifact';
 }
 
@@ -104,21 +104,21 @@ function buildBlocker({ runId, iteration, verdict, evidence, now }) {
 
 export function validateTerminalStateRecord(record) {
   const violations = [];
-  const allowedKinds = new Set(['closed', 'true-blocked', 'pivoted', 'deferred', 'budget-exhausted', 'repair-resumed']);
+  const allowedKinds = new Set(['closed', 'user-stopped', 'continuation-required', 'repair-resumed']);
   if (record?.schema !== 'living-doc-harness-terminal-state/v1') {
     violations.push({ path: '$.schema', message: 'schema must be living-doc-harness-terminal-state/v1' });
   }
   if (!allowedKinds.has(record?.kind)) {
     violations.push({ path: '$.kind', message: `kind must be one of: ${[...allowedKinds].join(', ')}` });
   }
-  if (record?.kind === 'true-blocked' && !record.blockerRef) {
-    violations.push({ path: '$.blockerRef', message: 'true-blocked terminal states require blockerRef' });
+  if (record?.stopVerdict?.classification === 'true-block' && !record.blockerRef) {
+    violations.push({ path: '$.blockerRef', message: 'true-block continuation states require blockerRef' });
   }
-  if (record?.kind !== 'repair-resumed' && record?.loopMayContinue !== false) {
+  if (!['repair-resumed', 'continuation-required'].includes(record?.kind) && record?.loopMayContinue !== false) {
     violations.push({ path: '$.loopMayContinue', message: `${record?.kind} must not allow silent continuation` });
   }
-  if (record?.kind === 'repair-resumed' && record?.loopMayContinue !== true) {
-    violations.push({ path: '$.loopMayContinue', message: 'repair-resumed must allow the next repair/resume iteration' });
+  if (['repair-resumed', 'continuation-required'].includes(record?.kind) && record?.loopMayContinue !== true) {
+    violations.push({ path: '$.loopMayContinue', message: `${record?.kind} must allow the next contract-bound inference iteration` });
   }
   return { ok: violations.length === 0, violations };
 }
@@ -144,7 +144,7 @@ export async function writeTerminalState({
 
   let blocker = null;
   let blockerPath = null;
-  if (kind === 'true-blocked') {
+  if (verdict.stopVerdict?.classification === 'true-block') {
     blocker = buildBlocker({ runId, iteration, verdict, evidence, now });
     blockerPath = path.join(blockersDir, `${blocker.id}.json`);
     await writeJson(blockerPath, blocker);
@@ -216,11 +216,11 @@ export async function canResumeRun(runDir) {
   if (state.lifecycleStage === 'closed') {
     return { allowed: false, reason: 'objective is closed' };
   }
-  if (state.lifecycleStage === 'true-blocked') {
-    return { allowed: false, reason: 'true block requires explicit unblock before resume', blockerRef: state.activeBlocker || null };
+  if (state.lifecycleStage === 'user-stopped') {
+    return { allowed: false, reason: 'user explicitly stopped the lifecycle' };
   }
-  if (['pivoted', 'deferred', 'budget-exhausted'].includes(state.lifecycleStage)) {
-    return { allowed: false, reason: `${state.lifecycleStage} is terminal until outside state changes` };
+  if (state.lifecycleStage === 'continuation-required') {
+    return { allowed: true, reason: 'non-closure verdict requires continuation inference', blockerRef: state.activeBlocker || null };
   }
   return { allowed: true, reason: 'no terminal blocker present' };
 }

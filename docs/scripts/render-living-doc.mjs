@@ -3721,6 +3721,95 @@ const html = `<!doctype html>
             setGraphFullscreen(true);
           }
         });
+        let hoveredGraphNode = null;
+        const graphPointWithinNodeHit = (event, candidate, padding = 0) => {
+          const hit = candidate.querySelector('.json-graph-node-hit') || candidate;
+          const rect = hit.getBoundingClientRect();
+          return event.clientX >= rect.left - padding && event.clientX <= rect.right + padding
+            && event.clientY >= rect.top - padding && event.clientY <= rect.bottom + padding;
+        };
+        const graphNodeAtPoint = (event) => graphNodes.find((candidate) => graphPointWithinNodeHit(event, candidate)) || null;
+        const hoveredGraphNodeAtPoint = (event) => (
+          hoveredGraphNode && graphPointWithinNodeHit(event, hoveredGraphNode, 8) ? hoveredGraphNode : null
+        );
+        const beginGraphNodeDrag = (node, event) => {
+          if (event.button !== 0 || !graphSvg || !node) return false;
+          event.preventDefault();
+          event.stopPropagation();
+          if (node.setPointerCapture && event.pointerId !== undefined) {
+            try { node.setPointerCapture(event.pointerId); } catch {}
+          }
+          node.classList.add('dragging');
+          renderDetail(node);
+          const startPoint = graphPointFromEvent(event);
+          const startPosition = graphNodePosition(node);
+          let moved = false;
+          const onMove = (moveEvent) => {
+            const nextPoint = graphPointFromEvent(moveEvent);
+            const nextX = startPosition.x + (nextPoint.x - startPoint.x);
+            const nextY = startPosition.y + (nextPoint.y - startPoint.y);
+            if (Math.hypot(nextX - startPosition.x, nextY - startPosition.y) > 1) moved = true;
+            setGraphNodePosition(node, nextX, nextY);
+            focusGraphNeighborhood(node);
+          };
+          const onUp = (upEvent) => {
+            if (node.hasPointerCapture && upEvent.pointerId !== undefined && node.hasPointerCapture(upEvent.pointerId)) {
+              try { node.releasePointerCapture(upEvent.pointerId); } catch {}
+            }
+            node.classList.remove('dragging');
+            node.removeEventListener('pointermove', onMove);
+            node.removeEventListener('pointerup', onUp);
+            node.removeEventListener('pointercancel', onUp);
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onUp);
+            if (moved) {
+              node.dataset.graphSuppressClick = 'true';
+              window.setTimeout(() => {
+                delete node.dataset.graphSuppressClick;
+              }, 0);
+            }
+          };
+          node.addEventListener('pointermove', onMove);
+          node.addEventListener('pointerup', onUp);
+          node.addEventListener('pointercancel', onUp);
+          document.addEventListener('pointermove', onMove);
+          document.addEventListener('pointerup', onUp);
+          document.addEventListener('pointercancel', onUp);
+          return true;
+        };
+        const beginGraphNodeMouseDrag = (node, event) => {
+          if (event.button !== 0 || !graphSvg || !node || node.classList.contains('dragging')) return false;
+          event.preventDefault();
+          event.stopPropagation();
+          node.classList.add('dragging');
+          renderDetail(node);
+          const startPoint = graphPointFromEvent(event);
+          const startPosition = graphNodePosition(node);
+          let moved = false;
+          const onMove = (moveEvent) => {
+            const nextPoint = graphPointFromEvent(moveEvent);
+            const nextX = startPosition.x + (nextPoint.x - startPoint.x);
+            const nextY = startPosition.y + (nextPoint.y - startPoint.y);
+            if (Math.hypot(nextX - startPosition.x, nextY - startPosition.y) > 1) moved = true;
+            setGraphNodePosition(node, nextX, nextY);
+            focusGraphNeighborhood(node);
+          };
+          const onUp = () => {
+            node.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            if (moved) {
+              node.dataset.graphSuppressClick = 'true';
+              window.setTimeout(() => {
+                delete node.dataset.graphSuppressClick;
+              }, 0);
+            }
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+          return true;
+        };
         if (graphSvg) {
           let dragStart = null;
           graphSvg.addEventListener('wheel', (event) => {
@@ -3729,6 +3818,8 @@ const html = `<!doctype html>
           }, { passive: false });
           graphSvg.addEventListener('pointerdown', (event) => {
             if (event.button !== 0 || graphViewBox.length !== 4) return;
+            const nodeTarget = event.target.closest?.('[data-graph-node]') || graphNodeAtPoint(event) || hoveredGraphNodeAtPoint(event);
+            if (nodeTarget && beginGraphNodeDrag(nodeTarget, event)) return;
             graphSvg.setPointerCapture(event.pointerId);
             graphSvg.classList.add('dragging');
             dragStart = {
@@ -3736,6 +3827,10 @@ const html = `<!doctype html>
               y: event.clientY,
               viewBox: graphViewBox.slice(),
             };
+          });
+          graphSvg.addEventListener('mousedown', (event) => {
+            const nodeTarget = event.target.closest?.('[data-graph-node]') || graphNodeAtPoint(event) || hoveredGraphNodeAtPoint(event);
+            if (nodeTarget) beginGraphNodeMouseDrag(nodeTarget, event);
           });
           graphSvg.addEventListener('pointermove', (event) => {
             if (!dragStart || graphViewBox.length !== 4) return;
@@ -3764,45 +3859,22 @@ const html = `<!doctype html>
           });
         }
         graphNodes.forEach((node) => {
-          node.addEventListener('mouseenter', () => focusGraphNeighborhood(node));
+          node.addEventListener('mouseenter', () => {
+            hoveredGraphNode = node;
+            focusGraphNeighborhood(node);
+          });
+          node.addEventListener('pointermove', () => {
+            hoveredGraphNode = node;
+          });
           node.addEventListener('mouseleave', () => {
             const activeNode = document.querySelector('.json-graph-node.active');
             focusGraphNeighborhood(activeNode);
           });
           node.addEventListener('pointerdown', (event) => {
-            if (event.button !== 0 || !graphSvg) return;
-            event.preventDefault();
-            event.stopPropagation();
-            node.setPointerCapture(event.pointerId);
-            node.classList.add('dragging');
-            renderDetail(node);
-            const startPoint = graphPointFromEvent(event);
-            const startPosition = graphNodePosition(node);
-            let moved = false;
-            const onMove = (moveEvent) => {
-              const nextPoint = graphPointFromEvent(moveEvent);
-              const nextX = startPosition.x + (nextPoint.x - startPoint.x);
-              const nextY = startPosition.y + (nextPoint.y - startPoint.y);
-              if (Math.hypot(nextX - startPosition.x, nextY - startPosition.y) > 1) moved = true;
-              setGraphNodePosition(node, nextX, nextY);
-              focusGraphNeighborhood(node);
-            };
-            const onUp = (upEvent) => {
-              if (node.hasPointerCapture(upEvent.pointerId)) node.releasePointerCapture(upEvent.pointerId);
-              node.classList.remove('dragging');
-              node.removeEventListener('pointermove', onMove);
-              node.removeEventListener('pointerup', onUp);
-              node.removeEventListener('pointercancel', onUp);
-              if (moved) {
-                node.dataset.graphSuppressClick = 'true';
-                window.setTimeout(() => {
-                  delete node.dataset.graphSuppressClick;
-                }, 0);
-              }
-            };
-            node.addEventListener('pointermove', onMove);
-            node.addEventListener('pointerup', onUp);
-            node.addEventListener('pointercancel', onUp);
+            beginGraphNodeDrag(node, event);
+          });
+          node.addEventListener('mousedown', (event) => {
+            beginGraphNodeMouseDrag(node, event);
           });
         });
         const updateGraphVisibility = () => {

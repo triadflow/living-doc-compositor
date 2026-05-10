@@ -56,6 +56,11 @@ function reviewerVerdict(classification, { closureAllowed = false, reasonCode = 
 
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-iteration-'));
 
+function lifecycleCommandEnv() {
+  const { LIVING_DOC_HARNESS_ROLE: _role, ...env } = process.env;
+  return env;
+}
+
 try {
   const workerOwnedFinalize = spawnSync(process.execPath, [
     'scripts/living-doc-harness-iteration.mjs',
@@ -95,6 +100,13 @@ try {
     filesChanged: ['scripts/living-doc-harness-iteration.mjs'],
     now: '2026-05-07T10:20:45.000Z',
   });
+  template.evidence.sideEffectEvidence = {
+    commit: {
+      sha: 'abc1234',
+      required: true,
+    },
+  };
+  await writeFile(evidencePath, `${JSON.stringify(template.evidence, null, 2)}\n`, 'utf8');
   assert.equal(template.evidence.workerEvidence.nativeInferenceTraceRefs.length, 1);
 
   const result = await finalizeHarnessIteration({
@@ -157,6 +169,79 @@ try {
   assert.equal(closureReviewInput.schema, 'living-doc-harness-closure-review-input/v1');
   assert.ok(closureReviewInput.requiredInspectionPaths.some((entry) => entry.endsWith('evidence.json')));
   assert.ok(closureReviewInput.requiredInspectionPaths.some((entry) => entry.endsWith('reviewer-inference/iteration-1-verdict.json')));
+
+  const commitGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'commit-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:05.000Z',
+  });
+  const commitGateEvidencePath = path.join(tmp, 'commit-gate-evidence.json');
+  const commitGateTemplate = await writeIterationEvidenceTemplate({
+    runDir: commitGateRun.runDir,
+    outPath: commitGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closed',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    now: '2026-05-07T10:21:06.000Z',
+  });
+  commitGateTemplate.evidence.sourceFilesChanged = true;
+  await writeFile(commitGateEvidencePath, `${JSON.stringify(commitGateTemplate.evidence, null, 2)}\n`, 'utf8');
+  const commitGate = await finalizeHarnessIteration({
+    runDir: commitGateRun.runDir,
+    evidencePath: commitGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:07.000Z',
+    evidenceDir: path.join(tmp, 'commit-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'commit-gate-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  });
+  assert.equal(commitGate.classification, 'true-block');
+  assert.equal(commitGate.terminalKind, 'continuation-required');
+  const commitSelection = JSON.parse(await readFile(commitGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(commitSelection.nextUnit.unitId, 'commit-intent');
+  assert.equal(commitSelection.contractValidation.ok, true);
+
+  const prGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'pr-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:08.000Z',
+  });
+  const prGateEvidencePath = path.join(tmp, 'pr-gate-evidence.json');
+  const prGateTemplate = await writeIterationEvidenceTemplate({
+    runDir: prGateRun.runDir,
+    outPath: prGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closed',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    now: '2026-05-07T10:21:09.000Z',
+  });
+  prGateTemplate.evidence.prReviewRequired = true;
+  prGateTemplate.evidence.sideEffectEvidence = { commit: { sha: 'abc1234', required: false } };
+  await writeFile(prGateEvidencePath, `${JSON.stringify(prGateTemplate.evidence, null, 2)}\n`, 'utf8');
+  const prGate = await finalizeHarnessIteration({
+    runDir: prGateRun.runDir,
+    evidencePath: prGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:10.000Z',
+    evidenceDir: path.join(tmp, 'pr-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'pr-gate-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  });
+  assert.equal(prGate.classification, 'true-block');
+  const prSelection = JSON.parse(await readFile(prGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(prSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(prSelection.contractValidation.ok, true);
+
   const reviewerInput = JSON.parse(await readFile(result.reviewerInputPath, 'utf8'));
   assert.equal(reviewerInput.logInspection.schema, 'living-doc-harness-reviewer-log-inspection/v1');
   assert.equal(reviewerInput.logInspection.nativeTraceSummaries.length, 1);
@@ -255,11 +340,10 @@ printf '{"type":"turn.completed"}\\n'
     '--closure-allowed',
     '--final-summary',
     'Objective complete with source-system evidence.',
-    '--file-changed',
-    'scripts/living-doc-harness-iteration.mjs',
   ], {
     cwd: process.cwd(),
     encoding: 'utf8',
+    env: lifecycleCommandEnv(),
   });
   assert.equal(cliTemplate.status, 0, cliTemplate.stderr);
   assert.match(cliTemplate.stdout, /living-doc-harness-iteration-evidence/);
@@ -282,6 +366,7 @@ printf '{"type":"turn.completed"}\\n'
   ], {
     cwd: process.cwd(),
     encoding: 'utf8',
+    env: lifecycleCommandEnv(),
   });
   assert.equal(cli.status, 0, cli.stderr);
   assert.match(cli.stdout, /"classification": "closed"/);

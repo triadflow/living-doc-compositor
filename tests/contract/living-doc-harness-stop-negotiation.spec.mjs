@@ -151,7 +151,7 @@ function contractWith(verdict, evidence = baseEvidence()) {
   assert.equal(validateHarnessContract(contractWith(verdict, evidence)).ok, true);
 }
 
-// True block is terminal and cannot silently continue.
+// True block is continuation evidence and cannot stop the lifecycle.
 {
   const evidence = baseEvidence({
     terminalSignal: {
@@ -165,8 +165,8 @@ function contractWith(verdict, evidence = baseEvidence()) {
   });
   const verdict = inferStopNegotiation(evidence);
   assert.equal(verdict.stopVerdict.classification, 'true-block');
-  assert.equal(verdict.nextIteration.allowed, false);
-  assert.equal(verdict.nextIteration.mode, 'block');
+  assert.equal(verdict.nextIteration.allowed, true);
+  assert.equal(verdict.nextIteration.mode, 'continuation');
   assert.equal(validateHarnessContract(contractWith(verdict, evidence)).ok, true);
 }
 

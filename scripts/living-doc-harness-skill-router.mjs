@@ -86,17 +86,20 @@ function routeForVerdict(verdict, evidence = {}) {
     actions.push(skillAction('reaction-path-validator', 'Validate transition to closed.'));
     actions.push(harnessAction('stop-loop', 'Closure is allowed; no next worker iteration should run.', { mode: 'none' }));
   } else if (classification === 'true-block') {
-    actions.push(harnessAction('create-blocker-record', 'True block must be explicit and terminal until outside state changes.', { mode: 'block' }));
-    actions.push(skillAction('reaction-path-validator', 'Validate transition to true-blocked state.'));
+    actions.push(harnessAction('create-blocker-record', 'True block must be explicit, but it is continuation input rather than a terminal state.', { mode: 'continuation' }));
+    actions.push(skillAction('reaction-path-validator', 'Validate that the lifecycle remains in a continuation-required state instead of stopping.'));
+    actions.push(harnessAction('prepare-continuation-handover', 'Feed the blocker, raw logs, objective, acceptance criteria, and available surfaces into the next inference unit.', { mode: 'continuation' }));
   } else if (classification === 'pivot') {
-    actions.push(skillAction('reaction-path-validator', 'Validate pivot transition before changing objective direction.'));
-    actions.push(harnessAction('record-pivot', 'Persist pivot reason and stop the current objective loop.', { mode: 'pivot' }));
+    actions.push(skillAction('reaction-path-validator', 'Validate pivot pressure without stopping the current objective loop.'));
+    actions.push(harnessAction('prepare-continuation-handover', 'Treat pivot pressure as continuation input unless the user explicitly approves a new objective.', { mode: 'continuation' }));
   } else if (classification === 'deferred') {
-    actions.push(skillAction('reaction-path-validator', 'Validate deferral transition and resume trigger.'));
-    actions.push(harnessAction('record-deferral', 'Persist deferral reason and trigger.', { mode: 'defer' }));
+    actions.push(skillAction('reaction-path-validator', 'Validate deferral pressure without stopping the current objective loop.'));
+    actions.push(harnessAction('prepare-continuation-handover', 'Treat the deferral trigger as input for the next inference unit unless the user explicitly stops.', { mode: 'continuation' }));
   } else if (classification === 'budget-exhausted') {
-    actions.push(harnessAction('record-budget-exhaustion', 'Persist budget exhaustion as a terminal non-closure state.', { mode: 'stop-budget' }));
-    actions.push(skillAction('reaction-path-validator', 'Validate budget exhaustion terminal state.'));
+    actions.push(harnessAction('prepare-continuation-handover', 'Iteration budget is a batch boundary, not objective closure; continue unless the user stops.', { mode: 'continuation' }));
+    actions.push(skillAction('reaction-path-validator', 'Validate continuation after budget pressure.'));
+  } else if (classification === 'user-stopped') {
+    actions.push(harnessAction('stop-loop', 'The user explicitly stopped the lifecycle.', { mode: 'user-stop' }));
   } else {
     actions.push(skillAction('living-doc-balance-scan', 'Unknown stop classification; triage the document before continuing.'));
   }
@@ -111,6 +114,32 @@ function routeForVerdict(verdict, evidence = {}) {
     unresolvedObjectiveTerms: arr(evidence.objectiveState?.unresolvedObjectiveTerms),
     unprovenAcceptanceCriteria: arr(evidence.objectiveState?.unprovenAcceptanceCriteria),
     actions,
+  };
+}
+
+function normalizeContinuationVerdict(verdict) {
+  const classification = verdict.stopVerdict?.classification;
+  if (classification === 'closed' || classification === 'user-stopped') return verdict;
+  const nextIteration = verdict.nextIteration || {};
+  const forcedContinuationModes = new Set(['true-block', 'pivot', 'deferred', 'budget-exhausted']);
+  const mode = forcedContinuationModes.has(classification)
+    ? 'continuation'
+    : nextIteration.mode && nextIteration.mode !== 'none' && nextIteration.mode !== 'user-stop'
+    ? nextIteration.mode
+    : 'continuation';
+  return {
+    ...verdict,
+    nextIteration: {
+      ...nextIteration,
+      allowed: true,
+      mode,
+      instruction: nextIteration.instruction || 'Continue through the next contract-bound inference unit until the living-doc objective is proven reached or the user explicitly stops the lifecycle.',
+      mustNotDo: [
+        ...arr(nextIteration.mustNotDo),
+        'do not stop the lifecycle unless the objective is proven reached or the user explicitly stops it',
+        'do not treat blocker creation, issue creation, failed proof, or runtime limitation as terminal closure',
+      ],
+    },
   };
 }
 
@@ -153,6 +182,7 @@ export async function routeStopVerdict({
 } = {}) {
   if (!verdict?.stopVerdict) throw new Error('verdict.stopVerdict is required');
   if (!runDir) throw new Error('runDir is required');
+  const routedVerdict = normalizeContinuationVerdict(verdict);
 
   const artifactsDir = path.join(runDir, 'artifacts');
   const handoversDir = path.join(runDir, 'handovers');
@@ -160,7 +190,7 @@ export async function routeStopVerdict({
   await mkdir(artifactsDir, { recursive: true });
   await mkdir(handoversDir, { recursive: true });
 
-  const routing = routeForVerdict(verdict, evidence);
+  const routing = routeForVerdict(routedVerdict, evidence);
   routing.runId = evidence.runId || routing.runId;
   routing.routedAt = now;
 
@@ -178,9 +208,9 @@ export async function routeStopVerdict({
     runId: routing.runId,
     iteration,
     createdAt: now,
-    stopVerdict: verdict.stopVerdict,
-    mismatch: verdict.mismatch || null,
-    nextIteration: verdict.nextIteration,
+    stopVerdict: routedVerdict.stopVerdict,
+    mismatch: routedVerdict.mismatch || null,
+    nextIteration: routedVerdict.nextIteration,
     unresolvedObjectiveTerms: routing.unresolvedObjectiveTerms,
     unprovenAcceptanceCriteria: routing.unprovenAcceptanceCriteria,
     actions: routing.actions,
@@ -203,8 +233,8 @@ export async function routeStopVerdict({
       skill: action.skill,
       status: action.status,
       reason: action.reason,
-      stopClassification: verdict.stopVerdict.classification,
-      stopReasonCode: verdict.stopVerdict.reasonCode,
+      stopClassification: routedVerdict.stopVerdict.classification,
+      stopReasonCode: routedVerdict.stopVerdict.reasonCode,
       handoverPath: path.relative(runDir, handoverPath),
     });
   }

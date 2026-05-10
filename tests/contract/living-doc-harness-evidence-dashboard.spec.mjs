@@ -100,8 +100,8 @@ try {
     now: '2026-05-07T09:35:00.000Z',
   });
   assert.equal(bundle.schema, 'living-doc-harness-evidence-bundle/v1');
-  assert.equal(bundle.recommendation, 'block');
-  assert.equal(bundle.lifecycleStage, 'true-blocked');
+  assert.equal(bundle.recommendation, 'continuation');
+  assert.equal(bundle.lifecycleStage, 'continuation-required');
   assert.equal(bundle.objectiveRef.sourcePath, 'tests/fixtures/minimal-doc.json');
   assert.match(bundle.objectiveRef.objectiveHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(bundle.proofGates.nativeTrace, 'pass');
@@ -127,7 +127,7 @@ try {
   assert.equal(dashboard.bundles.length, 1);
   const html = await readFile(dashboardPath, 'utf8');
   assert.match(html, /Living Doc Harness Dashboard/);
-  assert.match(html, /data-recommendation="block"/);
+  assert.match(html, /data-recommendation="continuation"/);
   assert.match(html, /Objective:/);
   assert.match(html, /Evidence Artifacts/);
   assert.match(html, /missing-source/);

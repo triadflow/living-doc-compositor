@@ -252,6 +252,8 @@ export async function runRepairSkillChain({
   codexBin = 'codex',
   cwd = process.cwd(),
   now = new Date().toISOString(),
+  toolProfile = 'local-repair',
+  allowedUnitTypes = null,
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
   if (!livingDocPath) throw new Error('livingDocPath is required');
@@ -295,6 +297,8 @@ export async function runRepairSkillChain({
     sequence: 0,
     unitId: 'living-doc-balance-scan',
     role: 'balance-scan',
+    unitTypeId: 'living-doc-balance-scan',
+    allowedUnitTypes: allowedUnitTypes || undefined,
     prompt: balanceScanPrompt(balanceInput),
     inputContract: balanceInput,
     fixtureResult: {
@@ -311,6 +315,7 @@ export async function runRepairSkillChain({
     codexBin,
     cwd,
     now,
+    toolProfile,
   });
   const orderedSkills = normalizeOrderedSkills(balanceUnit.result.outputContract);
   const balanceScanResultPath = rel(runDir, balanceUnit.resultPath);
@@ -362,6 +367,8 @@ export async function runRepairSkillChain({
       sequence,
       unitId: skill,
       role: 'repair-skill',
+      unitTypeId: 'repair-skill',
+      allowedUnitTypes: allowedUnitTypes || undefined,
       prompt: repairSkillPrompt({ skill, skillInstructions, input: inputContract }),
       inputContract,
       fixtureResult: fixture,
@@ -369,6 +376,7 @@ export async function runRepairSkillChain({
       codexBin,
       cwd,
       now,
+      toolProfile,
     });
     const outputContract = {
       ...unit.result.outputContract,
@@ -496,6 +504,7 @@ async function parseArgs(argv) {
     repairSkillPlan: {},
     executeUnits: false,
     codexBin: 'codex',
+    toolProfile: 'local-repair',
   };
   while (args.length) {
     const flag = args.shift();
@@ -506,6 +515,7 @@ async function parseArgs(argv) {
     else if (flag === '--plan') options.repairSkillPlan = JSON.parse(await readFile(args.shift(), 'utf8'));
     else if (flag === '--execute-units') options.executeUnits = true;
     else if (flag === '--codex-bin') options.codexBin = args.shift();
+    else if (flag === '--tool-profile') options.toolProfile = args.shift();
     else throw new Error(`unknown option: ${flag}`);
   }
   if (!options.livingDocPath) throw new Error('--living-doc is required');

@@ -29,10 +29,17 @@ try {
   assert.equal(contract.status, 'prepared');
   assert.equal(contract.process.isolatedFromUserSession, true);
   assert.equal(contract.process.command, 'codex');
-  assert.deepEqual(contract.process.args.slice(0, 4), ['exec', '--json', '-C', process.cwd()]);
+  assert.deepEqual(contract.process.args.slice(0, 3), ['exec', '--json', '--ignore-user-config']);
+  assert.equal(contract.process.args[contract.process.args.indexOf('--sandbox') + 1], 'danger-full-access');
+  assert.ok(contract.process.args.includes('-C'));
+  assert.equal(contract.process.args[contract.process.args.indexOf('-C') + 1], process.cwd());
+  assert.ok(contract.process.args.some((arg) => arg.includes('mcp_servers.living_doc_compositor.command')));
   assert.equal(typeof contract.process.env.CODEX_HOME, 'string');
   assert.ok(contract.process.env.CODEX_HOME.length > 0);
   assert.equal(contract.process.env.LIVING_DOC_HARNESS_ROLE, 'worker');
+  assert.equal(contract.process.toolProfile.name, 'local-harness');
+  assert.equal(contract.process.toolProfile.sandboxMode, 'danger-full-access');
+  assert.deepEqual(contract.process.toolProfile.mcpAllowlist, ['living_doc_compositor']);
   assert.ok(contract.process.args.includes('-o'));
   assert.equal(contract.process.args.at(-1), '-');
   assert.equal(contract.process.stdin, 'prompt.md');
@@ -50,6 +57,8 @@ try {
   const workerUnitInput = JSON.parse(await readFile(path.join(result.runDir, contract.artifacts.workerInferenceUnit.inputContract), 'utf8'));
   assert.equal(workerUnitInput.schema, 'living-doc-worker-inference-input/v1');
   assert.deepEqual(workerUnitInput.requiredInspectionPaths, ['tests/fixtures/minimal-doc.json']);
+  assert.equal(workerUnitInput.toolProfile.name, 'local-harness');
+  assert.equal(workerUnitInput.toolProfile.sandboxMode, 'danger-full-access');
 
   assert.equal(state.schema, 'living-doc-harness-state/v1');
   assert.equal(state.lifecycleStage, 'initial-objective-bearing');
