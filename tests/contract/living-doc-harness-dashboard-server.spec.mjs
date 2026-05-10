@@ -256,7 +256,7 @@ try {
   assert.match(html, /localStorage/);
   assert.match(html, /startGraphNodeDrag/);
   assert.match(html, /resetGraphLayout/);
-  assert.match(html, /living-doc-harness-graph-layout:v2:/);
+  assert.match(html, /living-doc-harness-graph-layout:v6:/);
   assert.match(html, /DEFAULT_GRAPH_BOARD/);
   assert.match(html, /width:2400px/);
   assert.match(html, /height:1400px/);

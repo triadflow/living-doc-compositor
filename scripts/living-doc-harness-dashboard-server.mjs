@@ -2041,7 +2041,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           <span id="graphStatus" class="rec">loading</span>
           <span class="pill">local-only evidence</span>
           <button id="refresh" type="button">Refresh</button>
-          <button id="resetGraphLayout" type="button">Reset layout</button>
+          <button id="resetGraphLayout" type="button" title="Recompute the graph layout and show the active iteration lane">Re-layout</button>
         </div>
       </header>
       <section class="graph-shell">
@@ -2211,7 +2211,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
     }
 
     function graphLayoutStorageKey() {
-      return state.selectedLifecycleId ? 'living-doc-harness-graph-layout:v2:' + state.selectedLifecycleId : null;
+      return state.selectedLifecycleId ? 'living-doc-harness-graph-layout:v6:' + state.selectedLifecycleId : null;
     }
 
     const DEFAULT_GRAPH_BOARD = { width: 2400, height: 1400 };
@@ -2233,12 +2233,26 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       localStorage.setItem(key, JSON.stringify(state.graphPositionOverrides || {}));
     }
 
+    function focusGraphViewportOnNode(nodeId, { behavior = 'smooth' } = {}) {
+      const stage = document.querySelector('.graph-stage');
+      if (!stage || !nodeId || !state.lifecycleGraph) return;
+      const positions = graphNodePositions(state.lifecycleGraph.nodes || []);
+      const position = positions.get(nodeId);
+      if (!position) return;
+      const left = 0;
+      const top = Math.max(0, Math.round(position.y - Math.max(80, stage.clientHeight * 0.28)));
+      stage.scrollTo({ left, top, behavior });
+    }
+
     function resetGraphLayout() {
       const key = graphLayoutStorageKey();
       if (key) localStorage.removeItem(key);
       state.graphPositionOverrides = {};
       state.selectedGraphEdgeId = null;
+      const focusNodeId = state.lifecycleGraph?.activeInferenceUnitId || state.selectedGraphNodeId || state.lifecycleGraph?.nodes?.[0]?.id || null;
+      if (focusNodeId) state.selectedGraphNodeId = focusNodeId;
       renderGraph();
+      window.requestAnimationFrame(() => focusGraphViewportOnNode(focusNodeId));
     }
 
     function shortPath(value) {
@@ -2278,33 +2292,57 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         : { w: 178, h: 72 };
     }
 
+    function graphNodeIteration(node) {
+      const value = Number(node?.iteration);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    function graphRepairSequence(node) {
+      const match = String(node?.id || '').match(/-repair-(\\d+)$/);
+      return match ? Number(match[1]) : 0;
+    }
+
+    function graphCompactLanePosition(role, iteration, repairSequence = 0) {
+      const laneY = iteration ? 76 + (iteration - 1) * 326 : null;
+      if (!iteration) return null;
+      if (role === 'worker') return { x: 300, y: laneY };
+      if (role === 'reviewer') return { x: 600, y: laneY };
+      if (role === 'balance-scan') return { x: 900, y: laneY };
+      if (role === 'repair-skill') {
+        const sequence = Math.max(1, repairSequence || 1);
+        const index = sequence - 1;
+        const column = Math.floor(index / 2);
+        const slot = index % 2;
+        const lane = column % 2 === 0 ? slot : 1 - slot;
+        return { x: 1200 + column * 300, y: laneY + lane * 118 };
+      }
+      if (role === 'repair-chain-result') return { x: 820, y: laneY + 112 };
+      if (role === 'terminal') return { x: 1840, y: laneY };
+      if (role === 'blocker') return { x: 1840, y: laneY + 112 };
+      if (role === 'github-issue') return { x: 1840, y: laneY + 224 };
+      return null;
+    }
+
     function graphNodePositions(nodes) {
       const roleCounts = {};
-      const hasRepairPath = (nodes || []).some((node) => ['balance-scan', 'repair-skill', 'repair-chain-result'].includes(graphRole(node)));
       const roleBase = {
         controller: { x: 36, y: 96 },
-        'living-doc': { x: 36, y: 286 },
-        worker: { x: 410, y: 96 },
-        reviewer: { x: 784, y: 96 },
-        'balance-scan': { x: 1158, y: 96 },
-        'repair-skill': { x: 1158, y: 286 },
-        'repair-chain-result': { x: 1158, y: 476 },
-        terminal: { x: 1492, y: hasRepairPath ? 286 : 96 },
-        blocker: { x: 1492, y: hasRepairPath ? 476 : 286 },
-        'github-issue': { x: 1492, y: hasRepairPath ? 642 : 476 },
+        'living-doc': { x: 36, y: 230 },
       };
       const positions = new Map();
       for (const node of nodes || []) {
         const role = graphRole(node);
+        const iteration = graphNodeIteration(node);
         const count = roleCounts[role] || 0;
         roleCounts[role] = count + 1;
-        const base = roleBase[role] || { x: 334, y: 500 };
-        const yStep = role === 'repair-skill' ? 190 : 190;
+        const repairSequence = graphRepairSequence(node);
+        const compact = graphCompactLanePosition(role, iteration, repairSequence);
+        const base = compact || roleBase[role] || { x: 320, y: 500 + count * 190 };
         const override = state.graphPositionOverrides?.[node.id];
         const size = graphNodeSize(node);
         positions.set(node.id, {
           x: Number.isFinite(override?.x) ? override.x : base.x,
-          y: Number.isFinite(override?.y) ? override.y : base.y + count * yStep,
+          y: Number.isFinite(override?.y) ? override.y : base.y,
           w: size.w,
           h: size.h,
         });
@@ -2312,8 +2350,14 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       return positions;
     }
 
-    function graphBoardBounds() {
-      return DEFAULT_GRAPH_BOARD;
+    function graphBoardBounds(positions) {
+      let width = DEFAULT_GRAPH_BOARD.width;
+      let height = DEFAULT_GRAPH_BOARD.height;
+      for (const position of positions?.values?.() || []) {
+        width = Math.max(width, position.x + position.w + 180);
+        height = Math.max(height, position.y + position.h + 180);
+      }
+      return { width, height };
     }
 
     function renderGraphNodeCard(node, position) {
@@ -2338,6 +2382,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         const tx = to.x + to.w;
         const ty = to.y + Math.round(to.h / 2);
         const bend = Math.max(96, Math.round((sx - tx) / 2));
+        const sameRow = Math.abs(sy - ty) < 8;
         return {
           d: 'M ' + sx + ' ' + sy + ' C ' + (sx - bend) + ' ' + sy + ', ' + (tx + bend) + ' ' + ty + ', ' + tx + ' ' + ty,
           labelX: Math.round((sx + tx) / 2),
@@ -2621,7 +2666,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         state.selectedGraphNodeId = graphNodes[0].id;
       }
       const positions = graphNodePositions(graphNodes);
-      const bounds = graphBoardBounds();
+      const bounds = graphBoardBounds(positions);
       if (board) {
         board.style.width = bounds.width + 'px';
         board.style.height = bounds.height + 'px';
