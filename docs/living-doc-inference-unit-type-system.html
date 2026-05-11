@@ -737,14 +737,14 @@
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "closure-candidate-reviewer-normalization-repaired",
+    "currentPhase": "initial-unit-snapshot-collision-repaired",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Commit the closure-candidate reviewer normalization repair, then rerun the standalone lifecycle so controller-owned closure consumes fresh commit evidence.",
+    "nextObjectiveAction": "Commit the controller evidence handoff and initial-unit snapshot collision repair, then rerun the standalone lifecycle so controller-owned closure consumes fresh commit evidence.",
     "repairState": {
-      "status": "closure-candidate-reviewer-normalization-implemented-focused-tests-green-rerun-pending",
-      "nearestHonestStage": "closure-candidate-reviewer-normalization-green-rerun-pending",
-      "updated": "2026-05-11T07:19:04.000Z",
+      "status": "initial-unit-snapshot-collision-repaired-contract-and-e2e-green-rerun-pending",
+      "nearestHonestStage": "contract-and-e2e-green-controller-rerun-pending",
+      "updated": "2026-05-11T07:28:00.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -807,7 +807,14 @@
         "Issue #248 is fixed in source: reviewer inference now normalizes stopVerdict.closureAllowed from true to false for non-closed classifications instead of aborting the lifecycle, while preserving the reviewer basis and next-inference-unit instruction.",
         "Closure-candidate and resumable routing now distinguishes commit-evidence preconditions from an already-satisfied commit-intent handoff that asks for closure-review, so the controller can select the registered closure-review unit instead of crashing or looping back through commit-intent.",
         "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs and node tests/contract/living-doc-harness-iteration.spec.mjs passed on 2026-05-11T07:19Z after the #248 repair.",
-        "npm run test:contract passed on 2026-05-11T07:19Z after the #248 repair and living-doc render."
+        "npm run test:contract passed on 2026-05-11T07:19Z after the #248 repair and living-doc render.",
+        "This worker found and repaired a same-path artifact collision for non-worker continuation runs: createHarnessRun now records non-worker initial inference-unit snapshots under initial-inference-units so later controller-owned closure-review, commit-intent, or PR-review units cannot overwrite the typed input contract that started the run.",
+        "scripts/living-doc-harness-runner.mjs now carries previous controller evidence snapshot paths and requiredHardFacts into commit-intent, PR-review, and closure-review continuation input contracts, and includes the snapshot in requiredInspectionPaths.",
+        "tests/contract/living-doc-harness-lifecycle-controller.spec.mjs now proves commit-intent and closure-review continuation runs preserve evidenceSnapshotPath, requiredHardFacts, selected initial unit identity, and required inspection of the prior controller-owned snapshot.",
+        "tests/e2e/harness-inference-unit-routing.spec.mjs now proves PR-review continuation runs preserve evidenceSnapshotPath, requiredHardFacts, and required inspection of the prior controller-owned snapshot.",
+        "node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T07:27Z after the initial-unit snapshot collision repair.",
+        "npm run test:contract passed on 2026-05-11T07:27Z after the collision repair.",
+        "npm run test:e2e passed on 2026-05-11T07:27Z with 17 passed and 1 deploy smoke skipped."
       ]
     }
   },
@@ -42822,7 +42829,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-11T07:21:57.880Z" title="2026-05-11T07:21:57.880Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-11T07:21:57.880Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-11T07:29:38.002Z" title="2026-05-11T07:29:38.002Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-11T07:29:38.002Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -43445,7 +43452,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-3be3965 (2026-05-11)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-b4d0bf2 (2026-05-11)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>

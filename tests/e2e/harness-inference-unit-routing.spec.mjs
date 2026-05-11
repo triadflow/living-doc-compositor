@@ -192,6 +192,17 @@ test('lifecycle routes through registered inference unit contracts', async () =>
     expect(prSelection.nextUnit.unitId).toBe('pr-review');
     expect(prSelection.nextUnit.resultPath).toContain('05-pr-review/result.json');
     expect(pr.iterations[0].terminalKind).toBe('continuation-required');
+    const prContinuationContract = await readJson(path.resolve(process.cwd(), pr.iterations[1].runDir, 'contract.json'));
+    expect(prContinuationContract.runConfig.initialUnitType).toBe('pr-review');
+    const prContinuationInput = await readJson(path.resolve(
+      process.cwd(),
+      pr.iterations[1].runDir,
+      prContinuationContract.artifacts.initialInferenceUnit.inputContract,
+    ));
+    expect(prContinuationInput.schema).toBe('living-doc-harness-pr-review-input/v1');
+    expect(prContinuationInput.evidenceSnapshotPath).toContain('iteration-1-controller-evidence-snapshot.json');
+    expect(prContinuationInput.requiredHardFacts.schema).toBe('living-doc-harness-required-hard-facts/v1');
+    expect(prContinuationInput.requiredInspectionPaths).toContain(prContinuationInput.evidenceSnapshotPath);
     expect(pr.finalState.kind).toBe('closed');
   } finally {
     await rm(tmp, { recursive: true, force: true });

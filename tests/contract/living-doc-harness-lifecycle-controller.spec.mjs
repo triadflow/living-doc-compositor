@@ -437,6 +437,10 @@ try {
     closureCandidateCommitGateContinuationContract.artifacts.initialInferenceUnit.inputContract,
   ), 'utf8'));
   assert.equal(closureCandidateCommitGateContinuationInput.schema, 'living-doc-harness-commit-intent-input/v1');
+  assert.match(closureCandidateCommitGateContinuationInput.evidenceSnapshotPath, /iteration-1-controller-evidence-snapshot\.json$/);
+  assert.equal(closureCandidateCommitGateContinuationInput.requiredHardFacts.schema, 'living-doc-harness-required-hard-facts/v1');
+  assert.equal(closureCandidateCommitGateContinuationInput.requiredHardFacts.sourceFilesChanged, true);
+  assert.ok(closureCandidateCommitGateContinuationInput.requiredInspectionPaths.includes(closureCandidateCommitGateContinuationInput.evidenceSnapshotPath));
   assert.equal(closureCandidateCommitGateContinuationInput.lifecycleInput.nextUnit.unitId, 'commit-intent');
   assert.equal(closureCandidateCommitGate.iterations[1].classification, 'closed');
   assert.equal(closureCandidateCommitGate.finalState.kind, 'closed');
@@ -500,6 +504,21 @@ try {
   assert.equal(closureCandidateReviewOutputInput.postReviewSelection.nextUnit.status, 'blocked');
   assert.equal(closureCandidateReviewOutputInput.nextAction.action, 'continue-with-closure-review');
   assert.equal(closureCandidateReviewOutputInput.nextAction.selectedUnitType, 'closure-review');
+  const closureCandidateReviewContinuationContract = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    closureCandidateReview.iterations[1].runDir,
+    'contract.json',
+  ), 'utf8'));
+  assert.equal(closureCandidateReviewContinuationContract.runConfig.initialUnitType, 'closure-review');
+  const closureCandidateReviewContinuationInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    closureCandidateReview.iterations[1].runDir,
+    closureCandidateReviewContinuationContract.artifacts.initialInferenceUnit.inputContract,
+  ), 'utf8'));
+  assert.equal(closureCandidateReviewContinuationInput.schema, 'living-doc-harness-closure-review-input/v1');
+  assert.match(closureCandidateReviewContinuationInput.evidenceSnapshotPath, /iteration-1-controller-evidence-snapshot\.json$/);
+  assert.equal(closureCandidateReviewContinuationInput.requiredHardFacts.schema, 'living-doc-harness-required-hard-facts/v1');
+  assert.ok(closureCandidateReviewContinuationInput.requiredInspectionPaths.includes(closureCandidateReviewContinuationInput.evidenceSnapshotPath));
   assert.equal(closureCandidateReview.iterations[1].classification, 'closed');
   assert.equal(closureCandidateReview.finalState.kind, 'closed');
 

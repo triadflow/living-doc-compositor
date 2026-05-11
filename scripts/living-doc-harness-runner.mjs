@@ -78,6 +78,10 @@ function sequenceForUnit(unitTypeId) {
   }[unitTypeId] || 1;
 }
 
+function initialUnitRootDir(unitTypeId) {
+  return unitTypeId === 'worker' ? 'inference-units' : 'initial-inference-units';
+}
+
 function selectedInitialUnit(lifecycleInput) {
   const unitId = lifecycleInput?.nextUnit?.unitId || lifecycleInput?.selectedUnitType || 'worker';
   const type = getInferenceUnitType(unitId);
@@ -198,12 +202,21 @@ async function previousOutputInputContext({ cwd, lifecycleInput }) {
   return { outputInputPath, outputInput, previousRunDir, evidencePath, evidence };
 }
 
+function previousControllerEvidenceSnapshotPath({ previous, cwd }) {
+  const snapshotPath = previous?.evidence?.controllerEvidenceSnapshotPath
+    || previous?.evidence?.controllerEvidence?.snapshotPath
+    || null;
+  if (!snapshotPath || !previous?.previousRunDir) return null;
+  return path.relative(cwd, path.resolve(previous.previousRunDir, snapshotPath));
+}
+
 function commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd }) {
   return unique([
     docPath,
     lifecycleInput?.outputInputPath || null,
     ...arr(lifecycleInput?.nextUnit?.requiredInputPaths),
     previous?.evidencePath ? path.relative(cwd, previous.evidencePath) : null,
+    previousControllerEvidenceSnapshotPath({ previous, cwd }),
   ]);
 }
 
@@ -230,11 +243,14 @@ async function buildInitialInputContract({
   const nextUnit = lifecycleInput?.nextUnit || {};
 
   if (initialUnit.unitId === 'commit-intent') {
+    const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
     return {
       schema: 'living-doc-harness-commit-intent-input/v1',
       runId,
       iteration,
       changedFiles: unique([...evidenceChangedFiles, ...arr(nextUnit.changedFiles)]),
+      evidenceSnapshotPath,
+      requiredHardFacts: previous.evidence?.requiredHardFacts || null,
       commitIntent: previous.evidence?.commitIntent || previous.evidence?.sideEffectEvidence?.commit || {
         mode: 'required-before-closure',
         reason: nextUnit.reasonCode || 'commit-intent-selected-by-reviewer-contract',
@@ -269,23 +285,29 @@ async function buildInitialInputContract({
   }
 
   if (initialUnit.unitId === 'pr-review') {
+    const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
     return {
       schema: 'living-doc-harness-pr-review-input/v1',
       runId,
       iteration,
       reviewTarget: previous.evidence?.prReview?.reviewTarget || previous.evidence?.prReview?.url || 'configured-pr-review-target',
+      evidenceSnapshotPath,
+      requiredHardFacts: previous.evidence?.requiredHardFacts || null,
       lifecycleInput,
       requiredInspectionPaths,
     };
   }
 
   if (initialUnit.unitId === 'closure-review') {
+    const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
     return {
       schema: 'living-doc-harness-closure-review-input/v1',
       runId,
       iteration,
       evidencePath: previous.outputInput?.previousOutput?.evidencePath || null,
       reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || null,
+      evidenceSnapshotPath,
+      requiredHardFacts: previous.evidence?.requiredHardFacts || null,
       proofGates: previous.evidence?.proofGates || {},
       stopVerdict: previous.outputInput?.previousOutput || {},
       lifecycleInput,
@@ -593,6 +615,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
 
   const initialUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,
+    rootDir: initialUnitRootDir(initialUnit.unitId),
     iteration,
     sequence: sequenceForUnit(initialUnit.unitId),
     unitId: initialUnit.unitId,
@@ -723,6 +746,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
   const finalUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,
+    rootDir: initialUnitRootDir(initialUnit.unitId),
     iteration,
     sequence: sequenceForUnit(initialUnit.unitId),
     unitId: initialUnit.unitId,
