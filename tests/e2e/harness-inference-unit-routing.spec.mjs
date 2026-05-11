@@ -150,6 +150,7 @@ test('lifecycle routes through registered inference unit contracts', async () =>
     });
     const commitSelection = await readJson(path.resolve(process.cwd(), commit.iterations[0].postReviewSelectionPath));
     expect(commitSelection.nextUnit.unitId).toBe('commit-intent');
+    expect(commitSelection.nextUnit.resultPath).toContain('04-commit-intent/result.json');
     expect(commit.iterations[0].terminalKind).toBe('continuation-required');
     expect(commit.finalState.kind).toBe('closed');
 
@@ -189,6 +190,7 @@ test('lifecycle routes through registered inference unit contracts', async () =>
     });
     const prSelection = await readJson(path.resolve(process.cwd(), pr.iterations[0].postReviewSelectionPath));
     expect(prSelection.nextUnit.unitId).toBe('pr-review');
+    expect(prSelection.nextUnit.resultPath).toContain('05-pr-review/result.json');
     expect(pr.iterations[0].terminalKind).toBe('continuation-required');
     expect(pr.finalState.kind).toBe('closed');
   } finally {

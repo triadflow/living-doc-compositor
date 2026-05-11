@@ -278,12 +278,69 @@ try {
   });
   const commitPendingOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), commitPending.iterations[0].outputInputPath), 'utf8'));
   assert.equal(commitPending.iterations[0].classification, 'resumable');
-  assert.equal(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
-  assert.equal(commitPendingOutputInput.nextUnit.unitId, 'worker');
+  assert.equal(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'commit-intent');
+  assert.equal(commitPendingOutputInput.nextUnit.unitId, 'commit-intent');
   assert.equal(commitPendingOutputInput.nextAction.action, 'start-next-worker-iteration');
   assert.equal(commitPendingOutputInput.nextInput.mode, 'continuation');
   assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
+  assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
   assert.equal(commitPending.iterations[0].closureReviewResultPath, null);
+
+  const closureCandidateCommitGateSequencePath = path.join(tmp, 'closure-candidate-commit-gate-sequence.json');
+  await writeFile(closureCandidateCommitGateSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'worker-verification-green-controller-rerun-and-commit-gates-pending',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: ['criterion-side-effect-contracts', 'criterion-closure-gates'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        filesChanged: ['docs/living-doc-inference-unit-type-system.json'],
+        finalMessageSummary: 'Worker verified source and tests but says commit-intent and closure gates are controller-owned.',
+        traceMessage: 'Iteration one produced worker-side proof and deferred to controller-owned commit gates.',
+        reviewerVerdict: reviewerVerdict('closure-candidate', {
+          reasonCode: 'acceptance-criteria-pending',
+          mode: 'continuation',
+          instruction: 'Continue through controller rerun and commit-intent gates, then closure review and post-flight summary.',
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        finalMessageSummary: 'Lifecycle controller proof is complete after controller gate routing.',
+        sideEffectEvidence: {
+          commit: {
+            sha: '0ddba11',
+            required: true,
+          },
+        },
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const closureCandidateCommitGate = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'closure-candidate-commit-gate-runs'),
+    evidenceDir: path.join(tmp, 'closure-candidate-commit-gate-evidence'),
+    dashboardPath: path.join(tmp, 'closure-candidate-commit-gate-dashboard.html'),
+    evidenceSequencePath: closureCandidateCommitGateSequencePath,
+    now: '2026-05-07T13:24:00.000Z',
+  });
+  assert.equal(closureCandidateCommitGate.iterationCount, 2);
+  assert.equal(closureCandidateCommitGate.iterations[0].classification, 'true-block');
+  const closureCandidateCommitGateOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), closureCandidateCommitGate.iterations[0].outputInputPath), 'utf8'));
+  const closureCandidateCommitGateSelection = JSON.parse(await readFile(path.resolve(process.cwd(), closureCandidateCommitGate.iterations[0].postReviewSelectionPath), 'utf8'));
+  assert.equal(closureCandidateCommitGateSelection.classification, 'closure-candidate');
+  assert.equal(closureCandidateCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'commit-intent');
+  assert.notEqual(closureCandidateCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.match(closureCandidateCommitGateOutputInput.postReviewSelection.nextUnit.resultPath, /inference-units\/iteration-1\/04-commit-intent\/result\.json$/);
+  assert.equal(closureCandidateCommitGateSelection.contractValidation.ok, true);
+  assert.equal(closureCandidateCommitGate.iterations[1].classification, 'closed');
+  assert.equal(closureCandidateCommitGate.finalState.kind, 'closed');
 
   const terminalSequencePath = path.join(tmp, 'terminal-sequence.json');
   await writeFile(terminalSequencePath, `${JSON.stringify({
@@ -483,6 +540,43 @@ writeFileSync(outputPath, JSON.stringify({
   assert.equal(deniedOutputInput.terminalAction, null);
   assert.equal(deniedOutputInput.postReviewSelection.nextUnit.status, 'selected');
 
+  const failingClosureReviewPath = path.join(tmp, 'failing-closure-review.mjs');
+  const processDefectSequencePath = path.join(tmp, 'process-defect-sequence.json');
+  await writeFile(failingClosureReviewPath, `#!/usr/bin/env node
+console.error('fixture closure-review process failed before writing a result');
+process.exit(2);
+`, 'utf8');
+  await chmod(failingClosureReviewPath, 0o755);
+  await writeFile(processDefectSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Closure-review command fails before returning a contract.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const processDefect = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'process-defect-runs'),
+    evidenceDir: path.join(tmp, 'process-defect-evidence'),
+    dashboardPath: path.join(tmp, 'process-defect-dashboard.html'),
+    evidenceSequencePath: processDefectSequencePath,
+    executeClosureReview: true,
+    codexBin: failingClosureReviewPath,
+    now: '2026-05-07T12:58:00.000Z',
+  });
+  assert.equal(processDefect.finalState.kind, 'process-defect');
+  assert.equal(processDefect.finalState.reasonCode, 'lifecycle-controller-exception');
+  assert.match(processDefect.finalState.reason, /exited 2/);
+  const processDefectResult = JSON.parse(await readFile(processDefect.resultPath, 'utf8'));
+  assert.equal(processDefectResult.finalState.kind, 'process-defect');
+  assert.equal(processDefectResult.finalState.runId, processDefect.finalState.runId);
+
   const sourceClosureDocPath = path.join(tmp, 'source-closure-doc.json');
   const sourceClosureHtmlPath = sourceClosureDocPath.replace(/\.json$/i, '.html');
   const fakeCodexPath = path.join(tmp, 'fake-codex.mjs');
@@ -545,9 +639,11 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
     now: '2026-05-07T13:20:00.000Z',
   });
   assert.equal(sourceClosure.iterationCount, 2);
-  assert.equal(sourceClosure.finalState.kind, 'closed');
+  assert.equal(sourceClosure.finalState.kind, 'process-defect');
+  assert.equal(sourceClosure.finalState.reasonCode, 'lifecycle-controller-exception');
   assert.equal(sourceClosure.iterations[0].classification, 'repairable');
-  assert.equal(sourceClosure.iterations[1].classification, 'closed');
+  assert.equal(sourceClosure.iterations[1].classification, 'true-block');
+  assert.equal(sourceClosure.iterations[1].terminalKind, 'continuation-required');
   const sourceClosureEvidence = JSON.parse(await readFile(path.resolve(
     process.cwd(),
     sourceClosure.iterations[1].runDir,
@@ -558,8 +654,47 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
   assert.equal(sourceClosureEvidence.sourceState.closureAllowed, true);
   assert.equal(sourceClosureEvidence.proofGates.acceptanceCriteriaSatisfied, 'pass');
   assert.equal(sourceClosureEvidence.proofGates.closureAllowed, true);
+  assert.equal(sourceClosureEvidence.sourceFilesChanged, true);
   assert.match(sourceClosure.iterations[1].reviewerVerdictPath, /reviewer-inference\/iteration-2-verdict\.json$/);
-  assert.match(sourceClosure.iterations[1].closureReviewResultPath, /inference-units\/iteration-2\/03-closure-review\/result\.json$/);
+  assert.equal(sourceClosure.iterations[1].closureReviewResultPath, null);
+  const sourceClosureSelection = JSON.parse(await readFile(path.resolve(process.cwd(), sourceClosure.iterations[1].postReviewSelectionPath), 'utf8'));
+  assert.equal(sourceClosureSelection.nextUnit.unitId, 'commit-intent');
+  assert.match(sourceClosureSelection.nextUnit.resultPath, /inference-units\/iteration-2\/04-commit-intent\/result\.json$/);
+
+  const inferredCommitSequencePath = path.join(tmp, 'inferred-commit-sequence.json');
+  await writeFile(inferredCommitSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        filesChanged: ['scripts/living-doc-harness-lifecycle.mjs'],
+        traceMessage: 'Changed source file requires commit-intent before closure.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const inferredCommitGate = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'inferred-commit-runs'),
+    evidenceDir: path.join(tmp, 'inferred-commit-evidence'),
+    dashboardPath: path.join(tmp, 'inferred-commit-dashboard.html'),
+    evidenceSequencePath: inferredCommitSequencePath,
+    now: '2026-05-07T13:25:00.000Z',
+  });
+  assert.equal(inferredCommitGate.iterationCount, 1);
+  assert.equal(inferredCommitGate.iterations[0].classification, 'true-block');
+  const inferredCommitEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    inferredCommitGate.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(inferredCommitEvidence.sourceFilesChanged, true);
+  const inferredCommitSelection = JSON.parse(await readFile(path.resolve(process.cwd(), inferredCommitGate.iterations[0].postReviewSelectionPath), 'utf8'));
+  assert.equal(inferredCommitSelection.nextUnit.unitId, 'commit-intent');
 
   const proofRouteSequencePath = path.join(tmp, 'proof-route-sequence.json');
   await writeFile(proofRouteSequencePath, `${JSON.stringify({

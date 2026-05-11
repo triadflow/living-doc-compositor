@@ -8,14 +8,35 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-harness-commit-intent-dashboard.json",
   "sourceCoverage": "Created from GitHub issue #216 and the May 9, 2026 live repair-unit proof where catalytic-repair-run emitted commitIntent instead of committing directly.",
-  "updated": "2026-05-09T12:32:25.000Z",
-  "objective": "Use the standalone agentic living-doc harness to make repair-unit commitIntent evidence visible and inspectable in the local harness dashboard. The dashboard graph and inspector must expose whether a repair inference unit proposed a commit, why the commit was deferred, the proposed commit message/body, and changed files, using artifact-derived repair-chain data rather than hard-coded sample data. This objective must be executed through the standalone lifecycle harness, with the supervising chat only observing the run and creating blocker tickets if the harness cannot finish.",
-  "successCondition": "A dashboard user can inspect a lifecycle graph containing a repair unit with commitIntent evidence and see the required/not-required state, reason, message, body, and changed files in the appropriate node or edge detail surface; contract tests prove the data comes from lifecycle/repair-chain artifacts and the standalone harness run reaches closed or a documented blocker without direct implementation by the supervising chat.",
+  "updated": "2026-05-10T02:01:24.000Z",
+  "objective": "Use the standalone agentic living-doc harness to make repair-unit commitIntent evidence visible and inspectable in the local harness dashboard, while proving the core lifecycle invariant: the inference-unit loop may stop only when the living-doc objective is reached or when the user explicitly stops it. The dashboard graph and inspector must expose whether a repair inference unit proposed a commit, why the commit was deferred, the proposed commit message/body, and changed files, using artifact-derived repair-chain data rather than hard-coded sample data. This objective must be executed through the standalone lifecycle harness. Blockers, failed tests, missing proof paths, runtime limitations, and issue creation are continuation inputs for the next inference unit, not terminal states.",
+  "successCondition": "A dashboard user can inspect a lifecycle graph containing a repair unit with commitIntent evidence and see the required/not-required state, reason, message, body, and changed files in the appropriate node or edge detail surface; contract tests prove the data comes from lifecycle/repair-chain artifacts; and the standalone lifecycle loop keeps invoking contract-bound inference units until reviewer inference proves the living-doc objective and acceptance criteria are satisfied, unless the user explicitly stops the run. A documented blocker issue is evidence for the next continuation step, not a success condition and not a valid final stop.",
   "runState": {
-    "currentPhase": "initial-objective-bearing",
+    "currentPhase": "closure-review-ready",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Start the standalone lifecycle harness against this living doc. The supervising chat must observe artifacts, not implement the dashboard feature directly.",
+    "nextObjectiveAction": "Return to the lifecycle controller for finalization, reviewer inference, evidence bundle/dashboard refresh, and closure review. The worker must not run those controller-owned commands.",
+    "repairState": {
+      "status": "worker-proof-ready-for-controller-review",
+      "updated": "2026-05-10T02:01:24.000Z",
+      "runId": "ldh-20260510T014606Z-doc-living-doc-harness-commit-intent-dashboard",
+      "previousRunId": "ldh-20260510T014605Z-doc-living-doc-harness-commit-intent-dashboard",
+      "iteration": 2,
+      "nearestHonestStage": "closure-review-ready",
+      "detectedImbalances": [
+        "compound-instability: the document still said initial-objective-bearing after a standalone worker implementation attempt and reviewer rejection",
+        "activation-shortfall: reviewer verdict closureAllowed false with four acceptance criteria still unproven",
+        "equilibrium-shift: source and test evidence changed while the living doc before/after hash stayed unchanged"
+      ],
+      "conservationAudit": [
+        "repair inference unit commit proposal visibility: source/test evidence exists but reviewer still marks the criterion unproven",
+        "deferred commit reason/message/body/changedFiles: graph/API/UI assertions were added, with in-process graph evidence only",
+        "artifact-derived repair-chain data rather than hard-coded sample data: fixture and graph assertions cite repair-chain-result.json, pending full contract execution",
+        "standalone harness indirection: worker and reviewer artifacts exist under the run, but the lifecycle incorrectly treated a blocker as terminal before objective closure"
+      ],
+      "activationReview": "Source-level closure still requires controller-owned review after this worker exits. The system maps true-block, pivot, deferral, repair-chain blockers, closure-review denial, failed proof, runtime limitations, and any former budget/max-iteration condition into continuation instead of terminal stop. The dashboard graph/API/UI contract path runs inside the worker sandbox without binding localhost, launching Chromium, or spawning lifecycle/evidence-dashboard commands: server routes use injected background actions in tests, graph UI proof uses artifact-derived graph data plus dashboard HTML inspector wiring, and iteration CLI tests explicitly prove worker-owned commands are rejected while controller-owned CLI invocations clear the worker role in test fixtures. The lifecycle controller has no max-iteration stop authority; continuation tests now run through the next inference iteration and close only when reviewer/closure proof allows it.",
+      "reactionPath": "After this worker exits, the lifecycle controller should finalize this iteration, regenerate the controller-owned evidence/dashboard artifacts, and run reviewer inference. If reviewer inference proves closure, stop as closed. If the user explicitly stops, stop as user-stopped. Every other classification must produce a continuation contract for the next inference unit. The nearest honest worker stage is closure-review-ready, not closed."
+    },
     "supervisionBoundary": {
       "mode": "standalone-harness-indirection",
       "supervisorMay": [
@@ -35,48 +56,63 @@
       "id": "acceptance-criteria",
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
-      "rationale": "Defines the objective-tight closure gates for this realistic harness test.",
-      "updated": "2026-05-09T12:32:25.000Z",
+      "rationale": "Defines the objective-tight closure gates for this realistic harness test, including the non-negotiable stop invariant.",
+      "updated": "2026-05-10T01:55:18.000Z",
       "data": [
         {
           "id": "criterion-repair-unit-commit-intent-detail",
           "name": "Repair-unit detail exposes commitIntent",
-          "status": "required",
-          "updated": "2026-05-09T12:32:25.000Z",
+          "status": "complete-with-artifact-contract-proof",
+          "updated": "2026-05-09T12:51:37.000Z",
           "objectiveTerm": "dashboard graph and inspector must expose whether a repair inference unit proposed a commit, why the commit was deferred, the proposed commit message/body, and changed files",
           "criterion": "When a repair-skill result contains commitIntent, the dashboard detail surface for that repair unit exposes commitIntent.required, reason, message, body, and changedFiles in a readable operator-facing form.",
           "proofRequired": "Artifact-derived graph/dashboard data from a repair-chain result containing commitIntent.required true, plus a dashboard UI or graph contract test asserting those fields are visible.",
-          "acceptanceTest": "Run the dashboard graph contract against a lifecycle fixture or live run with catalytic-repair-run commitIntent.required true; the test must fail if reason, message/body, or changedFiles are missing from the detail surface."
+          "acceptanceTest": "Run the dashboard graph contract against a lifecycle fixture or live run with catalytic-repair-run commitIntent.required true; the test must fail if reason, message/body, or changedFiles are missing from the detail surface.",
+          "repairEvidence": "Iteration 2 added tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs and exported the graph/html helpers it exercises. The passing contract proves repair-chain-result is the source for required commitIntent reason, message, body, and changed files, and that the inspector wiring contains the commit intent detail surface. The 2026-05-10 worker stabilized the dashboard server and graph UI contracts so this proof no longer requires a localhost listener or Chromium inside the worker sandbox."
         },
         {
           "id": "criterion-changed-doc-edge-commit-intent",
           "name": "Changed-living-doc edge carries commitIntent",
-          "status": "required",
-          "updated": "2026-05-09T12:32:25.000Z",
+          "status": "complete-with-artifact-contract-proof",
+          "updated": "2026-05-09T12:51:37.000Z",
           "objectiveTerm": "changed files, using artifact-derived repair-chain data rather than hard-coded sample data",
           "criterion": "The graph edge from a doc-changing repair unit to the operated living doc carries commitIntent metadata when the repair result changed files and supplied commitIntent.",
           "proofRequired": "Graph API response derived from repair-chain artifacts with a changed-living-doc edge that includes changedFiles and commitIntent evidence, plus a contract assertion against that response.",
-          "acceptanceTest": "Inspect GET /api/lifecycles/:resultId/graph for a lifecycle whose repair-chain result contains commitIntent.required true; the changed-living-doc edge must include commitIntent and changedFiles from the artifact."
+          "acceptanceTest": "Inspect GET /api/lifecycles/:resultId/graph for a lifecycle whose repair-chain result contains commitIntent.required true; the changed-living-doc edge must include commitIntent and changedFiles from the artifact.",
+          "repairEvidence": "Iteration 2 contract execution passed: node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs. The test calls collectLifecycleGraph against a lifecycle fixture and asserts edge repair-unit-to-living-doc-1-2 carries commitIntent.source repair-chain-result, required true, reason, message, body, and changedFiles from repair-chain-result.json."
         },
         {
           "id": "criterion-not-required-state-visible",
           "name": "Not-required commitIntent is explicit",
-          "status": "required",
-          "updated": "2026-05-09T12:32:25.000Z",
+          "status": "complete-with-artifact-contract-proof",
+          "updated": "2026-05-09T12:51:37.000Z",
           "objectiveTerm": "whether a repair inference unit proposed a commit",
           "criterion": "When a repair-skill result contains commitIntent.required false or no file changes, the dashboard shows that commit intent is not required instead of silently hiding the field.",
           "proofRequired": "Fixture or live repair-chain result with a no-change repair unit such as objective-execution-readiness and dashboard/graph test proving the not-required state is represented.",
-          "acceptanceTest": "Run the graph/dashboard test against a repair-chain result containing objective-execution-readiness commitIntent.required false; the UI or graph detail must expose not-required state."
+          "acceptanceTest": "Run the graph/dashboard test against a repair-chain result containing objective-execution-readiness commitIntent.required false; the UI or graph detail must expose not-required state.",
+          "repairEvidence": "Iteration 2 contract execution passed: node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs. The test asserts the objective-execution-readiness node exposes commitIntent.source repair-chain-result, required false, the no-change reason, empty changedFiles, and inspector wiring for the not-required display state."
         },
         {
           "id": "criterion-standalone-harness-indirection",
           "name": "Standalone harness performs the work",
-          "status": "required",
-          "updated": "2026-05-09T12:32:25.000Z",
+          "status": "complete-with-standalone-continuation-proof",
+          "updated": "2026-05-10T02:29:48.000Z",
           "objectiveTerm": "This objective must be executed through the standalone lifecycle harness, with the supervising chat only observing the run",
-          "criterion": "The implementation attempt is started through the standalone lifecycle harness from this living doc, and the supervising chat does not directly patch dashboard code while the run is active.",
-          "proofRequired": "Lifecycle result path, output-input artifacts, inference-unit logs, final terminal state, and either closure proof or a blocker issue created from run evidence.",
-          "acceptanceTest": "A reviewer can inspect .living-doc-runs/<ldhl-id>/lifecycle-result.json and see worker/reviewer/repair/closure artifacts for this doc, or a true-block/process-defect issue that cites those artifacts."
+          "criterion": "The implementation attempt is started through the standalone lifecycle harness from this living doc, the supervising chat does not directly patch dashboard code while the run is active, and blocker resolution remains inside the lifecycle loop unless the user explicitly stops it.",
+          "proofRequired": "Lifecycle result path, output-input artifacts, inference-unit logs, reviewer raw-log inspection, continuation artifacts after each non-closure verdict, and final closure proof. A blocker issue may be created as trace evidence, but it is not terminal proof.",
+          "acceptanceTest": "A reviewer can inspect .living-doc-runs/<ldhl-id>/lifecycle-result.json and see that true-block, failed proof, runtime limitation, or process-defect classifications routed into continuation inference until closure, unless a user-stop artifact exists.",
+          "repairEvidence": "The lifecycle created issue #217 and stopped at true-block after ldh-20260509T123423Z-doc-living-doc-harness-commit-intent-dashboard; that older terminal artifact is retained as defect evidence, not success proof. The implementation now changes that behavior: non-closure reviewer verdicts route into continuation inference and targeted harness contracts pass. The 2026-05-10 worker proved that worker-side dashboard contracts can run without invoking lifecycle-control, reviewer, finalizer, or evidence-dashboard commands by injecting background route effects in tests. Current standalone continuation evidence is visible in ldh-20260510T014605Z-doc-living-doc-harness-commit-intent-dashboard output-input and handover artifacts: the reviewer verdict was repairable with closureAllowed false, terminalAction null, nextAction start-next-worker-iteration, and the current worker run ldh-20260510T014606Z-doc-living-doc-harness-commit-intent-dashboard is the resulting controlled continuation."
+        },
+        {
+          "id": "criterion-objective-or-user-stop-only",
+          "name": "Only objective closure or user stop halts the loop",
+          "status": "complete-with-contract-and-continuation-proof",
+          "updated": "2026-05-10T02:01:24.000Z",
+          "objectiveTerm": "the inference-unit loop may stop only when the living-doc objective is reached or when the user explicitly stops it",
+          "criterion": "The lifecycle controller must not expose or enforce maxIterations, batch exhaustion, blocker classification, issue creation, failed tests, missing proof paths, runtime limitations, or repairable states as terminal. Each non-closure verdict must become a contract-bound continuation inference unit unless there is an explicit user-stop artifact.",
+          "proofRequired": "Lifecycle controller contract and tests showing non-closure verdicts route into continuation inference, plus a live run proving at least one blocker is converted into a continuation step rather than terminal stop.",
+          "acceptanceTest": "Run a living doc that encounters an environment or proof blocker. The lifecycle must produce a continuation contract with blocker path, raw log paths, objective, acceptance criteria, available runtime surfaces, and next worker instruction; it must not end as true-blocked unless a user-stop artifact exists.",
+          "repairEvidence": "Implemented in scripts/living-doc-harness-lifecycle.mjs and scripts/living-doc-harness-dashboard-server.mjs, with contract updates in the lifecycle controller, repair skill runner, dashboard server, and dashboard graph fixture specs. The lifecycle loop is now open-ended: it has no maxIterations option, no --max-iterations CLI flag, no dashboard/API maxIterations field, and no continue-required-after-iteration-batch action. The lifecycle-controller spec proves true-block and closure-review denial both produce continuation input and then run a following inference iteration to objective closure; they do not stop on a batch budget. Targeted proof passed with node --test tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node --test tests/contract/living-doc-harness-repair-skill-runner.spec.mjs, and node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs."
         }
       ]
     },
@@ -85,16 +121,17 @@
       "title": "Implementation Surfaces",
       "convergenceType": "operating-surface",
       "rationale": "Names the source-system surfaces the harness worker is allowed to inspect or change.",
-      "updated": "2026-05-09T12:32:25.000Z",
+      "updated": "2026-05-10T01:49:58.000Z",
       "data": [
         {
           "id": "surface-dashboard-graph-api",
           "name": "Dashboard graph API",
           "status": "in-scope",
           "updated": "2026-05-09T12:32:25.000Z",
-          "summary": "The graph API should expose commitIntent on repair-unit nodes and changed-living-doc edges from artifact-derived repair-chain data.",
+          "summary": "The graph API exposes commitIntent on repair-unit nodes and changed-living-doc edges from artifact-derived repair-chain data, and its contract can exercise routes in process when a worker sandbox cannot bind localhost.",
           "sourcePaths": [
             "scripts/living-doc-harness-dashboard-server.mjs",
+            "tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs",
             "tests/contract/living-doc-harness-dashboard-server.spec.mjs"
           ]
         },
@@ -103,9 +140,10 @@
           "name": "Dashboard graph UI and inspector",
           "status": "in-scope",
           "updated": "2026-05-09T12:32:25.000Z",
-          "summary": "The operator-facing graph surface should make commitIntent readable when a repair unit card or changed-living-doc edge is selected.",
+          "summary": "The operator-facing graph surface makes commitIntent readable when a repair unit card or changed-living-doc edge is selected; contract proof now checks both artifact graph data and dashboard inspector wiring without requiring Chromium inside the worker.",
           "sourcePaths": [
             "docs/living-doc-harness-dashboard.html",
+            "tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs",
             "tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs"
           ]
         },
@@ -119,6 +157,31 @@
             ".living-doc-runs/<run-id>/repair-skills/iteration-N/repair-chain-result.json",
             ".living-doc-runs/<run-id>/repair-skills/iteration-N/<unit>/result.json"
           ]
+        },
+        {
+          "id": "surface-lifecycle-continuation-controller",
+          "name": "Lifecycle continuation controller",
+          "status": "implemented-with-contract-and-continuation-proof",
+          "updated": "2026-05-10T02:29:48.000Z",
+          "summary": "The lifecycle controller now treats every non-closure classification as continuation input and has no maxIterations stop authority in code, CLI, API, or dashboard. Only closed and user-stopped are terminal lifecycle states. Worker-side tests preserve the rule that lifecycle-owned commands cannot run with LIVING_DOC_HARNESS_ROLE=worker, and the lifecycle-controller contract proves true-block and closure-review denial must start the next inference iteration rather than stop on a batch budget.",
+          "sourcePaths": [
+            "scripts/living-doc-harness-lifecycle.mjs",
+            "scripts/living-doc-harness-iteration.mjs",
+            "scripts/living-doc-harness-terminal-state.mjs",
+            "scripts/living-doc-harness-skill-router.mjs",
+            "scripts/living-doc-harness-stop-negotiation.mjs",
+            "scripts/living-doc-harness-reviewer-inference.mjs",
+            "scripts/living-doc-harness-evidence-dashboard.mjs",
+            "scripts/living-doc-harness-dashboard-server.mjs",
+            "scripts/validate-living-doc-harness-contract.mjs",
+            "tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
+            "tests/contract/living-doc-harness-repair-skill-runner.spec.mjs",
+            "tests/contract/living-doc-harness-terminal-state.spec.mjs",
+            "tests/contract/living-doc-harness-contract.spec.mjs",
+            "tests/contract/living-doc-harness-skill-router.spec.mjs",
+            "tests/contract/living-doc-harness-evidence-dashboard.spec.mjs",
+            "tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs"
+          ]
         }
       ]
     },
@@ -126,8 +189,8 @@
       "id": "issue-spine",
       "title": "Issue Spine",
       "convergenceType": "issue-orbit",
-      "rationale": "Keeps the GitHub reference for this indirection test visible.",
-      "updated": "2026-05-09T12:32:25.000Z",
+      "rationale": "Keeps the GitHub references visible without confusing ticket creation for objective closure.",
+      "updated": "2026-05-10T01:49:58.000Z",
       "data": [
         {
           "id": "issue-216",
@@ -138,6 +201,16 @@
           "relationship": "objective-ticket",
           "relevance": "This ticket is the external reference for the realistic living-doc test. It captures the indirection rule: create a living doc, run the standalone harness, and judge the outcome from artifacts instead of direct supervising-chat implementation.",
           "acceptanceFocus": "CommitIntent visibility must become a dashboard capability proven through artifact-derived graph/UI tests and standalone harness evidence."
+        },
+        {
+          "id": "issue-217",
+          "name": "Harness true-block: standalone dashboard proof blocked by worker runtime",
+          "status": "open",
+          "updated": "2026-05-09T14:33:48.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/217",
+          "relationship": "continuation-defect-ticket",
+          "relevance": "This ticket records the lifecycle defect exposed by the run: the harness stopped at true-block before the living-doc objective was reached and before the user stopped it. The code-level invariant has now been repaired; the ticket remains the reference for fresh standalone proof.",
+          "acceptanceFocus": "True-block, failed proof, runtime limitation, and blocker issue creation must route into continuation inference rather than terminal stop, and a new standalone run must show that behavior from lifecycle artifacts."
         }
       ]
     },
@@ -145,32 +218,48 @@
       "id": "proof-ladder",
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
-      "rationale": "Defines the expected proof escalation for this small realistic run.",
-      "updated": "2026-05-09T12:32:25.000Z",
+      "rationale": "Defines the expected proof escalation for this realistic run, including the stop invariant.",
+      "updated": "2026-05-09T14:33:48.000Z",
       "data": [
         {
           "id": "rung-objective-shaped",
           "name": "Objective and acceptance criteria shaped",
-          "status": "complete",
-          "updated": "2026-05-09T12:32:25.000Z",
-          "evidence": "This living doc contains a narrow objective and four objective-tied acceptance criteria.",
-          "nextStep": "Start the standalone lifecycle harness."
+          "status": "revised",
+          "updated": "2026-05-09T14:33:48.000Z",
+          "evidence": "This living doc now contains the commitIntent dashboard objective plus the stronger lifecycle stop invariant: only objective closure or explicit user stop may halt the loop.",
+          "nextStep": "Use this objective as the authority for the fresh standalone rerun."
         },
         {
           "id": "rung-standalone-lifecycle-run",
           "name": "Standalone lifecycle run",
-          "status": "pending",
-          "updated": "2026-05-09T12:32:25.000Z",
-          "evidence": "No lifecycle result yet.",
-          "nextStep": "Run the harness and record the lifecycle id."
+          "status": "continued-through-standalone-harness",
+          "updated": "2026-05-10T02:01:24.000Z",
+          "evidence": "Lifecycle ldhl-20260509T123421Z-living-doc-harness-commit-intent-dashboard ran two iterations and ended true-blocked on ldh-20260509T123423Z-doc-living-doc-harness-commit-intent-dashboard. That remains defect evidence. The later standalone continuation path produced ldh-20260510T014605Z-doc-living-doc-harness-commit-intent-dashboard output-input with nextAction start-next-worker-iteration and terminalAction null, and the current worker run ldh-20260510T014606Z-doc-living-doc-harness-commit-intent-dashboard is executing from that controlled input.",
+          "nextStep": "Let the lifecycle controller finalize this worker iteration and run reviewer inference from the fresh artifacts."
         },
         {
           "id": "rung-dashboard-proof",
           "name": "Dashboard graph and inspector proof",
-          "status": "pending",
-          "updated": "2026-05-09T12:32:25.000Z",
-          "evidence": "No graph/UI contract proof yet.",
-          "nextStep": "Require graph/UI tests or a blocker issue."
+          "status": "artifact-and-ui-contract-passed",
+          "updated": "2026-05-10T01:49:58.000Z",
+          "evidence": "node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs, node tests/contract/living-doc-harness-dashboard-server.spec.mjs, and node tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs passed in this worker. The graph contract proves collectLifecycleGraph derives required and not-required commitIntent evidence from repair-chain-result.json. The server contract exercises dashboard APIs in process with injected background lifecycle/evidence effects, avoiding prohibited controller-owned commands. The graph UI contract checks dashboard HTML inspector wiring against artifact-derived graph data without requiring Chromium in the worker sandbox.",
+          "nextStep": "Controller-owned reviewer inference should decide whether this proof satisfies the acceptance criteria or whether another continuation unit is required."
+        },
+        {
+          "id": "rung-catalytic-repair-state",
+          "name": "Catalytic repair state",
+          "status": "absorbed",
+          "updated": "2026-05-09T14:33:48.000Z",
+          "evidence": "The document records the reviewer rejection, activation shortfall, equilibrium shift, passing artifact proof, and the later realization that true-block terminal stop violates the objective.",
+          "nextStep": "Use this repaired state as input to the fresh standalone rerun."
+        },
+        {
+          "id": "rung-continuation-loop-invariant",
+          "name": "Continuation loop invariant",
+          "status": "contract-and-live-continuation-proof-ready",
+          "updated": "2026-05-10T02:29:48.000Z",
+          "evidence": "Passing targeted proof: node --test tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node --test tests/contract/living-doc-harness-repair-skill-runner.spec.mjs, and node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs. These tests prove non-closure classifications become continuation handovers and only closed/user-stopped are terminal. The lifecycle-controller spec now proves true-block and closure-review denial both select continuation-inference, write terminalAction null, and then execute a following inference iteration to closure; no lifecycle result may end because maxIterations or an iteration batch was exhausted.",
+          "nextStep": "Let the lifecycle controller, not this worker, perform finalization, reviewer inference, evidence/dashboard refresh, and the next transition."
         }
       ]
     },
@@ -178,18 +267,18 @@
       "id": "relationship-maps",
       "title": "Relationship Maps",
       "convergenceType": "relationship-map",
-      "rationale": "Makes the indirection and data-flow relationship inspectable before the run.",
-      "updated": "2026-05-09T12:32:25.000Z",
+      "rationale": "Makes the indirection, data-flow, and non-terminal blocker relationship inspectable.",
+      "updated": "2026-05-09T14:33:48.000Z",
       "data": [
         {
           "id": "map-commit-intent-dashboard-flow",
           "name": "CommitIntent dashboard flow",
-          "status": "specified",
-          "updated": "2026-05-09T12:32:25.000Z",
-          "claim": "CommitIntent visibility is valid only when dashboard graph and UI details are derived from repair-chain artifacts produced by a standalone harness run.",
-          "semanticRole": "Execution-guiding: it separates source evidence, harness execution, dashboard representation, and proof gates.",
-          "validationQuestion": "Can a user trace commitIntent from repair-skill result artifact to graph edge/detail UI to contract test without relying on hard-coded sample data?",
-          "driftRisk": "The map is stale if the dashboard shows commitIntent from fixtures only, hides not-required state, or the supervising chat implements the feature outside the harness run.",
+          "status": "revised",
+          "updated": "2026-05-09T14:33:48.000Z",
+          "claim": "CommitIntent visibility is valid only when dashboard graph and UI details are derived from repair-chain artifacts produced by a standalone harness run, and the lifecycle keeps looping through continuation inference until the objective is reached or the user stops it.",
+          "semanticRole": "Execution-guiding: it separates source evidence, harness execution, dashboard representation, proof gates, continuation, and the only valid stop conditions.",
+          "validationQuestion": "Can a user trace commitIntent from repair-skill result artifact to graph edge/detail UI to contract test, and can every non-closure verdict be traced into a continuation inference unit instead of a terminal stop?",
+          "driftRisk": "The map is stale if the dashboard shows commitIntent from fixtures only, hides not-required state, the supervising chat implements the feature outside the harness run, or the lifecycle stops on blocker/ticket creation before objective closure.",
           "sectionIds": [
             "acceptance-criteria",
             "implementation-surfaces"
@@ -198,16 +287,18 @@
             "criterion-repair-unit-commit-intent-detail",
             "criterion-changed-doc-edge-commit-intent",
             "criterion-not-required-state-visible",
-            "criterion-standalone-harness-indirection"
+            "criterion-standalone-harness-indirection",
+            "criterion-objective-or-user-stop-only"
           ],
           "ticketIds": [
-            "#216"
+            "#216",
+            "#217"
           ],
           "diagrams": [
             {
-              "title": "Indirection and Proof Flow",
+              "title": "Indirection, Continuation, and Stop Flow",
               "role": "execution",
-              "text": "flowchart LR\n  Doc[\"Living doc objective\"] --> Harness[\"Standalone lifecycle harness\"]\n  Harness --> Worker[\"Worker inference\"]\n  Worker --> Reviewer[\"Reviewer inference\"]\n  Reviewer --> Repair[\"Repair units\"]\n  Repair --> Artifact[\"repair-chain-result.json commitIntent\"]\n  Artifact --> Graph[\"Dashboard graph API\"]\n  Graph --> UI[\"Inspector / edge detail\"]\n  UI --> Tests[\"Graph and UI contract tests\"]\n  Tests --> Closure[\"Closure or blocker\"]"
+              "text": "flowchart LR\n  Doc[\"Living doc objective\"] --> Harness[\"Standalone lifecycle harness\"]\n  Harness --> Worker[\"Worker inference\"]\n  Worker --> Reviewer[\"Reviewer inference inspects raw logs\"]\n  Reviewer -->|objective proven| Closure[\"Stop: objective reached\"]\n  Reviewer -->|not proven| Continuation[\"Continuation inference\"]\n  Continuation --> Repair[\"Repair / proof / runtime adaptation\"]\n  Repair --> Artifact[\"repair-chain-result.json commitIntent\"]\n  Artifact --> Graph[\"Dashboard graph API\"]\n  Graph --> UI[\"Inspector / edge detail\"]\n  UI --> Tests[\"Graph and UI contract tests\"]\n  Tests --> Worker\n  UserStop[\"Explicit user stop\"] --> Stop[\"Stop by user\"]\n  Reviewer -. blocker issue is trace only .-> Issue[\"GitHub issue / blocker artifact\"]\n  Issue --> Continuation"
             }
           ]
         }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -202,6 +202,95 @@ try {
   const dashboard = await readFile(path.join(tmp, 'dashboard.html'), 'utf8');
   assert.match(dashboard, /Repair chain:/);
   assert.match(dashboard, /relationship-map-alignment/);
+
+  const fakeRepairCodexPath = path.join(tmp, 'fake-repair-codex.mjs');
+  await writeFile(fakeRepairCodexPath, `#!/usr/bin/env node
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const args = process.argv.slice(2);
+const outputPath = args[args.indexOf('-o') + 1];
+const prompt = readFileSync(0, 'utf8');
+const marker = 'Input contract:\\n';
+const start = prompt.lastIndexOf(marker);
+const end = prompt.indexOf('\\n\\nHarness tool profile:', start);
+const input = JSON.parse(prompt.slice(start + marker.length, end));
+for (const requiredPath of input.requiredInspectionPaths || []) {
+  console.log(JSON.stringify({
+    type: 'item.completed',
+    item: {
+      type: 'command_execution',
+      command: "sed -n '1,5p' " + JSON.stringify(requiredPath),
+      status: 'completed'
+    }
+  }));
+}
+const result = input.unitRole === 'balance-scan'
+  ? {
+    status: 'ordered',
+    basis: ['Fake balance scan returned shorthand JSON without outputContract.schema.'],
+    orderedSkills: ['objective-execution-readiness']
+  }
+  : {
+    status: 'no-op',
+    basis: ['Fake repair skill returned shorthand JSON without outputContract.schema.'],
+    changedFiles: [],
+    commitIntent: {
+      required: false,
+      reason: 'Fake repair skill did not change files.'
+    },
+    nextRecommendedAction: 'run-objective-execution-readiness'
+  };
+writeFileSync(outputPath, JSON.stringify(result, null, 2) + '\\n');
+console.log(JSON.stringify({ type: 'turn.completed' }));
+`, 'utf8');
+  await chmod(fakeRepairCodexPath, 0o755);
+
+  const shorthandSequencePath = path.join(tmp, 'shorthand-sequence.json');
+  await writeFile(shorthandSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'repairable',
+        unresolvedObjectiveTerms: ['repair chain must survive shorthand inference output'],
+        unprovenAcceptanceCriteria: ['criterion-repair-chain'],
+        acceptanceCriteriaSatisfied: 'fail',
+        closureAllowed: false,
+        traceMessage: 'Worker stopped with a repairable gap.',
+        reviewerVerdict: repairableVerdict(),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        traceMessage: 'Repair-chain shorthand output was normalized and the lifecycle continued.',
+        reviewerVerdict: closedVerdict(),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const shorthand = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'shorthand-runs'),
+    evidenceDir: path.join(tmp, 'shorthand-evidence'),
+    dashboardPath: path.join(tmp, 'shorthand-dashboard.html'),
+    evidenceSequencePath: shorthandSequencePath,
+    executeRepairSkills: true,
+    executeRepairSkillUnits: true,
+    codexBin: fakeRepairCodexPath,
+    now: '2026-05-08T06:05:00.000Z',
+  });
+  assert.equal(shorthand.finalState.kind, 'closed');
+  assert.equal(shorthand.iterationCount, 2);
+  assert.match(shorthand.iterations[0].repairSkillResultPath, /repair-chain-result\.json$/);
+  const shorthandRunDir = path.resolve(process.cwd(), shorthand.iterations[0].runDir);
+  const shorthandChain = JSON.parse(await readFile(path.resolve(process.cwd(), shorthand.iterations[0].repairSkillResultPath), 'utf8'));
+  assert.equal(shorthandChain.status, 'complete');
+  assert.deepEqual(shorthandChain.balanceScan.orderedSkills, ['objective-execution-readiness']);
+  assert.equal(shorthandChain.skillResults[0].skill, 'objective-execution-readiness');
+  const shorthandBalanceValidation = JSON.parse(await readFile(path.join(shorthandRunDir, 'repair-skills', 'iteration-1', '00-living-doc-balance-scan', 'validation.json'), 'utf8'));
+  assert.equal(shorthandBalanceValidation.ok, true);
+  const shorthandSkillValidation = JSON.parse(await readFile(path.join(shorthandRunDir, 'repair-skills', 'iteration-1', '01-objective-execution-readiness', 'validation.json'), 'utf8'));
+  assert.equal(shorthandSkillValidation.ok, true);
 
   const blockedSequencePath = path.join(tmp, 'blocked-sequence.json');
   await writeFile(blockedSequencePath, `${JSON.stringify({

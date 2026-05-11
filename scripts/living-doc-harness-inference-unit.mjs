@@ -211,6 +211,30 @@ export function validateInferenceUnitResult(result) {
   return { ok: violations.length === 0, violations };
 }
 
+export function validateInferenceUnitInputContract({ unitTypeId, inputContract }) {
+  const violations = [];
+  try {
+    const type = getInferenceUnitType(unitTypeId);
+    if (inputContract?.schema !== type.inputContract.schema) {
+      violations.push({
+        path: '$.schema',
+        message: `inputContract schema must be ${type.inputContract.schema}`,
+      });
+    }
+    for (const field of arr(type.inputContract.requiredFields)) {
+      if (inputContract?.[field] == null) {
+        violations.push({
+          path: `$.${field}`,
+          message: `${field} is required by ${type.id} input contract`,
+        });
+      }
+    }
+  } catch (err) {
+    violations.push({ path: '$.unitTypeId', message: err.message });
+  }
+  return { ok: violations.length === 0, violations };
+}
+
 function statusFromRawResult(rawResult) {
   if (rawResult?.status) return rawResult.status;
   if (rawResult?.verdict) return rawResult.verdict;
@@ -219,6 +243,40 @@ function statusFromRawResult(rawResult) {
     return rawResult.approved === true && rawResult.terminalAllowed === true ? 'approved' : 'blocked';
   }
   return 'no-op';
+}
+
+function normalizeOutputContract({ rawResult, unitTypeId, inputContract }) {
+  const type = getInferenceUnitType(unitTypeId);
+  const output = {
+    ...(rawResult?.outputContract && typeof rawResult.outputContract === 'object'
+      ? rawResult.outputContract
+      : rawResult || {}),
+  };
+  if (!output.schema) output.schema = type.outputContract.schema;
+  if (output.status == null && rawResult?.status != null) output.status = rawResult.status;
+  if (output.basis == null && rawResult?.basis != null) output.basis = rawResult.basis;
+
+  if (unitTypeId === 'living-doc-balance-scan') {
+    if (!Array.isArray(output.basis)) output.basis = arr(rawResult?.basis).length ? rawResult.basis : ['Balance scan completed.'];
+    if (!Array.isArray(output.orderedSkills)) output.orderedSkills = arr(rawResult?.orderedSkills);
+  }
+
+  if (unitTypeId === 'repair-skill') {
+    if (output.skill == null) output.skill = inputContract.skill || rawResult?.skill || null;
+    if (output.sequence == null) output.sequence = inputContract.sequence ?? rawResult?.sequence ?? null;
+    if (!Array.isArray(output.changedFiles)) output.changedFiles = arr(rawResult?.changedFiles);
+    if (!output.commitIntent || typeof output.commitIntent !== 'object') {
+      output.commitIntent = {
+        required: output.changedFiles.length > 0,
+        reason: output.changedFiles.length > 0
+          ? 'Repair skill reported changed files.'
+          : 'Repair skill reported no changed files.',
+        changedFiles: output.changedFiles,
+      };
+    }
+  }
+
+  return output;
 }
 
 export async function runContractBoundInferenceUnit({
@@ -247,6 +305,10 @@ export async function runContractBoundInferenceUnit({
   if (!inputContract || typeof inputContract !== 'object') throw new Error('inputContract is required');
   const typeValidation = validateInferenceUnitAllowed({ unitTypeId, allowedUnitTypes });
   if (!typeValidation.ok) throw new Error(typeValidation.message);
+  const inputValidation = validateInferenceUnitInputContract({ unitTypeId, inputContract });
+  if (!inputValidation.ok) {
+    throw new Error(`invalid ${unitTypeId} input contract: ${inputValidation.violations.map((violation) => `${violation.path} ${violation.message}`).join('; ')}`);
+  }
   const unitType = registryMetadataForUnit(unitTypeId, typeValidation.allowedUnitTypes);
 
   const sequenceLabel = String(sequence).padStart(2, '0');
@@ -345,7 +407,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     stderrPath: path.relative(runDir, stderrPath),
     status: statusFromRawResult(rawResult),
     basis: arr(rawResult.basis).length ? rawResult.basis : ['Inference unit completed without a detailed basis.'],
-    outputContract: rawResult.outputContract || rawResult,
+    outputContract: normalizeOutputContract({ rawResult, unitTypeId, inputContract }),
     toolProfile: {
       name: resolvedToolProfile.name,
       isolation: resolvedToolProfile.isolation,
@@ -416,6 +478,10 @@ export async function writeContractBoundInferenceUnitSnapshot({
   if (!inputContract || typeof inputContract !== 'object') throw new Error('inputContract is required');
   const typeValidation = validateInferenceUnitAllowed({ unitTypeId, allowedUnitTypes });
   if (!typeValidation.ok) throw new Error(typeValidation.message);
+  const inputValidation = validateInferenceUnitInputContract({ unitTypeId, inputContract });
+  if (!inputValidation.ok) {
+    throw new Error(`invalid ${unitTypeId} input contract snapshot: ${inputValidation.violations.map((violation) => `${violation.path} ${violation.message}`).join('; ')}`);
+  }
   const unitType = registryMetadataForUnit(unitTypeId, typeValidation.allowedUnitTypes);
 
   const sequenceLabel = String(sequence).padStart(2, '0');

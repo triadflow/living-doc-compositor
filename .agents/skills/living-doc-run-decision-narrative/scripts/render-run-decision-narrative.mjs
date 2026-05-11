@@ -116,6 +116,45 @@ function pills(items) {
   return `<div class="pills">${values.map((item) => `<span>${esc(item)}</span>`).join('')}</div>`;
 }
 
+function renderPlainMessage(text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return '<p class="muted">No worker final message captured in the inference-unit snapshot.</p>';
+
+  const blocks = [];
+  let listItems = [];
+  let paragraph = [];
+  const flushList = () => {
+    if (!listItems.length) return;
+    blocks.push(`<ul>${listItems.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`);
+    listItems = [];
+  };
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(`<p>${esc(paragraph.join(' '))}</p>`);
+    paragraph = [];
+  };
+
+  for (const rawLine of trimmed.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    if (bullet) {
+      flushParagraph();
+      listItems.push(bullet[1]);
+      continue;
+    }
+    flushList();
+    paragraph.push(line);
+  }
+  flushParagraph();
+  flushList();
+  return blocks.join('');
+}
+
 function kv(label, value) {
   return `<div class="kv"><span>${esc(label)}</span><strong>${esc(compact(value))}</strong></div>`;
 }
@@ -142,6 +181,7 @@ async function collectIteration(iteration) {
   const reviewer = await readJson(artifactPath(runDir, `reviewer-inference/iteration-${number}-verdict.json`), null);
   const workerResult = await readJson(artifactPath(runDir, `inference-units/iteration-${number}/01-worker/result.json`), null);
   const workerMessage = await readText(artifactPath(runDir, `inference-units/iteration-${number}/01-worker/last-message.txt`), '');
+  const evidence = await readJson(artifactPath(runDir, `artifacts/iteration-${number}-evidence.json`), null);
   const repairChain = iteration.repairSkillResultPath
     ? await readJson(path.resolve(process.cwd(), iteration.repairSkillResultPath), null)
     : null;
@@ -170,6 +210,7 @@ async function collectIteration(iteration) {
     reviewer,
     workerResult,
     workerMessage,
+    evidence,
     repairChain,
     balanceResult,
     balanceCoverage,
@@ -180,7 +221,7 @@ async function collectIteration(iteration) {
 
 function renderWorkerDecision(data) {
   const output = data.workerResult?.outputContract || data.workerResult || {};
-  const summary = data.workerMessage.trim().split('\n').slice(0, 3).join(' ');
+  const changedFiles = arr(data.evidence?.workerEvidence?.filesChanged);
   return card({
     eyebrow: `Iteration ${data.iteration.iteration}`,
     title: 'Worker Output',
@@ -189,9 +230,11 @@ function renderWorkerDecision(data) {
       kv('terminal kind', data.iteration.terminalKind),
       kv('proof valid', data.iteration.proofValid),
     ].join(''),
-    body: summary
-      ? `<p>${esc(summary)}</p>`
-      : '<p class="muted">No worker final message captured in the inference-unit snapshot.</p>',
+    body: `
+      ${renderPlainMessage(data.workerMessage)}
+      <h4>Changed files recorded by evidence</h4>
+      ${pills(changedFiles) || '<p class="muted">No changed files recorded in iteration evidence.</p>'}
+    `,
   });
 }
 

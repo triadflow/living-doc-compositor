@@ -205,6 +205,12 @@ try {
   const commitSelection = JSON.parse(await readFile(commitGate.postReviewSelectionPath, 'utf8'));
   assert.equal(commitSelection.nextUnit.unitId, 'commit-intent');
   assert.equal(commitSelection.contractValidation.ok, true);
+  assert.match(commitSelection.nextUnit.resultPath, /inference-units\/iteration-1\/04-commit-intent\/result\.json$/);
+  assert.match(commitSelection.nextUnit.validationPath, /inference-units\/iteration-1\/04-commit-intent\/validation\.json$/);
+  const commitIntentResult = JSON.parse(await readFile(path.join(commitGateRun.runDir, commitSelection.nextUnit.resultPath), 'utf8'));
+  assert.equal(commitIntentResult.unitId, 'commit-intent');
+  assert.equal(commitIntentResult.outputContract.schema, 'living-doc-harness-commit-intent-result/v1');
+  assert.equal(commitIntentResult.outputContract.sideEffect.executed, false);
 
   const prGateRun = await createHarnessRun({
     docPath,
@@ -241,6 +247,12 @@ try {
   const prSelection = JSON.parse(await readFile(prGate.postReviewSelectionPath, 'utf8'));
   assert.equal(prSelection.nextUnit.unitId, 'pr-review');
   assert.equal(prSelection.contractValidation.ok, true);
+  assert.match(prSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
+  assert.match(prSelection.nextUnit.validationPath, /inference-units\/iteration-1\/05-pr-review\/validation\.json$/);
+  const prReviewResult = JSON.parse(await readFile(path.join(prGateRun.runDir, prSelection.nextUnit.resultPath), 'utf8'));
+  assert.equal(prReviewResult.unitId, 'pr-review');
+  assert.equal(prReviewResult.outputContract.schema, 'living-doc-harness-pr-review-result/v1');
+  assert.equal(prReviewResult.outputContract.sideEffect.executed, false);
 
   const controllerOwnedRun = await createHarnessRun({
     docPath,
@@ -444,9 +456,71 @@ try {
   const commitPendingBeforeClosureSelection = JSON.parse(await readFile(commitPendingBeforeClosure.postReviewSelectionPath, 'utf8'));
   assert.equal(commitPendingBeforeClosureSelection.classification, 'resumable');
   assert.equal(commitPendingBeforeClosureSelection.reasonCode, 'commit-evidence-and-criteria-pending');
-  assert.equal(commitPendingBeforeClosureSelection.nextUnit.unitId, 'worker');
+  assert.equal(commitPendingBeforeClosureSelection.nextUnit.unitId, 'commit-intent');
+  assert.notEqual(commitPendingBeforeClosureSelection.nextUnit.unitId, 'worker');
+  assert.match(commitPendingBeforeClosureSelection.nextUnit.resultPath, /inference-units\/iteration-1\/04-commit-intent\/result\.json$/);
+  assert.match(commitPendingBeforeClosureSelection.nextUnit.validationPath, /inference-units\/iteration-1\/04-commit-intent\/validation\.json$/);
   assert.equal(commitPendingBeforeClosureSelection.contractValidation.ok, true);
   assert.equal(commitPendingBeforeClosure.closureReviewResultPath, null);
+
+  const closureCandidateCommitGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'closure-candidate-commit-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:23.000Z',
+  });
+  const closureCandidateCommitGateEvidencePath = path.join(tmp, 'closure-candidate-commit-gate-evidence.json');
+  await writeIterationEvidenceTemplate({
+    runDir: closureCandidateCommitGateRun.runDir,
+    outPath: closureCandidateCommitGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'worker-verification-green-controller-rerun-and-commit-gates-pending',
+    unprovenAcceptanceCriteria: ['criterion-side-effect-contracts', 'criterion-closure-gates'],
+    acceptanceCriteriaSatisfied: 'pending',
+    closureAllowed: false,
+    filesChanged: ['docs/living-doc-inference-unit-type-system.json'],
+    finalMessageSummary: 'Worker verified source and tests; remaining work is controller-owned commit-intent and closure gates.',
+    now: '2026-05-07T10:21:24.000Z',
+  });
+  const closureCandidateCommitGate = await finalizeHarnessIteration({
+    runDir: closureCandidateCommitGateRun.runDir,
+    evidencePath: closureCandidateCommitGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:25.000Z',
+    evidenceDir: path.join(tmp, 'closure-candidate-commit-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'closure-candidate-commit-gate-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'closure-candidate',
+        reasonCode: 'acceptance-criteria-pending',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: [
+          'Closure is blocked by controller-owned commit gates and pending acceptance criteria.',
+          'Source state reports worker-verification-green-controller-rerun-and-commit-gates-pending.',
+        ],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Continue through controller rerun and commit-intent gates, then closure review and post-flight summary.',
+        mustNotDo: [],
+      },
+    },
+  });
+  assert.equal(closureCandidateCommitGate.classification, 'true-block');
+  assert.equal(closureCandidateCommitGate.terminalKind, 'continuation-required');
+  const closureCandidateCommitGateSelection = JSON.parse(await readFile(closureCandidateCommitGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(closureCandidateCommitGateSelection.classification, 'closure-candidate');
+  assert.equal(closureCandidateCommitGateSelection.nextUnit.unitId, 'commit-intent');
+  assert.notEqual(closureCandidateCommitGateSelection.nextUnit.unitId, 'worker');
+  assert.match(closureCandidateCommitGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/04-commit-intent\/result\.json$/);
+  assert.match(closureCandidateCommitGateSelection.nextUnit.validationPath, /inference-units\/iteration-1\/04-commit-intent\/validation\.json$/);
+  assert.equal(closureCandidateCommitGateSelection.contractValidation.ok, true);
 
   const reviewerInput = JSON.parse(await readFile(result.reviewerInputPath, 'utf8'));
   assert.equal(reviewerInput.logInspection.schema, 'living-doc-harness-reviewer-log-inspection/v1');

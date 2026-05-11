@@ -220,6 +220,13 @@ async function buildEvidenceFromPlan({
   proofRouteBundle = null,
 }) {
   const sourceState = await deriveSourceStateEvidence({ docPath, cwd });
+  const currentDocHash = await fileHash(path.resolve(cwd, docPath));
+  const docChangedDuringRun = Boolean(run?.contract?.livingDoc?.sourceHash && currentDocHash && run.contract.livingDoc.sourceHash !== currentDocHash);
+  const explicitFilesChanged = hasOwn(plan, 'filesChanged');
+  const filesChanged = explicitFilesChanged ? arr(plan.filesChanged) : [docPath, sourceState?.renderedHtml].filter(Boolean);
+  const sourceFilesChanged = hasOwn(plan, 'sourceFilesChanged')
+    ? plan.sourceFilesChanged === true
+    : docChangedDuringRun || (explicitFilesChanged && filesChanged.length > 0);
   const sourceClosureAllowed = sourceState?.closureAllowed === true;
   const sourceUnprovenCriteria = sourceState ? sourceState.incompleteCriteria : [];
   const sourceStageAfter = sourceClosureAllowed ? 'closed' : sourceState?.currentPhase || 'stopped';
@@ -247,7 +254,7 @@ async function buildEvidenceFromPlan({
     unprovenAcceptanceCriteria: hasOwn(plan, 'unprovenAcceptanceCriteria') ? arr(plan.unprovenAcceptanceCriteria) : sourceUnprovenCriteria,
     finalMessageSummary: plan.finalMessageSummary || sourceFinalMessage,
     toolFailures: arr(plan.toolFailures),
-    filesChanged: hasOwn(plan, 'filesChanged') ? arr(plan.filesChanged) : [docPath, sourceState?.renderedHtml].filter(Boolean),
+    filesChanged,
     acceptanceCriteriaSatisfied: plan.acceptanceCriteriaSatisfied || (sourceClosureAllowed ? 'pass' : 'pending'),
     closureAllowed: hasOwn(plan, 'closureAllowed') ? plan.closureAllowed === true : sourceClosureAllowed,
     now,
@@ -263,7 +270,7 @@ async function buildEvidenceFromPlan({
     ...(plan.requiredProof ? { requiredProof: plan.requiredProof } : {}),
     ...(plan.issueRef ? { issueRef: plan.issueRef } : {}),
     ...(sourceState ? { sourceState } : {}),
-    ...(hasOwn(plan, 'sourceFilesChanged') ? { sourceFilesChanged: plan.sourceFilesChanged === true } : {}),
+    sourceFilesChanged,
     ...(plan.sideEffectEvidence ? { sideEffectEvidence: plan.sideEffectEvidence } : {}),
     ...(hasOwn(plan, 'prReviewRequired') ? { prReviewRequired: plan.prReviewRequired === true } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
@@ -407,153 +414,176 @@ export async function runHarnessLifecycle({
   let lifecycleInput = null;
   let finalState = null;
   let lastEvidence = null;
+  let currentRun = null;
+  let currentIteration = 0;
   const docProofRoutes = proofRoutes || await loadProofRoutesFromDoc(docPath, { cwd });
 
-  for (let iteration = 1; ; iteration += 1) {
-    const iterationNow = addMs(now, iteration * 1000);
-    const plan = evidenceSequence[iteration - 1] || {};
-    const run = await createHarnessRun({
-      docPath,
-      runsDir: absoluteRunsDir,
-      execute,
-      cwd,
-      now: iterationNow,
-      codexBin,
-      codexHome,
-      traceLimit,
-      lifecycleInput,
-      iteration,
-      toolProfile,
-      allowedUnitTypes: normalizedAllowedUnitTypes,
-    });
-    const iterationProofRoutes = arr(plan.proofRoutes).length ? plan.proofRoutes : docProofRoutes;
-    const proofRouteBundle = executeProofRoutes && iterationProofRoutes.length
-      ? await runProofRoutes({
-        runDir: run.runDir,
-        iteration,
-        routes: iterationProofRoutes,
+  try {
+    for (let iteration = 1; ; iteration += 1) {
+      currentIteration = iteration;
+      const iterationNow = addMs(now, iteration * 1000);
+      const plan = evidenceSequence[iteration - 1] || {};
+      const run = await createHarnessRun({
+        docPath,
+        runsDir: absoluteRunsDir,
+        execute,
         cwd,
-        now: addMs(iterationNow, 125),
-      })
-      : null;
-    const { evidence, evidencePath } = await buildEvidenceFromPlan({
-      run,
-      runDir: run.runDir,
-      iteration,
-      plan,
-      docPath,
-      cwd,
-      now: addMs(iterationNow, 250),
-      proofRouteBundle,
-    });
-    lastEvidence = evidence;
-    const finalization = await finalizeHarnessIteration({
-      runDir: run.runDir,
-      evidencePath,
-      livingDocPath: docPath,
-      afterDocPath: docPath,
-      iteration,
-      now: addMs(iterationNow, 500),
-      evidenceDir: absoluteEvidenceDir,
-      dashboardPath: absoluteDashboardPath,
-      runsDir: absoluteRunsDir,
-      reviewerVerdict: reviewerSequence[iteration - 1] || plan.reviewerVerdict || null,
-      executeReviewer,
-      executeClosureReview,
-      executeRepairSkills,
-      executeRepairSkillUnits: plan.executeRepairSkillUnits === true || executeRepairSkillUnits,
-      repairSkillPlan: plan.repairSkillPlan || null,
-      codexBin,
-      allowedUnitTypes: normalizedAllowedUnitTypes,
-    });
-
-    const mayStop = lifecycleMayStop(finalization);
-    const nextAction = !mayStop
-      ? {
-        action: 'start-next-worker-iteration',
-        allowed: true,
-        reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
-      }
-      : {
-        action: 'stop-terminal-state',
-        allowed: false,
-        reason: finalization.terminalKind === 'closed'
-          ? 'Objective closure reached.'
-          : 'User explicitly stopped the lifecycle.',
-      };
-
-    const provisionalOutputInputPath = path.join(run.runDir, 'output-input', `iteration-${iteration}.json`);
-    const nextInput = nextAction.allowed
-      ? nextInputFromFinalization({ finalization, outputInputPath: provisionalOutputInputPath })
-      : null;
-    const outputInput = await writeOutputInput({
-      runDir: run.runDir,
-      iteration,
-      finalization,
-      evidencePath,
-      nextAction,
-      nextInput,
-      now: addMs(iterationNow, 750),
-    });
-    if (nextInput) nextInput.outputInputPath = path.relative(cwd, outputInput.outputInputPath);
-
-    iterations.push({
-      iteration,
-      runId: run.runId,
-      runDir: run.runDir,
-      classification: finalization.classification,
-      terminalKind: finalization.terminalKind,
-      nextAction,
-      outputInputPath: outputInput.outputInputPath,
-      reviewerVerdictPath: finalization.reviewerVerdictPath,
-      repairSkillResultPath: finalization.repairSkillResultPath,
-      closureReviewResultPath: finalization.closureReviewResultPath,
-      postReviewSelectionPath: finalization.postReviewSelectionPath,
-      proofValid: finalization.proofValid,
-    });
-
-    await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
-      event: 'lifecycle-iteration-complete',
-      at: addMs(iterationNow, 800),
-      resultId,
-      iteration,
-      runId: run.runId,
-      classification: finalization.classification,
-      terminalKind: finalization.terminalKind,
-      nextAction: nextAction.action,
-      outputInputPath: path.relative(lifecycleDir, outputInput.outputInputPath),
-      reviewerVerdictPath: path.relative(lifecycleDir, finalization.reviewerVerdictPath),
-      repairSkillResultPath: finalization.repairSkillResultPath ? path.relative(lifecycleDir, finalization.repairSkillResultPath) : null,
-      closureReviewResultPath: finalization.closureReviewResultPath ? path.relative(lifecycleDir, finalization.closureReviewResultPath) : null,
-      postReviewSelectionPath: finalization.postReviewSelectionPath ? path.relative(lifecycleDir, finalization.postReviewSelectionPath) : null,
-    });
-
-    if (mayStop) {
-      const postFlight = finalization.terminalKind === 'closed'
-        ? await runPostFlightSummaryUnit({
+        now: iterationNow,
+        codexBin,
+        codexHome,
+        traceLimit,
+        lifecycleInput,
+        iteration,
+        toolProfile,
+        allowedUnitTypes: normalizedAllowedUnitTypes,
+      });
+      currentRun = run;
+      const iterationProofRoutes = arr(plan.proofRoutes).length ? plan.proofRoutes : docProofRoutes;
+      const proofRouteBundle = executeProofRoutes && iterationProofRoutes.length
+        ? await runProofRoutes({
           runDir: run.runDir,
-          runId: run.runId,
           iteration,
-          finalization,
-          now: addMs(iterationNow, 850),
+          routes: iterationProofRoutes,
           cwd,
-          allowedUnitTypes: normalizedAllowedUnitTypes,
+          now: addMs(iterationNow, 125),
         })
         : null;
-      finalState = {
-        kind: finalization.terminalKind,
-        reason: nextAction.reason,
-        runId: run.runId,
-        postFlightSummaryPath: postFlight?.summaryPath ? path.relative(cwd, postFlight.summaryPath) : null,
-        postFlightUnitResultPath: postFlight?.unit?.resultPath ? path.relative(cwd, postFlight.unit.resultPath) : null,
-      };
-      break;
-    }
+      const { evidence, evidencePath } = await buildEvidenceFromPlan({
+        run,
+        runDir: run.runDir,
+        iteration,
+        plan,
+        docPath,
+        cwd,
+        now: addMs(iterationNow, 250),
+        proofRouteBundle,
+      });
+      lastEvidence = evidence;
+      const finalization = await finalizeHarnessIteration({
+        runDir: run.runDir,
+        evidencePath,
+        livingDocPath: docPath,
+        afterDocPath: docPath,
+        iteration,
+        now: addMs(iterationNow, 500),
+        evidenceDir: absoluteEvidenceDir,
+        dashboardPath: absoluteDashboardPath,
+        runsDir: absoluteRunsDir,
+        reviewerVerdict: reviewerSequence[iteration - 1] || plan.reviewerVerdict || null,
+        executeReviewer,
+        executeClosureReview,
+        executeRepairSkills,
+        executeRepairSkillUnits: plan.executeRepairSkillUnits === true || executeRepairSkillUnits,
+        repairSkillPlan: plan.repairSkillPlan || null,
+        codexBin,
+        allowedUnitTypes: normalizedAllowedUnitTypes,
+      });
 
-    lifecycleInput = {
-      ...nextInput,
-      outputInputPath: path.relative(cwd, outputInput.outputInputPath),
+      const mayStop = lifecycleMayStop(finalization);
+      const nextAction = !mayStop
+        ? {
+          action: 'start-next-worker-iteration',
+          allowed: true,
+          reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
+        }
+        : {
+          action: 'stop-terminal-state',
+          allowed: false,
+          reason: finalization.terminalKind === 'closed'
+            ? 'Objective closure reached.'
+            : 'User explicitly stopped the lifecycle.',
+        };
+
+      const provisionalOutputInputPath = path.join(run.runDir, 'output-input', `iteration-${iteration}.json`);
+      const nextInput = nextAction.allowed
+        ? nextInputFromFinalization({ finalization, outputInputPath: provisionalOutputInputPath })
+        : null;
+      const outputInput = await writeOutputInput({
+        runDir: run.runDir,
+        iteration,
+        finalization,
+        evidencePath,
+        nextAction,
+        nextInput,
+        now: addMs(iterationNow, 750),
+      });
+      if (nextInput) nextInput.outputInputPath = path.relative(cwd, outputInput.outputInputPath);
+
+      iterations.push({
+        iteration,
+        runId: run.runId,
+        runDir: run.runDir,
+        classification: finalization.classification,
+        terminalKind: finalization.terminalKind,
+        nextAction,
+        outputInputPath: outputInput.outputInputPath,
+        reviewerVerdictPath: finalization.reviewerVerdictPath,
+        repairSkillResultPath: finalization.repairSkillResultPath,
+        closureReviewResultPath: finalization.closureReviewResultPath,
+        postReviewSelectionPath: finalization.postReviewSelectionPath,
+        proofValid: finalization.proofValid,
+      });
+
+      await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
+        event: 'lifecycle-iteration-complete',
+        at: addMs(iterationNow, 800),
+        resultId,
+        iteration,
+        runId: run.runId,
+        classification: finalization.classification,
+        terminalKind: finalization.terminalKind,
+        nextAction: nextAction.action,
+        outputInputPath: path.relative(lifecycleDir, outputInput.outputInputPath),
+        reviewerVerdictPath: path.relative(lifecycleDir, finalization.reviewerVerdictPath),
+        repairSkillResultPath: finalization.repairSkillResultPath ? path.relative(lifecycleDir, finalization.repairSkillResultPath) : null,
+        closureReviewResultPath: finalization.closureReviewResultPath ? path.relative(lifecycleDir, finalization.closureReviewResultPath) : null,
+        postReviewSelectionPath: finalization.postReviewSelectionPath ? path.relative(lifecycleDir, finalization.postReviewSelectionPath) : null,
+      });
+
+      if (mayStop) {
+        const postFlight = finalization.terminalKind === 'closed'
+          ? await runPostFlightSummaryUnit({
+            runDir: run.runDir,
+            runId: run.runId,
+            iteration,
+            finalization,
+            now: addMs(iterationNow, 850),
+            cwd,
+            allowedUnitTypes: normalizedAllowedUnitTypes,
+          })
+          : null;
+        finalState = {
+          kind: finalization.terminalKind,
+          reason: nextAction.reason,
+          runId: run.runId,
+          postFlightSummaryPath: postFlight?.summaryPath ? path.relative(cwd, postFlight.summaryPath) : null,
+          postFlightUnitResultPath: postFlight?.unit?.resultPath ? path.relative(cwd, postFlight.unit.resultPath) : null,
+        };
+        break;
+      }
+
+      lifecycleInput = {
+        ...nextInput,
+        outputInputPath: path.relative(cwd, outputInput.outputInputPath),
+      };
+    }
+  } catch (err) {
+    finalState = {
+      kind: 'process-defect',
+      reasonCode: 'lifecycle-controller-exception',
+      reason: err?.message || String(err),
+      runId: currentRun?.runId || null,
+      iteration: currentIteration || null,
     };
+    await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
+      event: 'lifecycle-process-defect',
+      at: new Date().toISOString(),
+      resultId,
+      runId: currentRun?.runId || null,
+      iteration: currentIteration || null,
+      reasonCode: finalState.reasonCode,
+      reason: finalState.reason,
+    });
   }
 
   const result = {

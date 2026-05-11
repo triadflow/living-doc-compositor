@@ -3,7 +3,11 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { runContractBoundInferenceUnit } from '../../scripts/living-doc-harness-inference-unit.mjs';
+import {
+  runContractBoundInferenceUnit,
+  validateInferenceUnitInputContract,
+  writeContractBoundInferenceUnitSnapshot,
+} from '../../scripts/living-doc-harness-inference-unit.mjs';
 
 async function waitFor(predicate, { timeoutMs = 5000, intervalMs = 50 } = {}) {
   const started = Date.now();
@@ -20,6 +24,57 @@ const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-inference-u
 try {
   const inspectedPath = path.join(tmp, 'required-evidence.json');
   await writeFile(inspectedPath, '{"ok":true}\n', 'utf8');
+
+  const badInput = validateInferenceUnitInputContract({
+    unitTypeId: 'closure-review',
+    inputContract: {
+      schema: 'wrong-schema/v1',
+      runId: 'run-1',
+    },
+  });
+  assert.equal(badInput.ok, false);
+  assert.ok(badInput.violations.some((violation) => violation.path === '$.schema'));
+  assert.ok(badInput.violations.some((violation) => violation.path === '$.iteration'));
+  assert.ok(badInput.violations.some((violation) => violation.path === '$.evidencePath'));
+
+  await assert.rejects(
+    runContractBoundInferenceUnit({
+      runDir: path.join(tmp, 'bad-input-run'),
+      unitId: 'closure-review',
+      role: 'closure-review',
+      prompt: 'This should fail before any unit artifact is invoked.',
+      inputContract: {
+        schema: 'wrong-schema/v1',
+        runId: 'run-1',
+      },
+      execute: false,
+      now: '2026-05-08T07:39:00.000Z',
+    }),
+    /invalid closure-review input contract/,
+  );
+
+  await assert.rejects(
+    writeContractBoundInferenceUnitSnapshot({
+      runDir: path.join(tmp, 'bad-snapshot-run'),
+      unitId: 'worker',
+      role: 'worker',
+      unitTypeId: 'worker',
+      prompt: 'This snapshot should fail before any artifact is written.',
+      inputContract: {
+        schema: 'living-doc-worker-inference-input/v1',
+        runId: 'run-1',
+      },
+      outputContract: {
+        schema: 'living-doc-worker-output/v1',
+        status: 'prepared',
+        runId: 'run-1',
+        livingDocPath: 'doc.json',
+        nextAuthority: 'reviewer-inference',
+      },
+      now: '2026-05-08T07:39:30.000Z',
+    }),
+    /invalid worker input contract snapshot/,
+  );
 
   const fakeCodex = path.join(tmp, 'fake-codex.mjs');
   await writeFile(fakeCodex, `#!/usr/bin/env node
@@ -77,6 +132,12 @@ process.stdin.on('end', () => {
     prompt: 'Inspect the required path and return JSON.',
     inputContract: {
       schema: 'living-doc-harness-closure-review-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      evidencePath: inspectedPath,
+      reviewerVerdictPath: inspectedPath,
+      proofGates: { acceptanceCriteriaSatisfied: 'pass' },
+      stopVerdict: { classification: 'closed' },
       requiredInspectionPaths: [inspectedPath],
     },
     outputContract: {

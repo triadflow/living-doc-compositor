@@ -293,6 +293,16 @@ for (const continuation of [
     selectedUnitTypeId: 'commit-intent',
     allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference'],
   }).reasonCode, 'selected-unit-type-not-allowed-for-run');
+  assert.equal(validateNextUnitSelection({
+    currentUnitTypeId: 'reviewer-inference',
+    selectedUnitTypeId: 'post-flight-summary',
+    allowedUnitTypes: requiredTypes,
+  }).reasonCode, 'selected-unit-type-not-allowed-by-current-contract');
+  assert.equal(validateNextUnitSelection({
+    currentUnitTypeId: 'closure-review',
+    selectedUnitTypeId: 'post-flight-summary',
+    allowedUnitTypes: requiredTypes,
+  }).ok, true);
 }
 
 console.log('living-doc harness contract spec: all assertions passed');

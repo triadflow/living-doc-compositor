@@ -65,7 +65,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('stopVerdict', 'nextIteration'),
       },
       outputVerdicts: ['closed', 'user-stopped', 'repairable', 'resumable', 'closure-candidate', 'true-block', 'pivot', 'deferred', 'budget-exhausted'],
-      allowedNextUnitTypes: ['closure-review', 'commit-intent', 'pr-review', 'living-doc-balance-scan', 'repair-skill', 'continuation-inference', 'worker', 'post-flight-summary'],
+      allowedNextUnitTypes: ['closure-review', 'commit-intent', 'pr-review', 'living-doc-balance-scan', 'repair-skill', 'continuation-inference', 'worker'],
       deterministicSideEffects: [],
       dashboard: {
         role: 'reviewer',

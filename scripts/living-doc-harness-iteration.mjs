@@ -14,6 +14,7 @@ import { writeReviewerInferenceVerdict } from './living-doc-harness-reviewer-inf
 import { runClosureReviewUnit } from './living-doc-harness-closure-review.mjs';
 import { routeStopVerdict } from './living-doc-harness-skill-router.mjs';
 import { runRepairSkillChain } from './living-doc-harness-repair-skill-runner.mjs';
+import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
 import { writeTerminalState } from './living-doc-harness-terminal-state.mjs';
 import { renderDashboard, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
 import { attachTraceSummaryToRun } from './living-doc-harness-trace-reader.mjs';
@@ -200,11 +201,52 @@ function terminalKindFromVerdict(verdict) {
   return 'unknown';
 }
 
-function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, reviewer, runDir, closureReview } = {}) {
+function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
+  const classification = String(verdict?.stopVerdict?.classification || '').toLowerCase();
   const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
   const reasonCode = String(verdict?.stopVerdict?.reasonCode || '').toLowerCase();
   const basisText = arr(verdict?.stopVerdict?.basis).join(' ').toLowerCase();
   const text = [instruction, reasonCode, basisText].join(' ');
+  const commitRequiredByEvidence = evidence?.sourceFilesChanged === true
+    || evidence?.sideEffectEvidence?.commit?.required === true;
+  const commitGateMentioned = reasonCode.includes('commit')
+    || /(controller[- ]owned|controller)[^\n.]{0,120}commit[- ]?(intent|gate)s?/.test(text)
+    || /(produce|producing|fresh|missing|pending|requires?|required)[^\n.]{0,100}commit[- ]?(intent|evidence|sha|gate)/.test(text)
+    || /commit[- ]?(intent|evidence|sha|gate)[^\n.]{0,120}(pending|missing|required|before closure|controller[- ]owned)/.test(text);
+  const prGateMentioned = reasonCode.includes('pr-review')
+    || /pr[- ]?review[^\n.]{0,120}(pending|missing|required|controller[- ]owned|before closure)/.test(text);
+
+  if (['closure-candidate', 'resumable'].includes(classification)) {
+    const requiredInputPaths = [
+      evidencePath ? path.relative(runDir, evidencePath) : null,
+      reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+      reviewer?.artifact?.inferenceUnitResultPath || null,
+      reviewer?.artifact?.inferenceUnitValidationPath || null,
+    ].filter(Boolean);
+    if (commitGateMentioned || commitRequiredByEvidence) {
+      return {
+        unitId: 'commit-intent',
+        role: 'commit-intent',
+        reasonCode: commitGateMentioned
+          ? 'closure-candidate-requires-commit-intent'
+          : 'closure-candidate-source-changes-require-commit-evidence',
+        requiredInputPaths,
+        expectedOutputSchema: 'living-doc-harness-commit-intent-result/v1',
+        status: 'selected',
+      };
+    }
+    if (prGateMentioned || evidence?.prReviewRequired === true) {
+      return {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'closure-candidate-requires-pr-review',
+        requiredInputPaths,
+        expectedOutputSchema: 'living-doc-harness-pr-review-result/v1',
+        status: 'selected',
+      };
+    }
+  }
+
   const explicitControllerClosure = [
     'controller-evidence-pending',
     'controller-owned-closure-review-required',
@@ -400,7 +442,7 @@ function buildPostReviewSelection({
   }
 
   const controllerOwnedNextUnit = verdict?.nextIteration?.allowed !== false
-    ? controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, reviewer, runDir, closureReview })
+    ? controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview })
     : null;
   if (controllerOwnedNextUnit) {
     selected.nextUnit = controllerOwnedNextUnit;
@@ -466,7 +508,7 @@ function buildPostReviewSelection({
 
 function sideEffectGateBlockedVerdict(verdict, selection) {
   const unitId = selection?.nextUnit?.unitId;
-  if (verdict?.stopVerdict?.classification !== 'closed' || !['commit-intent', 'pr-review'].includes(unitId)) return null;
+  if (!['closed', 'closure-candidate'].includes(verdict?.stopVerdict?.classification) || !['commit-intent', 'pr-review'].includes(unitId)) return null;
   const reasonCode = selection.nextUnit.reasonCode || `${unitId}-required-before-closure`;
   return {
     schema: 'living-doc-harness-stop-verdict/v1',
@@ -501,6 +543,95 @@ function sideEffectGateBlockedVerdict(verdict, selection) {
       basis: [`Missing ${unitId} contract evidence.`],
     },
   };
+}
+
+async function runSelectedSideEffectGateUnit({
+  runDir,
+  evidence,
+  selection,
+  iteration,
+  now,
+  allowedUnitTypes,
+}) {
+  const unitId = selection?.nextUnit?.unitId;
+  if (!['commit-intent', 'pr-review'].includes(unitId)) return null;
+  const requiredInspectionPaths = arr(selection.nextUnit.requiredInputPaths);
+  const changedFiles = arr(evidence?.workerEvidence?.filesChanged);
+  const common = {
+    runDir,
+    rootDir: 'inference-units',
+    iteration,
+    sequence: unitId === 'commit-intent' ? 4 : 5,
+    unitId,
+    role: selection.nextUnit.role || unitId,
+    unitTypeId: unitId,
+    allowedUnitTypes,
+    execute: false,
+    cwd: process.cwd(),
+    now,
+  };
+
+  if (unitId === 'commit-intent') {
+    const input = {
+      schema: 'living-doc-harness-commit-intent-input/v1',
+      runId: evidence?.runId,
+      iteration,
+      changedFiles,
+      commitIntent: evidence?.commitIntent || {
+        mode: 'required-before-closure',
+        reason: selection.nextUnit.reasonCode || 'source-changes-require-commit-evidence',
+      },
+      requiredInspectionPaths,
+    };
+    return runContractBoundInferenceUnit({
+      ...common,
+      prompt: `Evaluate the commit-intent gate before closure.\n\n${JSON.stringify(input, null, 2)}`,
+      inputContract: input,
+      fixtureResult: {
+        status: 'blocked',
+        basis: ['Commit-intent side-effect evidence is required before closure review may persist terminal closure.'],
+        outputContract: {
+          schema: 'living-doc-harness-commit-intent-result/v1',
+          approved: false,
+          status: 'blocked',
+          changedFiles,
+          message: 'Commit evidence is missing; continue through the commit-intent contract before closure.',
+          sideEffect: {
+            type: 'git-commit',
+            executed: false,
+            reasonCode: selection.nextUnit.reasonCode || 'source-changes-require-commit-evidence',
+          },
+        },
+      },
+    });
+  }
+
+  const input = {
+    schema: 'living-doc-harness-pr-review-input/v1',
+    runId: evidence?.runId,
+    iteration,
+    reviewTarget: evidence?.prReview?.reviewTarget || evidence?.prReview?.url || 'configured-pr-review-target',
+    requiredInspectionPaths,
+  };
+  return runContractBoundInferenceUnit({
+    ...common,
+    prompt: `Evaluate the PR-review gate before closure.\n\n${JSON.stringify(input, null, 2)}`,
+    inputContract: input,
+    fixtureResult: {
+      status: 'blocked',
+      basis: ['PR-review contract evidence is required before closure review may persist terminal closure.'],
+      outputContract: {
+        schema: 'living-doc-harness-pr-review-result/v1',
+        status: 'blocked',
+        approvedActions: [],
+        sideEffect: {
+          type: 'github-pr-review',
+          executed: false,
+          reasonCode: selection.nextUnit.reasonCode || 'pr-review-required-by-run-config',
+        },
+      },
+    },
+  });
 }
 
 function arr(value) {
@@ -738,6 +869,14 @@ export async function finalizeHarnessIteration({
       allowedUnitTypes,
     })
     : null;
+  const selectedSideEffectGateUnit = await runSelectedSideEffectGateUnit({
+    runDir,
+    evidence: finalEvidence,
+    selection: initialPostReviewSelection,
+    iteration,
+    now,
+    allowedUnitTypes,
+  });
 
   const routed = await routeStopVerdict({
     verdict,
@@ -792,6 +931,20 @@ export async function finalizeHarnessIteration({
     executeRepairSkills,
     allowedUnitTypes,
   });
+  if (
+    selectedSideEffectGateUnit
+    && postReviewSelectionArtifact.nextUnit?.unitId === selectedSideEffectGateUnit.result.unitId
+  ) {
+    postReviewSelectionArtifact.nextUnit = {
+      ...postReviewSelectionArtifact.nextUnit,
+      resultPath: path.relative(runDir, selectedSideEffectGateUnit.resultPath),
+      validationPath: path.relative(runDir, selectedSideEffectGateUnit.validationPath),
+      inputContractPath: path.relative(runDir, selectedSideEffectGateUnit.inputContractPath),
+      promptPath: path.relative(runDir, selectedSideEffectGateUnit.promptPath),
+      codexEventsPath: path.relative(runDir, selectedSideEffectGateUnit.codexEventsPath),
+      status: selectedSideEffectGateUnit.result.status,
+    };
+  }
   const postReviewSelectionPath = path.join(artifactsDir, `iteration-${iteration}-post-review-selection.json`);
   await writeJson(postReviewSelectionPath, postReviewSelectionArtifact);
   await appendJsonl(path.join(runDir, 'events.jsonl'), {
