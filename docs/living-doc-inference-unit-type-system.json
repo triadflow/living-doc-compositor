@@ -8,18 +8,18 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T06:54:11.000Z",
+  "updated": "2026-05-11T07:19:04.000Z",
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "selected-unit-continuation-identity-repaired",
+    "currentPhase": "closure-candidate-reviewer-normalization-repaired",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Commit the selected-unit continuation repair, then rerun the standalone lifecycle so controller-owned closure consumes fresh commit evidence.",
+    "nextObjectiveAction": "Commit the closure-candidate reviewer normalization repair, then rerun the standalone lifecycle so controller-owned closure consumes fresh commit evidence.",
     "repairState": {
-      "status": "bounded-reviewer-evidence-contract-implemented-rerun-pending",
-      "nearestHonestStage": "bounded-reviewer-evidence-contract-green-rerun-pending",
-      "updated": "2026-05-11T06:54:11.000Z",
+      "status": "closure-candidate-reviewer-normalization-implemented-focused-tests-green-rerun-pending",
+      "nearestHonestStage": "closure-candidate-reviewer-normalization-green-rerun-pending",
+      "updated": "2026-05-11T07:19:04.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -78,7 +78,11 @@
         "Issue #247 is fixed in source: lifecycle output-input now carries selectedUnitType and nextUnit, createHarnessRun initializes the next headless process from that selected type, run contracts record runConfig.initialUnitType and LIVING_DOC_HARNESS_ROLE as commit-intent/continuation/etc. instead of worker, and artifacts expose initialInferenceUnit with the typed input contract.",
         "tests/contract/living-doc-harness-lifecycle-controller.spec.mjs now proves a closure-candidate -> commit-intent handoff starts the next run as commit-intent with a living-doc-harness-commit-intent-input/v1 contract and no workerInferenceUnit alias.",
         "Dashboard graph construction now reads artifacts.initialInferenceUnit so non-worker continuation runs render as their actual unit type instead of being displayed as reused worker cards. node tests/contract/living-doc-harness-dashboard-server.spec.mjs, node tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs, and node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs passed on 2026-05-11T06:54Z.",
-        "npm run test:contract passed on 2026-05-11T06:55Z after the selected-unit continuation repair and living-doc render."
+        "npm run test:contract passed on 2026-05-11T06:55Z after the selected-unit continuation repair and living-doc render.",
+        "Issue #248 is fixed in source: reviewer inference now normalizes stopVerdict.closureAllowed from true to false for non-closed classifications instead of aborting the lifecycle, while preserving the reviewer basis and next-inference-unit instruction.",
+        "Closure-candidate and resumable routing now distinguishes commit-evidence preconditions from an already-satisfied commit-intent handoff that asks for closure-review, so the controller can select the registered closure-review unit instead of crashing or looping back through commit-intent.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs and node tests/contract/living-doc-harness-iteration.spec.mjs passed on 2026-05-11T07:19Z after the #248 repair.",
+        "npm run test:contract passed on 2026-05-11T07:19Z after the #248 repair and living-doc render."
       ]
     }
   },
@@ -258,7 +262,7 @@
           "id": "criterion-type-registry",
           "name": "Inference unit type registry exists",
           "status": "complete-source-test-proven-commit-and-rerun-pending",
-          "updated": "2026-05-11T06:54:11.000Z",
+          "updated": "2026-05-11T07:19:04.000Z",
           "facetIds": [
             "type-registry"
           ],
@@ -334,7 +338,7 @@
           "criterion": "Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.",
           "proofRequired": "Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.",
           "acceptanceTest": "A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.",
-          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T06:54Z; npm run test:contract passed on 2026-05-11T06:55Z.",
+          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z.",
           "ticketIds": [
             {
               "issueNumber": "222",
@@ -355,6 +359,11 @@
               "issueNumber": "247",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/247",
               "title": "Process defect: commit-intent continuation starts as worker unit"
+            },
+            {
+              "issueNumber": "248",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/248",
+              "title": "Process defect: closure-candidate reviewer verdict set closureAllowed true"
             }
           ]
         },
@@ -398,8 +407,8 @@
         {
           "id": "criterion-closure-gates",
           "name": "Closure uses type-system proof gates",
-          "status": "complete-source-test-proven-controller-closure-pending",
-          "updated": "2026-05-11T06:35:00.000Z",
+          "status": "complete-source-test-proven-commit-and-rerun-pending",
+          "updated": "2026-05-11T07:19:04.000Z",
           "facetIds": [
             "closure-contract"
           ],
@@ -407,12 +416,17 @@
           "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
           "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
           "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
-          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. This repair iteration re-proved the controller side-effect route with focused contract tests; terminal closure remains controller-owned and should occur only after consuming commit evidence.",
+          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun.",
           "ticketIds": [
             {
               "issueNumber": "235",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/235",
               "title": "Add commit-discipline inference unit and commit contract gate"
+            },
+            {
+              "issueNumber": "248",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/248",
+              "title": "Process defect: closure-candidate reviewer verdict set closureAllowed true"
             }
           ]
         },
@@ -606,6 +620,15 @@
           "url": "https://github.com/triadflow/living-doc-compositor/issues/247",
           "relationship": "defect-repair",
           "relevance": "Covers the live-run defect where post-review selection chose commit-intent, but the next standalone process was still created as worker with worker env, worker run config, and worker artifacts."
+        },
+        {
+          "id": "issue-248",
+          "name": "Process defect: closure-candidate reviewer verdict set closureAllowed true",
+          "status": "fixed-source-focused-contract-green-commit-and-rerun-pending",
+          "updated": "2026-05-11T07:19:04.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/248",
+          "relationship": "defect-repair",
+          "relevance": "Covers the live-run defect where reviewer inference emitted closure-candidate with closureAllowed true and the controller treated that as a process defect instead of normalizing the non-terminal flag and routing to closure-review."
         }
       ]
     },
@@ -759,10 +782,10 @@
         {
           "id": "rung-routing-validation",
           "name": "Contract-bound routing implemented",
-          "status": "verified-selected-unit-continuation-repaired",
-          "updated": "2026-05-11T06:54:11.000Z",
-          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, independent acceptance-criteria proof-gate derivation, and selected-unit continuation identity are implemented and covered by passing contract tests. Issue #247 regression coverage proves closure-candidate -> commit-intent starts the next run as commit-intent with a commit-intent input contract rather than worker. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T06:54Z; npm run test:contract passed on 2026-05-11T06:55Z.",
-          "nextStep": "Commit this repair and rerun the standalone lifecycle to prove the selected-unit route under live controller execution."
+          "status": "verified-closure-candidate-normalization-repaired",
+          "updated": "2026-05-11T07:19:04.000Z",
+          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, independent acceptance-criteria proof-gate derivation, selected-unit continuation identity, and closure-candidate reviewer normalization are implemented and covered by passing contract tests. Issue #247 regression coverage proves closure-candidate -> commit-intent starts the next run as commit-intent with a commit-intent input contract rather than worker. Issue #248 regression coverage proves non-closed reviewer verdicts cannot carry terminal closure permission and can still route to closure-review from the preserved instruction. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z.",
+          "nextStep": "Commit this repair and rerun the standalone lifecycle to prove the normalized closure-candidate route under live controller execution."
         },
         {
           "id": "rung-side-effects",

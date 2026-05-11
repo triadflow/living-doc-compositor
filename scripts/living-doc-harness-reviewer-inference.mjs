@@ -90,9 +90,27 @@ function normalizeVerdict(verdict) {
   };
 }
 
+function normalizeTerminalClosureFlag(verdict) {
+  const classification = verdict.stopVerdict.classification;
+  if (classification === 'closed' || classification === 'user-stopped' || verdict.stopVerdict.closureAllowed !== true) {
+    return verdict;
+  }
+  return {
+    ...verdict,
+    stopVerdict: {
+      ...verdict.stopVerdict,
+      closureAllowed: false,
+      basis: [
+        ...arr(verdict.stopVerdict.basis),
+        'Controller normalized closureAllowed from true to false because only a closed verdict may carry terminal closure permission; this verdict must continue through the selected next inference unit.',
+      ],
+    },
+  };
+}
+
 function validateHardGates(verdict, evidence) {
   const classification = verdict.stopVerdict.classification;
-  const closureAllowed = verdict.stopVerdict.closureAllowed === true || verdict.proofGates?.closureAllowed === true;
+  const closureAllowed = verdict.stopVerdict.closureAllowed === true;
   if (classification === 'closed') {
     if (!closureAllowed) {
       throw new Error('reviewer closed verdict must explicitly set closureAllowed true');
@@ -357,6 +375,7 @@ Return this JSON shape:
 }
 
 Hard rule: only use classification "closed" when closureAllowed is true and the evidence shows no unresolved objective terms, no unproven acceptance criteria, native trace refs are present, acceptance criteria pass, rendered doc proof exists, evidence bundle proof exists, and the objective is actually proven.
+Hard rule: for every classification except "closed", set stopVerdict.closureAllowed to false even when controller hard facts say closure is possible. Use nextIteration.instruction to request closure-review when the evidence is a closure candidate that still needs terminal closure review.
 Hard rule: for every classification except "closed" and an explicit "user-stopped" lifecycle control signal, nextIteration.allowed must be true and nextIteration.mode must be "continuation", "repair", or "resume". A blocker, runtime limitation, failed proof, issue creation, pivot pressure, deferral, or budget boundary is not a lifecycle stop.
 
 Frozen evidence:
@@ -424,7 +443,7 @@ export async function writeReviewerInferenceVerdict({
   }
 
   if (verdictSource) {
-    const providedVerdict = normalizeVerdict(verdictSource);
+    const providedVerdict = normalizeTerminalClosureFlag(normalizeVerdict(verdictSource));
     fixtureResult = {
       status: providedVerdict.stopVerdict.classification,
       basis: providedVerdict.stopVerdict.basis,
@@ -451,7 +470,7 @@ export async function writeReviewerInferenceVerdict({
   });
   if (executeReviewer) mode = unit.result.mode;
   verdictSource = unit.result.outputContract;
-  const verdict = normalizeVerdict(verdictSource);
+  const verdict = normalizeTerminalClosureFlag(normalizeVerdict(verdictSource));
   validateHardGates(verdict, evidence);
   if (executeReviewer) {
     await assertReviewerInspectedRawLogs({ eventsPath: unit.codexEventsPath, logInspection });

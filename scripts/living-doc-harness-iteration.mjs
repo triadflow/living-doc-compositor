@@ -209,12 +209,14 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   const text = [instruction, reasonCode, basisText].join(' ');
   const commitRequiredByEvidence = evidence?.sourceFilesChanged === true
     || evidence?.sideEffectEvidence?.commit?.required === true;
-  const commitGateMentioned = reasonCode.includes('commit')
-    || /(controller[- ]owned|controller)[^\n.]{0,120}commit[- ]?(intent|gate)s?/.test(text)
+  const commitPreconditionMentioned = /(controller[- ]owned|controller)[^\n.]{0,120}commit[- ]?(intent|gate)s?/.test(text)
     || /(produce|producing|fresh|missing|pending|requires?|required)[^\n.]{0,100}commit[- ]?(intent|evidence|sha|gate)/.test(text)
     || /commit[- ]?(intent|evidence|sha|gate)[^\n.]{0,120}(pending|missing|required|before closure|controller[- ]owned)/.test(text);
+  const commitGateMentioned = reasonCode.includes('commit') || commitPreconditionMentioned;
   const prGateMentioned = reasonCode.includes('pr-review')
     || /pr[- ]?review[^\n.]{0,120}(pending|missing|required|controller[- ]owned|before closure)/.test(text);
+  const closureReviewMentioned = reasonCode.includes('closure-review')
+    || /closure[- ]?review/.test(text);
 
   if (['closure-candidate', 'resumable'].includes(classification)) {
     const requiredInputPaths = [
@@ -223,6 +225,18 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
       reviewer?.artifact?.inferenceUnitResultPath || null,
       reviewer?.artifact?.inferenceUnitValidationPath || null,
     ].filter(Boolean);
+    if (closureReviewMentioned && !commitRequiredByEvidence && !commitPreconditionMentioned && evidence?.prReviewRequired !== true) {
+      return {
+        unitId: 'closure-review',
+        role: 'closure-review',
+        reasonCode: reasonCode || 'closure-candidate-requests-closure-review',
+        requiredInputPaths,
+        expectedOutputSchema: 'living-doc-harness-closure-review/v1',
+        resultPath: closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
+        validationPath: closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null,
+        status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
+      };
+    }
     if (commitGateMentioned || commitRequiredByEvidence) {
       return {
         unitId: 'commit-intent',

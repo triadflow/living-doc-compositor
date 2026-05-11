@@ -441,6 +441,68 @@ try {
   assert.equal(closureCandidateCommitGate.iterations[1].classification, 'closed');
   assert.equal(closureCandidateCommitGate.finalState.kind, 'closed');
 
+  const closureCandidateReviewSequencePath = path.join(tmp, 'closure-candidate-review-sequence.json');
+  await writeFile(closureCandidateReviewSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'closure-review-ready',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        finalMessageSummary: 'Commit intent evidence is present and the reviewer asks for closure review before terminal closure.',
+        traceMessage: 'Iteration one inspected raw worker evidence and determined this is a closure candidate that needs closure review.',
+        sideEffectEvidence: {
+          commit: {
+            sha: 'abc2480',
+            required: false,
+          },
+        },
+        reviewerVerdict: reviewerVerdict('closure-candidate', {
+          closureAllowed: true,
+          reasonCode: 'raw-log-shows-commit-intent',
+          mode: 'continuation',
+          instruction: 'Run the next closure-review unit against the candidate state before terminal closure.',
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        finalMessageSummary: 'Lifecycle controller proof is complete after closure review handoff was preserved.',
+        traceMessage: 'Iteration two completed the remaining closure proof.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const closureCandidateReview = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'closure-candidate-review-runs'),
+    evidenceDir: path.join(tmp, 'closure-candidate-review-evidence'),
+    dashboardPath: path.join(tmp, 'closure-candidate-review-dashboard.html'),
+    evidenceSequencePath: closureCandidateReviewSequencePath,
+    now: '2026-05-07T13:36:00.000Z',
+  });
+  assert.equal(closureCandidateReview.iterationCount, 2);
+  assert.equal(closureCandidateReview.iterations[0].classification, 'closure-candidate');
+  const closureCandidateReviewVerdict = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    closureCandidateReview.iterations[0].runDir,
+    'artifacts/iteration-1-stop-verdict.json',
+  ), 'utf8'));
+  assert.equal(closureCandidateReviewVerdict.stopVerdict.closureAllowed, false);
+  assert.match(closureCandidateReviewVerdict.stopVerdict.basis.join(' '), /normalized closureAllowed/);
+  const closureCandidateReviewOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), closureCandidateReview.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(closureCandidateReviewOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
+  assert.equal(closureCandidateReviewOutputInput.postReviewSelection.nextUnit.status, 'blocked');
+  assert.equal(closureCandidateReviewOutputInput.nextAction.action, 'continue-with-closure-review');
+  assert.equal(closureCandidateReviewOutputInput.nextAction.selectedUnitType, 'closure-review');
+  assert.equal(closureCandidateReview.iterations[1].classification, 'closed');
+  assert.equal(closureCandidateReview.finalState.kind, 'closed');
+
   const terminalSequencePath = path.join(tmp, 'terminal-sequence.json');
   await writeFile(terminalSequencePath, `${JSON.stringify({
     iterations: [
