@@ -201,14 +201,27 @@ function terminalKindFromVerdict(verdict) {
   return 'unknown';
 }
 
+function evidenceRequiresCommitIntent(evidence) {
+  const sideEffects = evidence?.sideEffectEvidence || {};
+  const commit = sideEffects.commit || {};
+  const hardFacts = evidence?.requiredHardFacts || {};
+  const sourceChanged = evidence?.sourceFilesChanged === true
+    || hardFacts.sourceFilesChanged === true
+    || commit.required === true;
+  if (!sourceChanged) return false;
+  return !(commit.sha
+    || commit.exemption?.approved === true
+    || commit.notRequired === true
+    || hardFacts.commitEvidencePresent === true);
+}
+
 function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
   const classification = String(verdict?.stopVerdict?.classification || '').toLowerCase();
   const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
   const reasonCode = String(verdict?.stopVerdict?.reasonCode || '').toLowerCase();
   const basisText = arr(verdict?.stopVerdict?.basis).join(' ').toLowerCase();
   const text = [instruction, reasonCode, basisText].join(' ');
-  const commitRequiredByEvidence = evidence?.sourceFilesChanged === true
-    || evidence?.sideEffectEvidence?.commit?.required === true;
+  const commitRequiredByEvidence = evidenceRequiresCommitIntent(evidence);
   const commitPreconditionMentioned = /(controller[- ]owned|controller)[^\n.]{0,120}commit[- ]?(intent|gate)s?/.test(text)
     || /(produce|producing|fresh|missing|pending|requires?|required)[^\n.]{0,100}commit[- ]?(intent|evidence|sha|gate)/.test(text)
     || /commit[- ]?(intent|evidence|sha|gate)[^\n.]{0,120}(pending|missing|required|before closure|controller[- ]owned)/.test(text);
@@ -217,14 +230,14 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     || /pr[- ]?review[^\n.]{0,120}(pending|missing|required|controller[- ]owned|before closure)/.test(text);
   const closureReviewMentioned = reasonCode.includes('closure-review')
     || /closure[- ]?review/.test(text);
+  const requiredInputPaths = [
+    evidencePath ? path.relative(runDir, evidencePath) : null,
+    reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+    reviewer?.artifact?.inferenceUnitResultPath || null,
+    reviewer?.artifact?.inferenceUnitValidationPath || null,
+  ].filter(Boolean);
 
   if (['closure-candidate', 'resumable'].includes(classification)) {
-    const requiredInputPaths = [
-      evidencePath ? path.relative(runDir, evidencePath) : null,
-      reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-      reviewer?.artifact?.inferenceUnitResultPath || null,
-      reviewer?.artifact?.inferenceUnitValidationPath || null,
-    ].filter(Boolean);
     if (closureReviewMentioned && !commitRequiredByEvidence && !commitPreconditionMentioned && evidence?.prReviewRequired !== true) {
       return {
         unitId: 'closure-review',
@@ -237,18 +250,22 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
         status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
       };
     }
-    if (commitGateMentioned || commitRequiredByEvidence) {
-      return {
-        unitId: 'commit-intent',
-        role: 'commit-intent',
-        reasonCode: commitGateMentioned
-          ? 'closure-candidate-requires-commit-intent'
-          : 'closure-candidate-source-changes-require-commit-evidence',
-        requiredInputPaths,
-        expectedOutputSchema: 'living-doc-harness-commit-intent-result/v1',
-        status: 'selected',
-      };
-    }
+  }
+
+  if (['closure-candidate', 'resumable', 'repairable'].includes(classification) && (commitGateMentioned || commitRequiredByEvidence)) {
+    return {
+      unitId: 'commit-intent',
+      role: 'commit-intent',
+      reasonCode: commitRequiredByEvidence
+        ? `${classification}-source-changes-require-commit-evidence`
+        : `${classification}-requires-commit-intent`,
+      requiredInputPaths,
+      expectedOutputSchema: 'living-doc-harness-commit-intent-result/v1',
+      status: 'selected',
+    };
+  }
+
+  if (['closure-candidate', 'resumable'].includes(classification)) {
     if (prGateMentioned || evidence?.prReviewRequired === true) {
       return {
         unitId: 'pr-review',
@@ -272,12 +289,6 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     || /side[- ]effect[^\n.]{0,80}(pending|missing|produce|producing)/.test(text)
     || /criteria[- ]?pending|acceptance[^\n.]{0,80}pending/.test(text);
   if (!explicitControllerClosure || preconditionPending) return null;
-  const requiredInputPaths = [
-    evidencePath ? path.relative(runDir, evidencePath) : null,
-    reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-    reviewer?.artifact?.inferenceUnitResultPath || null,
-    reviewer?.artifact?.inferenceUnitValidationPath || null,
-  ].filter(Boolean);
   return {
     unitId: 'closure-review',
     role: 'closure-review',
@@ -357,16 +368,11 @@ function buildPostReviewSelection({
 
   if (classification === 'closed') {
     const sideEffects = evidence?.sideEffectEvidence || {};
-    const sourceChanged = evidence?.sourceFilesChanged === true || sideEffects.commit?.required === true;
-    const commitSatisfied = !sourceChanged
-      || sideEffects.commit?.sha
-      || sideEffects.commit?.exemption?.approved === true
-      || sideEffects.commit?.notRequired === true;
     const prSatisfied = evidence?.prReviewRequired === true
       ? Boolean(sideEffects.prReview?.url || sideEffects.prReview?.notRequired === true)
       : true;
 
-    if (!commitSatisfied) {
+    if (evidenceRequiresCommitIntent(evidence)) {
       selected.nextUnit = {
         unitId: 'commit-intent',
         role: 'commit-intent',

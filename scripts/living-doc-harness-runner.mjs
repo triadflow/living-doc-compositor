@@ -5,7 +5,7 @@
 // Codex; pass --execute to spawn `codex exec` as a separate process.
 
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,6 +82,43 @@ function sequenceForUnit(unitTypeId) {
 
 function initialUnitRootDir(unitTypeId) {
   return unitTypeId === 'worker' ? 'inference-units' : 'initial-inference-units';
+}
+
+async function listFiles(rootDir, baseDir = rootDir) {
+  let entries = [];
+  try {
+    entries = await readdir(rootDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const files = [];
+  for (const entry of entries) {
+    const entryPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await listFiles(entryPath, baseDir));
+    } else if (entry.isFile()) {
+      files.push(path.relative(baseDir, entryPath));
+    }
+  }
+  return files;
+}
+
+async function workerControllerArtifactViolations(runDir) {
+  const controllerOwnedRoots = [
+    'artifacts',
+    'handovers',
+    'initial-inference-units',
+    'output-input',
+    'repair-skills',
+    'reviewer-inference',
+    'traces',
+  ];
+  const violations = [];
+  for (const root of controllerOwnedRoots) {
+    const files = await listFiles(path.join(runDir, root));
+    violations.push(...files.map((filePath) => path.join(root, filePath)));
+  }
+  return violations.sort();
 }
 
 function selectedInitialUnit(lifecycleInput) {
@@ -814,6 +851,18 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     runId,
     exitCode,
   });
+  if (initialUnit.unitId === 'worker') {
+    const controllerArtifactViolations = await workerControllerArtifactViolations(runDir);
+    if (controllerArtifactViolations.length) {
+      await appendJsonl(path.join(runDir, 'events.jsonl'), {
+        event: 'worker-controller-artifact-boundary-violation',
+        at: finishedAt,
+        runId,
+        paths: controllerArtifactViolations,
+      });
+      throw new Error(`worker inference wrote controller-owned harness artifact paths: ${controllerArtifactViolations.join(', ')}`);
+    }
+  }
 
   const discovered = await discoverCodexTraceFiles({
     codexHome: absoluteCodexHome,

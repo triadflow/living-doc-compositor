@@ -463,6 +463,70 @@ try {
   assert.equal(commitPendingBeforeClosureSelection.contractValidation.ok, true);
   assert.equal(commitPendingBeforeClosure.closureReviewResultPath, null);
 
+  const repairableCommitGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'repairable-commit-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:22.100Z',
+  });
+  const repairableCommitGateEvidencePath = path.join(tmp, 'repairable-commit-gate-evidence.json');
+  const repairableCommitGateTemplate = await writeIterationEvidenceTemplate({
+    runDir: repairableCommitGateRun.runDir,
+    outPath: repairableCommitGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'repairable-source-changes-without-commit-evidence',
+    acceptanceCriteriaSatisfied: 'pending',
+    closureAllowed: false,
+    filesChanged: ['docs/living-doc-inference-unit-type-system.json'],
+    finalMessageSummary: 'Worker changed source and the reviewer marked the objective repairable.',
+    now: '2026-05-07T10:21:22.200Z',
+  });
+  repairableCommitGateTemplate.evidence.sourceFilesChanged = true;
+  repairableCommitGateTemplate.evidence.requiredHardFacts = {
+    schema: 'living-doc-harness-required-hard-facts/v1',
+    sourceFilesChanged: true,
+    dirtyTrackedFiles: ['docs/living-doc-inference-unit-type-system.json'],
+    relevantUntrackedFiles: [],
+    commitEvidencePresent: false,
+  };
+  await writeFile(repairableCommitGateEvidencePath, `${JSON.stringify(repairableCommitGateTemplate.evidence, null, 2)}\n`, 'utf8');
+  const repairableCommitGate = await finalizeHarnessIteration({
+    runDir: repairableCommitGateRun.runDir,
+    evidencePath: repairableCommitGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:22.300Z',
+    evidenceDir: path.join(tmp, 'repairable-commit-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'repairable-commit-gate-dashboard.html'),
+    executeRepairSkills: true,
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'repairable',
+        reasonCode: 'repairable-source-changes-without-commit-evidence',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Repair is needed, but source changes also lack controller-owned commit evidence.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'repair',
+        instruction: 'Run repair after commit evidence exists.',
+        mustNotDo: [],
+      },
+    },
+  });
+  const repairableCommitGateSelection = JSON.parse(await readFile(repairableCommitGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(repairableCommitGateSelection.classification, 'repairable');
+  assert.equal(repairableCommitGateSelection.nextUnit.unitId, 'commit-intent');
+  assert.notEqual(repairableCommitGateSelection.nextUnit.unitId, 'living-doc-balance-scan');
+  assert.equal(repairableCommitGateSelection.nextUnit.reasonCode, 'repairable-source-changes-require-commit-evidence');
+  assert.match(repairableCommitGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/04-commit-intent\/result\.json$/);
+  assert.match(repairableCommitGateSelection.nextUnit.validationPath, /inference-units\/iteration-1\/04-commit-intent\/validation\.json$/);
+  assert.equal(repairableCommitGateSelection.contractValidation.ok, true);
+
   const closureCandidateCommitGateRun = await createHarnessRun({
     docPath,
     runsDir: path.join(tmp, 'closure-candidate-commit-gate-runs'),

@@ -125,6 +125,41 @@ exit 0
   assert.match(traceDiscovery.codexHomeHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(traceDiscovery).includes(fakeCodexHome), false);
 
+  const fakeBoundaryCodex = path.join(tmp, 'fake-boundary-codex');
+  const fakeBoundaryCodexHome = path.join(tmp, 'fake-boundary-codex-home');
+  await writeFile(fakeBoundaryCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+while IFS= read -r _line; do :; done
+RUN_DIR="$(dirname "$(dirname "$OUT")")"
+mkdir -p "$RUN_DIR/reviewer-inference"
+printf '{}\\n' > "$RUN_DIR/reviewer-inference/worker-authored-verdict.json"
+printf 'worker attempted controller artifact write\\n' > "$OUT"
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeBoundaryCodex, 0o755);
+  await mkdir(fakeBoundaryCodexHome, { recursive: true });
+  await assert.rejects(
+    () => createHarnessRun({
+      docPath: 'tests/fixtures/minimal-doc.json',
+      runsDir: path.join(tmp, 'boundary-runs'),
+      execute: true,
+      cwd: process.cwd(),
+      now: '2026-05-07T06:31:30.000Z',
+      codexBin: fakeBoundaryCodex,
+      codexHome: fakeBoundaryCodexHome,
+    }),
+    /worker inference wrote controller-owned harness artifact paths: reviewer-inference\/worker-authored-verdict\.json/,
+  );
+
   const gitFixture = path.join(tmp, 'commit-intent-git-fixture');
   await mkdir(gitFixture, { recursive: true });
   const commitDocPath = path.join(gitFixture, 'doc.json');

@@ -733,18 +733,18 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T08:54:01.000Z",
+  "updated": "2026-05-11T09:46:10.000Z",
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "process-defect-repairable-source-change-looped-to-worker",
+    "currentPhase": "source-repaired-standalone-rerun-required",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Fix issue #250 so repairable source-change states with missing commit evidence route to commit-intent instead of looping back to worker, then rerun the standalone lifecycle.",
+    "nextObjectiveAction": "Rerun the standalone lifecycle so live worker/reviewer/commit-intent/closure evidence proves the repaired routing under the harness instead of only focused contract tests.",
     "repairState": {
-      "status": "process-defect-open-source-change-route-loop",
-      "nearestHonestStage": "process-defect-ticketed-controller-routing-repair-required",
-      "updated": "2026-05-11T08:54:01.000Z",
+      "status": "source-repaired-rerun-required",
+      "nearestHonestStage": "focused-contract-green-live-lifecycle-proof-required",
+      "updated": "2026-05-11T09:46:10.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -821,7 +821,12 @@
         "node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T08:34Z and reproduces the commit-intent continuation path with a real git commit, proving the output contract records approved true and sideEffect.executed true with a commit SHA.",
         "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z and proves a commit-intent result artifact becomes controller-owned sideEffectEvidence rather than raw trace inference.",
         "Catalytic repair iteration ldh-20260511T083858Z inspected the living doc, reviewer verdict, handover, worker JSONL, synthetic native fixture, wrapper JSONL, and balance-scan result. The reviewer verdict is honest for its snapshot: sourceFilesChanged was true and commitEvidencePresent was false, so closure was illegal. Current HEAD is bffa6c4 (ldh: capture commit intent evidence), and the worker reran runner, lifecycle-controller, iteration, full contract, and focused routing E2E checks successfully; closure remains a controller-owned rerun, not a direct repair-skill closure.",
-        "Live rerun ldhl-20260511T083857Z exposed issue #250: after reviewer verdicts classified source changes without commit evidence as repairable, the lifecycle started worker iterations instead of routing to the registered commit-intent unit. Iteration 2 worker also crossed the control boundary by writing harness evidence artifacts directly. The supervisor stopped the lifecycle as a process defect and recorded lifecycle-result.json with issue #250."
+        "Live rerun ldhl-20260511T083857Z exposed issue #250: after reviewer verdicts classified source changes without commit evidence as repairable, the lifecycle started worker iterations instead of routing to the registered commit-intent unit. Iteration 2 worker also crossed the control boundary by writing harness evidence artifacts directly. The supervisor stopped the lifecycle as a process defect and recorded lifecycle-result.json with issue #250.",
+        "Issue #250 is repaired in source: scripts/living-doc-harness-iteration.mjs now treats repairable source-change states with missing commit evidence as a controller-owned commit-intent route before balance-scan, repair, or worker continuation, while still allowing closure-candidate/resumable states with satisfied commit evidence to select closure-review.",
+        "scripts/living-doc-harness-runner.mjs now rejects worker inference that writes controller-owned harness artifact files such as reviewer-inference, repair-skills, handovers, output-input, traces, or artifacts before the controller owns those paths.",
+        "node tests/contract/living-doc-harness-iteration.spec.mjs passed on 2026-05-11T09:46Z and proves repairable source-change/missing-commit-evidence selects commit-intent instead of balance-scan.",
+        "node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z and proves a worker-created reviewer-inference artifact is rejected as a controller-boundary violation.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z after the #250 routing repair."
       ]
     }
   },
@@ -1077,7 +1082,7 @@
           "criterion": "Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.",
           "proofRequired": "Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.",
           "acceptanceTest": "A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.",
-          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z.",
+          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. Issue #250 regression coverage proves repairable source-change states with missing commit evidence select commit-intent before balance-scan, repair, or worker continuation. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z.",
           "ticketIds": [
             {
               "issueNumber": "222",
@@ -1119,7 +1124,7 @@
           "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts, with commit need derived from controller-owned hard facts.",
           "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state. Before reviewer and side-effect routing, the controller writes an evidence snapshot with gitWorktree, livingDocState, artifactState, traceState, sideEffectState, controllerState, and requiredHardFacts.",
           "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts to reviewer and side-effect units, and PR mutations cannot occur without a PR-review output contract.",
-          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 remains open because repairable source-change states with missing commit evidence still route back to worker instead of invoking commit-intent.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 repairs the missing route for repairable source-change states: missing commit evidence now invokes commit-intent before balance-scan, repair, or worker continuation, and workers that write controller-owned harness artifacts are rejected.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -1391,11 +1396,11 @@
         {
           "id": "issue-250",
           "name": "Process defect: repairable source-change state loops to worker instead of commit-intent",
-          "status": "open-process-defect",
-          "updated": "2026-05-11T08:54:01.000Z",
+          "status": "fixed-source-focused-contract-green-rerun-pending",
+          "updated": "2026-05-11T09:46:10.000Z",
           "url": "https://github.com/triadflow/living-doc-compositor/issues/250",
           "relationship": "defect-repair",
-          "relevance": "Covers the live-run defect where reviewer repeatedly classified source changes without commit evidence as repairable, but the lifecycle routed to worker instead of commit-intent; iteration 2 worker also wrote controller-owned harness artifacts directly."
+          "relevance": "Covers the live-run defect where reviewer repeatedly classified source changes without commit evidence as repairable, but the lifecycle routed to worker instead of commit-intent; iteration 2 worker also wrote controller-owned harness artifacts directly. Source repair and focused contract coverage now exist; live standalone rerun proof is still required."
         }
       ]
     },
@@ -1549,18 +1554,18 @@
         {
           "id": "rung-routing-validation",
           "name": "Contract-bound routing implemented",
-          "status": "process-defect-open-repairable-source-change-route-loop",
-          "updated": "2026-05-11T08:54:01.000Z",
-          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, independent acceptance-criteria proof-gate derivation, selected-unit continuation identity, and closure-candidate reviewer normalization are implemented and covered by passing contract tests. Issue #247 regression coverage proves closure-candidate -> commit-intent starts the next run as commit-intent with a commit-intent input contract rather than worker. Issue #248 regression coverage proves non-closed reviewer verdicts cannot carry terminal closure permission and can still route to closure-review from the preserved instruction. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Live rerun ldhl-20260511T083857Z exposed issue #250: repairable source-change states with missing commit evidence still looped to worker instead of selecting commit-intent, so routing validation is not complete.",
-          "nextStep": "Fix #250 with a regression proving repairable source-change/missing-commit-evidence routes to commit-intent and workers cannot write controller-owned harness artifacts."
+          "status": "focused-contract-green-live-rerun-required",
+          "updated": "2026-05-11T09:46:10.000Z",
+          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, independent acceptance-criteria proof-gate derivation, selected-unit continuation identity, and closure-candidate reviewer normalization are implemented and covered by passing contract tests. Issue #247 regression coverage proves closure-candidate -> commit-intent starts the next run as commit-intent with a commit-intent input contract rather than worker. Issue #248 regression coverage proves non-closed reviewer verdicts cannot carry terminal closure permission and can still route to closure-review from the preserved instruction. Issue #250 regression coverage proves repairable source-change states with missing commit evidence route to commit-intent before balance-scan, repair, or worker continuation, and worker-created controller artifacts are rejected. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z.",
+          "nextStep": "Rerun the standalone lifecycle so live worker/reviewer/commit-intent/closure artifacts prove the repaired route in the actual harness."
         },
         {
           "id": "rung-side-effects",
           "name": "Commit and PR side-effect gates implemented",
-          "status": "verified-output-contract-repaired-route-defect-open",
-          "updated": "2026-05-11T08:54:01.000Z",
-          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 remains open because the route into commit-intent is still missing for repairable source-change states.",
-          "nextStep": "Repair #250 so missing commit evidence invokes commit-intent before any further worker continuation."
+          "status": "verified-source-repaired-rerun-required",
+          "updated": "2026-05-11T09:46:10.000Z",
+          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. Issue #250 repairs the repairable-source-change route so missing commit evidence invokes commit-intent before any further repair or worker continuation. node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z.",
+          "nextStep": "Prove the repaired side-effect route in a live standalone lifecycle rerun."
         },
         {
           "id": "rung-observability",
@@ -42864,7 +42869,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-11T08:55:57.464Z" title="2026-05-11T08:55:57.464Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-11T08:55:57.464Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-11T09:48:03.795Z" title="2026-05-11T09:48:03.795Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-11T09:48:03.795Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -43282,13 +43287,13 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Process defect: repairable source-change state loops to worker instead of commit-intent</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T08:54:01Z" title="2026-05-11T08:54:01Z" data-relative-to-snapshot="true">2026-05-11T08:54:01Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T09:46:10Z" title="2026-05-11T09:46:10Z" data-relative-to-snapshot="true">2026-05-11T09:46:10Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Open Process Defect</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Fixed Source Focused Contract Green Rerun Pending</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/250</p><p class="code-refs"><strong>Relationship</strong> defect-repair</p><p class="code-refs"><strong>Relevance</strong> Covers the live-run defect where reviewer repeatedly classified source changes without commit evidence as repairable, but the lifecycle routed to worker instead of commit-intent; iteration 2 worker also wrote controller-owned harness artifacts directly.</p>
+      <p class="code-refs"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/250</p><p class="code-refs"><strong>Relationship</strong> defect-repair</p><p class="code-refs"><strong>Relevance</strong> Covers the live-run defect where reviewer repeatedly classified source changes without commit evidence as repairable, but the lifecycle routed to worker instead of commit-intent; iteration 2 worker also wrote controller-owned harness artifacts directly. Source repair and focused contract coverage now exist; live standalone rerun proof is still required.</p>
 
     </article></div>
       </div>
@@ -43448,9 +43453,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Contract-bound routing implemented</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T08:54:01Z" title="2026-05-11T08:54:01Z" data-relative-to-snapshot="true">2026-05-11T08:54:01Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T09:46:10Z" title="2026-05-11T09:46:10Z" data-relative-to-snapshot="true">2026-05-11T09:46:10Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Process Defect Open Repairable Source Change Route Loop</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Focused Contract Green Live Rerun Required</span></div>
       </header>
 
 
@@ -43461,9 +43466,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Commit and PR side-effect gates implemented</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T08:54:01Z" title="2026-05-11T08:54:01Z" data-relative-to-snapshot="true">2026-05-11T08:54:01Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T09:46:10Z" title="2026-05-11T09:46:10Z" data-relative-to-snapshot="true">2026-05-11T09:46:10Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Verified Output Contract Repaired Route Defect Open</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Verified Source Repaired Rerun Required</span></div>
       </header>
 
 
@@ -43513,7 +43518,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-bffa6c4 (2026-05-11)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-f750a37 (2026-05-11)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -43825,7 +43830,7 @@ ${tmplLine}
     <article class="board-card" data-section-id="issue-spine">
       <div class="board-card-kicker">Issue Spine · Issue Orbit</div>
       <h3>Process defect: repairable source-change state loops to worker instead of commit-intent</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Open Process Defect</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Fixed Source Focused Contract Green Rerun Pending</span></div>
       <p class="board-card-note"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/250</p>
 
     </article>
@@ -44006,14 +44011,14 @@ ${tmplLine}
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Contract-bound routing implemented</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Process Defect Open Repairable Source Change Route Loop</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Focused Contract Green Live Rerun Required</span></div>
 
 
     </article>
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Commit and PR side-effect gates implemented</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Verified Output Contract Repaired Route Defect Open</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Verified Source Repaired Rerun Required</span></div>
 
 
     </article>
@@ -45491,8 +45496,8 @@ ${tmplLine}
       data-graph-home-x="514.4411631367152"
       data-graph-home-y="1510.2193407115356"
       data-graph-size="12"
-      data-graph-label="process defect: repairable source-change state loops to worker instead of commit-intent status: open process defect $.sections[2].data[16]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[16]&quot;,&quot;id&quot;:&quot;issue-250&quot;,&quot;title&quot;:&quot;Process defect: repairable source-change state loops to worker instead of commit-intent&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Process Defect&quot;]}"
+      data-graph-label="process defect: repairable source-change state loops to worker instead of commit-intent status: fixed source focused contract green rerun pending $.sections[2].data[16]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[16]&quot;,&quot;id&quot;:&quot;issue-250&quot;,&quot;title&quot;:&quot;Process defect: repairable source-change state loops to worker instead of commit-intent&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Focused Contract Green Rerun Pending&quot;]}"
       transform="translate(514.4411631367152, 1510.2193407115356)">
       <title>Process defect: repairable source-change state loops to worker instead of commit-intent · $.sections[2].data[16]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45500,7 +45505,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Process defect:</tspan><tspan x="0" dy="12">repairable</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Open Process Defe...</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Fixed Source Focu...</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-relationship-maps"
@@ -45871,8 +45876,8 @@ ${tmplLine}
       data-graph-home-x="200.55323618766113"
       data-graph-home-y="860.0169367594407"
       data-graph-size="12"
-      data-graph-label="contract-bound routing implemented status: process defect open repairable source change route loop $.sections[4].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;rung-routing-validation&quot;,&quot;title&quot;:&quot;Contract-bound routing implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Process Defect Open Repairable Source Change Route Loop&quot;]}"
+      data-graph-label="contract-bound routing implemented status: focused contract green live rerun required $.sections[4].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;rung-routing-validation&quot;,&quot;title&quot;:&quot;Contract-bound routing implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Focused Contract Green Live Rerun Required&quot;]}"
       transform="translate(200.55323618766113, 860.0169367594407)">
       <title>Contract-bound routing implemented · $.sections[4].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45880,7 +45885,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Contract-bound</tspan><tspan x="0" dy="12">routing implemented</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Process Defect Op...</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Focused Contract ...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-rung-side-effects"
@@ -45890,8 +45895,8 @@ ${tmplLine}
       data-graph-home-x="341.8132644081502"
       data-graph-home-y="759.138953656284"
       data-graph-size="12"
-      data-graph-label="commit and pr side-effect gates implemented status: verified output contract repaired route defect open $.sections[4].data[3]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[3]&quot;,&quot;id&quot;:&quot;rung-side-effects&quot;,&quot;title&quot;:&quot;Commit and PR side-effect gates implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Verified Output Contract Repaired Route Defect Open&quot;]}"
+      data-graph-label="commit and pr side-effect gates implemented status: verified source repaired rerun required $.sections[4].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[3]&quot;,&quot;id&quot;:&quot;rung-side-effects&quot;,&quot;title&quot;:&quot;Commit and PR side-effect gates implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Verified Source Repaired Rerun Required&quot;]}"
       transform="translate(341.8132644081502, 759.138953656284)">
       <title>Commit and PR side-effect gates implemented · $.sections[4].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45899,7 +45904,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Commit and PR</tspan><tspan x="0" dy="12">side-effect gates</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Verified Output C...</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Verified Source R...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-rung-observability"
