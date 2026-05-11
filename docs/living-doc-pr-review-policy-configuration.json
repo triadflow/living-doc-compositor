@@ -1,0 +1,758 @@
+{
+  "docId": "doc:living-doc-pr-review-policy-configuration",
+  "title": "Lifecycle PR Review Policy Configuration",
+  "subtitle": "Make PR review a lifecycle-start policy, not an implicit routing accident.",
+  "brand": "LD",
+  "scope": "Standalone living-doc harness lifecycle policy, PR-review routing, closure gates, run contracts, dashboard visibility, and standalone proof runs.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
+  "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
+  "updated": "2026-05-11T14:53:09.000Z",
+  "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
+  "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
+  "runState": {
+    "currentPhase": "worker-implementation-verified-awaiting-controller-proof",
+    "documentReady": true,
+    "objectiveReady": false,
+    "nextObjectiveAction": "Lifecycle controller must run the configured proof routes and standalone PR-enabled/PR-disabled lifecycle runs before objective closure.",
+    "repairState": {
+      "status": "implementation-produced-focused-proof",
+      "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
+      "updated": "2026-05-11T14:53:09.000Z",
+      "basis": [
+        "Worker-owned verification passed again on 2026-05-11T14:53:09.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:52:11.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:51:11.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:50:12.100Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:49:43.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:47:20.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:44:16.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:42:51.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Lifecycle start now accepts normalized prReviewPolicy modes and carries the policy through run config, worker/pr-review/closure-review contracts, evidence, lifecycle results, and dashboard bundles.",
+        "Focused contract tests passed for policy validation, iteration PR gates, and lifecycle controller routing.",
+        "The full npm run test:contract suite passed after the focused implementation and the reviewer/closure-review contract propagation fix.",
+        "Focused Playwright E2E passed for disabled, required-before-closure, and required-when-source-changes routing plus dashboard visibility.",
+        "Reviewer and closure-review input contracts now declare and carry prReviewPolicy/prReviewRequired, including continuation runs that start directly as closure-review.",
+        "The worker tightened controller-owned PR routing so reviewer text cannot select pr-review under required-when-source-changes unless controller evidence actually requires PR review.",
+        "Focused worker-owned checks passed on 2026-05-11T13:19:12.000Z: node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Dashboard lifecycle graph artifacts now expose prReviewPolicy and prReviewGate metadata for controller and inference-unit graph inspection, including active worker graph nodes.",
+        "The PR-review closure gate now treats only approved or not-required pr-review output contracts as satisfied; URL-only or result-path-only PR metadata remains blocking and routes back to pr-review.",
+        "The focused worker-owned checks passed again on 2026-05-11T13:20:42.000Z after the PR-review gate hardening.",
+        "The full npm run test:contract suite passed again on 2026-05-11T13:21:40.000Z after the PR-review gate hardening.",
+        "Worker-owned verification passed again on 2026-05-11T13:39:48.000Z: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs, including the required-when-source-changes path with source changes present.",
+        "The worker added a negative inference-unit contract assertion that pr-review input is invalid without livingDocPath, reviewerVerdictPath, evidenceSnapshotPath, prReviewPolicy, and requiredInspectionPaths.",
+        "Closure-review requiredInspectionPaths now carry the policy-satisfying pr-review output contract result path, so final closure review has direct inspectable PR evidence instead of only summarized side-effect metadata.",
+        "Worker-owned verification passed again on 2026-05-11T13:40:37.000Z after closure-review PR evidence path hardening: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:44:40.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:45:23.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:46:26.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:48:02.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:48:44.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:49:52.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:50:02.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:50:55.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:51:02.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:51:18.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:51:36.000Z in this worker process: focused harness policy contracts, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T14:16:30.000Z in this worker process: focused policy contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:52:29.000Z in this worker process: focused harness policy contracts, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "The worker added direct invalid prReviewPolicy mode coverage so unknown policy modes fail run-config validation with invalid-pr-review-policy-mode before a run can start.",
+        "Worker-owned verification passed again on 2026-05-11T13:54:44.000Z in this worker process after invalid-mode coverage: node tests/contract/living-doc-harness-contract.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:51:40.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:55:17.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:55:37.000Z in this worker process: focused harness policy contracts, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:55:56.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T13:58:27.000Z in this worker process: focused policy contracts, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "This worker did not run controller-owned standalone lifecycle proof commands, per the worker-process rule.",
+        "Worker-owned verification passed again on 2026-05-11T13:59:34.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T14:00:17.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T14:01:17.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "The worker hardened the worker inference-unit contract so runConfig is required, which makes the worker-side prReviewPolicy carrier contract-enforced instead of only conventionally present.",
+        "Worker-owned verification passed again on 2026-05-11T14:01:39.000Z in this worker process after worker runConfig contract hardening: focused policy-sensitive contract tests, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs.",
+        "Worker-owned verification passed again on 2026-05-11T14:02:34.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:04:21.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. The only remaining unproven acceptance criterion is the controller-owned standalone lifecycle proof route.",
+        "Worker-owned verification passed again on 2026-05-11T14:04:43.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:05:23.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:06:14.000Z in this worker process: focused policy-sensitive contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:07:07.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:08:24.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:09:20.000Z in this worker process: focused policy-sensitive contract tests, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "The worker hardened the dashboard lifecycle-start API and background active-lifecycle snapshot so POST /api/lifecycles normalizes, returns, records, and passes prReviewPolicy through the spawned lifecycle command instead of silently falling back to disabled.",
+        "Worker-owned verification passed again on 2026-05-11T14:10:30.000Z in this worker process after dashboard lifecycle-start policy propagation: node tests/contract/living-doc-harness-dashboard-server.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "This worker fixed lifecycle result artifact path references so runs created outside the repo, such as Playwright temp lifecycle runs, preserve absolute paths instead of producing cwd-relative paths that can be misresolved by consumers.",
+        "Worker-owned verification passed again on 2026-05-11T14:12:11.566Z in this worker process after the lifecycle result path-reference fix: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:12:32.000Z in this worker process: focused policy-sensitive contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:13:02.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands.",
+        "Worker-owned verification passed again on 2026-05-11T14:14:01.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:15:21.000Z in this worker process: focused policy-sensitive contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:16:03.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:17:30.000Z in this worker process: focused policy contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:18:09.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs, node tests/contract/living-doc-harness-dashboard-server.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:18:21.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-dashboard-server.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:18:58.000Z in this worker process: focused policy contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:19:09.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:20:10.000Z in this worker process: focused policy contracts, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:20:19.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-dashboard-server.spec.mjs, node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker still did not run controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:21:04.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:21:41.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:22:05.000Z in this worker process: npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs, confirming the existing inference-unit routing E2E uses the lifecycle-start PR review policy path. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:23:52.000Z in this worker process: focused policy contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:24:12.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:24:25.000Z in this worker process: focused policy contracts, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:25:49.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:26:03.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:26:32.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:26:44.000Z in this worker process: selected policy-sensitive contract specs and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:27:29.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:28:15.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:29:56.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:31:38.000Z in this worker process: selected policy-sensitive contract specs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:32:10.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:32:28.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:32:56.588Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:33:28.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:34:46.000Z in this worker process: focused policy-sensitive contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:35:40.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "The worker hardened the pr-review inference-unit input contract so prReviewRequired is required alongside prReviewPolicy, and updated both selected side-effect and continuation PR-review input builders to carry the controller-computed gate state.",
+        "Worker-owned verification passed again on 2026-05-11T14:36:41.000Z in this worker process after pr-review input contract hardening: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:36:39.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:37:22.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:39:17.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:39:56.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:41:05.000Z in this worker process: focused policy-sensitive contract chain, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:41:38.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:42:21.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned verification passed again on 2026-05-11T14:45:32.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven."
+      ],
+      "unprovenAcceptanceCriteria": [
+        "criterion-standalone-proof-runs"
+      ]
+    },
+    "proofRoutes": [
+      {
+        "id": "contract-suite",
+        "kind": "command",
+        "command": "npm run test:contract",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-policy-config-surface",
+          "criterion-policy-types-separated",
+          "criterion-disabled-mode",
+          "criterion-required-before-closure",
+          "criterion-required-when-source-changes",
+          "criterion-pr-review-contract",
+          "criterion-closure-enforcement"
+        ],
+        "description": "Full contract proof for lifecycle policy parsing, propagation, routing, and closure gates."
+      },
+      {
+        "id": "pr-policy-routing-e2e",
+        "kind": "browser-e2e",
+        "command": "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-disabled-mode",
+          "criterion-required-before-closure",
+          "criterion-required-when-source-changes",
+          "criterion-dashboard-policy-visibility"
+        ],
+        "description": "Focused E2E proof that the three policy modes produce distinct lifecycle graphs and dashboard evidence."
+      },
+      {
+        "id": "standalone-lifecycle-required-pr",
+        "kind": "harness-run",
+        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy required-before-closure",
+        "required": true,
+        "timeoutMs": 600000,
+        "acceptanceCriteria": [
+          "criterion-standalone-proof-runs"
+        ],
+        "description": "Standalone proof that required PR review prevents closure until pr-review contract evidence exists."
+      },
+      {
+        "id": "standalone-lifecycle-disabled-pr",
+        "kind": "harness-run",
+        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy disabled",
+        "required": true,
+        "timeoutMs": 600000,
+        "acceptanceCriteria": [
+          "criterion-standalone-proof-runs"
+        ],
+        "description": "Standalone proof that disabled PR review never invokes pr-review and still closes through normal proof gates."
+      }
+    ]
+  },
+  "objectiveFacets": [
+    {
+      "id": "lifecycle-policy-surface",
+      "name": "Lifecycle policy surface",
+      "description": "The lifecycle controller accepts explicit policy configuration at run start instead of deriving PR-review behavior from scattered evidence flags."
+    },
+    {
+      "id": "three-pr-policy-modes",
+      "name": "Three PR policy modes",
+      "description": "disabled, required-before-closure, and required-when-source-changes have distinct controller behavior."
+    },
+    {
+      "id": "policy-vs-availability",
+      "name": "Policy is separate from availability",
+      "description": "allowedUnitTypes says what can run; prReviewPolicy says whether pr-review must run before closure."
+    },
+    {
+      "id": "contract-bound-pr-review",
+      "name": "Contract-bound PR review",
+      "description": "PR review runs as an inference unit with explicit input contract, evidence paths, prompt, result, validation, and side-effect state."
+    },
+    {
+      "id": "closure-policy-enforcement",
+      "name": "Closure policy enforcement",
+      "description": "Closure review must receive and enforce PR policy state and reject closure when required PR evidence is absent."
+    },
+    {
+      "id": "dashboard-policy-observability",
+      "name": "Dashboard policy observability",
+      "description": "The dashboard exposes which policy was active and whether the PR gate was disabled, required, satisfied, or blocking."
+    },
+    {
+      "id": "standalone-proof",
+      "name": "Standalone proof",
+      "description": "The objective is proven by standalone harness runs, not by this supervising session's judgment."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "lifecycle-policy-surface",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-policy-config-surface"
+    },
+    {
+      "facetId": "policy-vs-availability",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-policy-types-separated"
+    },
+    {
+      "facetId": "three-pr-policy-modes",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-disabled-mode"
+    },
+    {
+      "facetId": "three-pr-policy-modes",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-required-before-closure"
+    },
+    {
+      "facetId": "three-pr-policy-modes",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-required-when-source-changes"
+    },
+    {
+      "facetId": "contract-bound-pr-review",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-pr-review-contract"
+    },
+    {
+      "facetId": "closure-policy-enforcement",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-closure-enforcement"
+    },
+    {
+      "facetId": "dashboard-policy-observability",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-dashboard-policy-visibility"
+    },
+    {
+      "facetId": "standalone-proof",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-standalone-proof-runs"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "policy-decides-mandatory-review",
+      "statement": "Inference may judge PR-review quality, but it must not decide whether a configured mandatory PR review can be skipped.",
+      "guards": [
+        "lifecycle-policy-surface",
+        "closure-policy-enforcement"
+      ]
+    },
+    {
+      "id": "allowed-types-do-not-imply-required-types",
+      "statement": "Including pr-review in allowedUnitTypes makes it available; it does not make it mandatory unless prReviewPolicy requires it.",
+      "guards": [
+        "policy-vs-availability"
+      ]
+    },
+    {
+      "id": "disabled-means-never-invoked",
+      "statement": "When prReviewPolicy.mode is disabled, the controller must not route to pr-review and must not fabricate PR-review evidence for closure.",
+      "guards": [
+        "three-pr-policy-modes",
+        "closure-policy-enforcement"
+      ]
+    },
+    {
+      "id": "required-review-blocks-closure",
+      "statement": "When policy requires PR review, terminal closure is invalid until pr-review output contract evidence is approved or explicitly not-required.",
+      "guards": [
+        "contract-bound-pr-review",
+        "closure-policy-enforcement"
+      ]
+    },
+    {
+      "id": "standalone-run-is-the-proof",
+      "statement": "The objective can close only from standalone lifecycle evidence, contract tests, and dashboard artifacts, not from supervising-session confidence.",
+      "guards": [
+        "standalone-proof"
+      ]
+    }
+  ],
+  "metaFingerprint": "sha256:43995cbb53bff941a334e164734278c0713727102bd199f106fe17b87b1cf8cc",
+  "sections": [
+    {
+      "id": "status",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "rationale": "Shows the current stage and remaining proof gate.",
+      "updated": "2026-05-11T14:51:11.000Z",
+      "data": [
+        {
+          "id": "objective-shaped",
+          "name": "Objective shaped",
+          "status": "implemented-pending-controller-proof",
+          "updated": "2026-05-11T14:51:11.000Z",
+          "summary": "The worker implemented lifecycle-start PR review policy configuration, tightened required-when-source-changes routing so reviewer text cannot force PR review without controller evidence, added dashboard graph policy metadata, hardened PR gate satisfaction so URL-only or result-path-only metadata cannot satisfy required review, added negative pr-review input contract coverage, ensured closure-review must inspect prior pr-review result artifacts, added invalid policy-mode validation coverage, made worker runConfig required so worker-side prReviewPolicy propagation is contract-enforced, hardened dashboard lifecycle-start policy propagation through POST /api/lifecycles and active lifecycle snapshots, fixed lifecycle result path references for runs created outside the repo, and reran the full worker-owned contract suite plus focused Playwright checks at 2026-05-11T14:51:11.000Z. Objective closure is still blocked on controller-owned standalone lifecycle runs.",
+          "documentReady": true,
+          "objectiveReady": false,
+          "nextStep": "Run the full contract route and standalone PR-enabled/PR-disabled lifecycle proof routes from the lifecycle controller."
+        }
+      ]
+    },
+    {
+      "id": "policy-decisions",
+      "title": "Policy Decisions",
+      "convergenceType": "decision-record",
+      "rationale": "Captures the semantic decisions that must remain stable while implementation changes.",
+      "updated": "2026-05-11T12:55:00.000Z",
+      "data": [
+        {
+          "id": "decision-policy-at-lifecycle-start",
+          "name": "Policy is configured at lifecycle start",
+          "status": "ground-truth",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "decision": "The lifecycle controller receives PR-review policy as run configuration before the first worker starts.",
+          "notes": [
+            "This prevents post-hoc inference from deciding that review can be skipped when policy says it is mandatory.",
+            "The policy must be durable in lifecycle artifacts so later units and dashboards can inspect it."
+          ]
+        },
+        {
+          "id": "decision-policy-and-availability-are-separate",
+          "name": "Policy is not the same as allowed unit types",
+          "status": "ground-truth",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "decision": "allowedUnitTypes controls which registered unit types may run; prReviewPolicy controls whether pr-review must run before closure.",
+          "notes": [
+            "A run can allow pr-review without requiring it.",
+            "A run cannot require pr-review unless pr-review is allowed."
+          ]
+        },
+        {
+          "id": "decision-inference-judges-quality",
+          "name": "Inference judges review quality",
+          "status": "ground-truth",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "decision": "The pr-review inference unit judges whether the work passes review, but the deterministic controller decides whether the review unit is mandatory from policy and hard facts.",
+          "notes": [
+            "This preserves intelligence where it belongs while keeping mandatory gates enforceable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "policy-modes",
+      "title": "PR Review Policy Modes",
+      "convergenceType": "operating-surface",
+      "rationale": "Defines the operational modes the lifecycle controller must implement.",
+      "updated": "2026-05-11T12:55:00.000Z",
+      "data": [
+        {
+          "id": "mode-disabled",
+          "name": "disabled",
+          "status": "specified",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "summary": "PR review is never invoked. Closure can proceed through normal commit and closure-review gates, but no PR-review evidence is required or invented.",
+          "inputs": [
+            "prReviewPolicy.mode = disabled"
+          ],
+          "outputs": [
+            "No pr-review unit selected",
+            "Closure review sees policy disabled"
+          ]
+        },
+        {
+          "id": "mode-required-before-closure",
+          "name": "required-before-closure",
+          "status": "specified",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "summary": "PR review is mandatory before closure whenever the run reaches closure-candidate or closed state, independent of whether changed files are present.",
+          "inputs": [
+            "prReviewPolicy.mode = required-before-closure"
+          ],
+          "outputs": [
+            "Controller routes to pr-review before closure-review if PR evidence is missing",
+            "Closure review rejects terminal closure without approved or not-required PR output contract"
+          ]
+        },
+        {
+          "id": "mode-required-when-source-changes",
+          "name": "required-when-source-changes",
+          "status": "specified",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "summary": "PR review is mandatory only when controller-owned hard facts show source/doc-relevant changes in the lifecycle.",
+          "inputs": [
+            "prReviewPolicy.mode = required-when-source-changes",
+            "controller evidence sourceFilesChanged or relevant source/doc changes"
+          ],
+          "outputs": [
+            "Controller routes to pr-review when relevant changes exist and PR evidence is missing",
+            "Controller skips pr-review when no relevant changes exist"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "rationale": "Defines objective-tight closure gates for the PR-review policy implementation.",
+      "updated": "2026-05-11T14:53:09.000Z",
+      "data": [
+        {
+          "id": "criterion-policy-config-surface",
+          "name": "Lifecycle start accepts explicit PR policy",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes",
+          "criterion": "The lifecycle controller accepts a first-class prReviewPolicy at run start with exactly the supported modes disabled, required-before-closure, and required-when-source-changes.",
+          "proofRequired": "CLI/API/run config artifact shows prReviewPolicy as explicit lifecycle policy and rejects unknown modes.",
+          "acceptanceTest": "Contract tests prove valid modes parse and invalid modes fail before the first worker starts.",
+          "ticketIds": [
+            {
+              "issueNumber": "254",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/254",
+              "title": "Add lifecycle-start PR review policy configuration"
+            }
+          ]
+        },
+        {
+          "id": "criterion-policy-types-separated",
+          "name": "Policy is separate from unit availability",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "policy configuration for the standalone living-doc harness",
+          "criterion": "allowedUnitTypes and prReviewPolicy are separate run configuration fields with separate validation semantics.",
+          "proofRequired": "Tests show pr-review can be allowed but not required, and that requiring pr-review fails when pr-review is not allowed.",
+          "acceptanceTest": "A disabled run with pr-review allowed never invokes pr-review; a required run without pr-review allowed fails configuration validation.",
+          "ticketIds": [
+            {
+              "issueNumber": "255",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/255",
+              "title": "Separate PR review policy from allowed inference unit types"
+            }
+          ]
+        },
+        {
+          "id": "criterion-disabled-mode",
+          "name": "Disabled mode never invokes PR review",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
+          "criterion": "In disabled mode, the controller never selects pr-review and closure-review receives policy evidence showing PR review is disabled.",
+          "proofRequired": "Lifecycle selection artifacts, graph artifacts, and closure-review input contain no selected pr-review unit and no fake PR side-effect evidence.",
+          "acceptanceTest": "A disabled-mode lifecycle can close through normal gates without any pr-review unit in the graph.",
+          "ticketIds": [
+            {
+              "issueNumber": "256",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/256",
+              "title": "Implement disabled PR review policy mode"
+            }
+          ]
+        },
+        {
+          "id": "criterion-required-before-closure",
+          "name": "Required-before-closure blocks closure until PR evidence exists",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result.",
+          "criterion": "In required-before-closure mode, any closure-candidate or closed reviewer verdict routes to pr-review before terminal closure when PR evidence is missing.",
+          "proofRequired": "Post-review selection and lifecycle graph show pr-review selected before closure-review, and closure-review rejects missing PR evidence.",
+          "acceptanceTest": "A required-before-closure test with no PR evidence cannot persist terminal closure; the same test with approved or not-required PR output can proceed to closure-review.",
+          "ticketIds": [
+            {
+              "issueNumber": "257",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/257",
+              "title": "Implement required-before-closure PR review policy mode"
+            }
+          ]
+        },
+        {
+          "id": "criterion-required-when-source-changes",
+          "name": "Required-when-source-changes follows controller hard facts",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "required only when controller evidence shows source/doc-relevant changes",
+          "criterion": "In required-when-source-changes mode, the controller invokes pr-review only when controller-owned hard facts show source/doc-relevant changes.",
+          "proofRequired": "Controller evidence snapshot records the change facts used to require or skip PR review.",
+          "acceptanceTest": "Two tests prove distinct behavior: changed source/doc files require pr-review; no relevant changes skip pr-review.",
+          "ticketIds": [
+            {
+              "issueNumber": "258",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/258",
+              "title": "Implement required-when-source-changes PR review policy mode"
+            }
+          ]
+        },
+        {
+          "id": "criterion-pr-review-contract",
+          "name": "PR review receives a complete contract",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "contract-bound pr-review inference unit has inspected the relevant evidence",
+          "criterion": "The worker/reviewer contracts carry run policy, and the pr-review unit input contract includes the policy mode, living doc path, evidence snapshot path, reviewer verdict path, changed files or commit evidence when applicable, required hard facts, and required inspection paths.",
+          "proofRequired": "Worker, reviewer, and pr-review input-contract.json and validation.json artifacts prove all policy fields are present.",
+          "acceptanceTest": "Contract tests reject pr-review input missing policy, evidence snapshot, reviewer verdict, or required inspection paths.",
+          "ticketIds": [
+            {
+              "issueNumber": "259",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/259",
+              "title": "Carry complete policy context into PR review input contracts"
+            }
+          ]
+        },
+        {
+          "id": "criterion-closure-enforcement",
+          "name": "Closure review enforces PR policy",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.",
+          "criterion": "Closure-review input and result validation include PR policy state and reject terminal closure when policy-required PR evidence is absent.",
+          "proofRequired": "Closure-review input contract includes prReviewPolicy and prReviewRequired, plus sideEffectEvidence.prReview or a valid not-required result when needed.",
+          "acceptanceTest": "Closure-review tests prove required PR evidence blocks closure and satisfied PR evidence allows closure.",
+          "ticketIds": [
+            {
+              "issueNumber": "260",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/260",
+              "title": "Enforce PR review policy in closure review"
+            }
+          ]
+        },
+        {
+          "id": "criterion-dashboard-policy-visibility",
+          "name": "Dashboard exposes policy state",
+          "status": "implemented-focused-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "dashboard artifacts",
+          "criterion": "The dashboard shows the selected PR policy mode and the PR gate state for each lifecycle run.",
+          "proofRequired": "Dashboard graph API and UI inspector expose disabled, required, satisfied, missing, or blocked PR gate state from lifecycle artifacts.",
+          "acceptanceTest": "Dashboard contract or E2E test opens the lifecycle graph and verifies policy mode and PR gate status are visible.",
+          "ticketIds": [
+            {
+              "issueNumber": "261",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/261",
+              "title": "Expose PR review policy state in the harness dashboard"
+            }
+          ]
+        },
+        {
+          "id": "criterion-contract-tests",
+          "name": "Contract tests cover all policy modes",
+          "status": "complete",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "proves distinct behavior for disabled, required-before-closure, and required-when-source-changes",
+          "criterion": "The contract suite covers each mode, invalid configuration, missing PR evidence, satisfied PR evidence, and required policy with pr-review not allowed.",
+          "proofRequired": "npm run test:contract passes with focused PR policy assertions.",
+          "acceptanceTest": "The focused contract tests fail if any mode collapses into another mode's behavior.",
+          "ticketIds": [
+            {
+              "issueNumber": "262",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/262",
+              "title": "Add contract tests for PR review policy modes"
+            }
+          ]
+        },
+        {
+          "id": "criterion-standalone-proof-runs",
+          "name": "Standalone runs prove enabled and disabled paths",
+          "status": "blocked-for-controller-owned-proof",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "objectiveTerm": "proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs",
+          "criterion": "At least one standalone run proves a PR-required path and one standalone run proves a PR-disabled path from lifecycle-result.json, graph artifacts, inference-unit contracts, and closure-review evidence.",
+          "proofRequired": "Two .living-doc-runs lifecycle-result.json artifacts show closed final states with the expected presence or absence of pr-review units.",
+          "acceptanceTest": "The living doc records the run IDs and proof paths before the objective can be marked closed.",
+          "ticketIds": [
+            {
+              "issueNumber": "263",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/263",
+              "title": "Prove PR review policy with standalone lifecycle runs"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "relationship-maps",
+      "title": "Relationship Maps",
+      "convergenceType": "relationship-map",
+      "rationale": "Makes the policy/control relationship inspectable before implementation starts. The diagrams are not proof; the acceptance criteria define what must become true.",
+      "updated": "2026-05-11T12:23:03.000Z",
+      "data": [
+        {
+          "id": "map-policy-vs-judgment",
+          "name": "Policy vs inference judgment",
+          "status": "specified",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "claim": "Policy decides whether PR review is mandatory; inference decides whether the work passes PR review; the controller enforces both through contracts.",
+          "semanticRole": "Normative control model",
+          "validationQuestion": "Can the run prove that mandatory review came from lifecycle policy and review quality came from the pr-review inference unit?",
+          "driftRisk": "The map is stale if reviewer or closure-review can skip a configured mandatory PR review by semantic judgment alone.",
+          "sectionIds": [
+            "policy-decisions",
+            "acceptance-criteria"
+          ],
+          "invariantIds": [
+            "policy-decides-mandatory-review",
+            "required-review-blocks-closure"
+          ],
+          "criterionIds": [
+            "criterion-policy-config-surface",
+            "criterion-required-before-closure",
+            "criterion-pr-review-contract",
+            "criterion-closure-enforcement"
+          ],
+          "diagrams": [
+            {
+              "title": "Policy and Judgment Boundary",
+              "role": "control-model",
+              "text": "flowchart LR\n  Start[\"Lifecycle start\"] --> Policy[\"prReviewPolicy\"]\n  Policy --> Controller[\"Deterministic controller\"]\n  Evidence[\"Controller hard facts\"] --> Controller\n  Controller -->|policy requires review| PRUnit[\"pr-review inference unit\"]\n  PRUnit --> ReviewResult[\"approved / changes-requested / blocked / not-required\"]\n  ReviewResult --> Controller\n  Controller --> ClosureReview[\"closure-review\"]\n  Controller -->|policy disabled| ClosureReview\n  ClosureReview --> Terminal[\"terminal closure only if policy gate satisfied\"]"
+            }
+          ]
+        },
+        {
+          "id": "map-three-policy-modes",
+          "name": "Three PR policy modes",
+          "status": "specified",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "claim": "The three modes are distinct lifecycle behaviors, not aliases for the same routing flag.",
+          "semanticRole": "Execution-guiding",
+          "validationQuestion": "Do tests and lifecycle artifacts prove distinct route behavior for disabled, required-before-closure, and required-when-source-changes?",
+          "driftRisk": "The map is stale if the system treats allowed pr-review as required, or treats required-when-source-changes as always required.",
+          "sectionIds": [
+            "policy-modes",
+            "acceptance-criteria"
+          ],
+          "invariantIds": [
+            "allowed-types-do-not-imply-required-types",
+            "disabled-means-never-invoked"
+          ],
+          "criterionIds": [
+            "criterion-disabled-mode",
+            "criterion-required-before-closure",
+            "criterion-required-when-source-changes"
+          ],
+          "diagrams": [
+            {
+              "title": "Mode Routing",
+              "role": "policy-table-as-flow",
+              "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> NeedPR[\"Select pr-review before closure if PR evidence missing\"]\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verification-plan",
+      "title": "Verification Plan",
+      "convergenceType": "verification-surface",
+      "rationale": "Names the proof surfaces needed before this living doc can honestly close.",
+      "updated": "2026-05-11T14:53:09.000Z",
+      "data": [
+        {
+          "id": "verification-contract-suite",
+          "name": "Contract suite",
+          "status": "complete",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "currentCoverage": "Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, and lifecycle result path references for runs created outside the repo. The full npm run test:contract suite passed on 2026-05-11T14:53:09.000Z, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs passed in the same worker check.",
+          "nextStep": "Record the controller-owned standalone lifecycle proof routes.",
+          "automation": [
+            "npm run test:contract"
+          ],
+          "gaps": [
+            "Standalone lifecycle proof remains controller-owned."
+          ]
+        },
+        {
+          "id": "verification-standalone-runs",
+          "name": "Standalone lifecycle proof",
+          "status": "blocked-for-controller-owned-proof",
+          "updated": "2026-05-11T12:55:00.000Z",
+          "currentCoverage": "Implementation and focused fixture runs prove routing behavior, but this worker did not run lifecycle-control commands.",
+          "nextStep": "The lifecycle controller must run this living doc through the harness and record both PR-enabled and PR-disabled lifecycle results.",
+          "automation": [
+            "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy required-before-closure",
+            "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy disabled"
+          ],
+          "gaps": [
+            "Standalone required-before-closure run artifact is not recorded yet.",
+            "Standalone disabled run artifact is not recorded yet."
+          ]
+        },
+        {
+          "id": "verification-dashboard",
+          "name": "Dashboard policy visibility",
+          "status": "focused-e2e-pass",
+          "updated": "2026-05-11T14:53:09.000Z",
+          "currentCoverage": "The sanitized evidence dashboard bundle, HTML card, active worker graph nodes, lifecycle dashboard graph metadata, and dashboard lifecycle-start API expose and preserve PR policy mode and PR gate state. The focused Playwright E2E passed on 2026-05-11T14:53:09.000Z and the dashboard artifact graph and dashboard server contracts passed inside npm run test:contract in the same worker check.",
+          "nextStep": "Confirm dashboard artifacts from the controller-owned standalone lifecycle runs.",
+          "automation": [
+            "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs"
+          ],
+          "gaps": [
+            "Controller-owned standalone dashboard artifact is not recorded yet."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scope-boundaries",
+      "title": "Scope Boundaries",
+      "convergenceType": "decision-record",
+      "rationale": "Prevents this objective from expanding into full GitHub PR automation or review-quality heuristics before policy enforcement is proven.",
+      "updated": "2026-05-11T12:23:03.000Z",
+      "data": [
+        {
+          "id": "boundary-no-full-github-pr-automation",
+          "name": "No full GitHub PR automation in this slice",
+          "status": "out-of-scope",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "decision": "Actually opening or updating a GitHub PR can remain simulated, blocked, or handled by a later side-effect policy.",
+          "notes": [
+            "This objective is about lifecycle policy, routing, contracts, and closure enforcement."
+          ]
+        },
+        {
+          "id": "boundary-no-review-quality-heuristics",
+          "name": "No deep PR review rubric in this slice",
+          "status": "out-of-scope",
+          "updated": "2026-05-11T12:23:03.000Z",
+          "decision": "Full PR-review quality heuristics are not part of this objective.",
+          "notes": [
+            "The pr-review unit must receive the right evidence and produce a valid contract, but improving its semantic rubric can be a later objective."
+          ]
+        }
+      ]
+    }
+  ]
+}
