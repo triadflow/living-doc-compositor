@@ -259,6 +259,48 @@ function commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd 
   ]);
 }
 
+function commitScopeFromPreviousEvidence(previous) {
+  const evidence = previous?.evidence || {};
+  const commitIntent = evidence.commitIntent || {};
+  const sideEffectCommit = evidence.sideEffectEvidence?.commit || {};
+  const hardFacts = evidence.requiredHardFacts || {};
+  const scope = evidence.commitScope || sideEffectCommit.commitScope || sideEffectCommit.scope || {};
+  const fallbackChangedFiles = arr(evidence.workerEvidence?.filesChanged).length
+    ? arr(evidence.workerEvidence.filesChanged)
+    : arr(hardFacts.dirtyTrackedFiles);
+  const allowedCommitFiles = unique([
+    ...arr(scope.allowedCommitFiles),
+    ...arr(commitIntent.allowedCommitFiles),
+    ...arr(sideEffectCommit.allowedCommitFiles),
+  ]);
+  const currentRunChangedFiles = unique([
+    ...arr(scope.currentRunChangedFiles),
+    ...arr(commitIntent.currentRunChangedFiles),
+    ...arr(sideEffectCommit.currentRunChangedFiles),
+    ...(allowedCommitFiles.length ? [] : fallbackChangedFiles),
+  ]);
+  const preExistingDirtyFiles = unique([
+    ...arr(scope.preExistingDirtyFiles),
+    ...arr(commitIntent.preExistingDirtyFiles),
+    ...arr(sideEffectCommit.preExistingDirtyFiles),
+    ...arr(hardFacts.preExistingDirtyFiles),
+  ]);
+  const forbiddenCommitFiles = unique([
+    ...arr(scope.forbiddenCommitFiles),
+    ...arr(commitIntent.forbiddenCommitFiles),
+    ...arr(sideEffectCommit.forbiddenCommitFiles),
+    ...arr(hardFacts.forbiddenCommitFiles),
+    ...preExistingDirtyFiles,
+  ]);
+  return {
+    schema: 'living-doc-harness-commit-scope/v1',
+    currentRunChangedFiles,
+    preExistingDirtyFiles,
+    allowedCommitFiles: allowedCommitFiles.length ? allowedCommitFiles : currentRunChangedFiles,
+    forbiddenCommitFiles,
+  };
+}
+
 async function buildInitialInputContract({
   doc,
   docPath,
@@ -276,23 +318,41 @@ async function buildInitialInputContract({
 
   const previous = await previousOutputInputContext({ cwd, lifecycleInput });
   const requiredInspectionPaths = commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd });
-  const evidenceChangedFiles = arr(previous.evidence?.workerEvidence?.filesChanged).length
-    ? arr(previous.evidence.workerEvidence.filesChanged)
-    : arr(previous.evidence?.requiredHardFacts?.dirtyTrackedFiles);
   const nextUnit = lifecycleInput?.nextUnit || {};
 
   if (initialUnit.unitId === 'commit-intent') {
     const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
+    const commitScope = commitScopeFromPreviousEvidence(previous);
+    const changedFiles = unique([...arr(commitScope.allowedCommitFiles), ...arr(nextUnit.changedFiles)]);
     return {
       schema: 'living-doc-harness-commit-intent-input/v1',
       runId,
       iteration,
-      changedFiles: unique([...evidenceChangedFiles, ...arr(nextUnit.changedFiles)]),
+      changedFiles,
+      currentRunChangedFiles: commitScope.currentRunChangedFiles,
+      preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
+      allowedCommitFiles: changedFiles,
+      forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
       evidenceSnapshotPath,
       requiredHardFacts: previous.evidence?.requiredHardFacts || null,
-      commitIntent: previous.evidence?.commitIntent || previous.evidence?.sideEffectEvidence?.commit || {
-        mode: 'required-before-closure',
-        reason: nextUnit.reasonCode || 'commit-intent-selected-by-reviewer-contract',
+      commitIntent: {
+        ...(previous.evidence?.commitIntent || previous.evidence?.sideEffectEvidence?.commit || {
+          mode: 'required-before-closure',
+          reason: nextUnit.reasonCode || 'commit-intent-selected-by-reviewer-contract',
+        }),
+        currentRunChangedFiles: commitScope.currentRunChangedFiles,
+        preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
+        allowedCommitFiles: changedFiles,
+        forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
+      },
+      commitScope: {
+        ...commitScope,
+        allowedCommitFiles: changedFiles,
+      },
+      commitPolicy: {
+        exactFilesOnly: true,
+        forbidPreExistingDirtyFiles: true,
+        reason: 'Commit-intent may only approve files scoped to the current objective run.',
       },
       lifecycleInput,
       requiredInspectionPaths,
@@ -454,26 +514,49 @@ async function gitCommitEvidence(cwd, sha) {
 }
 
 function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
-  const changedFiles = unique(arr(inputContract.changedFiles));
+  const changedFiles = unique(arr(inputContract.allowedCommitFiles).length
+    ? arr(inputContract.allowedCommitFiles)
+    : arr(inputContract.changedFiles));
+  const forbiddenCommitFiles = unique([
+    ...arr(inputContract.forbiddenCommitFiles),
+    ...arr(inputContract.commitIntent?.forbiddenCommitFiles),
+  ]);
   if (commitEvidence?.sha && commitBefore && commitAfter && commitBefore !== commitAfter) {
-    const committedSet = new Set(arr(commitEvidence.files));
+    const committedFiles = arr(commitEvidence.files);
+    const committedSet = new Set(committedFiles);
+    const allowedSet = new Set(changedFiles);
+    const forbiddenSet = new Set(forbiddenCommitFiles);
     const missingChangedFiles = changedFiles.filter((filePath) => !committedSet.has(filePath));
+    const extraCommittedFiles = committedFiles.filter((filePath) => !allowedSet.has(filePath));
+    const forbiddenCommittedFiles = committedFiles.filter((filePath) => forbiddenSet.has(filePath));
+    const approved = missingChangedFiles.length === 0
+      && extraCommittedFiles.length === 0
+      && forbiddenCommittedFiles.length === 0;
     return {
       schema: 'living-doc-harness-commit-intent-result/v1',
-      approved: missingChangedFiles.length === 0,
-      status: missingChangedFiles.length === 0 ? 'approved' : 'blocked',
+      approved,
+      status: approved ? 'approved' : 'blocked',
       changedFiles,
       message: commitEvidence.subject || inputContract.commitIntent?.message || 'Harness-managed commit-intent side effect.',
       sideEffect: {
         type: 'git-commit',
         executed: true,
-        reasonCode: missingChangedFiles.length === 0 ? 'git-commit-created' : 'git-commit-missing-required-files',
+        reasonCode: approved
+          ? 'git-commit-created'
+          : extraCommittedFiles.length || forbiddenCommittedFiles.length
+            ? 'git-commit-contained-unapproved-files'
+            : 'git-commit-missing-required-files',
         sha: commitEvidence.sha,
         beforeSha: commitBefore,
         committedAt: commitEvidence.committedAt,
-        committedFiles: arr(commitEvidence.files),
+        committedFiles,
         requiredChangedFiles: changedFiles,
         missingChangedFiles,
+        extraCommittedFiles,
+        forbiddenCommittedFiles,
+        forbiddenCommitFiles,
+        currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+        preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
       },
       exitCode,
       ...paths,
@@ -497,6 +580,9 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       beforeSha: commitBefore,
       afterSha: commitAfter,
       requiredChangedFiles: changedFiles,
+      forbiddenCommitFiles,
+      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
     },
     exitCode,
     ...paths,

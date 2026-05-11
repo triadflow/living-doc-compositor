@@ -8,18 +8,18 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T09:46:10.000Z",
+  "updated": "2026-05-11T10:38:32.000Z",
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "source-repaired-standalone-rerun-required",
+    "currentPhase": "source-repaired-commit-scope-clean-rerun-required",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Rerun the standalone lifecycle so live worker/reviewer/commit-intent/closure evidence proves the repaired routing under the harness instead of only focused contract tests.",
+    "nextObjectiveAction": "Resolve the local broad commit state, then rerun the standalone lifecycle so commit-intent proves exact scoped file staging before closure review.",
     "repairState": {
-      "status": "source-repaired-rerun-required",
-      "nearestHonestStage": "focused-contract-green-live-lifecycle-proof-required",
-      "updated": "2026-05-11T09:46:10.000Z",
+      "status": "source-repaired-clean-rerun-required",
+      "nearestHonestStage": "focused-contract-green-broad-local-commit-not-closure-proof",
+      "updated": "2026-05-11T10:38:32.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -101,7 +101,18 @@
         "scripts/living-doc-harness-runner.mjs now rejects worker inference that writes controller-owned harness artifact files such as reviewer-inference, repair-skills, handovers, output-input, traces, or artifacts before the controller owns those paths.",
         "node tests/contract/living-doc-harness-iteration.spec.mjs passed on 2026-05-11T09:46Z and proves repairable source-change/missing-commit-evidence selects commit-intent instead of balance-scan.",
         "node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z and proves a worker-created reviewer-inference artifact is rejected as a controller-boundary violation.",
-        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z after the #250 routing repair."
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z after the #250 routing repair.",
+        "Worker reran node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs on 2026-05-11T10:10Z; all passed.",
+        "Worker reran npm run test:contract on 2026-05-11T10:10Z; it passed.",
+        "Worker reran npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs on 2026-05-11T10:10Z; it passed.",
+        "No new source defect was found in this worker pass. Objective closure remains blocked only by the controller-owned standalone lifecycle rerun, commit/closure routing proof, and any post-flight summary route after terminal closure; this worker is not allowed to run those lifecycle-control commands.",
+        "Live lifecycle ldhl-20260511T100854Z correctly selected commit-intent after reviewer closure-candidate/missing-commit-evidence, but the commit-intent side effect created local commit 56709000301b57365259bd04a434905fce757596 with files outside the current objective run scope.",
+        "Issue #251 is fixed in source: controller evidence now computes commitScope from the pre-run and post-run worktree, carries currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles into requiredHardFacts, and commit-intent input contracts include an exact-files-only policy.",
+        "scripts/living-doc-harness-runner.mjs now blocks commit-intent output contracts when the created commit contains extra or forbidden files, even if all required current-run files are present.",
+        "node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T10:35Z and proves a broad commit containing unrelated.md is marked blocked with extraCommittedFiles and forbiddenCommittedFiles instead of approved.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T10:35Z after the commit-scope repair.",
+        "The objective remains not closed: the existing local commit 56709000301b57365259bd04a434905fce757596 is broad evidence, not valid closure proof, and a clean standalone lifecycle rerun is still required.",
+        "npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair."
       ]
     }
   },
@@ -218,7 +229,7 @@
     },
     {
       "id": "source-changes-require-commit-evidence",
-      "statement": "If controller-owned evidence snapshots show source files changed, closure must require commit evidence or an explicit no-commit exemption contract.",
+      "statement": "If controller-owned evidence snapshots show source files changed, closure must require commit evidence or an explicit no-commit exemption contract, and commit evidence is valid only when the commit contains exactly the approved current-run files and no pre-existing dirty files unless an explicit exemption contract allowed them.",
       "guards": [
         "deterministic-side-effects",
         "closure-contract",
@@ -256,17 +267,17 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows that this doc is a fresh implementation objective, not evidence that the type system already exists.",
-      "updated": "2026-05-11T08:44:01.000Z",
+      "updated": "2026-05-11T10:38:32.000Z",
       "data": [
         {
-          "id": "selected-unit-continuation-identity-repaired",
-          "name": "Selected unit continuation identity repaired",
-          "status": "source-test-proven-controller-rerun-pending",
-          "updated": "2026-05-11T08:44:01.000Z",
-          "summary": "The live-run defect from #247 is repaired in source and focused tests, and the later commit-intent output-contract repair is present in HEAD bffa6c4. A reviewer-selected commit-intent or continuation unit is carried through output-input into the next run contract as the actual initial unit type, with matching LIVING_DOC_HARNESS_ROLE, typed input contract, dashboard initialInferenceUnit artifact, and approved commit-intent result ingestion. Terminal closure remains controller-owned after rerunning the standalone lifecycle.",
+          "id": "commit-scope-repaired-clean-rerun-required",
+          "name": "Commit scope repaired; clean rerun required",
+          "status": "source-test-proven-clean-rerun-pending",
+          "updated": "2026-05-11T10:38:32.000Z",
+          "summary": "The lifecycle reached commit-intent in live mode, which proved the route selection path, but the resulting local commit was too broad: it included pre-existing dirty files outside the current objective delta. The source now computes commit scope from pre-run versus post-run worktree state, sends exact allowed/forbidden file sets into commit-intent, and blocks commits containing extra or forbidden files. This is source and focused-contract proven, but terminal objective closure is not claimed until the broad local commit state is resolved and a clean standalone lifecycle rerun proves exact scoped commit evidence before closure review. The full npm run test:contract suite passed on 2026-05-11T10:38Z after this repair.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Rerun the standalone lifecycle so reviewer and closure-review consume current controller-owned commit evidence."
+          "nextStep": "Resolve local git history/worktree, then rerun the standalone lifecycle with exact commit-scope evidence."
         }
       ]
     },
@@ -275,7 +286,7 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates. Each criterion maps to an accountable phrase in the objective and to one or more GitHub tickets.",
-      "updated": "2026-05-11T06:35:00.000Z",
+      "updated": "2026-05-11T10:10:52.000Z",
       "data": [
         {
           "id": "criterion-type-registry",
@@ -389,17 +400,17 @@
         {
           "id": "criterion-side-effect-contracts",
           "name": "Deterministic side effects require approved contracts",
-          "status": "complete-source-test-proven-commit-contract-evidence-rerun-pending",
-          "updated": "2026-05-11T08:34:23.000Z",
+          "status": "complete-source-test-proven-clean-commit-scope-rerun-pending",
+          "updated": "2026-05-11T10:38:32.000Z",
           "facetIds": [
             "deterministic-side-effects",
             "controller-hard-facts"
           ],
           "objectiveTerm": "deterministic side effects",
-          "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts, with commit need derived from controller-owned hard facts.",
-          "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state. Before reviewer and side-effect routing, the controller writes an evidence snapshot with gitWorktree, livingDocState, artifactState, traceState, sideEffectState, controllerState, and requiredHardFacts.",
-          "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts to reviewer and side-effect units, and PR mutations cannot occur without a PR-review output contract.",
-          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 repairs the missing route for repairable source-change states: missing commit evidence now invokes commit-intent before balance-scan, repair, or worker continuation, and workers that write controller-owned harness artifacts are rejected.",
+          "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts. Commit need is derived from controller-owned hard facts, and commit-intent may approve only the exact current-run file scope, excluding pre-existing dirty files unless an explicit exemption contract allows them.",
+          "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. The controller-owned evidence snapshot records pre-run worktree state, post-run worktree state, currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles. Commit evidence is valid only when committed files exactly match the approved scope and contain no forbidden files. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state.",
+          "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts and commitScope to reviewer and side-effect units, broad commits containing extra or pre-existing dirty files are blocked, and PR mutations cannot occur without a PR-review output contract.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 repairs the missing route for repairable source-change states: missing commit evidence now invokes commit-intent before balance-scan, repair, or worker continuation, and workers that write controller-owned harness artifacts are rejected. Issue #251 repairs the broad-commit defect: the lifecycle now derives commitScope from pre-run versus post-run worktree state, carries allowed/forbidden file sets into commit-intent, and commit-intent output contracts block commits that include extra or forbidden files. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T10:35Z after this repair. npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -430,14 +441,19 @@
               "issueNumber": "250",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/250",
               "title": "Process defect: repairable source-change state loops to worker instead of commit-intent"
+            },
+            {
+              "issueNumber": "251",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/251",
+              "title": "Process defect: commit-intent broad-stages pre-existing dirty files"
             }
           ]
         },
         {
           "id": "criterion-closure-gates",
           "name": "Closure uses type-system proof gates",
-          "status": "complete-source-test-proven-commit-and-rerun-pending",
-          "updated": "2026-05-11T07:19:04.000Z",
+          "status": "complete-source-test-proven-clean-commit-scope-rerun-pending",
+          "updated": "2026-05-11T10:35:38.000Z",
           "facetIds": [
             "closure-contract"
           ],
@@ -445,7 +461,7 @@
           "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
           "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
           "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
-          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun.",
+          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun. Issue #251 makes broad local commits invalid closure evidence: closure-review may consume commit evidence only when the commit-intent result approves the exact scoped file set and reports no extraCommittedFiles or forbiddenCommittedFiles.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -456,6 +472,11 @@
               "issueNumber": "248",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/248",
               "title": "Process defect: closure-candidate reviewer verdict set closureAllowed true"
+            },
+            {
+              "issueNumber": "251",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/251",
+              "title": "Process defect: commit-intent broad-stages pre-existing dirty files"
             }
           ]
         },
@@ -514,7 +535,7 @@
           "criterion": "Contract and E2E tests prove at least one run that closes directly, one run that routes through repair, one run that requires commit-intent before closure, and one run that routes into PR-review.",
           "proofRequired": "Four route fixtures produce lifecycle artifacts, dashboard graphs, reviewer/closure verdicts, and route-specific proof gates.",
           "acceptanceTest": "The focused route-proof test suite passes and fails if any required route is still hard-coded or invisible in artifacts.",
-          "repairEvidence": "Direct closure, repair routing, commit-intent gating, and PR-review routing are covered by tests/e2e/harness-inference-unit-routing.spec.mjs; the focused routing E2E passed on 2026-05-11T05:47Z and passed again in this worker pass.",
+          "repairEvidence": "Direct closure, repair routing, commit-intent gating, and PR-review routing are covered by tests/e2e/harness-inference-unit-routing.spec.mjs; the focused routing E2E passed on 2026-05-11T05:47Z and passed again in this worker pass on 2026-05-11T10:10Z.",
           "ticketIds": [
             {
               "issueNumber": "224",
@@ -530,7 +551,7 @@
       "title": "Issue Spine",
       "convergenceType": "issue-orbit",
       "rationale": "Keeps the GitHub implementation plan attached to this living doc without treating ticket creation as implementation progress.",
-      "updated": "2026-05-11T04:28:02.000Z",
+      "updated": "2026-05-11T10:35:38.000Z",
       "data": [
         {
           "id": "issue-224",
@@ -676,6 +697,15 @@
           "url": "https://github.com/triadflow/living-doc-compositor/issues/250",
           "relationship": "defect-repair",
           "relevance": "Covers the live-run defect where reviewer repeatedly classified source changes without commit evidence as repairable, but the lifecycle routed to worker instead of commit-intent; iteration 2 worker also wrote controller-owned harness artifacts directly. Source repair and focused contract coverage now exist; live standalone rerun proof is still required."
+        },
+        {
+          "id": "issue-251",
+          "name": "Process defect: commit-intent broad-stages pre-existing dirty files",
+          "status": "fixed-source-focused-contract-green-clean-rerun-pending",
+          "updated": "2026-05-11T10:35:38.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/251",
+          "relationship": "defect-repair",
+          "relevance": "Covers the live-run defect where commit-intent created a local commit that included pre-existing dirty files outside the current run scope. Commit-intent must now receive an exact commit scope, forbid pre-existing dirty files by default, and block broad commits instead of treating them as closure evidence."
         }
       ]
     },
@@ -837,10 +867,10 @@
         {
           "id": "rung-side-effects",
           "name": "Commit and PR side-effect gates implemented",
-          "status": "verified-source-repaired-rerun-required",
-          "updated": "2026-05-11T09:46:10.000Z",
-          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. Issue #250 repairs the repairable-source-change route so missing commit evidence invokes commit-intent before any further repair or worker continuation. node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z.",
-          "nextStep": "Prove the repaired side-effect route in a live standalone lifecycle rerun."
+          "status": "source-test-proven-clean-commit-scope-rerun-required",
+          "updated": "2026-05-11T10:38:32.000Z",
+          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. Issue #250 repairs the repairable-source-change route so missing commit evidence invokes commit-intent before any further repair or worker continuation. node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z. Issue #251 adds exact commit-scope proof: currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles are now controller-owned hard facts, and commit-intent result contracts block broad commits with extra or forbidden files. The focused runner and lifecycle-controller contracts passed on 2026-05-11T10:35Z. npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair.",
+          "nextStep": "Resolve the broad local commit state, then rerun the standalone lifecycle to prove exact scoped commit evidence in live mode."
         },
         {
           "id": "rung-observability",
@@ -861,10 +891,10 @@
         {
           "id": "rung-objective-closure",
           "name": "Objective closure",
-          "status": "source-test-proven-commit-and-rerun-pending",
-          "updated": "2026-05-11T06:54:11.000Z",
-          "evidence": "The contract-bound unit type system, dynamic routing, controller-owned hard-fact snapshots, bounded reviewer evidence, deterministic side-effect gates, selected-unit continuation identity, dashboard-visible handoffs, PR-review routing, post-flight routing, and required direct/repair/commit-intent/PR-review route proofs are implemented in source and covered by focused contract tests. Terminal closure is not claimed until this repair is committed and the standalone lifecycle rerun proves closure from fresh committed evidence.",
-          "nextStep": "Commit the selected-unit continuation repair, then let the lifecycle controller perform closure review and post-flight summary."
+          "status": "not-closed-broad-local-commit-invalid-clean-rerun-required",
+          "updated": "2026-05-11T10:35:38.000Z",
+          "evidence": "The contract-bound unit type system, dynamic routing, controller-owned hard-fact snapshots, bounded reviewer evidence, deterministic side-effect gates, selected-unit continuation identity, dashboard-visible handoffs, PR-review routing, post-flight routing, and required route proofs are implemented in source and covered by focused contract tests. The latest live lifecycle correctly reached commit-intent, but its local commit 56709000301b57365259bd04a434905fce757596 included files outside the current run scope. That commit is not valid closure proof. Terminal closure is blocked until git history/worktree are resolved and a clean standalone lifecycle rerun proves exact scoped commit evidence, closure review, and post-flight summary.",
+          "nextStep": "Do not push the broad local commit as closure proof; resolve it, then rerun the standalone lifecycle."
         }
       ]
     }

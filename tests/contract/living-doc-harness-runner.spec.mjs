@@ -272,6 +272,108 @@ exit 0
   assert.match(commitIntentResult.outputContract.sideEffect.sha, /^[a-f0-9]{40}$/);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.requiredChangedFiles, ['doc.json']);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.missingChangedFiles, []);
+
+  await writeFile(path.join(gitFixture, 'unrelated.md'), 'baseline unrelated\n', 'utf8');
+  spawnSync('git', ['add', 'unrelated.md'], { cwd: gitFixture, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'add unrelated fixture'], { cwd: gitFixture, stdio: 'ignore' });
+  const changedDocForScopedCommit = JSON.parse(await readFile(commitDocPath, 'utf8'));
+  changedDocForScopedCommit.updated = '2026-05-07T06:33:00.000Z';
+  await writeFile(commitDocPath, `${JSON.stringify(changedDocForScopedCommit, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(gitFixture, 'unrelated.md'), 'dirty unrelated should not be committed\n', 'utf8');
+  const scopedPreviousRunDir = path.join(tmp, 'scoped-previous-run');
+  await mkdir(path.join(scopedPreviousRunDir, 'artifacts'), { recursive: true });
+  await mkdir(path.join(scopedPreviousRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(scopedPreviousRunDir, 'artifacts', 'iteration-1-evidence.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-iteration-evidence/v1',
+    requiredHardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: true,
+      dirtyTrackedFiles: ['doc.json', 'unrelated.md'],
+      commitEvidencePresent: false,
+    },
+    commitScope: {
+      schema: 'living-doc-harness-commit-scope/v1',
+      currentRunChangedFiles: ['doc.json'],
+      preExistingDirtyFiles: ['unrelated.md'],
+      allowedCommitFiles: ['doc.json'],
+      forbiddenCommitFiles: ['unrelated.md'],
+    },
+    commitIntent: {
+      mode: 'required-before-closure',
+      reason: 'scope commit to current objective delta',
+      allowedCommitFiles: ['doc.json'],
+      forbiddenCommitFiles: ['unrelated.md'],
+    },
+    workerEvidence: { filesChanged: ['doc.json', 'unrelated.md'] },
+  }, null, 2)}\n`, 'utf8');
+  const scopedOutputInputPath = path.join(scopedPreviousRunDir, 'output-input', 'iteration-1.json');
+  await writeFile(scopedOutputInputPath, `${JSON.stringify({
+    schema: 'living-doc-harness-output-input/v1',
+    previousOutput: {
+      evidencePath: 'artifacts/iteration-1-evidence.json',
+      classification: 'closure-candidate',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const fakeBroadCommitCodex = path.join(tmp, 'fake-broad-commit-codex');
+  const fakeBroadCommitCodexHome = path.join(tmp, 'fake-broad-commit-codex-home');
+  await writeFile(fakeBroadCommitCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+git add doc.json unrelated.md
+git -c user.name=CommitIntent -c user.email=commit-intent@example.com commit -m "broad commit should be blocked"
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-broad-commit-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"broad-commit-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"broad commit side effect completed"}]}}
+EOF
+printf 'broad commit side effect completed\\n' > "$OUT"
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeBroadCommitCodex, 0o755);
+  await mkdir(fakeBroadCommitCodexHome, { recursive: true });
+  const broadCommitRun = await createHarnessRun({
+    docPath: 'doc.json',
+    runsDir: path.join(tmp, 'broad-commit-runs'),
+    execute: true,
+    cwd: gitFixture,
+    now: '2026-05-07T06:33:00.000Z',
+    codexBin: fakeBroadCommitCodex,
+    codexHome: fakeBroadCommitCodexHome,
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'scoped-previous-run',
+      previousIteration: 1,
+      instruction: 'Run scoped commit-intent.',
+      outputInputPath: scopedOutputInputPath,
+      selectedUnitType: 'commit-intent',
+      nextUnit: {
+        unitId: 'commit-intent',
+        role: 'commit-intent',
+      },
+    },
+  });
+  const broadCommitResult = JSON.parse(await readFile(path.join(
+    broadCommitRun.runDir,
+    broadCommitRun.contract.artifacts.commitIntentInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(broadCommitResult.outputContract.schema, 'living-doc-harness-commit-intent-result/v1');
+  assert.equal(broadCommitResult.outputContract.approved, false);
+  assert.equal(broadCommitResult.outputContract.status, 'blocked');
+  assert.equal(broadCommitResult.outputContract.sideEffect.executed, true);
+  assert.deepEqual(broadCommitResult.outputContract.sideEffect.requiredChangedFiles, ['doc.json']);
+  assert.deepEqual(broadCommitResult.outputContract.sideEffect.missingChangedFiles, []);
+  assert.deepEqual(broadCommitResult.outputContract.sideEffect.extraCommittedFiles, ['unrelated.md']);
+  assert.deepEqual(broadCommitResult.outputContract.sideEffect.forbiddenCommittedFiles, ['unrelated.md']);
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

@@ -195,12 +195,30 @@ async function controllerStartHashes({ cwd }) {
   return hashes;
 }
 
-function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence }) {
+function commitScopeFromWorktree({ before = null, after = null, explicitAllowedFiles = [] } = {}) {
+  const beforeChanged = unique(arr(before?.changedFiles));
+  const beforeSet = new Set(beforeChanged);
+  const afterChanged = unique(arr(after?.changedFiles));
+  const currentRunChangedFiles = afterChanged.filter((filePath) => !beforeSet.has(filePath));
+  return {
+    schema: 'living-doc-harness-commit-scope/v1',
+    currentRunChangedFiles,
+    preExistingDirtyFiles: beforeChanged,
+    allowedCommitFiles: unique([...arr(explicitAllowedFiles), ...currentRunChangedFiles]),
+    forbiddenCommitFiles: beforeChanged,
+  };
+}
+
+function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence, commitScope = null }) {
   return {
     schema: 'living-doc-harness-required-hard-facts/v1',
     sourceFilesChanged,
     dirtyTrackedFiles: arr(gitWorktree?.dirtyTrackedFiles),
     relevantUntrackedFiles: arr(gitWorktree?.relevantUntrackedFiles),
+    currentRunChangedFiles: arr(commitScope?.currentRunChangedFiles),
+    preExistingDirtyFiles: arr(commitScope?.preExistingDirtyFiles),
+    allowedCommitFiles: arr(commitScope?.allowedCommitFiles),
+    forbiddenCommitFiles: arr(commitScope?.forbiddenCommitFiles),
     acceptanceCriteriaSatisfied: sourceState?.criteriaSatisfied === true,
     objectiveReady: sourceState?.objectiveReady === true,
     documentReady: sourceState?.documentReady === true,
@@ -453,25 +471,29 @@ async function buildEvidenceFromPlan({
   cwd,
   gitWorktreeCwd = cwd,
   enforceControllerWorktreeEvidence = false,
+  preRunGitWorktree = null,
   controllerStartFileHashes = null,
   now,
   proofRouteBundle = null,
 }) {
   const sourceState = await deriveSourceStateEvidence({ docPath, cwd });
   const gitWorktree = await deriveGitWorktreeEvidence({ cwd, gitWorktreeCwd });
+  const commitScope = enforceControllerWorktreeEvidence
+    ? commitScopeFromWorktree({ before: preRunGitWorktree, after: gitWorktree })
+    : commitScopeFromWorktree({ before: null, after: gitWorktree, explicitAllowedFiles: arr(plan.allowedCommitFiles) });
   const controllerState = await deriveControllerSourceState({ cwd, startHashes: controllerStartFileHashes });
   const currentDocHash = await fileHash(path.resolve(cwd, docPath));
   const docChangedDuringRun = Boolean(run?.contract?.livingDoc?.sourceHash && currentDocHash && run.contract.livingDoc.sourceHash !== currentDocHash);
   const explicitFilesChanged = hasOwn(plan, 'filesChanged');
   const filesChanged = unique([
     ...(explicitFilesChanged ? arr(plan.filesChanged) : [docPath, sourceState?.renderedHtml].filter(Boolean)),
-    ...(enforceControllerWorktreeEvidence ? arr(gitWorktree.changedFiles) : []),
+    ...(enforceControllerWorktreeEvidence ? arr(commitScope.currentRunChangedFiles) : []),
   ]);
   const sourceFilesChangedByPlan = hasOwn(plan, 'sourceFilesChanged')
     ? plan.sourceFilesChanged === true
     : docChangedDuringRun || (explicitFilesChanged && filesChanged.length > 0);
   const sourceFilesChanged = sourceFilesChangedByPlan
-    || (enforceControllerWorktreeEvidence && gitWorktree.sourceFilesChanged === true);
+    || (enforceControllerWorktreeEvidence && commitScope.currentRunChangedFiles.length > 0);
   const sourceClosureAllowed = sourceState?.closureAllowed === true;
   const sourceUnprovenCriteria = sourceState ? sourceState.incompleteCriteria : [];
   const sourceCriteriaSatisfied = sourceState?.criteriaSatisfied === true;
@@ -502,7 +524,11 @@ async function buildEvidenceFromPlan({
           reasonCode: gitWorktree.sourceFilesChanged
             ? 'controller-detected-dirty-worktree'
             : 'controller-detected-source-change',
-          changedFiles: filesChanged,
+          changedFiles: commitScope.allowedCommitFiles.length ? commitScope.allowedCommitFiles : filesChanged,
+          currentRunChangedFiles: commitScope.currentRunChangedFiles,
+          preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
+          allowedCommitFiles: commitScope.allowedCommitFiles.length ? commitScope.allowedCommitFiles : filesChanged,
+          forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
         },
       }
       : undefined
@@ -514,6 +540,7 @@ async function buildEvidenceFromPlan({
     sourceFilesChanged,
     closureAllowed,
     sideEffectEvidence,
+    commitScope,
   });
   const evidenceSnapshot = {
     schema: 'living-doc-harness-controller-evidence-snapshot/v1',
@@ -531,6 +558,7 @@ async function buildEvidenceFromPlan({
         tracePaths: tracePaths.map((tracePath) => path.relative(cwd, tracePath)),
       },
       sideEffectState: sideEffectEvidence || null,
+      commitScope,
       controllerState,
     },
     hardFacts: requiredHardFacts,
@@ -582,6 +610,7 @@ async function buildEvidenceFromPlan({
     controllerEvidence,
     requiredHardFacts,
     sourceFilesChanged,
+    commitScope,
     ...(sideEffectEvidence ? { sideEffectEvidence } : {}),
     ...(hasOwn(plan, 'prReviewRequired') ? { prReviewRequired: plan.prReviewRequired === true } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
@@ -737,6 +766,9 @@ export async function runHarnessLifecycle({
       currentIteration = iteration;
       const iterationNow = addMs(now, iteration * 1000);
       const plan = evidenceSequence[iteration - 1] || {};
+      const preRunGitWorktree = enforceControllerWorktreeEvidence
+        ? await deriveGitWorktreeEvidence({ cwd, gitWorktreeCwd })
+        : null;
       const run = await createHarnessRun({
         docPath,
         runsDir: absoluteRunsDir,
@@ -771,6 +803,7 @@ export async function runHarnessLifecycle({
         cwd,
         gitWorktreeCwd,
         enforceControllerWorktreeEvidence,
+        preRunGitWorktree,
         controllerStartFileHashes,
         now: addMs(iterationNow, 250),
         proofRouteBundle,
