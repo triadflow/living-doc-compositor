@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Living Docs, Compositor, Harness - Operator Presentation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --paper: #ffffff;
+      --ink: #121826;
+      --text: #263449;
+      --muted: #68758a;
+      --line: #d7dee8;
+      --soft: #eef3f7;
+      --blue: #2563eb;
+      --cyan: #0e7490;
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b42318;
+      --violet: #6d28d9;
+      --shadow: 0 18px 50px rgba(18, 24, 38, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(244, 246, 248, 0.88), #f4f6f8 340px),
+        radial-gradient(circle at 14% 0%, rgba(37, 99, 235, 0.08), transparent 330px),
+        radial-gradient(circle at 90% 10%, rgba(14, 116, 144, 0.08), transparent 300px);
+      color: var(--text);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+      letter-spacing: 0;
+    }
+    button { font: inherit; }
+    code {
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #edf2f7;
+      border: 1px solid #d8e0ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      overflow-wrap: anywhere;
+    }
+    .chrome {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .chrome-inner {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 10px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      color: var(--ink);
+      font-weight: 750;
+      font-size: 14px;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chrome-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .progress {
+      color: var(--muted);
+      font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      min-width: 54px;
+      text-align: right;
+    }
+    .toggle {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .toggle button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 13px;
+      min-width: 48px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .toggle button[aria-pressed="true"] {
+      background: var(--ink);
+      color: #fff;
+    }
+    .deck {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 34px 22px 72px;
+    }
+    .hero, .slide {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(215, 222, 232, 0.92);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .hero {
+      min-height: min(760px, calc(100vh - 100px));
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.75fr);
+      gap: 34px;
+      align-items: center;
+      padding: 52px;
+      margin-bottom: 22px;
+    }
+    .eyebrow {
+      color: var(--muted);
+      font: 750 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin: 0 0 16px;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      color: var(--ink);
+      font-size: clamp(38px, 6vw, 76px);
+      line-height: 0.95;
+      max-width: 890px;
+      margin-bottom: 24px;
+      letter-spacing: 0;
+    }
+    .lede {
+      color: var(--text);
+      font-size: 19px;
+      line-height: 1.5;
+      max-width: 840px;
+      margin-bottom: 26px;
+    }
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .metric, .card, .note, .diagram, .source-list {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .metric {
+      padding: 14px;
+      min-height: 94px;
+    }
+    .metric strong {
+      display: block;
+      color: var(--ink);
+      font-size: 26px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .slide {
+      min-height: 76vh;
+      padding: 44px;
+      margin: 22px 0;
+      scroll-margin-top: 68px;
+    }
+    .slide-head {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+      margin-bottom: 24px;
+    }
+    .num {
+      color: var(--muted);
+      font: 750 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.12em;
+      padding-top: 8px;
+    }
+    .slide h2 {
+      color: var(--ink);
+      font-size: clamp(27px, 3.6vw, 46px);
+      line-height: 1.05;
+      max-width: 940px;
+      margin-bottom: 12px;
+      letter-spacing: 0;
+    }
+    .slide .summary {
+      font-size: 18px;
+      line-height: 1.5;
+      max-width: 880px;
+      margin-bottom: 24px;
+    }
+    .body-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr);
+      gap: 22px;
+      align-items: start;
+    }
+    .copy p { max-width: 840px; margin-bottom: 15px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .body-grid .cards { grid-template-columns: 1fr; margin-top: 0; }
+    .card {
+      padding: 15px 16px;
+      border-top: 4px solid var(--blue);
+      min-height: 126px;
+    }
+    .card:nth-child(2n) { border-top-color: var(--cyan); }
+    .card:nth-child(3n) { border-top-color: var(--green); }
+    .card:nth-child(4n) { border-top-color: var(--amber); }
+    .card:nth-child(5n) { border-top-color: var(--violet); }
+    .card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 14px;
+      margin-bottom: 7px;
+    }
+    .card span { color: var(--muted); font-size: 14px; }
+    .note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      color: var(--ink);
+      border-left: 5px solid var(--blue);
+      background: #f7fbff;
+    }
+    .note.warn { border-left-color: var(--amber); background: #fffaf0; }
+    .note.stop { border-left-color: var(--red); background: #fff5f5; }
+    .diagram {
+      padding: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+    }
+    .diagram-title {
+      color: var(--ink);
+      font-weight: 750;
+      margin-bottom: 12px;
+    }
+    .diagram svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .screenshot-panel {
+      background: #0f172a;
+      border: 1px solid #0f172a;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 18px 38px rgba(15, 23, 42, 0.18);
+    }
+    .shot-top {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      background: #111827;
+    }
+    .shot-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+    .shot-dot:nth-child(2) { background: #f59e0b; }
+    .shot-dot:nth-child(3) { background: #22c55e; }
+    .shot-url {
+      min-width: 0;
+      flex: 1;
+      margin-left: 8px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .shot-body {
+      background: #f8fafc;
+      min-height: 360px;
+      padding: 16px;
+      color: var(--text);
+    }
+    .shot-layout {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 12px;
+      min-height: 328px;
+    }
+    .shot-sidebar, .shot-inspector {
+      background: #ffffff;
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .shot-main {
+      background: #ffffff;
+      border: 1px solid #d7dee8;
+      border-radius: 8px;
+      padding: 14px;
+      min-width: 0;
+    }
+    .shot-kicker {
+      color: var(--muted);
+      font: 700 10px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .shot-title {
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 10px;
+    }
+    .shot-line {
+      height: 8px;
+      border-radius: 999px;
+      background: #dbe4ee;
+      margin: 8px 0;
+    }
+    .shot-line.short { width: 62%; }
+    .shot-line.mid { width: 78%; }
+    .shot-cardgrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 14px;
+    }
+    .shot-card {
+      min-height: 72px;
+      border: 1px solid #d7dee8;
+      border-top: 3px solid var(--blue);
+      border-radius: 7px;
+      background: #ffffff;
+      padding: 10px;
+    }
+    .shot-card:nth-child(2n) { border-top-color: var(--cyan); }
+    .shot-card:nth-child(3n) { border-top-color: var(--green); }
+    .shot-pill {
+      display: inline-flex;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eaf2ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 750;
+      margin: 0 4px 6px 0;
+    }
+    .shot-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+    .shot-button {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      padding: 6px 9px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .shot-graph {
+      min-height: 172px;
+      border: 1px dashed #a8b3c3;
+      border-radius: 8px;
+      position: relative;
+      background:
+        linear-gradient(90deg, rgba(203, 213, 225, 0.35) 1px, transparent 1px),
+        linear-gradient(rgba(203, 213, 225, 0.35) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .shot-node {
+      position: absolute;
+      min-width: 88px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #1d4ed8;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 750;
+      text-align: center;
+    }
+    .shot-node.reviewer { left: 42%; top: 42px; background: var(--cyan); }
+    .shot-node.repair { right: 8%; top: 92px; background: var(--amber); }
+    .shot-node.worker { left: 7%; top: 92px; }
+    .shot-log {
+      margin-top: 10px;
+      border-radius: 7px;
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 10px;
+      font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      min-height: 92px;
+    }
+    .shot-caption {
+      color: #cbd5e1;
+      background: #111827;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 10px 13px;
+      font-size: 12px;
+    }
+    .caption {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 12px 0 0;
+    }
+    .matrix {
+      display: grid;
+      grid-template-columns: 180px 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--paper);
+      margin-top: 18px;
+    }
+    .matrix div {
+      padding: 11px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .matrix div:nth-child(3n) { border-right: 0; }
+    .matrix div:nth-last-child(-n+3) { border-bottom: 0; }
+    .matrix .head {
+      background: var(--soft);
+      color: var(--muted);
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 11px;
+    }
+    .matrix .rowhead {
+      color: var(--ink);
+      font-weight: 750;
+    }
+    .sources {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .source-list {
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .source-list strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    .source-list ul { margin: 0; padding-left: 18px; }
+    .source-list li { margin: 5px 0; }
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 0 22px 52px;
+    }
+    footer strong { color: var(--ink); }
+    @media (max-width: 980px) {
+      .hero, .body-grid { grid-template-columns: 1fr; }
+      .hero { min-height: auto; padding: 36px; }
+      .cards, .sources { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 680px) {
+      .chrome-inner { padding: 9px 14px; }
+      .brand { font-size: 13px; }
+      .progress { display: none; }
+      .deck { padding: 18px 12px 48px; }
+      .hero, .slide { padding: 24px 18px; }
+      .hero-metrics, .cards, .sources { grid-template-columns: 1fr; }
+      .slide-head { grid-template-columns: 1fr; gap: 6px; }
+      .num { padding-top: 0; }
+      .shot-body { min-height: 0; padding: 12px; }
+      .shot-layout { grid-template-columns: 1fr; min-height: 0; }
+      .shot-sidebar { display: none; }
+      .shot-cardgrid { grid-template-columns: 1fr; }
+      .matrix { grid-template-columns: 1fr; }
+      .matrix div, .matrix div:nth-child(3n), .matrix div:nth-last-child(-n+3) {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
+    @media print {
+      body { background: #fff; }
+      .chrome { display: none; }
+      .deck { padding: 0; }
+      .hero, .slide {
+        box-shadow: none;
+        border: 0;
+        border-radius: 0;
+        min-height: auto;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="chrome">
+    <div class="chrome-inner">
+      <div class="brand" data-i18n="brand">Living Docs / Compositor / Harness</div>
+      <div class="chrome-actions">
+        <div class="progress" id="progress">00 / 25</div>
+        <div class="toggle" role="group" aria-label="Language">
+          <button type="button" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang="nl" aria-pressed="false">NL</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="deck">
+    <section class="hero" id="hero">
+      <div>
+        <p class="eyebrow" data-i18n="eyebrow"></p>
+        <h1 data-i18n="heroTitle"></h1>
+        <p class="lede" data-i18n="heroLede"></p>
+      </div>
+      <div class="hero-metrics" id="metrics"></div>
+    </section>
+    <div id="slides"></div>
+  </main>
+  <footer>
+    <p><strong data-i18n="footerTitle"></strong><br><span data-i18n="footerText"></span></p>
+  </footer>
+
+  <script>
+    (function () {
+      var totalSlides = 25;
+      var lang = "en";
+
+      var UI = {
+        en: {
+          brand: "Living Docs / Compositor / Harness",
+          eyebrow: "Operator presentation / 25 pages / standalone HTML",
+          heroTitle: "Living docs turn agent work into an inspectable lifecycle.",
+          heroLede: "A living doc is not a report after the work. It is the structured surface that carries the objective, evidence, governance, and proof while work is still moving. The compositor makes that surface operable; the standalone harness turns it into a loop of contract-bound inference units that continue until closure is proven or the user explicitly stops the run.",
+          footerTitle: "Self-contained static presentation",
+          footerText: "Inline CSS, inline JavaScript, inline SVG diagrams, bilingual English/Dutch copy, and no external runtime dependencies.",
+          metrics: [
+            ["25", "presentation pages"],
+            ["50", "registry convergence types in the current source"],
+            ["2", "allowed terminal signals"],
+            ["0", "ambient tool inheritance for local harness units"]
+          ]
+        },
+        nl: {
+          brand: "Living Docs / Compositor / Harness",
+          eyebrow: "Operatorpresentatie / 25 pagina's / zelfstandige HTML",
+          heroTitle: "Living docs maken agentwerk een inspecteerbare lifecycle.",
+          heroLede: "Een living doc is geen rapport na afloop. Het is het gestructureerde oppervlak dat doel, bewijs, governance en afsluitingsdruk draagt terwijl het werk nog beweegt. De compositor maakt dat oppervlak bestuurbaar; de standalone harness maakt er een loop van contract-gebonden inference-units van die doorgaan tot afsluiting bewezen is of de user de run expliciet stopt.",
+          footerTitle: "Zelfstandige statische presentatie",
+          footerText: "Inline CSS, inline JavaScript, inline SVG-diagrammen, tweetalige Engels/Nederlandse copy en geen externe runtime-afhankelijkheden.",
+          metrics: [
+            ["25", "presentatiepagina's"],
+            ["50", "registry convergence-types in de huidige bron"],
+            ["2", "toegestane eindsignalen"],
+            ["0", "ambient tool-erfenis voor local-harness-units"]
+          ]
+        }
+      };
+
+      var slides = [
+        {
+          n: 1,
+          diagram: "surface",
+          en: {
+            title: "A living doc is a working surface, not a report.",
+            summary: "The document exists before closure, not after it. It names the objective, keeps current state visible, and carries the evidence that later units and humans must inspect.",
+            body: [
+              "A report explains what happened. A living doc constrains what is allowed to happen next. It gives the work a durable surface after chat context decays.",
+              "The practical difference is accountability. If the objective says the dashboard must show the selected unit's log stream, then the document must keep that pressure visible until the proof exists."
+            ],
+            cards: [
+              ["Before work", "Objective, success condition, and acceptance criteria are written before the first run."],
+              ["During work", "Workers, reviewers, repair units, and humans update the same structured state."],
+              ["At closure", "The verdict points to preserved objective terms, proven criteria, and valid invariants."]
+            ],
+            note: "A living doc is where work is held, challenged, repaired, and closed."
+          },
+          nl: {
+            title: "Een living doc is een werkoppervlak, geen rapport.",
+            summary: "Het document bestaat vóór afsluiting, niet erna. Het benoemt het doel, houdt de actuele toestand zichtbaar en draagt het bewijs dat latere units en mensen moeten inspecteren.",
+            body: [
+              "Een rapport legt uit wat er gebeurde. Een living doc begrenst wat er daarna mag gebeuren. Het geeft werk een duurzaam oppervlak nadat chatcontext verdwijnt.",
+              "Het praktische verschil is toerekenbaarheid. Als het doel zegt dat het dashboard de logstream van de geselecteerde unit moet tonen, dan houdt het document die druk zichtbaar tot het bewijs bestaat."
+            ],
+            cards: [
+              ["Voor het werk", "Doel, succesconditie en acceptatiecriteria staan vast vóór de eerste run."],
+              ["Tijdens het werk", "Workers, reviewers, repair-units en mensen wijzigen dezelfde gestructureerde toestand."],
+              ["Bij afsluiting", "Het verdict wijst naar behouden doeltermen, bewezen criteria en geldige invarianten."]
+            ],
+            note: "Een living doc is waar werk wordt vastgehouden, betwist, gerepareerd en afgesloten."
+          }
+        },
+        {
+          n: 2,
+          en: {
+            title: "The original failure mode is lifecycle handoff.",
+            summary: "AI sessions stop. Context decays. Humans keep stitching runs together by restating the goal, reloading artifacts, and deciding whether the last output was proof or only motion.",
+            body: [
+              "The hidden labor is not prompting. It is lifecycle control: reconstruct the objective, inspect prior artifacts, choose the next move, and prevent progress-shaped work from becoming closure.",
+              "The harness exists because that work can be made explicit. A controller can route units. A reviewer can inspect logs. A repair chain can run. A stop rule can be enforced."
+            ],
+            cards: [
+              ["Session loss", "The agent's local context disappears when a run ends."],
+              ["Human glue", "The operator has to decide whether to continue, repair, escalate, or stop."],
+              ["Premature closure", "A green test or confident summary can still miss the objective."]
+            ]
+          },
+          nl: {
+            title: "De oorspronkelijke foutmodus is lifecycle-overdracht.",
+            summary: "AI-sessies stoppen. Context vervalt. Mensen blijven runs aan elkaar naaien door het doel te herhalen, artefacten te herladen en te bepalen of de vorige output bewijs was of alleen beweging.",
+            body: [
+              "De verborgen arbeid is niet prompten. Het is lifecycle-control: het doel reconstrueren, eerdere artefacten inspecteren, de volgende stap kiezen en voorkomen dat voortgangsvormig werk afsluiting wordt.",
+              "De harness bestaat omdat dat werk expliciet kan worden gemaakt. Een controller kan units routeren. Een reviewer kan logs inspecteren. Een repair-keten kan draaien. Een stopregel kan worden afgedwongen."
+            ],
+            cards: [
+              ["Sessieverlies", "De lokale context van de agent verdwijnt wanneer een run eindigt."],
+              ["Menselijke lijm", "De operator moet bepalen of het werk doorgaat, reparatie nodig heeft, escaleert of stopt."],
+              ["Te vroege afsluiting", "Een groene test of zekere samenvatting kan het doel nog steeds missen."]
+            ]
+          }
+        },
+        {
+          n: 3,
+          diagram: "structure",
+          en: {
+            title: "The document carries the objective, state, governance, relationships, and proof.",
+            summary: "A living doc is structured enough for a machine to inspect and concrete enough for a human to challenge.",
+            body: [
+              "The current format is not a prose blob. It has named fields for objective, success condition, run state, acceptance criteria, governance, relationship maps, evidence, and proof ladders.",
+              "That shape matters because each later unit can ask the same questions: What term is accountable? What criterion is unresolved? Which artifact is evidence? Which invariant would be broken by this transition?"
+            ],
+            cards: [
+              ["Objective", "What must be true at closure."],
+              ["Acceptance", "Criteria tied to objective terms and proof expectations."],
+              ["Governance", "Invariants, facets, coverage, and transition pressure."],
+              ["Evidence", "Commands, paths, logs, rendered docs, blocker records."],
+              ["Relationships", "Edges between criteria, evidence, sections, systems, and runs."],
+              ["Proof", "The ladder a reviewer must climb before closure."]
+            ]
+          },
+          nl: {
+            title: "Het document draagt doel, toestand, governance, relaties en bewijs.",
+            summary: "Een living doc is gestructureerd genoeg voor machine-inspectie en concreet genoeg voor menselijke tegenspraak.",
+            body: [
+              "Het huidige formaat is geen prozablok. Het heeft benoemde velden voor doel, succesconditie, runstatus, acceptatiecriteria, governance, relatiekaarten, bewijs en bewijsladders.",
+              "Die vorm doet ertoe omdat elke latere unit dezelfde vragen kan stellen: welke doelterm is toerekenbaar? Welk criterium is onopgelost? Welk artefact is bewijs? Welke invariant breekt door deze overgang?"
+            ],
+            cards: [
+              ["Doel", "Wat waar moet zijn bij afsluiting."],
+              ["Acceptatie", "Criteria gekoppeld aan doeltermen en bewijsverwachtingen."],
+              ["Governance", "Invarianten, facetten, dekking en overgangsdruk."],
+              ["Bewijs", "Commando's, paden, logs, gerenderde docs, blocker-records."],
+              ["Relaties", "Edges tussen criteria, bewijs, secties, systemen en runs."],
+              ["Proof", "De ladder die een reviewer moet beklimmen vóór afsluiting."]
+            ]
+          }
+        },
+        {
+          n: 4,
+          en: {
+            title: "Structure gives inference a shaped reasoning surface.",
+            summary: "Convergence types make the model reason inside a named shape instead of inventing categories from scratch each session.",
+            body: [
+              "A section typed as acceptance criteria is not just a visual layout. It tells the worker and reviewer what fields matter: objective term, criterion, proof required, acceptance test, proof status.",
+              "A relationship map asks different questions. A proof ladder asks different questions. A capability surface asks different questions. The registry gives each shape its own inspection path."
+            ],
+            cards: [
+              ["Untyped", "Every session rebuilds its own categories."],
+              ["Typed", "Fields and expected moves are explicit."],
+              ["Inspectable", "Review and repair can compare output against the type."]
+            ],
+            note: "Structure is not decoration. It is the operational contract between document, renderer, compositor, skills, and inference."
+          },
+          nl: {
+            title: "Structuur geeft inference een gevormd redeneeroppervlak.",
+            summary: "Convergence-types laten het model binnen een benoemde vorm redeneren in plaats van elke sessie categorieën opnieuw te verzinnen.",
+            body: [
+              "Een sectie van het type acceptance criteria is niet alleen een layout. Ze vertelt worker en reviewer welke velden ertoe doen: objective term, criterion, proof required, acceptance test, proof status.",
+              "Een relatiekaart stelt andere vragen. Een bewijsladder stelt andere vragen. Een capability surface stelt andere vragen. Het register geeft elke vorm zijn eigen inspectiepad."
+            ],
+            cards: [
+              ["Ongetypeerd", "Elke sessie bouwt eigen categorieën."],
+              ["Getypeerd", "Velden en verwachte moves zijn expliciet."],
+              ["Inspecteerbaar", "Review en reparatie kunnen output tegen het type vergelijken."]
+            ],
+            note: "Structuur is geen decoratie. Het is het operationele contract tussen document, renderer, compositor, skills en inference."
+          }
+        },
+        {
+          n: 5,
+          en: {
+            title: "Convergence types are semantic shapes.",
+            summary: "The current registry exposes 50 convergence types. They are the shared vocabulary for how entities become useful sections.",
+            body: [
+              "Some types capture acts: acceptance criteria, proof ladders, objective readiness, repair plans. If nobody maintains them, the recorded thinking stops.",
+              "Other types expose surfaces: capability surfaces, implementation surfaces, status snapshots, verification surfaces. The underlying world may keep changing even if the section is stale."
+            ],
+            matrix: [
+              ["Kind", "Act type", "Surface type"],
+              ["Question", "What reasoning or decision is being recorded?", "What external state is being represented?"],
+              ["Failure", "The thought stops growing.", "The section becomes stale against reality."],
+              ["Examples", "acceptance-criteria, proof-ladder, operation", "capability-surface, verification-surface, status-snapshot"]
+            ]
+          },
+          nl: {
+            title: "Convergence-types zijn semantische vormen.",
+            summary: "Het huidige register bevat 50 convergence-types. Zij zijn de gedeelde woordenschat voor hoe entiteiten bruikbare secties worden.",
+            body: [
+              "Sommige types leggen handelingen vast: acceptatiecriteria, bewijsladders, objective readiness, repair-plannen. Als niemand ze onderhoudt, stopt het vastgelegde denken.",
+              "Andere types tonen oppervlakken: capability surfaces, implementation surfaces, status snapshots, verification surfaces. De onderliggende wereld kan blijven veranderen terwijl de sectie veroudert."
+            ],
+            matrix: [
+              ["Soort", "Act-type", "Surface-type"],
+              ["Vraag", "Welke redenering of beslissing wordt vastgelegd?", "Welke externe toestand wordt weergegeven?"],
+              ["Foutmodus", "Het denken groeit niet verder.", "De sectie wordt stale ten opzichte van de realiteit."],
+              ["Voorbeelden", "acceptance-criteria, proof-ladder, operation", "capability-surface, verification-surface, status-snapshot"]
+            ]
+          }
+        },
+        {
+          n: 6,
+          diagram: "registry",
+          en: {
+            title: "The registry is shared language across renderer, compositor, MCP, skills, and inference.",
+            summary: "The registry is the source of truth for convergence types, entity types, status fields, layout projection, and prompt guidance.",
+            body: [
+              "Adding a convergence type is a JSON change, not a renderer rewrite. The renderer projects it, the compositor edits it, the MCP server can expose it, and skills can reason about it.",
+              "This keeps system knowledge out of one-off UI code. A type is introduced once and then becomes available to every surface that reads the registry."
+            ],
+            cards: [
+              ["Renderer", "Turns typed JSON into standalone HTML."],
+              ["Compositor", "Uses the same registry to create and edit sections."],
+              ["MCP + skills", "Expose structured operations and repair guidance."],
+              ["Inference", "Receives shaped sections and prompt guidance."]
+            ]
+          },
+          nl: {
+            title: "Het register is gedeelde taal tussen renderer, compositor, MCP, skills en inference.",
+            summary: "Het register is de bron van waarheid voor convergence-types, entity-types, statusvelden, layoutprojectie en prompt guidance.",
+            body: [
+              "Een convergence-type toevoegen is een JSON-wijziging, geen renderer-herschrijving. De renderer projecteert het, de compositor bewerkt het, de MCP-server kan het aanbieden en skills kunnen erover redeneren.",
+              "Zo blijft systeemkennis uit eenmalige UI-code. Een type wordt één keer geïntroduceerd en is daarna beschikbaar voor elk oppervlak dat het register leest."
+            ],
+            cards: [
+              ["Renderer", "Zet getypeerde JSON om naar zelfstandige HTML."],
+              ["Compositor", "Gebruikt hetzelfde register om secties te maken en te bewerken."],
+              ["MCP + skills", "Bieden gestructureerde operaties en repair guidance."],
+              ["Inference", "Krijgt gevormde secties en prompt guidance."]
+            ]
+          }
+        },
+        {
+          n: 7,
+          diagram: "compositor",
+          screenshot: "compositor",
+          en: {
+            title: "The integrated compositor is a live workbench.",
+            summary: "The rendered document is readable, but it also carries the complete compositor so the same artifact can become editable and inspectable.",
+            body: [
+              "The compositor is not a separate admin screen. It is the operating surface embedded into rendered living docs through the self-contained HTML file.",
+              "An operator can inspect sections, edit cards, check governance, load a local library, and re-render without leaving the document's frame of reference."
+            ],
+            cards: [
+              ["Inspect", "Sections, evidence, coverage, relationship maps, status."],
+              ["Operate", "Edit cards, update state, add sections, re-render."],
+              ["Carry forward", "The rendered artifact embeds the complete tool, not a reduced viewer."]
+            ]
+          },
+          nl: {
+            title: "De geïntegreerde compositor is een live werkbank.",
+            summary: "Het gerenderde document is leesbaar, maar draagt ook de volledige compositor zodat hetzelfde artefact bewerkbaar en inspecteerbaar wordt.",
+            body: [
+              "De compositor is geen apart admin-scherm. Het is het operationele oppervlak dat via de zelfstandige HTML in gerenderde living docs is ingebed.",
+              "Een operator kan secties inspecteren, kaarten bewerken, governance controleren, een lokale bibliotheek laden en opnieuw renderen zonder het referentiekader van het document te verlaten."
+            ],
+            cards: [
+              ["Inspecteren", "Secties, bewijs, dekking, relatiekaarten, status."],
+              ["Bedienen", "Kaarten bewerken, status aanpassen, secties toevoegen, opnieuw renderen."],
+              ["Meedragen", "Het gerenderde artefact bevat de volledige tool, geen beperkte viewer."]
+            ]
+          }
+        },
+        {
+          n: 8,
+          screenshot: "render",
+          en: {
+            title: "Static render becomes working surface.",
+            summary: "A standalone HTML file can be both a durable reading artifact and the entry point for the next operating loop.",
+            body: [
+              "The renderer produces a self-contained HTML page. That matters because the document can travel without server dependencies while retaining its structure, navigation, and embedded compositor.",
+              "Static does not mean dead. It means the artifact can be opened, inspected, and used as the next point of control."
+            ],
+            cards: [
+              ["Reader path", "Open, scan sections, inspect evidence."],
+              ["Operator path", "Open compositor, update structured state."],
+              ["Handoff path", "Send the same artifact and preserve the surface."]
+            ],
+            note: "The HTML is not the end of the process. It is a durable checkpoint in the process."
+          },
+          nl: {
+            title: "Statische render wordt werkoppervlak.",
+            summary: "Een zelfstandige HTML kan tegelijk duurzaam leesartefact zijn en het startpunt voor de volgende operationele loop.",
+            body: [
+              "De renderer produceert een zelfstandige HTML-pagina. Dat doet ertoe omdat het document kan reizen zonder server-afhankelijkheden en toch structuur, navigatie en embedded compositor behoudt.",
+              "Statisch betekent niet dood. Het betekent dat het artefact geopend, geïnspecteerd en gebruikt kan worden als volgend controlepunt."
+            ],
+            cards: [
+              ["Leespaden", "Openen, secties scannen, bewijs inspecteren."],
+              ["Operatorpad", "Compositor openen, gestructureerde toestand aanpassen."],
+              ["Handoffpad", "Hetzelfde artefact delen en het oppervlak behouden."]
+            ],
+            note: "De HTML is niet het einde van het proces. Het is een duurzaam checkpoint in het proces."
+          }
+        },
+        {
+          n: 9,
+          diagram: "governance",
+          en: {
+            title: "Governance makes the document difficult to fool.",
+            summary: "Invariants, objective facets, coverage, and proof expectations stop a run from treating nearby progress as objective closure.",
+            body: [
+              "The realtime-dashboard document makes this concrete: the WebSocket stream transports evidence but does not decide closure; displayed logs are valid only when selected from the inspected graph node or contract.",
+              "Those are governance claims. They do not describe what happened. They define what must remain true as the system changes."
+            ],
+            cards: [
+              ["Invariant", "A statement that must not become false."],
+              ["Facet", "A named part of the objective."],
+              ["Coverage", "The edge from facet to section or card."],
+              ["Proof expectation", "The evidence needed before closure pressure releases."]
+            ]
+          },
+          nl: {
+            title: "Governance maakt het document moeilijk te misleiden.",
+            summary: "Invarianten, doelfacetten, dekking en bewijsverwachtingen voorkomen dat een run nabije voortgang als doelafsluiting behandelt.",
+            body: [
+              "Het realtime-dashboard-document maakt dit concreet: de WebSocket-stream vervoert bewijs maar beslist geen afsluiting; getoonde logs zijn alleen geldig wanneer ze afkomstig zijn van de geïnspecteerde graph node of het contract.",
+              "Dat zijn governance-claims. Ze beschrijven niet wat er gebeurde. Ze definiëren wat waar moet blijven terwijl het systeem verandert."
+            ],
+            cards: [
+              ["Invariant", "Een uitspraak die niet onwaar mag worden."],
+              ["Facet", "Een benoemd deel van het doel."],
+              ["Dekking", "De edge van facet naar sectie of kaart."],
+              ["Bewijsverwachting", "Het bewijs dat nodig is voordat afsluitingsdruk verdwijnt."]
+            ]
+          }
+        },
+        {
+          n: 10,
+          en: {
+            title: "Acceptance criteria create objective-tied closure pressure.",
+            summary: "A checklist item is weak. An acceptance criterion tied to an objective term and a proof requirement becomes a control surface.",
+            body: [
+              "The harness should not ask whether the worker feels done. It should ask whether each criterion has the evidence the living doc demanded.",
+              "That evidence can be a command, a rendered page, a browser run, a graph artifact, a raw JSONL path, or a blocker record. The key is that it is named before closure."
+            ],
+            matrix: [
+              ["Field", "Purpose", "Failure if missing"],
+              ["objectiveTerm", "Keeps the criterion accountable to the original objective.", "A test can pass while the objective drifts."],
+              ["proofRequired", "Names the evidence needed for acceptance.", "A summary can masquerade as proof."],
+              ["acceptanceTest", "Gives the reviewer an executable or inspectable check.", "Closure depends on confidence instead of evidence."]
+            ]
+          },
+          nl: {
+            title: "Acceptatiecriteria maken doelgebonden afsluitingsdruk.",
+            summary: "Een checklist-item is zwak. Een acceptatiecriterium gekoppeld aan een doelterm en bewijsvereiste wordt een controleoppervlak.",
+            body: [
+              "De harness moet niet vragen of de worker klaar voelt. Hij moet vragen of elk criterium het bewijs heeft dat het living doc eiste.",
+              "Dat bewijs kan een commando zijn, een gerenderde pagina, een browser-run, een graph-artefact, een raw JSONL-pad of een blocker-record. Het punt is dat het vóór afsluiting benoemd is."
+            ],
+            matrix: [
+              ["Veld", "Doel", "Fout als het mist"],
+              ["objectiveTerm", "Houdt het criterium toerekenbaar aan het oorspronkelijke doel.", "Een test kan slagen terwijl het doel afdrijft."],
+              ["proofRequired", "Benoemt het bewijs dat nodig is voor acceptatie.", "Een samenvatting kan bewijs lijken."],
+              ["acceptanceTest", "Geeft de reviewer een uitvoerbare of inspecteerbare toets.", "Afsluiting hangt af van vertrouwen in plaats van bewijs."]
+            ]
+          }
+        },
+        {
+          n: 11,
+          en: {
+            title: "Drift is the gap between completed activity and satisfied objective.",
+            summary: "A run can produce code, tests, rendered pages, and summaries while still missing the thing the living doc asked for.",
+            body: [
+              "The system treats drift as a first-class condition. It can be a missing objective term, a proof threshold not crossed, a relationship map that overclaims, or a phase transition that moved without its required evidence.",
+              "That is why repair skills exist. They make the diagnosis precise enough to route the next unit."
+            ],
+            cards: [
+              ["Conservation leak", "A term from the objective disappeared from the proof story."],
+              ["Activation shortfall", "Evidence exists but does not cross the real closure threshold."],
+              ["Illegal transition", "The document advanced phase without required proof."],
+              ["Relationship drift", "A diagram or map implies coverage the criteria do not support."]
+            ],
+            note: "Progress artifacts are useful. They are not automatically proof."
+          },
+          nl: {
+            title: "Drift is het gat tussen voltooide activiteit en voldaan doel.",
+            summary: "Een run kan code, tests, gerenderde pagina's en samenvattingen produceren en toch missen wat het living doc vroeg.",
+            body: [
+              "Het systeem behandelt drift als een eersteklas toestand. Het kan een ontbrekende doelterm zijn, een niet-gehaalde bewijsdrempel, een relatiekaart die overclaimt, of een faseovergang zonder vereist bewijs.",
+              "Daarom bestaan repair-skills. Ze maken de diagnose precies genoeg om de volgende unit te routeren."
+            ],
+            cards: [
+              ["Conservation leak", "Een term uit het doel verdween uit het bewijsverhaal."],
+              ["Activation shortfall", "Bewijs bestaat maar haalt de echte afsluitingsdrempel niet."],
+              ["Illegale overgang", "Het document ging een fase vooruit zonder vereist bewijs."],
+              ["Relatiedrift", "Een diagram of kaart suggereert dekking die criteria niet ondersteunen."]
+            ],
+            note: "Voortgangsartefacten zijn nuttig. Ze zijn niet automatisch bewijs."
+          }
+        },
+        {
+          n: 12,
+          en: {
+            title: "Repair skills are specialized inference units.",
+            summary: "Repair is not retrying the same prompt until the output looks better. It is routing a specific lens to a specific instability.",
+            body: [
+              "Objective conservation checks whether all accountable terms survive. Activation energy review asks whether proof crossed the real threshold. Equilibrium rebalance responds when new evidence destabilizes the document.",
+              "Each repair unit inspects evidence, may patch the living doc, and emits its own typed result. The controller does not quietly repair on its behalf."
+            ],
+            cards: [
+              ["Conservation", "Preserve every accountable objective term."],
+              ["Activation", "Reject evidence that has not crossed the proof threshold."],
+              ["Equilibrium", "Rebalance when new evidence changes the state."],
+              ["Reaction path", "Validate whether a stage transition is legal."],
+              ["Relationship alignment", "Keep diagrams, criteria, and objective in sync."],
+              ["Readiness", "Decide whether the next worker can run without inheriting drift."]
+            ]
+          },
+          nl: {
+            title: "Repair-skills zijn gespecialiseerde inference-units.",
+            summary: "Reparatie is niet dezelfde prompt herhalen tot de output beter lijkt. Het is een specifieke lens routeren naar een specifieke instabiliteit.",
+            body: [
+              "Objective conservation controleert of alle toerekenbare termen behouden blijven. Activation energy review vraagt of bewijs de echte drempel passeerde. Equilibrium rebalance reageert wanneer nieuw bewijs het document destabiliseert.",
+              "Elke repair-unit inspecteert bewijs, kan het living doc patchen en emitteert een eigen getypeerd resultaat. De controller repareert niet stilletjes namens de unit."
+            ],
+            cards: [
+              ["Conservation", "Behoud elke toerekenbare doelterm."],
+              ["Activation", "Wijs bewijs af dat de drempel niet passeerde."],
+              ["Equilibrium", "Herbalanceer wanneer nieuw bewijs de toestand wijzigt."],
+              ["Reaction path", "Valideer of een faseovergang legaal is."],
+              ["Relatie-alignment", "Houd diagrammen, criteria en doel synchroon."],
+              ["Readiness", "Beslis of de volgende worker zonder geërfde drift kan draaien."]
+            ]
+          }
+        },
+        {
+          n: 13,
+          en: {
+            title: "The chemistry metaphor is useful only when it controls behavior.",
+            summary: "Balance, activation threshold, reaction path, conservation, and equilibrium are not decorative labels. They are checks against premature movement.",
+            body: [
+              "The metaphor earns its place when it tells the system what not to do. Do not close below activation threshold. Do not change state through an invalid reaction path. Do not lose conserved objective terms.",
+              "When the metaphor stops producing operational tests, it should disappear."
+            ],
+            cards: [
+              ["Conservation", "No accountable term silently vanishes."],
+              ["Activation", "Evidence must cross a real threshold."],
+              ["Equilibrium", "New evidence can destabilize prior state."],
+              ["Reaction path", "A transition must be legal, not merely convenient."]
+            ]
+          },
+          nl: {
+            title: "De chemie-metafoor is alleen nuttig wanneer zij gedrag stuurt.",
+            summary: "Balans, activeringsdrempel, reaction path, conservation en equilibrium zijn geen decoratieve labels. Het zijn checks tegen te vroege beweging.",
+            body: [
+              "De metafoor verdient haar plek wanneer ze het systeem vertelt wat het niet moet doen. Niet sluiten onder de activeringsdrempel. Geen status veranderen via een ongeldig reaction path. Geen geconserveerde doeltermen verliezen.",
+              "Wanneer de metafoor geen operationele toetsen meer oplevert, moet zij verdwijnen."
+            ],
+            cards: [
+              ["Conservation", "Geen toerekenbare term verdwijnt stilletjes."],
+              ["Activation", "Bewijs moet een echte drempel passeren."],
+              ["Equilibrium", "Nieuw bewijs kan vorige toestand destabiliseren."],
+              ["Reaction path", "Een overgang moet legaal zijn, niet alleen handig."]
+            ]
+          }
+        },
+        {
+          n: 14,
+          en: {
+            title: "Skills are accountable units, not generic helpers.",
+            summary: "A skill has a lens, required evidence, output shape, and boundary. That makes it a candidate inference unit rather than a bag of advice.",
+            body: [
+              "The harness can invoke a skill only if the contract says what the skill may inspect and what result it must return. The more precise the skill, the easier it is to verify its contribution.",
+              "This is the difference between 'ask an agent to fix it' and 'run activation-energy-review against these criteria, logs, and proof paths'."
+            ],
+            cards: [
+              ["Input", "Living doc path, reviewer verdict, handover, raw log paths."],
+              ["Lens", "The specific instability this skill is responsible for."],
+              ["Output", "Typed result, changed files, basis, blocker, next action."],
+              ["Boundary", "What the skill is not allowed to decide."]
+            ]
+          },
+          nl: {
+            title: "Skills zijn toerekenbare units, geen generieke helpers.",
+            summary: "Een skill heeft een lens, vereist bewijs, outputvorm en grens. Daardoor kan hij een inference-unit zijn in plaats van een zak advies.",
+            body: [
+              "De harness kan een skill alleen aanroepen wanneer het contract zegt wat de skill mag inspecteren en welk resultaat hij moet teruggeven. Hoe preciezer de skill, hoe makkelijker zijn bijdrage te verifiëren is.",
+              "Dit is het verschil tussen 'vraag een agent het te fixen' en 'run activation-energy-review tegen deze criteria, logs en bewijspaden'."
+            ],
+            cards: [
+              ["Input", "Living-doc-pad, reviewer-verdict, handover, raw log-paden."],
+              ["Lens", "De specifieke instabiliteit waarvoor deze skill verantwoordelijk is."],
+              ["Output", "Getypeerd resultaat, gewijzigde bestanden, basis, blocker, volgende actie."],
+              ["Grens", "Wat de skill niet mag beslissen."]
+            ]
+          }
+        },
+        {
+          n: 15,
+          diagram: "lifecycle",
+          en: {
+            title: "The standalone harness turns a living doc into a lifecycle.",
+            summary: "The harness is the controller that starts inference units, records artifacts, inspects evidence, routes repair, and writes terminal state.",
+            body: [
+              "The worker may change source files and the living doc, but it does not decide closure. The controller owns review, transition, proof, dashboard events, and finalization.",
+              "That separation is the core move. The worker does work. Other units judge whether the work satisfies the objective."
+            ],
+            cards: [
+              ["Worker", "Moves the objective forward and leaves raw JSONL."],
+              ["Reviewer", "Inspects worker logs and objective evidence."],
+              ["Router", "Maps verdicts to continuation, repair, closure review, or blocker."],
+              ["Finalizer", "Writes proof, terminal state, dashboard data, and bundles."]
+            ]
+          },
+          nl: {
+            title: "De standalone harness maakt van een living doc een lifecycle.",
+            summary: "De harness is de controller die inference-units start, artefacten vastlegt, bewijs inspecteert, reparatie routeert en terminale status schrijft.",
+            body: [
+              "De worker mag bronbestanden en het living doc wijzigen, maar beslist geen afsluiting. De controller bezit review, overgang, bewijs, dashboard-events en finalisatie.",
+              "Die scheiding is de kern. De worker doet werk. Andere units beoordelen of dat werk het doel voldoet."
+            ],
+            cards: [
+              ["Worker", "Brengt het doel vooruit en laat raw JSONL achter."],
+              ["Reviewer", "Inspecteert worker-logs en doelbewijs."],
+              ["Router", "Mapt verdicts naar voortzetting, reparatie, closure review of blocker."],
+              ["Finalizer", "Schrijft bewijs, terminale status, dashboarddata en bundles."]
+            ]
+          }
+        },
+        {
+          n: 16,
+          diagram: "unit",
+          en: {
+            title: "The inference unit primitive is contract-bound.",
+            summary: "A unit is prompt plus input contract plus context paths plus tool profile plus raw logs plus output contract.",
+            body: [
+              "The runner writes prompt, input contract, Codex JSONL events, stdout, stderr, last message, and typed result paths. Those paths become evidence for the next unit.",
+              "This is how the system replaces hidden chat continuity with explicit files and contracts."
+            ],
+            cards: [
+              ["Prompt", "Role-specific instruction for the unit."],
+              ["Input contract", "Document, objective, phase, required paths, prior results."],
+              ["Context paths", "The evidence the unit must inspect."],
+              ["Tool profile", "The action surface selected by the contract."],
+              ["Raw logs", "Codex JSONL, stdout, stderr, last message."],
+              ["Output contract", "Typed result the controller can route."]
+            ]
+          },
+          nl: {
+            title: "Het inference-unit-primitief is contract-gebonden.",
+            summary: "Een unit is prompt plus input-contract plus contextpaden plus tool-profiel plus raw logs plus output-contract.",
+            body: [
+              "De runner schrijft prompt, input-contract, Codex JSONL-events, stdout, stderr, laatste bericht en getypeerde resultaatpaden. Die paden worden bewijs voor de volgende unit.",
+              "Zo vervangt het systeem verborgen chatcontinuïteit door expliciete bestanden en contracten."
+            ],
+            cards: [
+              ["Prompt", "Rolspecifieke instructie voor de unit."],
+              ["Input-contract", "Document, doel, fase, vereiste paden, eerdere resultaten."],
+              ["Contextpaden", "Het bewijs dat de unit moet inspecteren."],
+              ["Tool-profiel", "Het actie-oppervlak gekozen door het contract."],
+              ["Raw logs", "Codex JSONL, stdout, stderr, laatste bericht."],
+              ["Output-contract", "Getypeerd resultaat dat de controller kan routeren."]
+            ]
+          }
+        },
+        {
+          n: 17,
+          diagram: "handoff",
+          en: {
+            title: "Contracts between units are evidence-carrying handoffs.",
+            summary: "An arrow in the harness graph is not visual garnish. It is the recorded transfer of authority from one unit to the next.",
+            body: [
+              "The handoff says what gate was crossed, which artifact path carries the evidence, what effect is allowed, and which unit now owns the next judgment.",
+              "That makes the graph inspectable. Selecting an arrow should reveal the contract, not merely highlight a connection."
+            ],
+            cards: [
+              ["Gate", "The condition that allowed the handoff."],
+              ["Evidence path", "The file or artifact supporting that condition."],
+              ["Effect", "What the next unit is authorized to do."],
+              ["Status", "Pending, active, blocked, completed, or rejected."]
+            ]
+          },
+          nl: {
+            title: "Contracten tussen units zijn bewijsdragende overdrachten.",
+            summary: "Een pijl in de harness-graaf is geen visuele versiering. Het is de vastgelegde overdracht van autoriteit van de ene unit naar de volgende.",
+            body: [
+              "De overdracht zegt welke gate gepasseerd is, welk artefactpad het bewijs draagt, welk effect toegestaan is en welke unit nu het volgende oordeel bezit.",
+              "Daardoor wordt de graaf inspecteerbaar. Een geselecteerde pijl moet het contract tonen, niet alleen een verbinding markeren."
+            ],
+            cards: [
+              ["Gate", "De voorwaarde die de overdracht toestond."],
+              ["Bewijspad", "Het bestand of artefact dat die voorwaarde ondersteunt."],
+              ["Effect", "Wat de volgende unit mag doen."],
+              ["Status", "Pending, active, blocked, completed of rejected."]
+            ]
+          }
+        },
+        {
+          n: 18,
+          en: {
+            title: "Reviewer inference inspects raw worker JSONL logs.",
+            summary: "A reviewer that only reads the worker's final summary inherits the worker's confidence. A reviewer that opens raw JSONL paths can inspect emitted actions.",
+            body: [
+              "The system does not claim hidden model reasoning. It inspects emitted traces: tool calls, command outputs, touched paths, final messages, stdout, stderr, and artifacts.",
+              "That distinction matters. The reviewer sees what the unit exposed, not what the model privately thought."
+            ],
+            cards: [
+              ["Visible", "Prompts, contracts, commands, tool calls, stdout/stderr, JSONL events."],
+              ["Not claimed", "Hidden chain-of-thought or private model state."],
+              ["Verdict", "Closed, repairable, resumable, blocked, or user-stopped."],
+              ["Next instruction", "A controller-readable route, not a vague recommendation."]
+            ],
+            note: "Inspect emitted logs, not summaries alone."
+          },
+          nl: {
+            title: "Reviewer-inference inspecteert raw worker-JSONL-logs.",
+            summary: "Een reviewer die alleen de eindsamenvatting van de worker leest, erft diens vertrouwen. Een reviewer die raw JSONL-paden opent, kan geëmitteerde acties inspecteren.",
+            body: [
+              "Het systeem claimt geen verborgen modelredenering. Het inspecteert geëmitteerde traces: tool-calls, command-output, aangeraakte paden, laatste berichten, stdout, stderr en artefacten.",
+              "Dat onderscheid doet ertoe. De reviewer ziet wat de unit blootlegde, niet wat het model privé dacht."
+            ],
+            cards: [
+              ["Zichtbaar", "Prompts, contracten, commando's, tool-calls, stdout/stderr, JSONL-events."],
+              ["Niet geclaimd", "Verborgen chain-of-thought of private modelstatus."],
+              ["Verdict", "Closed, repairable, resumable, blocked of user-stopped."],
+              ["Volgende instructie", "Een routeerbaar controller-resultaat, geen vage aanbeveling."]
+            ],
+            note: "Inspecteer geëmitteerde logs, niet alleen samenvattingen."
+          }
+        },
+        {
+          n: 19,
+          diagram: "repair",
+          en: {
+            title: "The repair chain starts with balance scan, then ordered repair units.",
+            summary: "A repairable verdict does not launch one general fixer. It launches a triage inference that orders independent repair units.",
+            body: [
+              "The balance scan should not quietly repair. It classifies the imbalance and chooses the ordered skill list. Then each skill runs as its own headless inference with the updated living doc and prior results.",
+              "Five recommended skills means five accountable unit runs, five logs, and five output contracts."
+            ],
+            cards: [
+              ["Balance scan", "Classify instability and choose order."],
+              ["Skill 1", "Patch or report no-op for its lens."],
+              ["Skill 2", "Reads the updated doc and prior result."],
+              ["Return to review", "Reviewer inspects the repaired state."]
+            ]
+          },
+          nl: {
+            title: "De repair-keten start met balance scan, daarna geordende repair-units.",
+            summary: "Een repairable-verdict start geen algemene fixer. Het start een triage-inference die onafhankelijke repair-units ordent.",
+            body: [
+              "De balance scan mag niet stilletjes repareren. Hij classificeert de onbalans en kiest de geordende skill-lijst. Daarna draait elke skill als eigen headless inference met het bijgewerkte living doc en eerdere resultaten.",
+              "Vijf aanbevolen skills betekent vijf toerekenbare unit-runs, vijf logs en vijf output-contracten."
+            ],
+            cards: [
+              ["Balance scan", "Classificeer instabiliteit en kies volgorde."],
+              ["Skill 1", "Patch of rapporteer no-op voor de eigen lens."],
+              ["Skill 2", "Leest het bijgewerkte doc en vorige resultaat."],
+              ["Terug naar review", "Reviewer inspecteert de gerepareerde toestand."]
+            ]
+          }
+        },
+        {
+          n: 20,
+          diagram: "tools",
+          en: {
+            title: "Tool profiles and MCP boundaries are contract-selected, not inherited.",
+            summary: "Local harness units start with explicit tool profiles. The default local profile ignores user config and allowlists only the local living_doc_compositor MCP server.",
+            body: [
+              "The current tool profile code defines inherited, local-harness, and local-repair profiles. The local profiles start Codex with --ignore-user-config and add back only the local MCP override.",
+              "Ambient OAuth-backed MCPs and bundled plugins do not leak into a unit because the user's session happened to have them."
+            ],
+            cards: [
+              ["inherited", "Ambient config only when intentionally part of the run."],
+              ["local-harness", "--ignore-user-config plus local living_doc_compositor MCP."],
+              ["local-repair", "Same isolation for repair units over local evidence."],
+              ["Contract", "A unit that needs more tools must say so explicitly."]
+            ],
+            note: "Tool access is part of the inference contract."
+          },
+          nl: {
+            title: "Tool-profielen en MCP-grenzen zijn contract-geselecteerd, niet geërfd.",
+            summary: "Local harness-units starten met expliciete tool-profielen. Het standaard local-profiel negeert user-config en allowlist alleen de lokale living_doc_compositor MCP-server.",
+            body: [
+              "De huidige tool-profile-code definieert inherited, local-harness en local-repair. De local-profielen starten Codex met --ignore-user-config en voegen alleen de lokale MCP-override terug.",
+              "Ambient OAuth-backed MCPs en gebundelde plugins lekken niet in een unit omdat de usersessie ze toevallig had."
+            ],
+            cards: [
+              ["inherited", "Ambient config alleen wanneer die opzettelijk deel is van de run."],
+              ["local-harness", "--ignore-user-config plus lokale living_doc_compositor MCP."],
+              ["local-repair", "Dezelfde isolatie voor repair-units over lokaal bewijs."],
+              ["Contract", "Een unit die meer tools nodig heeft moet dat expliciet zeggen."]
+            ],
+            note: "Tooltoegang is onderdeel van het inference-contract."
+          }
+        },
+        {
+          n: 21,
+          diagram: "dashboard",
+          screenshot: "dashboard",
+          en: {
+            title: "The realtime dashboard is the operator surface for active runs.",
+            summary: "The dashboard streams lifecycle, inference-unit, contract, graph, artifact, and log events over WebSockets while preserving local-only state.",
+            body: [
+              "The active unit is highlighted. Selecting a node shows the contract, tool profile, and artifact paths that started it. Selecting an arrow shows the handoff gate and effect.",
+              "Reload recovery matters because the source of truth is persisted local artifacts, not frontend memory and not the supervising chat session."
+            ],
+            cards: [
+              ["Graph", "Nodes and arrows generated from artifacts and streamed events."],
+              ["Inspector", "Contract, tool profile, paths, status, blockers."],
+              ["Logs", "Selected unit's local log stream, not a global tail."],
+              ["Recovery", "Reload reconstructs recent event history."]
+            ]
+          },
+          nl: {
+            title: "Het realtime dashboard is het operator-oppervlak voor actieve runs.",
+            summary: "Het dashboard streamt lifecycle-, inference-unit-, contract-, graph-, artifact- en log-events via WebSockets en bewaart de local-only toestand.",
+            body: [
+              "De actieve unit wordt gehighlight. Een geselecteerde node toont contract, tool-profiel en artefactpaden die hem startten. Een geselecteerde pijl toont handoff-gate en effect.",
+              "Reload recovery doet ertoe omdat de bron van waarheid bestaat uit persisted lokale artefacten, niet frontend-geheugen en niet de superviserende chatsessie."
+            ],
+            cards: [
+              ["Graaf", "Nodes en pijlen gegenereerd uit artefacten en gestreamde events."],
+              ["Inspector", "Contract, tool-profiel, paden, status, blockers."],
+              ["Logs", "Lokale logstream van de geselecteerde unit, geen globale tail."],
+              ["Recovery", "Reload reconstrueert recente eventgeschiedenis."]
+            ]
+          }
+        },
+        {
+          n: 22,
+          en: {
+            title: "Logs matter because they are emitted evidence.",
+            summary: "The dashboard can expose prompts, contracts, tool calls, stdout, stderr, summaries, and JSONL events. It must label them honestly.",
+            body: [
+              "A log is not omniscience. It is an emitted record. That record is still far stronger than a worker's final summary because it lets reviewers inspect actions and artifacts by path.",
+              "The invariant is simple: show emitted evidence, do not claim access to hidden reasoning."
+            ],
+            cards: [
+              ["Prompt", "What role and task the unit received."],
+              ["Contract", "What paths, tools, and output shape constrained it."],
+              ["Events", "What the unit emitted while running."],
+              ["Artifacts", "What files and proof records remain after it stops."]
+            ]
+          },
+          nl: {
+            title: "Logs doen ertoe omdat ze geëmitteerd bewijs zijn.",
+            summary: "Het dashboard kan prompts, contracten, tool-calls, stdout, stderr, samenvattingen en JSONL-events tonen. Het moet ze eerlijk labelen.",
+            body: [
+              "Een log is geen alwetendheid. Het is een geëmitteerd record. Dat record is nog steeds veel sterker dan de eindsamenvatting van een worker omdat reviewers acties en artefacten via pad kunnen inspecteren.",
+              "De invariant is eenvoudig: toon geëmitteerd bewijs, claim geen toegang tot verborgen redenering."
+            ],
+            cards: [
+              ["Prompt", "Welke rol en taak de unit kreeg."],
+              ["Contract", "Welke paden, tools en outputvorm hem begrensden."],
+              ["Events", "Wat de unit tijdens het draaien emitteerde."],
+              ["Artefacten", "Welke bestanden en proof-records achterblijven."]
+            ]
+          }
+        },
+        {
+          n: 23,
+          en: {
+            title: "The stop rule has only two terminal signals.",
+            summary: "The loop may stop only when objective closure is proven or when the user explicitly stops the run.",
+            body: [
+              "Closed means reviewer and closure review agree that every objective term and acceptance criterion is proven. User-stop means the operator explicitly halts the lifecycle through the harness.",
+              "Everything else continues, repairs, blocks, or waits. A green test is not closure. A confident worker summary is not closure. An exception is not closure."
+            ],
+            matrix: [
+              ["Signal", "Meaning", "Lifecycle result"],
+              ["closed", "Objective terms and criteria are proven.", "Stop."],
+              ["user-stop", "Operator explicitly halts the run.", "Stop and record user-stop."],
+              ["repairable", "Proof is unsatisfied but repair path exists.", "Run repair chain."],
+              ["resumable", "Worker stopped early with next action available.", "Continue."],
+              ["true-block", "External source, permission, proof authority, privacy, or platform gap.", "Pause, do not close."]
+            ],
+            note: "Only proven objective closure or explicit user stop may halt the loop."
+          },
+          nl: {
+            title: "De stopregel heeft maar twee terminale signalen.",
+            summary: "De loop mag alleen stoppen wanneer doelafsluiting bewezen is of wanneer de user de run expliciet stopt.",
+            body: [
+              "Closed betekent dat reviewer en closure review overeenkomen dat elke doelterm en elk acceptatiecriterium bewezen is. User-stop betekent dat de operator de lifecycle expliciet via de harness stopt.",
+              "Al het andere gaat door, repareert, blokkeert of wacht. Een groene test is geen afsluiting. Een zekere worker-samenvatting is geen afsluiting. Een exception is geen afsluiting."
+            ],
+            matrix: [
+              ["Signaal", "Betekenis", "Lifecycle-resultaat"],
+              ["closed", "Doeltermen en criteria zijn bewezen.", "Stop."],
+              ["user-stop", "Operator stopt de run expliciet.", "Stop en leg user-stop vast."],
+              ["repairable", "Bewijs is onvoldaan maar repair-pad bestaat.", "Run repair-keten."],
+              ["resumable", "Worker stopte vroeg met volgende actie beschikbaar.", "Ga door."],
+              ["true-block", "Externe bron, permissie, bewijsautoriteit, privacy of platformgat.", "Pauzeer, sluit niet."]
+            ],
+            note: "Alleen bewezen doelafsluiting of expliciete user-stop mag de loop beëindigen."
+          }
+        },
+        {
+          n: 24,
+          en: {
+            title: "The result is less handoff, stronger traceability, and more independent continuation.",
+            summary: "The system does not ask the operator to trust inference. It asks each inference unit to leave enough evidence for the next judgment.",
+            body: [
+              "Manual handoff shrinks because contracts carry what chat used to carry. Traceability improves because decisions point to units, paths, logs, and document state. Repair becomes targeted because drift has a name.",
+              "Independent continuation becomes possible because the controller can launch the next accountable unit without depending on ambient session memory."
+            ],
+            cards: [
+              ["Less handoff", "The next unit reads files and contracts, not memory."],
+              ["Stronger traceability", "Every decision has artifact paths."],
+              ["Better repair", "Specialized lenses replace broad retry."],
+              ["Continuation", "The lifecycle can advance without manual stitching."]
+            ]
+          },
+          nl: {
+            title: "Het resultaat is minder overdracht, sterkere traceerbaarheid en zelfstandiger doorgaan.",
+            summary: "Het systeem vraagt de operator niet om inference te vertrouwen. Het vraagt elke inference-unit genoeg bewijs achter te laten voor het volgende oordeel.",
+            body: [
+              "Handmatige overdracht krimpt omdat contracten dragen wat chat vroeger droeg. Traceerbaarheid verbetert omdat beslissingen wijzen naar units, paden, logs en documentstatus. Reparatie wordt gericht omdat drift een naam krijgt.",
+              "Zelfstandiger doorgaan wordt mogelijk omdat de controller de volgende toerekenbare unit kan starten zonder ambient sessiegeheugen."
+            ],
+            cards: [
+              ["Minder overdracht", "De volgende unit leest bestanden en contracten, geen geheugen."],
+              ["Sterkere traceerbaarheid", "Elke beslissing heeft artefactpaden."],
+              ["Betere reparatie", "Gespecialiseerde lenzen vervangen brede retry."],
+              ["Doorgaan", "De lifecycle kan vooruit zonder handmatig stikwerk."]
+            ]
+          }
+        },
+        {
+          n: 25,
+          en: {
+            title: "The boundary is explicit judgment, not magic autonomy.",
+            summary: "Living docs do not make agents intrinsically reliable. They make objectives, contracts, evidence, repair, and closure visible enough to control.",
+            body: [
+              "The current next frontier is not a larger prompt. It is a clearer catalog of inference unit types, stronger contracts, more proof routes, better dashboard evidence, and fewer places where ambient configuration can enter unnoticed.",
+              "The operating rule is sober: move judgment into explicit units, require proof at every transition, and let the living doc remain the accountable surface."
+            ],
+            cards: [
+              ["In scope now", "Registry, renderer, compositor, harness, unit contracts, repair chain, dashboard."],
+              ["Still hard", "Proof authority, privacy boundaries, external blockers, domain-specific judgment."],
+              ["Next work", "Registered inference-unit types and richer controller-owned proof routes."],
+              ["Operating rule", "No closure without conserved objective terms and inspectable proof."]
+            ],
+            sources: [
+              ["Grounded in", ["scripts/living-doc-registry.json", "scripts/living-doc-harness-inference-unit.mjs", "scripts/living-doc-harness-tool-profile.mjs", "scripts/living-doc-harness-runner.mjs"]],
+              ["Also grounded in", ["scripts/living-doc-harness-repair-skill-runner.mjs", "docs/living-doc-harness-realtime-dashboard.json", "docs/living-doc-contract-bound-inference-units.html", "docs/living-doc-repair-skill-orchestration.html"]]
+            ]
+          },
+          nl: {
+            title: "De grens is expliciet oordeel, geen magische autonomie.",
+            summary: "Living docs maken agents niet intrinsiek betrouwbaar. Ze maken doelen, contracten, bewijs, reparatie en afsluiting zichtbaar genoeg om te besturen.",
+            body: [
+              "De huidige volgende grens is geen grotere prompt. Het is een duidelijker catalogus van inference-unit-types, sterkere contracten, meer proof routes, beter dashboardbewijs en minder plekken waar ambient configuratie ongemerkt binnenkomt.",
+              "De operationele regel is nuchter: verplaats oordeel naar expliciete units, eis bewijs bij elke overgang en laat het living doc het toerekenbare oppervlak blijven."
+            ],
+            cards: [
+              ["Nu binnen scope", "Registry, renderer, compositor, harness, unit-contracten, repair-keten, dashboard."],
+              ["Nog moeilijk", "Bewijsautoriteit, privacygrenzen, externe blockers, domeinspecifiek oordeel."],
+              ["Volgend werk", "Geregistreerde inference-unit-types en rijkere controller-owned proof routes."],
+              ["Operationele regel", "Geen afsluiting zonder geconserveerde doeltermen en inspecteerbaar bewijs."]
+            ],
+            sources: [
+              ["Gegrond in", ["scripts/living-doc-registry.json", "scripts/living-doc-harness-inference-unit.mjs", "scripts/living-doc-harness-tool-profile.mjs", "scripts/living-doc-harness-runner.mjs"]],
+              ["Ook gegrond in", ["scripts/living-doc-harness-repair-skill-runner.mjs", "docs/living-doc-harness-realtime-dashboard.json", "docs/living-doc-contract-bound-inference-units.html", "docs/living-doc-repair-skill-orchestration.html"]]
+            ]
+          }
+        }
+      ];
+
+      function esc(value) {
+        return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
+          return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch];
+        });
+      }
+
+      function rich(value) {
+        return esc(value)
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/--ignore-user-config/g, "<code>--ignore-user-config</code>")
+          .replace(/living_doc_compositor/g, "<code>living_doc_compositor</code>")
+          .replace(/local-harness/g, "<code>local-harness</code>")
+          .replace(/local-repair/g, "<code>local-repair</code>")
+          .replace(/inherited/g, "<code>inherited</code>")
+          .replace(/JSONL/g, "<code>JSONL</code>");
+      }
+
+      function diagram(type, copy) {
+        var title = copy.title;
+        var captions = {
+          en: {
+            surface: "The living doc is the shared surface before, during, and after the work.",
+            structure: "The document shape keeps objective, criteria, governance, relationships, and proof inspectable.",
+            registry: "One registry feeds rendering, composition, MCP surfaces, skills, and inference guidance.",
+            compositor: "The rendered HTML carries both the readable document and the operating workbench.",
+            governance: "Governance binds objective facets to proof and prevents unsupported closure.",
+            lifecycle: "The controller owns the lifecycle; the worker does not certify itself.",
+            unit: "Each inference unit has explicit inputs, allowed tools, raw logs, and typed outputs.",
+            handoff: "A graph edge is a contract handoff with gate, evidence, effect, and status.",
+            repair: "Balance scan orders independent repair units before review resumes.",
+            tools: "Local profiles ignore user config and add back only the contracted local MCP surface.",
+            dashboard: "The dashboard shows graph, contract inspector, selected-unit logs, and lifecycle status."
+          },
+          nl: {
+            surface: "Het living doc is het gedeelde oppervlak vóór, tijdens en na het werk.",
+            structure: "De documentvorm houdt doel, criteria, governance, relaties en bewijs inspecteerbaar.",
+            registry: "Eén register voedt rendering, compositie, MCP-oppervlakken, skills en inference guidance.",
+            compositor: "De gerenderde HTML draagt zowel het leesbare document als de operationele werkbank.",
+            governance: "Governance bindt doelfacetten aan bewijs en voorkomt niet-onderbouwde afsluiting.",
+            lifecycle: "De controller bezit de lifecycle; de worker certificeert zichzelf niet.",
+            unit: "Elke inference-unit heeft expliciete inputs, toegestane tools, raw logs en getypeerde outputs.",
+            handoff: "Een graph-edge is een contracthandoff met gate, bewijs, effect en status.",
+            repair: "Balance scan ordent onafhankelijke repair-units voordat review hervat.",
+            tools: "Local-profielen negeren user-config en voegen alleen het gecontracteerde lokale MCP-oppervlak terug.",
+            dashboard: "Het dashboard toont graaf, contract-inspector, geselecteerde-unit-logs en lifecycle-status."
+          }
+        };
+        var label = {
+          en: {
+            doc: "Living doc", objective: "Objective", criteria: "Criteria", proof: "Proof", governance: "Governance", registry: "Registry", renderer: "Renderer", compositor: "Compositor", mcp: "MCP", skills: "Skills", inference: "Inference", html: "Standalone HTML", workbench: "Workbench", worker: "Worker", reviewer: "Reviewer", repair: "Repair", closure: "Closure review", final: "Terminal state", prompt: "Prompt", input: "Input contract", tools: "Tool profile", logs: "Raw JSONL", output: "Output contract", gate: "Gate", evidence: "Evidence path", effect: "Effect", status: "Status", balance: "Balance scan", skill1: "Repair unit", skill2: "Repair unit", dashboard: "Dashboard", graph: "Graph", inspector: "Inspector", selectedLogs: "Selected-unit logs"
+          },
+          nl: {
+            doc: "Living doc", objective: "Doel", criteria: "Criteria", proof: "Bewijs", governance: "Governance", registry: "Register", renderer: "Renderer", compositor: "Compositor", mcp: "MCP", skills: "Skills", inference: "Inference", html: "Zelfstandige HTML", workbench: "Werkbank", worker: "Worker", reviewer: "Reviewer", repair: "Repair", closure: "Closure review", final: "Terminale status", prompt: "Prompt", input: "Input-contract", tools: "Tool-profiel", logs: "Raw JSONL", output: "Output-contract", gate: "Gate", evidence: "Bewijspad", effect: "Effect", status: "Status", balance: "Balance scan", skill1: "Repair-unit", skill2: "Repair-unit", dashboard: "Dashboard", graph: "Graaf", inspector: "Inspector", selectedLogs: "Geselecteerde logs"
+          }
+        }[lang];
+        var nodes = {
+          surface: [[70,70,label.objective,"#2563eb"],[310,70,label.doc,"#121826"],[550,70,label.proof,"#15803d"],[310,190,label.governance,"#6d28d9"]],
+          structure: [[70,65,label.objective,"#2563eb"],[310,65,label.criteria,"#0e7490"],[550,65,label.proof,"#15803d"],[190,190,label.governance,"#6d28d9"],[430,190,"Relationships","#b45309"]],
+          registry: [[310,55,label.registry,"#121826"],[70,180,label.renderer,"#2563eb"],[230,180,label.compositor,"#0e7490"],[390,180,label.mcp,"#6d28d9"],[550,180,label.skills,"#15803d"],[710,180,label.inference,"#b45309"]],
+          compositor: [[80,80,label.doc,"#121826"],[330,80,label.html,"#2563eb"],[580,80,label.workbench,"#0e7490"],[330,205,"Re-render","#15803d"]],
+          governance: [[80,80,label.objective,"#2563eb"],[330,80,"Facets","#0e7490"],[580,80,label.proof,"#15803d"],[330,205,"Invariants","#6d28d9"]],
+          lifecycle: [[60,80,label.worker,"#2563eb"],[230,80,label.reviewer,"#0e7490"],[400,80,label.repair,"#b45309"],[570,80,label.closure,"#6d28d9"],[740,80,label.final,"#15803d"]],
+          unit: [[70,65,label.prompt,"#2563eb"],[260,65,label.input,"#0e7490"],[450,65,label.tools,"#6d28d9"],[165,190,label.logs,"#b45309"],[355,190,label.output,"#15803d"]],
+          handoff: [[70,90,label.worker,"#2563eb"],[340,90,"Contract edge","#121826"],[610,90,label.reviewer,"#0e7490"],[210,210,label.gate,"#6d28d9"],[470,210,label.evidence,"#15803d"]],
+          repair: [[70,90,label.reviewer,"#0e7490"],[260,90,label.balance,"#b45309"],[450,90,label.skill1,"#15803d"],[640,90,label.skill2,"#15803d"],[355,210,label.reviewer,"#0e7490"]],
+          tools: [[80,80,"Contract","#121826"],[300,80,"local-harness","#2563eb"],[520,80,"local MCP","#15803d"],[300,205,"ambient tools denied","#b42318"]],
+          dashboard: [[80,70,label.dashboard,"#121826"],[80,200,label.graph,"#2563eb"],[340,200,label.inspector,"#0e7490"],[600,200,label.selectedLogs,"#b45309"]]
+        }[type] || [];
+        var edges = "";
+        for (var i = 0; i < nodes.length - 1; i++) {
+          edges += '<line x1="' + (nodes[i][0] + 120) + '" y1="' + (nodes[i][1] + 28) + '" x2="' + nodes[i + 1][0] + '" y2="' + (nodes[i + 1][1] + 28) + '" stroke="#a8b3c3" stroke-width="2" marker-end="url(#arrow)"/>';
+        }
+        var nodeSvg = nodes.map(function (n) {
+          return '<g><rect x="' + n[0] + '" y="' + n[1] + '" width="130" height="56" rx="8" fill="' + n[3] + '"/><text x="' + (n[0] + 65) + '" y="' + (n[1] + 34) + '" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">' + esc(n[2]) + '</text></g>';
+        }).join("");
+        return '<aside class="diagram" aria-label="' + esc(title) + '"><div class="diagram-title">' + esc(title) + '</div><svg viewBox="0 0 840 290" role="img" aria-label="' + esc(captions[lang][type] || title) + '"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#a8b3c3"/></marker></defs><rect x="1" y="1" width="838" height="288" rx="12" fill="#f8fafc" stroke="#d7dee8"/>' + edges + nodeSvg + '</svg><p class="caption">' + esc(captions[lang][type] || "") + '</p></aside>';
+      }
+
+      function screenshotPanel(type) {
+        var t = {
+          en: {
+            compositor: {
+              url: "file://living-doc.html#compositor",
+              title: "Compositor workbench",
+              kicker: "embedded editor",
+              side: ["Library", "Sections", "Governance", "Evidence", "Render"],
+              buttons: ["Add section", "Edit card", "Validate", "Render"],
+              cards: ["Acceptance criteria", "Proof ladder", "Relationship map", "Current state"],
+              caption: "Screenshot-style compositor view: local library, section navigation, editing controls, and typed cards share one workbench."
+            },
+            render: {
+              url: "file://docs/living-doc-harness-realtime-dashboard.html",
+              title: "Rendered living doc",
+              kicker: "standalone html",
+              side: ["Objective", "Acceptance", "Governance", "Proof", "Artifacts"],
+              buttons: ["Open compositor", "Inspect source", "Print"],
+              cards: ["Objective facet", "Proof evidence", "Invariant", "Coverage edge"],
+              caption: "Screenshot-style render view: the same standalone artifact is readable, navigable, and ready to become operable again."
+            },
+            dashboard: {
+              url: "local dashboard / lifecycles",
+              title: "Realtime harness dashboard",
+              kicker: "active lifecycle run",
+              side: ["Run selector", "ldhl-20260510", "running", "local-only"],
+              caption: "Screenshot-style dashboard view: active unit, contract handoff, selected log stream, blockers, and persisted lifecycle state."
+            }
+          },
+          nl: {
+            compositor: {
+              url: "file://living-doc.html#compositor",
+              title: "Compositor-werkbank",
+              kicker: "embedded editor",
+              side: ["Bibliotheek", "Secties", "Governance", "Bewijs", "Render"],
+              buttons: ["Sectie toevoegen", "Kaart bewerken", "Valideren", "Renderen"],
+              cards: ["Acceptatiecriteria", "Bewijsladder", "Relatiekaart", "Actuele status"],
+              caption: "Screenshot-achtig compositorbeeld: lokale bibliotheek, sectienavigatie, bewerkingsknoppen en getypeerde kaarten delen een werkbank."
+            },
+            render: {
+              url: "file://docs/living-doc-harness-realtime-dashboard.html",
+              title: "Gerenderd living doc",
+              kicker: "zelfstandige html",
+              side: ["Doel", "Acceptatie", "Governance", "Bewijs", "Artefacten"],
+              buttons: ["Open compositor", "Inspecteer bron", "Print"],
+              cards: ["Doelfacet", "Bewijs", "Invariant", "Coverage-edge"],
+              caption: "Screenshot-achtig renderbeeld: hetzelfde zelfstandige artefact is leesbaar, navigeerbaar en klaar om opnieuw bestuurbaar te worden."
+            },
+            dashboard: {
+              url: "lokaal dashboard / lifecycles",
+              title: "Realtime harness-dashboard",
+              kicker: "actieve lifecycle-run",
+              side: ["Run-selector", "ldhl-20260510", "running", "local-only"],
+              caption: "Screenshot-achtig dashboardbeeld: actieve unit, contracthandoff, geselecteerde logstream, blockers en persisted lifecycle-status."
+            }
+          }
+        }[lang][type];
+        var side = t.side.map(function (item) {
+          return '<div class="shot-line ' + (item.length < 8 ? 'short' : 'mid') + '"></div><div class="shot-kicker">' + esc(item) + '</div>';
+        }).join("");
+        var body = "";
+        if (type === "dashboard") {
+          body = '<div class="shot-layout"><div class="shot-sidebar">' + side + '</div><div class="shot-main"><div class="shot-kicker">' + esc(t.kicker) + '</div><div class="shot-title">' + esc(t.title) + '</div><div class="shot-graph"><div class="shot-node worker">worker</div><div class="shot-node reviewer">reviewer</div><div class="shot-node repair">repair</div></div><div class="shot-log">[10:24:02] opened worker codex-events.jsonl<br>[10:24:05] selected toolProfile: local-harness<br>[10:24:10] contract handoff: reviewer -&gt; balance-scan</div></div></div>';
+        } else {
+          body = '<div class="shot-layout"><div class="shot-sidebar">' + side + '</div><div class="shot-main"><div class="shot-kicker">' + esc(t.kicker) + '</div><div class="shot-title">' + esc(t.title) + '</div><div class="shot-toolbar">' + t.buttons.map(function (button) { return '<span class="shot-button">' + esc(button) + '</span>'; }).join("") + '</div><div class="shot-line"></div><div class="shot-line mid"></div><div class="shot-line short"></div><div class="shot-cardgrid">' + t.cards.map(function (card) { return '<div class="shot-card"><span class="shot-pill">' + esc(card) + '</span><div class="shot-line mid"></div><div class="shot-line short"></div></div>'; }).join("") + '</div></div></div>';
+        }
+        return '<figure class="screenshot-panel" aria-label="' + esc(t.title) + '"><div class="shot-top"><span class="shot-dot"></span><span class="shot-dot"></span><span class="shot-dot"></span><div class="shot-url">' + esc(t.url) + '</div></div><div class="shot-body">' + body + '</div><figcaption class="shot-caption">' + esc(t.caption) + '</figcaption></figure>';
+      }
+
+      function matrix(rows) {
+        return '<div class="matrix">' + rows.map(function (row, rowIndex) {
+          return row.map(function (cell) {
+            return '<div class="' + (rowIndex === 0 ? 'head' : (row.indexOf(cell) === 0 ? 'rowhead' : '')) + '">' + rich(cell) + '</div>';
+          }).join("");
+        }).join("") + '</div>';
+      }
+
+      function render() {
+        document.documentElement.lang = lang;
+        var ui = UI[lang];
+        Object.keys(ui).forEach(function (key) {
+          if (typeof ui[key] === "string") {
+            document.querySelectorAll('[data-i18n="' + key + '"]').forEach(function (el) { el.textContent = ui[key]; });
+          }
+        });
+        document.getElementById("metrics").innerHTML = ui.metrics.map(function (m) {
+          return '<div class="metric"><strong>' + esc(m[0]) + '</strong><span>' + esc(m[1]) + '</span></div>';
+        }).join("");
+        document.querySelectorAll("[data-lang]").forEach(function (button) {
+          button.setAttribute("aria-pressed", button.getAttribute("data-lang") === lang ? "true" : "false");
+        });
+        document.getElementById("slides").innerHTML = slides.map(function (slide) {
+          var copy = slide[lang];
+          var body = copy.body.map(function (p) { return '<p>' + rich(p) + '</p>'; }).join("");
+          var cards = copy.cards ? '<div class="cards">' + copy.cards.map(function (card) {
+            return '<div class="card"><strong>' + rich(card[0]) + '</strong><span>' + rich(card[1]) + '</span></div>';
+          }).join("") + '</div>' : "";
+          var note = copy.note ? '<div class="note ' + (slide.n === 23 ? 'stop' : '') + '">' + rich(copy.note) + '</div>' : "";
+          var matrixHtml = copy.matrix ? matrix(copy.matrix) : "";
+          var sources = copy.sources ? '<div class="sources">' + copy.sources.map(function (group) {
+            return '<div class="source-list"><strong>' + esc(group[0]) + '</strong><ul>' + group[1].map(function (item) { return '<li><code>' + esc(item) + '</code></li>'; }).join("") + '</ul></div>';
+          }).join("") + '</div>' : "";
+          var hasVisual = slide.diagram || slide.screenshot;
+          var visual = slide.screenshot ? screenshotPanel(slide.screenshot) : (slide.diagram ? diagram(slide.diagram, copy) : cards);
+          var primaryCards = hasVisual ? cards : "";
+          return '<section class="slide" id="slide-' + slide.n + '"><div class="slide-head"><div class="num">' + String(slide.n).padStart(2, "0") + ' / ' + totalSlides + '</div><div><h2>' + rich(copy.title) + '</h2><p class="summary">' + rich(copy.summary) + '</p></div></div><div class="body-grid"><div class="copy">' + body + primaryCards + matrixHtml + note + sources + '</div><div>' + visual + '</div></div></section>';
+        }).join("");
+        updateProgress();
+      }
+
+      function updateProgress() {
+        var sections = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+        var current = 0;
+        var fold = window.innerHeight * 0.38;
+        sections.forEach(function (section, index) {
+          if (section.getBoundingClientRect().top <= fold) current = index + 1;
+        });
+        document.getElementById("progress").textContent = String(current).padStart(2, "0") + " / " + totalSlides;
+      }
+
+      document.querySelectorAll("[data-lang]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          lang = button.getAttribute("data-lang");
+          try { localStorage.setItem("ldc-presentation-lang", lang); } catch (_) {}
+          render();
+        });
+      });
+      try {
+        var saved = localStorage.getItem("ldc-presentation-lang");
+        if (saved === "en" || saved === "nl") lang = saved;
+      } catch (_) {}
+      window.addEventListener("scroll", updateProgress, { passive: true });
+      window.addEventListener("resize", updateProgress);
+      render();
+    })();
+  </script>
+</body>
+</html>

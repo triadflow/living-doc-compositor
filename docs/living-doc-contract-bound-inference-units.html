@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contract-Bound Inference Units For Living Docs</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #152033;
+      --muted: #627287;
+      --line: #d8e0ea;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --teal: #0f766e;
+      --amber: #a16207;
+      --red: #b42318;
+      --violet: #6d28d9;
+      --slate: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 32px 24px 26px;
+    }
+    main { padding: 22px 24px 44px; }
+    .wrap { max-width: 1180px; margin: 0 auto; }
+    h1, h2, h3, h4, p { margin-top: 0; letter-spacing: 0; }
+    h1 { font-size: 32px; line-height: 1.12; margin-bottom: 10px; }
+    h2 { font-size: 20px; margin-bottom: 10px; }
+    h3 { font-size: 15px; margin-bottom: 6px; }
+    h4 { font-size: 12px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    p { margin-bottom: 0; }
+    .subtitle { color: var(--muted); max-width: 900px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .lead {
+      border-left: 4px solid var(--blue);
+      padding-left: 14px;
+      max-width: 940px;
+      font-size: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      background: #fbfcfe;
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--slate);
+      border-radius: 8px;
+      padding: 13px;
+      min-height: 116px;
+    }
+    .card.blue { border-top-color: var(--blue); }
+    .card.teal { border-top-color: var(--teal); }
+    .card.amber { border-top-color: var(--amber); }
+    .card.red { border-top-color: var(--red); }
+    .card.violet { border-top-color: var(--violet); }
+    .card p, li { color: var(--muted); }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #f8fafc;
+      color: var(--slate);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .diagram {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 12px;
+      overflow-x: auto;
+    }
+    pre.mermaid {
+      margin: 0;
+      min-width: 780px;
+      background: transparent;
+    }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    li { margin: 4px 0; }
+    code {
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #eef2f7;
+      border: 1px solid #dce4ee;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+    .contract {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 8px 12px;
+      margin-top: 12px;
+    }
+    .contract div {
+      border: 1px solid var(--line);
+      background: #fbfcfe;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .contract strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+    .contract span { display: block; margin-top: 2px; overflow-wrap: anywhere; }
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      max-width: 920px;
+    }
+    .sequence {
+      counter-reset: step;
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .step {
+      position: relative;
+      padding: 12px 12px 12px 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+    .step:before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    footer {
+      max-width: 1180px;
+      margin: 0 auto;
+      color: var(--muted);
+      padding: 0 24px 36px;
+    }
+    @media (max-width: 900px) {
+      header, main { padding-left: 16px; padding-right: 16px; }
+      .grid, .grid.two, .grid.four { grid-template-columns: 1fr; }
+      .contract { grid-template-columns: 1fr; }
+      footer { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Contract-Bound Inference Units For Living Docs</h1>
+      <p class="subtitle">The current harness shows a general primitive: a bounded inference call receives a contract, inspects living-doc evidence, emits a typed output contract, and hands control back to the lifecycle controller. The useful generalization is not one generic agent. It is a small catalog of typed inference units that operate over a living doc until its objective is reached.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <p class="lead">The base primitive is general. The operating unit is specialized. A unit becomes specialized when its prompt, required evidence, permission boundary, and output schema define what kind of reasoning it may perform.</p>
+      <div class="grid four">
+        <div class="card blue">
+          <span class="tag">Primitive</span>
+          <h3>Input Contract</h3>
+          <p>Names the living doc, objective, stage, required artifacts, raw log paths, and allowed action surface.</p>
+        </div>
+        <div class="card violet">
+          <span class="tag">Primitive</span>
+          <h3>Prompt</h3>
+          <p>Turns the generic model call into a role: worker, reviewer, balance scan, repair skill, closure review, or narrative.</p>
+        </div>
+        <div class="card teal">
+          <span class="tag">Primitive</span>
+          <h3>Inference</h3>
+          <p>Reads the contract and evidence, reasons over the living doc state, and produces a bounded judgment or patch.</p>
+        </div>
+        <div class="card amber">
+          <span class="tag">Primitive</span>
+          <h3>Output Contract</h3>
+          <p>Returns a typed result the deterministic lifecycle controller can route without pretending to reason.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>The Chain Is Held By Contracts</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  Doc["Living doc<br/>objective, stage, criteria"] --> Boot["Minimal bootstrap<br/>create initial contract"]
+  Boot --> Worker["Worker unit<br/>does objective work"]
+  Worker --> Reviewer["Reviewer unit<br/>inspects worker log paths"]
+  Reviewer --> Controller["Lifecycle controller<br/>deterministic routing"]
+  Controller -->|closed| Stop["Stop: objective proven"]
+  Controller -->|user-stopped| UserStop["Stop: user requested"]
+  Controller -->|anything else| Next["Next contract-bound unit"]
+  Next --> Worker
+        </pre>
+      </div>
+      <p class="note">The controller does not need to understand the objective. Its core rule is intentionally small: closed stops, user-stopped stops, every other signal becomes the next contract-bound inference unit.</p>
+    </section>
+
+    <section>
+      <h2>What The Contract Must Carry</h2>
+      <p>The contract is the memory surface of the system. It replaces chat continuity with explicit handover.</p>
+      <div class="contract">
+        <div><strong>Living doc</strong><span>Path, rendered path, doc hash, current stage, objective, success condition, acceptance criteria.</span></div>
+        <div><strong>Evidence</strong><span>Required inspection paths, raw worker JSONL paths, previous output-input artifact, proof bundle paths.</span></div>
+        <div><strong>Unit type</strong><span>The role being invoked: worker, reviewer, balance-scan, repair-skill, closure-review, narrative, or another registered type.</span></div>
+        <div><strong>Prompt stance</strong><span>What the unit must optimize for, what it must inspect, what it must not overclaim, and what kind of judgment is valid.</span></div>
+        <div><strong>Permission boundary</strong><span>Whether it may edit source, edit the living doc, run tests, create issues, commit, or only report commit intent.</span></div>
+        <div><strong>Output schema</strong><span>Typed result fields the controller can consume: classification, ordered skills, changed files, commit intent, blocker, closure approval.</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Current Specialized Units</h2>
+      <p>The current system already has typed units. They share the primitive but are operationally different because their contracts ask different questions.</p>
+      <div class="grid">
+        <div class="card violet">
+          <span class="tag">Type</span>
+          <h3>Worker</h3>
+          <p>Executes against the living-doc objective. It may change source and/or the living doc according to its run contract.</p>
+          <ul>
+            <li>Output: worker result, final message, raw JSONL trace.</li>
+            <li>Risk: claims completion without objective proof.</li>
+          </ul>
+        </div>
+        <div class="card blue">
+          <span class="tag">Type</span>
+          <h3>Reviewer</h3>
+          <p>Inspects raw worker logs and objective evidence, then decides whether closure is proven or another unit is required.</p>
+          <ul>
+            <li>Output: stop verdict and next iteration instruction.</li>
+            <li>Risk: accepting progress artifacts as closure.</li>
+          </ul>
+        </div>
+        <div class="card amber">
+          <span class="tag">Type</span>
+          <h3>Balance Scan</h3>
+          <p>Classifies why the living doc is out of balance and orders the repair skill chain.</p>
+          <ul>
+            <li>Output: imbalance diagnosis and ordered skill list.</li>
+            <li>Risk: treating a multi-cause imbalance as one simple repair.</li>
+          </ul>
+        </div>
+        <div class="card teal">
+          <span class="tag">Type</span>
+          <h3>Repair Skill</h3>
+          <p>Applies a specialized repair lens to objective, governance, proof, stage, relationship maps, or readiness.</p>
+          <ul>
+            <li>Output: repair result, changed files, commit intent, next recommendation.</li>
+            <li>Risk: making local text changes without restoring objective pressure.</li>
+          </ul>
+        </div>
+        <div class="card red">
+          <span class="tag">Type</span>
+          <h3>Closure Review</h3>
+          <p>Separately checks whether terminal closure is allowed after the reviewer and controller have candidate closure.</p>
+          <ul>
+            <li>Output: approved/rejected closure contract.</li>
+            <li>Risk: approving because tests are green while acceptance criteria remain weak.</li>
+          </ul>
+        </div>
+        <div class="card blue">
+          <span class="tag">Type</span>
+          <h3>Run Narrative</h3>
+          <p>Explains a lifecycle run after the fact by reading the artifacts and decisions, not by redoing the work.</p>
+          <ul>
+            <li>Output: decision narrative HTML.</li>
+            <li>Risk: quoting messages without showing evidence and changed files.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Repair Skills As Type And Subtypes</h2>
+      <p>Repair is not one thing. It is a family of typed inference units. The balance scan picks subtypes because different imbalances need different reasoning.</p>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+  RepairType["Repair skill type"] --> Obj["Objective conservation<br/>Did we preserve every accountable term?"]
+  RepairType --> Energy["Activation energy review<br/>Has proof crossed the real closure threshold?"]
+  RepairType --> Equilibrium["Equilibrium rebalance<br/>Did new evidence destabilize the doc?"]
+  RepairType --> Path["Reaction path validation<br/>Is the stage transition valid?"]
+  RepairType --> Relation["Relationship map alignment<br/>Do diagrams, criteria, and objective agree?"]
+  RepairType --> Readiness["Objective execution readiness<br/>Can the next worker execute without drift?"]
+  RepairType --> Catalytic["Catalytic repair run<br/>Composed deep repair pass"]
+        </pre>
+      </div>
+      <p class="note">This is why “repair skill” should be treated as a type family. The top-level type says it repairs the living doc state. The subtype says which conservation law, proof threshold, stage path, or relationship surface it is responsible for.</p>
+    </section>
+
+    <section>
+      <h2>Minimal Bootstrap</h2>
+      <p>The bootstrap should stay small. It should not pretend to solve the objective. Its job is to create the first valid contract so the chain can start.</p>
+      <div class="sequence">
+        <div class="step">
+          <h3>Create or locate the living doc</h3>
+          <p>The living doc is the substrate. It contains the objective, acceptance criteria, current stage, sections, relationship maps, and proof ladder.</p>
+        </div>
+        <div class="step">
+          <h3>Shape the initial objective contract</h3>
+          <p>The bootstrap checks whether the objective is accountable enough. If not, objective-shaping is the first inference unit.</p>
+        </div>
+        <div class="step">
+          <h3>Start the first worker unit</h3>
+          <p>The worker receives a contract with the living doc path, objective, acceptance criteria, and permitted work surface.</p>
+        </div>
+        <div class="step">
+          <h3>Route from artifacts only</h3>
+          <p>Every later unit is chosen from the previous output contract, reviewer verdict, and living-doc state. No hidden chat memory is required.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>A General Initial Catalog</h2>
+      <p>This is the first practical set of inference unit types the system can offer. The list is general, but each type must still have a concrete prompt and output contract.</p>
+      <div class="grid two">
+        <div class="card blue">
+          <span class="tag">Foundation</span>
+          <h3>Objective Shaper</h3>
+          <p>Turns a rough session-derived objective into an accountable living-doc objective and acceptance criteria.</p>
+        </div>
+        <div class="card violet">
+          <span class="tag">Execution</span>
+          <h3>Worker Executor</h3>
+          <p>Performs the work required by the living doc within the current stage and permission boundary.</p>
+        </div>
+        <div class="card blue">
+          <span class="tag">Evaluation</span>
+          <h3>Evidence Reviewer</h3>
+          <p>Reads raw logs and artifacts to decide closure, repairability, continuation, or user-stop signal.</p>
+        </div>
+        <div class="card amber">
+          <span class="tag">Routing</span>
+          <h3>Imbalance Classifier</h3>
+          <p>Diagnoses what kind of living-doc imbalance exists and selects the next unit type or repair subtype.</p>
+        </div>
+        <div class="card teal">
+          <span class="tag">Repair</span>
+          <h3>Governance Repair</h3>
+          <p>Repairs objective conservation, invariants, proof ladder, stage relation, or relationship map alignment.</p>
+        </div>
+        <div class="card red">
+          <span class="tag">Closure</span>
+          <h3>Closure Gate</h3>
+          <p>Independently checks whether the objective and acceptance criteria are actually satisfied.</p>
+        </div>
+        <div class="card teal">
+          <span class="tag">Observation</span>
+          <h3>Run Narrative</h3>
+          <p>Produces a readable explanation of what each unit decided and which contracts caused the next transition.</p>
+        </div>
+        <div class="card amber">
+          <span class="tag">Externalization</span>
+          <h3>Blocker/Ticket Writer</h3>
+          <p>Creates durable external references when the system needs a traceable blocker, without treating that ticket as closure.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>How The System Generalizes</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+  Registry["Inference unit type registry"] --> Prompt["Prompt template"]
+  Registry --> Input["Input contract schema"]
+  Registry --> Output["Output contract schema"]
+  Registry --> Policy["Permission policy"]
+  Registry --> Evidence["Required evidence policy"]
+
+  LivingDoc["Living doc"] --> Controller["Lifecycle controller"]
+  Controller --> Registry
+  Controller --> Contract["Next unit input contract"]
+  Contract --> Unit["Typed inference unit"]
+  Unit --> Result["Typed output contract"]
+  Result --> Controller
+  Result --> LivingDoc
+        </pre>
+      </div>
+      <p class="note">A registry of unit types does not remove intelligence from the system. It gives the controller enough structure to invoke the right kind of intelligence with the right evidence, then route the result without inventing meaning.</p>
+    </section>
+
+    <section>
+      <h2>The Central Design Rule</h2>
+      <div class="grid two">
+        <div class="card teal">
+          <h3>Always operate over a living doc</h3>
+          <p>The living doc is not a note beside the work. It is the executable objective surface: objective, stage, acceptance criteria, governance, relationship maps, and proof ladder.</p>
+        </div>
+        <div class="card red">
+          <h3>Do not stop on process artifacts</h3>
+          <p>Issues, blockers, failed tests, missing proof, runtime limits, repairability, and former batch limits are not success states. They are inputs to the next contract-bound unit.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Static concept page for living-doc-compositor. It describes the current harness pattern and the path toward a reusable set of contract-bound inference unit types.
+  </footer>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: 'loose',
+      theme: 'base',
+      themeVariables: {
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        primaryColor: '#f8fafc',
+        primaryTextColor: '#152033',
+        primaryBorderColor: '#d8e0ea',
+        lineColor: '#7b8da4',
+        secondaryColor: '#eef6ff',
+        tertiaryColor: '#f7f8fb'
+      }
+    });
+  </script>
+</body>
+</html>

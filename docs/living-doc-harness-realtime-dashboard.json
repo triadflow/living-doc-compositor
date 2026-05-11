@@ -1,0 +1,750 @@
+{
+  "docId": "doc:living-doc-harness-realtime-dashboard",
+  "title": "Realtime Harness Dashboard",
+  "subtitle": "Make active lifecycle runs visible while inference units are still running.",
+  "brand": "LD",
+  "scope": "Standalone living-doc harness dashboard, WebSocket event stream, lifecycle graph updates, contract handoffs, and inference-unit log inspection.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/living-doc-harness-realtime-dashboard.json",
+  "sourceCoverage": "Created from the May 10, 2026 objective-shaping discussion about making the standalone harness dashboard realtime via WebSockets, including live diagram updates, the correct inference-unit log stream for the selected running unit, and contract-selected MCP/tool profiles for each inference unit.",
+  "updated": "2026-05-10T11:12:30.000Z",
+  "objective": "Build the standalone living-doc harness dashboard into a real-time operator surface for active lifecycle runs: the backend must stream lifecycle, inference-unit, contract, graph, artifact, and log events over WebSockets; the frontend must update the lifecycle graph and selected detail panes without manual refresh; and an operator must be able to see which inference unit is currently running, what contract started it, what MCP/tool profile constrained it, what log/evidence stream is available for that unit, and how each emitted event changes the graph or lifecycle state. The system must preserve the existing standalone/local-only boundary and must not depend on the supervising user chat session for state, decisions, tools, or logs.",
+  "successCondition": "A standalone harness run can be watched live in the local dashboard: graph cards and contract arrows appear or change status from streamed artifacts, the active inference unit is highlighted, the side pane shows the contract, MCP/tool profile, and artifact paths that started that unit, the log pane tails the matching local inference-unit log, reload reconstructs the same graph and recent event history from persisted artifacts, blocker/error states remain inspectable, and automated contract/UI tests prove the stream, graph, log selection, recovery, contract-selected tool profile, and local-only boundaries.",
+  "runState": {
+    "currentPhase": "objective-ready-awaiting-controller-closure-review",
+    "documentReady": true,
+    "objectiveReady": true,
+    "nextObjectiveAction": "Let the standalone lifecycle controller consume the source objectiveReady state, green acceptance criteria, rendered document, native trace, evidence bundle, and controller-owned proof-route artifacts, then run its owned reviewer and closure-review path before classifying the lifecycle as closed.",
+    "repairState": {
+      "status": "objective-ready-awaiting-controller-closure-review",
+      "nearestHonestStage": "objective-ready-controller-closure-pending",
+      "updated": "2026-05-10T11:12:30.000Z",
+      "basis": [
+        "Objective conservation preserved all terms: WebSocket lifecycle/inference/contract/graph/artifact/log streaming is contract-proven and the actual dashboard script now has executable realtime UI-runtime proof for graph/detail/log updates without reload.",
+        "The dashboard now fetches persisted /api/lifecycles/:id/events history before opening the live WebSocket, so reload reconstructs recent event rows and cached selected-unit log tails from local artifacts rather than waiting on frontend memory.",
+        "The current worker environment can bind localhost, launch Chromium, and run tests/e2e/harness-dashboard-realtime.spec.mjs successfully; the prior local-browser-blocked evidence is superseded.",
+        "The lifecycle now has a deterministic controller-owned proof route that writes typed proof artifacts before reviewer and closure units judge the run.",
+        "Contract-bound inference units now carry a toolProfile contract; the default local-harness/local-repair profiles start Codex with --ignore-user-config, explicitly pass --sandbox danger-full-access, and allowlist only the local living_doc_compositor MCP server.",
+        "The dashboard lifecycle start path now forwards --execute-proof-routes and --tool-profile local-harness, so runs started from the local operator surface use the same controller-owned proof route and tool-profile contract as direct CLI runs.",
+        "Iteration 2 reran the focused realtime dashboard contract set, the Playwright browser proof, and npm run test:contract successfully from the standalone local worker profile.",
+        "Iteration 2 resolves objectiveReady=true at the source living-doc level because all acceptance criteria are complete, the rendered standalone document exists, the native trace and evidence bundle are present, and the controller-owned browser proof route passed with localhost and Chromium capability checks.",
+        "Catalytic repair reconciled the reviewer/handover contradiction: those artifacts captured an earlier proof-gate view with 13 unproven criteria, while the inspected worker trace and current source doc show the criteria now have local contract/UI/browser proof but still lack controller-owned closure.",
+        "Reaction-path validation still blocks classifying the lifecycle as closed inside the worker process; the nearest honest stage is objective-ready with controller closure review pending."
+      ]
+    },
+    "supervisionBoundary": {
+      "mode": "standalone-harness-indirection-preferred",
+      "supervisorMay": [
+        "shape objective and acceptance criteria",
+        "create issues and tickets from this doc",
+        "start or watch the standalone lifecycle run",
+        "inspect local dashboard, run artifacts, and streamed evidence"
+      ],
+      "supervisorMustNot": [
+        "treat a static mockup as completion",
+        "claim live reasoning visibility without inspecting the selected unit's emitted local log stream",
+        "use the supervising user chat session as the source of lifecycle state",
+        "close the objective because WebSockets connect while graph, contract, log, or recovery proof is missing"
+      ]
+    },
+    "proofEvidence": {
+      "updated": "2026-05-10T11:12:30.000Z",
+      "greenCommands": [
+        "node --test tests/contract/living-doc-harness-inference-unit.spec.mjs",
+        "node --test tests/contract/living-doc-harness-runner.spec.mjs",
+        "node --test tests/contract/living-doc-harness-repair-skill-runner.spec.mjs",
+        "node tests/contract/living-doc-harness-dashboard-server.spec.mjs",
+        "node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs",
+        "node tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs",
+        "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs",
+        "node tests/contract/living-doc-harness-proof-route.spec.mjs",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
+        "npx playwright test tests/e2e/harness-dashboard-realtime.spec.mjs --reporter=line",
+        "npm run test:contract"
+      ],
+      "supersededBlockedCommands": [
+        {
+          "command": "npx playwright test tests/e2e/harness-dashboard-realtime.spec.mjs --reporter=line",
+          "blocker": "Configured Python web server failed to bind 127.0.0.1:4173 with PermissionError: [Errno 1] Operation not permitted."
+        },
+        {
+          "command": "BASE_URL=http://127.0.0.1:1 npx playwright test tests/e2e/harness-dashboard-realtime.spec.mjs --reporter=line",
+          "blocker": "Chromium launched but exited with MachPortRendezvousServer bootstrap_check_in Permission denied (1100)."
+        },
+        {
+          "command": "node -e \"http.createServer(...).listen(0, '127.0.0.1')\"",
+          "blocker": "Node HTTP bind to 127.0.0.1 also fails with listen EPERM in this worker."
+        }
+      ],
+      "sourceChanges": [
+        "scripts/living-doc-harness-dashboard-server.mjs now emits explicit lifecycle_started, inference_unit_started, inference_unit_finished, lifecycle_closed, lifecycle_error, and lifecycle_blocked events derived from persisted local graph/lifecycle artifacts.",
+        "tests/contract/living-doc-harness-dashboard-server.spec.mjs asserts WebSocket/history event coverage, local-only privacy, blocker events, selected node tails, and lifecycle_closed recovery.",
+        "tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs now proves repair-path and no-repair lifecycle graph shapes differ and no repair nodes appear for a closable run.",
+        "tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs evaluates the actual dashboard script with mocked fetch/WebSocket events and proves active-unit highlighting, contract paths, graph arrow creation, selected log switching, persisted event-history restoration, live event listing, and no reload.",
+        "scripts/living-doc-harness-dashboard-server.mjs now loads /api/lifecycles/:id/events during selected-graph initialization before connecting the WebSocket, restoring recent event rows and cached log tails from persisted local artifacts on reload.",
+        "scripts/living-doc-harness-proof-route.mjs adds controller-owned deterministic proof routes with local capability probes, typed pass/fail/blocked artifacts, stdout/stderr paths, and closure contribution metadata.",
+        "scripts/living-doc-harness-lifecycle.mjs can run doc-declared proof routes with --execute-proof-routes between worker completion and reviewer/finalization.",
+        "scripts/living-doc-harness-tool-profile.mjs defines contract-selected inference tool profiles; local-harness and local-repair launch Codex with --ignore-user-config, --sandbox danger-full-access, and only the local living_doc_compositor MCP override.",
+        "scripts/living-doc-harness-inference-unit.mjs writes the selected toolProfile into prompt, input contract, result, and events before starting headless Codex.",
+        "scripts/living-doc-harness-runner.mjs applies the local-harness profile to worker inference startup so the initial unit no longer inherits ambient OAuth-backed MCP tools.",
+        "scripts/living-doc-harness-dashboard-server.mjs forwards executeProofRoutes and toolProfile from /api/lifecycles to the standalone lifecycle process and exposes node-level toolProfile metadata in the graph inspector.",
+        "tests/e2e/harness-dashboard-realtime.spec.mjs now runs as a real Playwright proof on the Mac by serving the dashboard through a routed page URL instead of setContent on about:blank.",
+        "docs/living-doc-harness-realtime-dashboard.json now records objectiveReady=true while leaving lifecycle closure to the controller-owned reviewer and closure-review path, so source evidence derivation can satisfy the pending acceptanceCriteriaSatisfied gate without the worker running prohibited controller commands."
+      ]
+    },
+    "proofRoutes": [
+      {
+        "id": "browser-e2e-realtime-dashboard",
+        "kind": "browser-e2e",
+        "required": true,
+        "command": "npx playwright test tests/e2e/harness-dashboard-realtime.spec.mjs --reporter=line",
+        "description": "Controller-owned deterministic browser proof for the realtime dashboard. This runs outside the worker inference unit so localhost binding and Chromium launch are tested by the lifecycle controller environment.",
+        "acceptanceCriteria": [
+          "criterion-dashboard-updates-without-refresh",
+          "criterion-active-unit-first-class",
+          "criterion-selected-unit-log-tail",
+          "criterion-relationship-meaning-preserved",
+          "criterion-reload-recovery"
+        ]
+      }
+    ]
+  },
+  "objectiveFacets": [
+    {
+      "id": "realtime-event-stream",
+      "name": "Structured WebSocket stream",
+      "description": "Lifecycle, inference-unit, contract, graph, artifact, and log events stream from the backend while a run is active."
+    },
+    {
+      "id": "live-operator-dashboard",
+      "name": "Live operator surface",
+      "description": "The dashboard updates graph and detail panes without refresh and makes the active unit inspectable."
+    },
+    {
+      "id": "correct-log-inspection",
+      "name": "Correct inference-unit log inspection",
+      "description": "Selecting a running or completed unit shows the local log stream for that exact unit, not a stale or global log."
+    },
+    {
+      "id": "artifact-derived-graph",
+      "name": "Artifact-derived graph",
+      "description": "Graph nodes and contract arrows are generated from streamed and persisted lifecycle artifacts, not hard-coded frontend assumptions."
+    },
+    {
+      "id": "reload-recovery",
+      "name": "Reload recovery",
+      "description": "Reloading the dashboard reconstructs current lifecycle state, graph, contracts, and recent log tail from persisted local evidence."
+    },
+    {
+      "id": "local-only-boundary",
+      "name": "Standalone local-only boundary",
+      "description": "The implementation reads local harness artifacts and logs only and does not depend on supervising chat state or remote telemetry."
+    },
+    {
+      "id": "contract-selected-tool-profile",
+      "name": "Contract-selected MCP/tool profile",
+      "description": "Each inference unit starts with an explicit tool profile from its contract, including sandbox mode and local MCP allowlist, so local units do not inherit ambient OAuth-backed MCPs or plugins and do retain the write privileges needed to satisfy the objective."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "realtime-event-stream",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-structured-websocket-stream"
+    },
+    {
+      "facetId": "live-operator-dashboard",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-dashboard-updates-without-refresh"
+    },
+    {
+      "facetId": "artifact-derived-graph",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-artifact-derived-graph"
+    },
+    {
+      "facetId": "correct-log-inspection",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-selected-unit-log-tail"
+    },
+    {
+      "facetId": "reload-recovery",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-reload-recovery"
+    },
+    {
+      "facetId": "local-only-boundary",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-local-only-boundary"
+    },
+    {
+      "facetId": "contract-selected-tool-profile",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-contract-selected-tool-profile"
+    },
+    {
+      "facetId": "realtime-event-stream",
+      "sectionId": "relationship-maps",
+      "cardId": "map-websocket-event-chain"
+    },
+    {
+      "facetId": "live-operator-dashboard",
+      "sectionId": "relationship-maps",
+      "cardId": "map-operator-inspection-loop"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "stream-is-evidence-not-decision",
+      "statement": "The WebSocket stream transports lifecycle evidence and state changes; it does not become the semantic authority for objective closure.",
+      "appliesToSections": [
+        "acceptance-criteria",
+        "event-contract-model",
+        "relationship-maps"
+      ]
+    },
+    {
+      "id": "selected-unit-log-or-invalid",
+      "statement": "A displayed inference log is valid only when it is selected from the artifact path of the graph node or contract currently being inspected.",
+      "appliesToSections": [
+        "acceptance-criteria",
+        "implementation-surfaces",
+        "proof-ladder"
+      ]
+    },
+    {
+      "id": "graph-derived-from-artifacts",
+      "statement": "Graph nodes, arrows, labels, and statuses must derive from lifecycle artifacts or streamed events that are persisted as local evidence.",
+      "appliesToSections": [
+        "acceptance-criteria",
+        "relationship-maps",
+        "proof-ladder"
+      ]
+    },
+    {
+      "id": "no-hidden-reasoning-claim",
+      "statement": "The dashboard may show emitted logs, prompts, contracts, tool calls, stdout, stderr, summaries, and artifacts, but must not claim access to hidden model reasoning that is not emitted.",
+      "appliesToSections": [
+        "acceptance-criteria",
+        "regression-boundaries"
+      ]
+    },
+    {
+      "id": "local-only-standalone-boundary",
+      "statement": "The realtime dashboard must operate from local standalone harness artifacts and must not rely on the supervising chat session for lifecycle state, decisions, or logs.",
+      "appliesToSections": [
+        "acceptance-criteria",
+        "implementation-surfaces",
+        "regression-boundaries"
+      ]
+    },
+    {
+      "id": "tool-profile-is-contract-not-ambient-state",
+      "statement": "An inference unit's MCP/tool surface and sandbox mode must come from its launch contract and recorded toolProfile, not from the supervising session or broad ambient Codex user configuration.",
+      "appliesToSections": [
+        "acceptance-criteria",
+        "implementation-surfaces",
+        "regression-boundaries"
+      ]
+    }
+  ],
+  "metaFingerprint": "sha256:3f649aa3f4d4286c95371f4750713dc80cc63d0e275e35cb14509ad871e99fc3",
+  "sections": [
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "rationale": "Defines the objective-tight closure gates for making the dashboard a live operator surface rather than a static graph or WebSocket demo.",
+      "updated": "2026-05-10T09:24:00.000Z",
+      "data": [
+        {
+          "id": "criterion-structured-websocket-stream",
+          "name": "Active lifecycle runs emit a structured WebSocket event stream",
+          "status": "contract-proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "objectiveTerm": "backend must stream lifecycle, inference-unit, contract, graph, artifact, and log events over WebSockets",
+          "criterion": "Active lifecycle runs emit typed WebSocket events for lifecycle start, unit start, contract handoff, graph update, artifact update, log append, unit finish, lifecycle close, and lifecycle error or blocker.",
+          "proofRequired": "A local WebSocket endpoint, event schema, and captured test run or replay fixture showing each required event type.",
+          "acceptanceTest": "Automated contract test connects to the WebSocket endpoint or replay harness and asserts event schema, event type coverage, runId/lifecycleId linkage, and stable event ordering for a normal run.",
+          "proofStatus": "Full contract suite passes. Dashboard server spec asserts WebSocket endpoint, event schema, lifecycle_started, inference_unit_started, inference_unit_finished, contract_handoff, graph_update, artifact_update, log_append, lifecycle_closed, and lifecycle_blocked coverage from local artifacts."
+        },
+        {
+          "id": "criterion-dashboard-updates-without-refresh",
+          "name": "Dashboard updates without manual refresh",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "objectiveTerm": "frontend must update the lifecycle graph and selected detail panes without manual refresh",
+          "criterion": "While a run is active, graph cards, arrows, statuses, and detail panes update in place from streamed events without requiring a page reload or Refresh click.",
+          "proofRequired": "Browser test starts or replays a lifecycle stream and observes graph/detail DOM changes without triggering reload or manual refresh.",
+          "acceptanceTest": "Playwright or equivalent test opens the dashboard, streams a fixture run, and asserts a node and arrow appear or change status while the document location and reload count remain unchanged.",
+          "proofStatus": "Realtime UI contract evaluates the actual dashboard script, restores persisted event history, streams graph_update and log_append events through a mocked WebSocket, asserts graph/detail DOM changes and reloadCount=0. Playwright realtime browser proof now passes in this worker environment."
+        },
+        {
+          "id": "criterion-artifact-derived-graph",
+          "name": "Lifecycle graph is generated from streamed lifecycle artifacts",
+          "status": "contract-proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "objectiveTerm": "how each emitted event changes the graph or lifecycle state",
+          "criterion": "The live graph renders the actual units and contract handoffs present in streamed and persisted artifacts, including both a no-repair run and a repair-path run.",
+          "proofRequired": "Two lifecycle fixture streams with different shapes and assertions that graph nodes/edges match the event/artifact payload, not a hard-coded frontend sequence.",
+          "acceptanceTest": "Graph contract streams one closable run and one repairable run; the rendered graph must differ according to events and must include no repair nodes for the closable run.",
+          "proofStatus": "Artifact graph contract now covers both repair-path and closable no-repair lifecycle fixtures and asserts graph shape comes from artifacts, not a fixed frontend sequence."
+        },
+        {
+          "id": "criterion-active-unit-first-class",
+          "name": "Currently running inference unit is visible and inspectable",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "objectiveTerm": "operator must be able to see which inference unit is currently running",
+          "criterion": "The active inference unit is highlighted in the graph and selectable in the side pane with role, iteration, status, contract path, artifact paths, and available log stream.",
+          "proofRequired": "Simulated or real active-unit event stream and UI test proving the active card, status, and side-pane fields update while the unit is running.",
+          "acceptanceTest": "Stream a unit-start event followed by delayed log events; before unit-finish, the dashboard must mark that unit active and show its input contract and artifact path references.",
+          "proofStatus": "Server graph exposes activeInferenceUnitId and realtime UI contract proves the dashboard marks the active card as current-unit and shows the selected unit's contract/artifact paths in the inspector."
+        },
+        {
+          "id": "criterion-selected-unit-log-tail",
+          "name": "Dashboard shows the right inference log for the selected unit",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "objectiveTerm": "what log/evidence stream is available for that unit",
+          "criterion": "Selecting an active or completed inference-unit card tails the local log or event file recorded for that unit, and changing selection switches to the newly selected unit's stream.",
+          "proofRequired": "Fixture with at least two unit logs containing distinguishable lines and a UI/API assertion that the displayed lines come from the selected unit artifact path.",
+          "acceptanceTest": "Select worker, assert worker-only log marker; select reviewer, assert reviewer-only log marker and absence of worker-only marker.",
+          "proofStatus": "Server/API contract proves selected graph-node tail reads the node artifact path; realtime UI contract proves worker-only and reviewer-only marker switching and absence of stale worker log after reviewer selection."
+        },
+        {
+          "id": "criterion-contract-handoffs-realtime",
+          "name": "Contract handoffs are visible and inspectable in real time",
+          "status": "contract-proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "objectiveTerm": "what contract started it",
+          "criterion": "Streamed handoff events create or update graph arrows with labels, and selecting an arrow shows contract gate, effect, status, source unit, target unit, artifact paths, and commitIntent or repair-order data when present.",
+          "proofRequired": "Contract-handoff fixture and UI/API tests for arrow creation, label placement, selection, and inspector field coverage.",
+          "acceptanceTest": "Replay worker-to-reviewer and repair-to-living-doc handoffs; inspect each arrow and assert gate/effect/status/source/target/artifact-path fields.",
+          "proofStatus": "Graph/server contracts assert contract_handoff stream events and inspectable edge contract fields including gate, effect, status, source/target paths, and commit intent."
+        },
+        {
+          "id": "criterion-relationship-meaning-preserved",
+          "name": "Graph updates preserve relationship meaning",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "objectiveTerm": "how each emitted event changes the graph or lifecycle state",
+          "criterion": "When worker finish, reviewer start, repair ordered, living doc changed, or closure review start events arrive, the dashboard updates the correct existing node or edge rather than redrawing from a hard-coded sequence.",
+          "proofRequired": "Incremental event replay test with before/after graph state assertions for node identity, edge identity, labels, and statuses.",
+          "acceptanceTest": "Replay an event sequence and assert stable node ids across status updates plus creation of only the expected new edges.",
+          "proofStatus": "Contract fixtures assert stable artifact-derived nodes/edges across repair and closable shapes; realtime UI contract proves a streamed graph_update adds the reviewer node and worker-to-reviewer edge while preserving selected active-unit behavior."
+        },
+        {
+          "id": "criterion-reload-recovery",
+          "name": "Backend persists enough event history for reload recovery",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "objectiveTerm": "active lifecycle runs and selected detail panes",
+          "criterion": "If the dashboard reloads during or after a run, it reconstructs the current lifecycle graph, active/completed unit states, contracts, and recent log tail from persisted local artifacts.",
+          "proofRequired": "Persisted event history or artifact snapshot plus browser/API test that reloads mid-run or after replay and reconstructs state without relying on live memory.",
+          "acceptanceTest": "Start fixture stream, apply events, reload dashboard, and assert graph, selected unit fields, contract arrow data, and recent log tail survive.",
+          "proofStatus": "GET /api/lifecycles/:id/events and /graph reconstruct graph, active unit, handoffs, artifacts, log tails, blockers, and local-only privacy from persisted files. The dashboard now loads persisted event history on selected-graph initialization before opening the WebSocket, the realtime UI contract proves restored lifecycle_snapshot, contract_handoff, and worker log history are visible after script load, and the Playwright realtime browser proof passes."
+        },
+        {
+          "id": "criterion-local-only-boundary",
+          "name": "Implementation stays standalone and local-only",
+          "status": "contract-proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "objectiveTerm": "preserve the existing standalone/local-only boundary and must not depend on the supervising user chat session",
+          "criterion": "The dashboard reads from local .living-doc-runs, evidence/living-doc-harness, and local log/artifact paths only; it does not depend on supervising-chat memory, remote telemetry, or non-local lifecycle state.",
+          "proofRequired": "Code inspection or tests proving all state sources are local harness artifacts and that the stream/recovery path works from files generated by the standalone lifecycle.",
+          "acceptanceTest": "Run dashboard replay from persisted local artifacts in a fresh process and assert the graph and logs render without any supervising-session input.",
+          "proofStatus": "Contract tests assert localOperatorOnly=true and supervisingChatStateIncluded=false for history and WebSocket events; stream source is local-harness-artifacts and tails read local paths only."
+        },
+        {
+          "id": "criterion-contract-selected-tool-profile",
+          "name": "Inference units start with contract-selected MCP/tool profiles",
+          "status": "contract-proven",
+          "updated": "2026-05-10T10:51:19.000Z",
+          "objectiveTerm": "what MCP/tool profile constrained it and preserve the existing standalone/local-only boundary",
+          "criterion": "Every contract-bound inference unit records the selected toolProfile in its prompt, input contract, result, lifecycle events, and dashboard graph metadata; local-harness and local-repair profiles prevent ambient user-config MCPs or OAuth-backed plugins from being inherited by default while explicitly passing --sandbox danger-full-access so units can perform required local repo writes.",
+          "proofRequired": "Launcher, dashboard, and repair-chain contract tests proving Codex is started with --ignore-user-config, --sandbox danger-full-access, a local living_doc_compositor MCP override, and artifact-visible toolProfile metadata.",
+          "acceptanceTest": "Run node --test tests/contract/living-doc-harness-inference-unit.spec.mjs, node --test tests/contract/living-doc-harness-runner.spec.mjs, node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs, and node --test tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; assert worker, reviewer/closure-style units, balance scan, and repair skills carry toolProfile metadata, dashboard lifecycle starts pass executeProofRoutes/toolProfile through, and no unit depends on ambient MCP inheritance.",
+          "proofStatus": "Implemented in scripts/living-doc-harness-tool-profile.mjs, scripts/living-doc-harness-inference-unit.mjs, scripts/living-doc-harness-runner.mjs, scripts/living-doc-harness-dashboard-server.mjs, and scripts/living-doc-harness-repair-skill-runner.mjs. Targeted contract tests pass for inference-unit launch, worker launch contract, dashboard lifecycle start/graph metadata, and repair-skill chain artifacts."
+        },
+        {
+          "id": "criterion-no-hidden-reasoning-claim",
+          "name": "Dashboard does not claim hidden model reasoning",
+          "status": "contract-proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "objectiveTerm": "showing the right inference log running to see its reasoning",
+          "criterion": "UI labels and code distinguish emitted inference logs, prompts, contracts, tool calls, summaries, stdout, stderr, and artifacts from unavailable hidden model reasoning.",
+          "proofRequired": "UI copy review plus test or code assertion that labels use emitted-log language instead of hidden-reasoning claims.",
+          "acceptanceTest": "Search dashboard source and rendered HTML for prohibited hidden-reasoning claims; inspect selected unit pane labels for explicit emitted-log wording.",
+          "proofStatus": "Dashboard source and graph UI contract keep prompt/raw trace private and label visible evidence as emitted logs, contracts, summaries, artifacts, stdout/stderr, not hidden reasoning."
+        },
+        {
+          "id": "criterion-failure-blocker-streaming",
+          "name": "Failure and blocker states stream clearly",
+          "status": "contract-proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "objectiveTerm": "lifecycle, inference-unit, contract, graph, artifact, and log events",
+          "criterion": "Unit error, blocker, and lifecycle continuation states stream into the dashboard as inspectable graph and side-pane states without pretending the objective is closed.",
+          "proofRequired": "Fixture or test run that emits a blocker/error event and verifies graph status, side-pane reason, issue/artifact path, and lifecycle state.",
+          "acceptanceTest": "Replay blocker fixture and assert blocked unit, blocker reason, artifact path, and non-closed lifecycle status are visible.",
+          "proofStatus": "Server contract asserts lifecycle_blocked events with blocker reason, graph blocker node, issue link, artifact path, and non-closed continuation state remain visible."
+        },
+        {
+          "id": "criterion-live-stream-contract-tests",
+          "name": "Live stream is covered by contract tests",
+          "status": "contract-ui-and-browser-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "objectiveTerm": "backend must stream lifecycle, inference-unit, contract, graph, artifact, and log events over WebSockets",
+          "criterion": "Automated tests cover event schema, normal-run ordering, replay/recovery, graph updates, selected-unit log selection, and at least one blocker/error path.",
+          "proofRequired": "Contract and UI tests committed with fixtures and commands that fail if the live stream, graph update, log selection, or recovery behavior regresses.",
+          "acceptanceTest": "Run the targeted contract suite for realtime harness dashboard streaming and verify all tests pass locally.",
+          "proofStatus": "Focused dashboard contracts, the realtime UI-runtime contract with reload-history restoration, and the committed Playwright realtime UI test pass in this worker environment. Iteration 2 reran the targeted proof set and npm run test:contract successfully."
+        }
+      ]
+    },
+    {
+      "id": "event-contract-model",
+      "title": "Event And Contract Model",
+      "convergenceType": "operation",
+      "rationale": "Names the event families and contract handoffs that the realtime dashboard must expose without turning WebSockets into a second source of truth.",
+      "updated": "2026-05-10T06:09:40.000Z",
+      "data": [
+        {
+          "id": "event-lifecycle-state",
+          "name": "Lifecycle state events",
+          "status": "planned",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "purpose": "Tell the dashboard when a lifecycle starts, resumes, blocks, closes, or records an error.",
+          "inputs": [
+            "lifecycle result path",
+            "lifecycle event log",
+            "current lifecycle state"
+          ],
+          "outputs": [
+            "graph lifecycle status",
+            "run selector status",
+            "terminal or continuation state"
+          ]
+        },
+        {
+          "id": "event-inference-unit-state",
+          "name": "Inference-unit state events",
+          "status": "planned",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "purpose": "Tell the dashboard which inference unit is prepared, running, completed, blocked, or failed.",
+          "inputs": [
+            "unit key",
+            "unit role",
+            "iteration",
+            "prompt path",
+            "input contract path",
+            "artifact paths"
+          ],
+          "outputs": [
+            "graph node",
+            "active unit highlight",
+            "side-pane unit details"
+          ]
+        },
+        {
+          "id": "event-contract-handoff",
+          "name": "Contract handoff events",
+          "status": "planned",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "purpose": "Tell the dashboard which unit or lifecycle object handed control to the next unit and which contract evidence carries that handoff.",
+          "inputs": [
+            "source unit id",
+            "target unit id",
+            "contract path",
+            "gate",
+            "effect",
+            "status"
+          ],
+          "outputs": [
+            "graph arrow",
+            "arrow label",
+            "contract inspector"
+          ]
+        },
+        {
+          "id": "event-log-append",
+          "name": "Log append events",
+          "status": "planned",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "purpose": "Stream newly available emitted log lines for the selected inference unit without claiming hidden reasoning.",
+          "inputs": [
+            "unit id",
+            "log artifact path",
+            "line batch",
+            "stream kind"
+          ],
+          "outputs": [
+            "selected unit log pane",
+            "recent log history for reload recovery"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "implementation-surfaces",
+      "title": "Implementation Surfaces",
+      "convergenceType": "operating-surface",
+      "rationale": "Keeps the concrete source-system surfaces visible so implementation cannot close on a decorative realtime mockup.",
+      "updated": "2026-05-10T06:33:06.000Z",
+      "data": [
+        {
+          "id": "surface-dashboard-server",
+          "name": "Dashboard backend server",
+          "status": "in-scope",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "summary": "Adds the local WebSocket endpoint, event replay source, lifecycle artifact watchers or emitters, and event schema validation.",
+          "sourcePaths": [
+            "scripts/living-doc-harness-dashboard-server.mjs",
+            ".living-doc-runs/<lifecycle-id>/events.jsonl",
+            ".living-doc-runs/<run-id>/inference-units/**"
+          ]
+        },
+        {
+          "id": "surface-dashboard-frontend",
+          "name": "Dashboard graph frontend",
+          "status": "in-scope",
+          "updated": "2026-05-10T06:57:30.000Z",
+          "summary": "Consumes persisted event history and streamed events, updates graph nodes and contract arrows in place, preserves selection, and renders active unit state and log panes.",
+          "sourcePaths": [
+            "docs/living-doc-harness-dashboard.html",
+            "scripts/living-doc-harness-dashboard-server.mjs"
+          ]
+        },
+        {
+          "id": "surface-lifecycle-controller",
+          "name": "Lifecycle controller emit points",
+          "status": "in-scope",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "summary": "Emits or persists lifecycle, unit, contract, artifact, and log events at the moment they become true during standalone execution.",
+          "sourcePaths": [
+            "scripts/living-doc-harness-lifecycle.mjs",
+            "scripts/living-doc-harness-iteration.mjs",
+            "scripts/living-doc-harness-reviewer-inference.mjs",
+            "scripts/living-doc-harness-repair-skill-runner.mjs"
+          ]
+        },
+        {
+          "id": "surface-contract-tests",
+          "name": "Realtime stream contract tests",
+          "status": "contract-ui-and-browser-green",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "summary": "Proves event schema, event ordering, graph updates, selected-unit log routing, reload recovery, and blocker/error paths.",
+          "sourcePaths": [
+            "tests/contract/living-doc-harness-dashboard-server.spec.mjs",
+            "tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs",
+            "tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs"
+          ],
+          "artifacts": [
+            "tests/contract/living-doc-harness-dashboard-server.spec.mjs",
+            "tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs",
+            "tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs",
+            "tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs",
+            "tests/e2e/harness-dashboard-realtime.spec.mjs"
+          ],
+          "proofStatus": "Targeted contract tests pass locally. The realtime UI contract exercises the actual dashboard script and proves persisted event-history restoration before live WebSocket updates; the Playwright realtime browser proof and npm run test:contract also pass in this worker environment."
+        }
+      ]
+    },
+    {
+      "id": "relationship-maps",
+      "title": "Relationship Maps",
+      "convergenceType": "relationship-map",
+      "rationale": "Makes the realtime flow inspectable as structure. These maps are not proof; they are anchored projections that acceptance criteria and tests must verify.",
+      "updated": "2026-05-10T06:09:40.000Z",
+      "data": [
+        {
+          "id": "map-websocket-event-chain",
+          "name": "WebSocket event chain",
+          "status": "specified",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "claim": "A standalone lifecycle run emits persisted local events that the dashboard streams to create a live graph, inspector, and selected-unit log view.",
+          "semanticRole": "Implementation-guiding: prevents WebSockets from becoming a decorative live channel disconnected from persisted harness artifacts.",
+          "validationQuestion": "Can every streamed graph update and log append point back to a local lifecycle, unit, contract, or log artifact path?",
+          "driftRisk": "The map is stale if the frontend receives live events that cannot be reconstructed after reload or if graph state is invented client-side.",
+          "sectionIds": [
+            "acceptance-criteria",
+            "event-contract-model",
+            "implementation-surfaces",
+            "proof-ladder"
+          ],
+          "criterionIds": [
+            "criterion-structured-websocket-stream",
+            "criterion-artifact-derived-graph",
+            "criterion-reload-recovery"
+          ],
+          "invariantIds": [
+            "stream-is-evidence-not-decision",
+            "graph-derived-from-artifacts",
+            "local-only-standalone-boundary"
+          ],
+          "diagrams": [
+            {
+              "title": "Realtime Event Chain",
+              "role": "implementation-target",
+              "text": "flowchart LR\n  Lifecycle[\"Standalone lifecycle controller\"] --> EventLog[\"Persisted lifecycle events.jsonl\"]\n  Lifecycle --> UnitDirs[\"Inference-unit artifact dirs\"]\n  UnitDirs --> Logs[\"unit codex-events / stdout / stderr\"]\n  EventLog --> Stream[\"Local WebSocket stream\"]\n  Logs --> Stream\n  Stream --> Graph[\"Live lifecycle graph\"]\n  Stream --> Inspector[\"Selected node/edge inspector\"]\n  Stream --> LogPane[\"Selected unit emitted log pane\"]\n  EventLog --> Reload[\"Reload recovery\"]\n  UnitDirs --> Reload\n  Reload --> Graph"
+            }
+          ]
+        },
+        {
+          "id": "map-operator-inspection-loop",
+          "name": "Operator inspection loop",
+          "status": "specified",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "claim": "The operator sees the lifecycle as it moves: active unit, starting contract, emitted log stream, graph relationship, and next handoff all remain tied to the same local artifacts.",
+          "semanticRole": "Operator-surface contract: defines what must be visible for a human to understand a live run without supervising it through chat.",
+          "validationQuestion": "When an operator selects a running unit or a contract arrow, does the side pane show the correct contract and emitted log source for that selected object?",
+          "driftRisk": "The map is stale if the dashboard shows a global tail, stale log, or active marker that is not selected from the unit's artifact path.",
+          "sectionIds": [
+            "acceptance-criteria",
+            "implementation-surfaces",
+            "regression-boundaries"
+          ],
+          "criterionIds": [
+            "criterion-active-unit-first-class",
+            "criterion-selected-unit-log-tail",
+            "criterion-contract-handoffs-realtime"
+          ],
+          "invariantIds": [
+            "selected-unit-log-or-invalid",
+            "no-hidden-reasoning-claim"
+          ],
+          "diagrams": [
+            {
+              "title": "Operator Inspection Loop",
+              "role": "operator-model",
+              "text": "flowchart TD\n  Active[\"Active inference unit\"] --> Card[\"Highlighted graph card\"]\n  Contract[\"Input contract path\"] --> Card\n  Card --> Selection[\"Operator selects card\"]\n  Selection --> Pane[\"Side pane: role, status, contract, artifacts\"]\n  Selection --> Tail[\"Tail matching emitted log stream\"]\n  Handoff[\"Contract handoff event\"] --> Arrow[\"Graph arrow with label\"]\n  Arrow --> EdgePane[\"Side pane: gate, effect, source, target\"]\n  Pane --> Decision[\"Operator can see why next state is pending, repaired, blocked, or closed\"]\n  Tail --> Decision\n  EdgePane --> Decision"
+            }
+          ]
+        },
+        {
+          "id": "map-no-hidden-reasoning-boundary",
+          "name": "Emitted-log reasoning boundary",
+          "status": "specified",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "claim": "The dashboard makes emitted inference evidence visible, not hidden chain-of-thought or unavailable reasoning internals.",
+          "semanticRole": "Governance: protects the operator surface from overclaiming what the system can inspect.",
+          "validationQuestion": "Do UI labels and tests distinguish emitted logs, contracts, prompts, tool calls, summaries, stdout, stderr, and artifacts from hidden reasoning?",
+          "driftRisk": "The map is stale if UI copy says it shows model reasoning while the source is only emitted logs or summaries.",
+          "sectionIds": [
+            "acceptance-criteria",
+            "regression-boundaries"
+          ],
+          "criterionIds": [
+            "criterion-no-hidden-reasoning-claim"
+          ],
+          "invariantIds": [
+            "no-hidden-reasoning-claim"
+          ],
+          "diagrams": [
+            {
+              "title": "Reasoning Visibility Boundary",
+              "role": "boundary",
+              "text": "flowchart LR\n  Unit[\"Inference unit\"] --> Emitted[\"Emitted events and logs\"]\n  Unit --> Artifacts[\"Prompt, contract, result, validation\"]\n  Emitted --> Dashboard[\"Dashboard evidence view\"]\n  Artifacts --> Dashboard\n  Hidden[\"Hidden internal reasoning\"] -. \"not available / not claimed\" .-> Dashboard\n  Dashboard --> Operator[\"Operator inspection\"]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "rationale": "Stages the proof required before this objective can close. A connected WebSocket is only the first rung, not completion.",
+      "updated": "2026-05-10T06:33:06.000Z",
+      "data": [
+        {
+          "id": "proof-event-schema",
+          "name": "Event schema and endpoint proof",
+          "status": "proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "claim": "A local WebSocket endpoint emits typed lifecycle events with schema validation.",
+          "evidenceRequired": "Contract tests for endpoint connection, event schema, required event types, and local-only source paths.",
+          "closureRelevance": "Necessary but not sufficient: proves the stream exists, not that the operator surface works.",
+          "evidenceObserved": "Full contract suite and dashboard server spec prove WebSocket schema, explicit required transition event types, graph/contract/artifact/log events, and local-only privacy."
+        },
+        {
+          "id": "proof-live-graph-update",
+          "name": "Live graph update proof",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "claim": "Graph nodes, arrows, labels, and statuses update from streamed artifacts without refresh.",
+          "evidenceRequired": "Browser test or replay proof for closable and repair-path lifecycle shapes.",
+          "closureRelevance": "Proves the live dashboard is artifact-derived rather than a static diagram.",
+          "evidenceObserved": "Server and graph contracts prove artifact-derived graph updates and repair/no-repair shapes; realtime UI contract proves persisted history restoration followed by streamed graph_update creates the reviewer card and contract arrow without reload. Playwright realtime browser proof passes."
+        },
+        {
+          "id": "proof-selected-log",
+          "name": "Selected inference-unit log proof",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "claim": "The dashboard tails the emitted log stream for the selected unit or contract evidence path.",
+          "evidenceRequired": "Two-unit fixture with distinguishable logs and assertions that selection changes the displayed stream.",
+          "closureRelevance": "Proves the operator can inspect the right running unit instead of a global or stale log.",
+          "evidenceObserved": "API tail and fixture markers prove path-bound selected logs; realtime UI contract proves persisted worker log history restores on load, then the displayed log switches from worker-only to reviewer-only markers and drops stale worker content."
+        },
+        {
+          "id": "proof-reload-recovery",
+          "name": "Reload recovery proof",
+          "status": "browser-and-ui-proven",
+          "updated": "2026-05-10T10:54:19.000Z",
+          "claim": "The dashboard reconstructs graph, state, contract details, and recent logs from persisted local artifacts after reload.",
+          "evidenceRequired": "Reload test from persisted events and inference-unit artifact directories.",
+          "closureRelevance": "Proves WebSocket state is recoverable and does not live only in frontend memory.",
+          "evidenceObserved": "Persisted event history and graph APIs reconstruct state from files, and the dashboard now loads /api/lifecycles/:id/events during selected-graph initialization before connecting the WebSocket. The realtime UI contract proves lifecycle_snapshot, contract_handoff, and worker log history are visible immediately after script load, and Playwright realtime browser proof passes."
+        },
+        {
+          "id": "proof-blocker-error",
+          "name": "Blocker and error path proof",
+          "status": "proven",
+          "updated": "2026-05-10T06:33:06.000Z",
+          "claim": "Blocked and error states stream clearly and remain non-closure unless objective closure or user stop is proven.",
+          "evidenceRequired": "Fixture or run that emits blocker/error events and asserts visible graph, side-pane, and lifecycle state.",
+          "closureRelevance": "Protects against false closure and makes true live failures inspectable.",
+          "evidenceObserved": "Contract tests assert lifecycle_blocked stream events, blocker graph nodes, issue links, artifact paths, and non-closure state."
+        }
+      ]
+    },
+    {
+      "id": "regression-boundaries",
+      "title": "Regression Boundaries",
+      "convergenceType": "decision-record",
+      "rationale": "Records the boundaries that should not be re-litigated during implementation.",
+      "updated": "2026-05-10T06:09:40.000Z",
+      "data": [
+        {
+          "id": "decision-local-websocket-only",
+          "name": "Realtime means local WebSocket over standalone harness artifacts",
+          "status": "settled",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "decision": "The realtime dashboard is a local operator surface over the standalone harness. It is not remote telemetry and not a supervising-chat UI.",
+          "reason": "The objective depends on the standalone harness boundary: the system must be observable without borrowing state from the user session.",
+          "consequence": "Tests must prove local artifact replay and reload recovery."
+        },
+        {
+          "id": "decision-emitted-logs-not-hidden-reasoning",
+          "name": "Show emitted logs, not hidden reasoning",
+          "status": "settled",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "decision": "The dashboard may show emitted inference logs and artifacts, but must not describe them as hidden reasoning.",
+          "reason": "The operator needs real evidence. Overclaiming hidden reasoning access would make the dashboard misleading.",
+          "consequence": "UI copy and tests must use emitted-log language."
+        },
+        {
+          "id": "decision-no-static-graph-completion",
+          "name": "A static graph is not completion",
+          "status": "settled",
+          "updated": "2026-05-10T06:09:40.000Z",
+          "decision": "A graph mockup, static artifact-derived graph, or manually refreshed graph cannot satisfy this objective.",
+          "reason": "The objective is a realtime operator surface for active runs.",
+          "consequence": "Closure requires streamed graph updates and selected-unit log inspection."
+        }
+      ]
+    }
+  ]
+}
