@@ -17,7 +17,10 @@ import { finalizeHarnessIteration, writeIterationEvidenceTemplate } from './livi
 import { loadProofRoutesFromDoc, runProofRoutes } from './living-doc-harness-proof-route.mjs';
 import {
   DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  DEFAULT_PR_REVIEW_POLICY,
+  normalizePrReviewPolicy,
   normalizeAllowedInferenceUnitTypes,
+  prReviewRequiredForEvidence,
   validateAllowedInferenceUnitRunConfig,
 } from './living-doc-harness-inference-unit-types.mjs';
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
@@ -127,6 +130,13 @@ function relativizeGitPath({ gitWorktreeCwd, cwd, filePath }) {
   return path.relative(cwd, absolute) || '.';
 }
 
+function resultPathRef(cwd, filePath) {
+  if (!filePath) return null;
+  const absolute = path.resolve(filePath);
+  const relative = path.relative(cwd, absolute) || '.';
+  return relative.startsWith('..') ? absolute : relative;
+}
+
 export async function deriveGitWorktreeEvidence({ cwd = process.cwd(), gitWorktreeCwd = cwd } = {}) {
   const gitCwd = path.resolve(cwd, gitWorktreeCwd);
   try {
@@ -216,7 +226,7 @@ function commitScopeFromWorktree({ before = null, after = null, explicitAllowedF
   };
 }
 
-function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence, commitScope = null }) {
+function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence, commitScope = null, prReviewPolicy, prReviewRequired }) {
   return {
     schema: 'living-doc-harness-required-hard-facts/v1',
     sourceFilesChanged,
@@ -232,32 +242,68 @@ function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesCh
     renderedHtmlExists: sourceState?.renderedHtmlExists === true,
     closureAllowed,
     commitEvidencePresent: Boolean(sideEffectEvidence?.commit?.sha || sideEffectEvidence?.commit?.exemption?.approved === true || sideEffectEvidence?.commit?.notRequired === true),
+    prReviewPolicy,
+    prReviewRequired: prReviewRequired === true,
+    prReviewEvidencePresent: Boolean(
+      sideEffectEvidence?.prReview?.source === 'pr-review-output-contract'
+      && sideEffectEvidence?.prReview?.resultPath
+      && (sideEffectEvidence?.prReview?.approved === true || sideEffectEvidence?.prReview?.notRequired === true)
+    ),
   };
 }
 
 export async function sideEffectEvidenceFromRun({ run, runDir }) {
-  const initialUnitResultRef = run?.contract?.artifacts?.initialInferenceUnit?.unitId === 'commit-intent'
+  const initialUnit = run?.contract?.artifacts?.initialInferenceUnit || null;
+  const initialUnitResultRef = initialUnit?.unitId === 'commit-intent'
     ? run.contract.artifacts.initialInferenceUnit.result
     : null;
   const commitResultRef = run?.contract?.artifacts?.commitIntentInferenceUnit?.result || initialUnitResultRef;
-  if (!commitResultRef) return null;
-  const commitResult = await readJson(path.resolve(runDir, commitResultRef), null);
-  const output = commitResult?.outputContract || commitResult;
-  const sideEffect = output?.sideEffect || {};
-  if (output?.schema !== 'living-doc-harness-commit-intent-result/v1') return null;
-  if (sideEffect.type !== 'git-commit' || sideEffect.executed !== true || !sideEffect.sha) return null;
-  return {
-    commit: {
-      required: arr(sideEffect.requiredChangedFiles).length > 0 || arr(output.changedFiles).length > 0,
-      sha: sideEffect.sha,
-      message: output.message || null,
-      committedAt: sideEffect.committedAt || null,
-      changedFiles: arr(output.changedFiles).length ? arr(output.changedFiles) : arr(sideEffect.requiredChangedFiles),
-      committedFiles: arr(sideEffect.committedFiles),
-      source: 'commit-intent-output-contract',
-      resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
-    },
-  };
+  const initialPrReviewResultRef = initialUnit?.unitId === 'pr-review'
+    ? run.contract.artifacts.initialInferenceUnit.result
+    : null;
+  const prReviewResultRef = run?.contract?.artifacts?.prReviewInferenceUnit?.result || initialPrReviewResultRef;
+  const initialPrReviewValidationRef = initialUnit?.unitId === 'pr-review'
+    ? run.contract.artifacts.initialInferenceUnit.validation
+    : null;
+  const prReviewValidationRef = run?.contract?.artifacts?.prReviewInferenceUnit?.validation || initialPrReviewValidationRef;
+  const evidence = {};
+  if (commitResultRef) {
+    const commitResult = await readJson(path.resolve(runDir, commitResultRef), null);
+    const output = commitResult?.outputContract || commitResult;
+    const sideEffect = output?.sideEffect || {};
+    if (output?.schema === 'living-doc-harness-commit-intent-result/v1'
+      && sideEffect.type === 'git-commit'
+      && sideEffect.executed === true
+      && sideEffect.sha) {
+      evidence.commit = {
+        required: arr(sideEffect.requiredChangedFiles).length > 0 || arr(output.changedFiles).length > 0,
+        sha: sideEffect.sha,
+        message: output.message || null,
+        committedAt: sideEffect.committedAt || null,
+        changedFiles: arr(output.changedFiles).length ? arr(output.changedFiles) : arr(sideEffect.requiredChangedFiles),
+        committedFiles: arr(sideEffect.committedFiles),
+        source: 'commit-intent-output-contract',
+        resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
+      };
+    }
+  }
+  if (prReviewResultRef) {
+    const prResult = await readJson(path.resolve(runDir, prReviewResultRef), null);
+    const output = prResult?.outputContract || prResult;
+    const sideEffect = output?.sideEffect || {};
+    if (output?.schema === 'living-doc-harness-pr-review-result/v1' && ['approved', 'not-required'].includes(output.status)) {
+      evidence.prReview = {
+        status: output.status,
+        approved: output.status === 'approved',
+        notRequired: output.status === 'not-required',
+        url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || null,
+        source: 'pr-review-output-contract',
+        resultPath: path.relative(runDir, path.resolve(runDir, prReviewResultRef)),
+        validationPath: prReviewValidationRef ? path.relative(runDir, path.resolve(runDir, prReviewValidationRef)) : null,
+      };
+    }
+  }
+  return Object.keys(evidence).length ? evidence : null;
 }
 
 function compactGitWorktreeEvidence(gitWorktree) {
@@ -482,7 +528,9 @@ async function buildEvidenceFromPlan({
   controllerStartFileHashes = null,
   now,
   proofRouteBundle = null,
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
 }) {
+  const normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
   const sourceState = await deriveSourceStateEvidence({ docPath, cwd });
   const gitWorktree = await deriveGitWorktreeEvidence({ cwd, gitWorktreeCwd });
   const commitScope = enforceControllerWorktreeEvidence
@@ -519,23 +567,43 @@ async function buildEvidenceFromPlan({
   }
 
   const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
-  const sideEffectEvidence = plan.sideEffectEvidence || runSideEffectEvidence || (
-    sourceFilesChanged
-      ? {
-        commit: {
-          required: true,
-          reasonCode: gitWorktree.sourceFilesChanged
-            ? 'controller-detected-dirty-worktree'
-            : 'controller-detected-source-change',
-          changedFiles: commitScope.allowedCommitFiles.length ? commitScope.allowedCommitFiles : filesChanged,
-          currentRunChangedFiles: commitScope.currentRunChangedFiles,
-          preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
-          allowedCommitFiles: commitScope.allowedCommitFiles.length ? commitScope.allowedCommitFiles : filesChanged,
-          forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
-        },
-      }
-      : undefined
-  );
+  const fallbackSideEffectEvidence = sourceFilesChanged
+    ? {
+      commit: {
+        required: true,
+        reasonCode: gitWorktree.sourceFilesChanged
+          ? 'controller-detected-dirty-worktree'
+          : 'controller-detected-source-change',
+        changedFiles: commitScope.allowedCommitFiles.length ? commitScope.allowedCommitFiles : filesChanged,
+        currentRunChangedFiles: commitScope.currentRunChangedFiles,
+        preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
+        allowedCommitFiles: commitScope.allowedCommitFiles.length ? commitScope.allowedCommitFiles : filesChanged,
+        forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
+      },
+    }
+    : undefined;
+  const sideEffectEvidence = (plan.sideEffectEvidence || runSideEffectEvidence)
+    ? {
+      ...(fallbackSideEffectEvidence || {}),
+      ...(runSideEffectEvidence || {}),
+      ...(plan.sideEffectEvidence || {}),
+    }
+    : fallbackSideEffectEvidence;
+  if (normalizedPrReviewPolicy.mode === 'disabled' && sideEffectEvidence?.prReview) {
+    delete sideEffectEvidence.prReview;
+  }
+  const prReviewRequired = prReviewRequiredForEvidence({
+    policy: normalizedPrReviewPolicy,
+    evidence: {
+      sourceFilesChanged,
+      requiredHardFacts: {
+        sourceFilesChanged,
+        currentRunChangedFiles: arr(commitScope.currentRunChangedFiles),
+      },
+      workerEvidence: { filesChanged },
+    },
+    sourceFilesChanged,
+  });
   const closureAllowed = hasOwn(plan, 'closureAllowed') ? plan.closureAllowed === true : sourceClosureAllowed;
   const requiredHardFacts = requiredHardFactsFromEvidence({
     sourceState,
@@ -544,6 +612,8 @@ async function buildEvidenceFromPlan({
     closureAllowed,
     sideEffectEvidence,
     commitScope,
+    prReviewPolicy: normalizedPrReviewPolicy,
+    prReviewRequired,
   });
   const evidenceSnapshot = {
     schema: 'living-doc-harness-controller-evidence-snapshot/v1',
@@ -561,6 +631,11 @@ async function buildEvidenceFromPlan({
         tracePaths: tracePaths.map((tracePath) => path.relative(cwd, tracePath)),
       },
       sideEffectState: sideEffectEvidence || null,
+      prReviewPolicy: normalizedPrReviewPolicy,
+      prReviewGate: {
+        required: prReviewRequired,
+        evidencePresent: requiredHardFacts.prReviewEvidencePresent,
+      },
       commitScope,
       controllerState,
     },
@@ -609,10 +684,13 @@ async function buildEvidenceFromPlan({
     ...(plan.requiredProof ? { requiredProof: plan.requiredProof } : {}),
     ...(plan.issueRef ? { issueRef: plan.issueRef } : {}),
     ...(sourceState ? { sourceState } : {}),
+    livingDocPath: docPath,
     controllerEvidenceSnapshotPath: relativeEvidenceSnapshotPath,
     controllerEvidence,
     requiredHardFacts,
     sourceFilesChanged,
+    prReviewPolicy: normalizedPrReviewPolicy,
+    prReviewRequired,
     commitScope,
     ...(enforceControllerWorktreeEvidence && controllerState.changedDuringLifecycle ? {
       controllerSourceRestartRequired: {
@@ -623,7 +701,6 @@ async function buildEvidenceFromPlan({
       },
     } : {}),
     ...(sideEffectEvidence ? { sideEffectEvidence } : {}),
-    ...(hasOwn(plan, 'prReviewRequired') ? { prReviewRequired: plan.prReviewRequired === true } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
     ...(plan.prReview ? { prReview: plan.prReview } : {}),
     ...(proofRouteBundle ? {
@@ -838,6 +915,7 @@ export async function runHarnessLifecycle({
   proofRoutes = null,
   toolProfile = 'local-harness',
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
   gitWorktreeCwd = cwd,
   enforceControllerWorktreeEvidence = execute,
 } = {}) {
@@ -851,11 +929,13 @@ export async function runHarnessLifecycle({
   const runConfigValidation = validateAllowedInferenceUnitRunConfig({
     allowedUnitTypes,
     initialUnitType: 'worker',
+    prReviewPolicy,
   });
   if (!runConfigValidation.ok) {
     throw new Error(`invalid lifecycle inference unit run config: ${runConfigValidation.violations.map((violation) => violation.message).join('; ')}`);
   }
   const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(runConfigValidation.allowedUnitTypes);
+  const normalizedPrReviewPolicy = normalizePrReviewPolicy(runConfigValidation.prReviewPolicy);
   const resultId = `ldhl-${timestampForId(now)}-${path.basename(docPath, '.json').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   const lifecycleDir = path.join(absoluteRunsDir, resultId);
   await mkdir(lifecycleDir, { recursive: true });
@@ -891,6 +971,7 @@ export async function runHarnessLifecycle({
         iteration,
         toolProfile,
         allowedUnitTypes: normalizedAllowedUnitTypes,
+        prReviewPolicy: normalizedPrReviewPolicy,
       });
       currentRun = run;
       const iterationProofRoutes = arr(plan.proofRoutes).length ? plan.proofRoutes : docProofRoutes;
@@ -916,6 +997,7 @@ export async function runHarnessLifecycle({
         controllerStartFileHashes,
         now: addMs(iterationNow, 250),
         proofRouteBundle,
+        prReviewPolicy: normalizedPrReviewPolicy,
       });
       lastEvidence = evidence;
       if (evidence.controllerSourceRestartRequired) {
@@ -980,6 +1062,7 @@ export async function runHarnessLifecycle({
         repairSkillPlan: plan.repairSkillPlan || null,
         codexBin,
         allowedUnitTypes: normalizedAllowedUnitTypes,
+        prReviewPolicy: normalizedPrReviewPolicy,
       });
 
       const mayStop = lifecycleMayStop(finalization);
@@ -1084,6 +1167,11 @@ export async function runHarnessLifecycle({
     createdAt: now,
     docPath,
     docHash: await fileHash(path.resolve(cwd, docPath)),
+    runConfig: {
+      schema: 'living-doc-harness-run-inference-config/v1',
+      allowedUnitTypes: normalizedAllowedUnitTypes,
+      prReviewPolicy: normalizedPrReviewPolicy,
+    },
     lifecycleDir,
     iterationCount: iterations.length,
     finalState: finalState || {
@@ -1093,18 +1181,21 @@ export async function runHarnessLifecycle({
     },
     iterations: iterations.map((item) => ({
       ...item,
-      runDir: path.relative(cwd, item.runDir),
-      outputInputPath: item.outputInputPath ? path.relative(cwd, item.outputInputPath) : null,
-      reviewerVerdictPath: item.reviewerVerdictPath ? path.relative(cwd, item.reviewerVerdictPath) : null,
-      repairSkillResultPath: item.repairSkillResultPath ? path.relative(cwd, item.repairSkillResultPath) : null,
-      closureReviewResultPath: item.closureReviewResultPath ? path.relative(cwd, item.closureReviewResultPath) : null,
-      postReviewSelectionPath: item.postReviewSelectionPath ? path.relative(cwd, item.postReviewSelectionPath) : null,
-      restartHandoffPath: item.restartHandoffPath ? path.relative(cwd, item.restartHandoffPath) : null,
+      runDir: resultPathRef(cwd, item.runDir),
+      outputInputPath: resultPathRef(cwd, item.outputInputPath),
+      reviewerVerdictPath: resultPathRef(cwd, item.reviewerVerdictPath),
+      repairSkillResultPath: resultPathRef(cwd, item.repairSkillResultPath),
+      closureReviewResultPath: resultPathRef(cwd, item.closureReviewResultPath),
+      postReviewSelectionPath: resultPathRef(cwd, item.postReviewSelectionPath),
+      restartHandoffPath: resultPathRef(cwd, item.restartHandoffPath),
     })),
     lastEvidenceSummary: lastEvidence ? {
       unresolvedObjectiveTerms: arr(lastEvidence.objectiveState?.unresolvedObjectiveTerms).length,
       unprovenAcceptanceCriteria: arr(lastEvidence.objectiveState?.unprovenAcceptanceCriteria).length,
       nativeTraceRefs: arr(lastEvidence.workerEvidence?.nativeInferenceTraceRefs).length,
+      prReviewPolicy: lastEvidence.prReviewPolicy || null,
+      prReviewRequired: lastEvidence.prReviewRequired === true,
+      prReviewEvidencePresent: lastEvidence.requiredHardFacts?.prReviewEvidencePresent === true,
     } : null,
   };
   await writeJson(resultPath, result);
@@ -1162,6 +1253,7 @@ function parseArgs(argv) {
     executeProofRoutes: false,
     toolProfile: 'local-harness',
     allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+    prReviewPolicy: DEFAULT_PR_REVIEW_POLICY,
     gitWorktreeCwd: process.cwd(),
     enforceControllerWorktreeEvidence: null,
   };
@@ -1215,6 +1307,10 @@ function parseArgs(argv) {
       const value = args.shift();
       if (!value) throw new Error('--allowed-unit-types requires a comma-separated value');
       options.allowedUnitTypes = value.split(',').map((item) => item.trim()).filter(Boolean);
+    } else if (flag === '--pr-review-policy') {
+      const value = args.shift();
+      if (!value) throw new Error('--pr-review-policy requires a value');
+      options.prReviewPolicy = normalizePrReviewPolicy(value);
     } else if (flag === '--git-worktree-cwd') {
       options.gitWorktreeCwd = args.shift();
       if (!options.gitWorktreeCwd) throw new Error('--git-worktree-cwd requires a value');

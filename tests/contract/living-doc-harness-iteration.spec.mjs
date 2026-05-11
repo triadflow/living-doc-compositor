@@ -229,7 +229,10 @@ try {
     closureAllowed: true,
     now: '2026-05-07T10:21:09.000Z',
   });
-  prGateTemplate.evidence.prReviewRequired = true;
+  prGateTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-before-closure',
+  };
   prGateTemplate.evidence.sideEffectEvidence = { commit: { sha: 'abc1234', required: false } };
   await writeFile(prGateEvidencePath, `${JSON.stringify(prGateTemplate.evidence, null, 2)}\n`, 'utf8');
   const prGate = await finalizeHarnessIteration({
@@ -253,6 +256,91 @@ try {
   assert.equal(prReviewResult.unitId, 'pr-review');
   assert.equal(prReviewResult.outputContract.schema, 'living-doc-harness-pr-review-result/v1');
   assert.equal(prReviewResult.outputContract.sideEffect.executed, false);
+
+  const prUrlOnlyRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'pr-url-only-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:09.250Z',
+  });
+  const prUrlOnlyEvidencePath = path.join(tmp, 'pr-url-only-evidence.json');
+  const prUrlOnlyTemplate = await writeIterationEvidenceTemplate({
+    runDir: prUrlOnlyRun.runDir,
+    outPath: prUrlOnlyEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closed',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    now: '2026-05-07T10:21:09.500Z',
+  });
+  prUrlOnlyTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-before-closure',
+  };
+  prUrlOnlyTemplate.evidence.sideEffectEvidence = {
+    commit: { sha: 'abc1234', required: false },
+    prReview: {
+      approved: true,
+      resultPath: 'inference-units/iteration-1/05-pr-review/result.json',
+      url: 'https://github.example/pr/9',
+    },
+  };
+  await writeFile(prUrlOnlyEvidencePath, `${JSON.stringify(prUrlOnlyTemplate.evidence, null, 2)}\n`, 'utf8');
+  const prUrlOnly = await finalizeHarnessIteration({
+    runDir: prUrlOnlyRun.runDir,
+    evidencePath: prUrlOnlyEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:09.750Z',
+    evidenceDir: path.join(tmp, 'pr-url-only-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'pr-url-only-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  });
+  assert.equal(prUrlOnly.classification, 'true-block');
+  const prUrlOnlySelection = JSON.parse(await readFile(prUrlOnly.postReviewSelectionPath, 'utf8'));
+  assert.equal(prUrlOnlySelection.nextUnit.unitId, 'pr-review');
+
+  const noSourceChangePrMentionRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'no-source-change-pr-mention-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:10.250Z',
+  });
+  const noSourceChangePrMentionEvidencePath = path.join(tmp, 'no-source-change-pr-mention-evidence.json');
+  const noSourceChangePrMentionTemplate = await writeIterationEvidenceTemplate({
+    runDir: noSourceChangePrMentionRun.runDir,
+    outPath: noSourceChangePrMentionEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closure-candidate',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    now: '2026-05-07T10:21:10.500Z',
+  });
+  noSourceChangePrMentionTemplate.evidence.sourceFilesChanged = false;
+  noSourceChangePrMentionTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-when-source-changes',
+  };
+  await writeFile(noSourceChangePrMentionEvidencePath, `${JSON.stringify(noSourceChangePrMentionTemplate.evidence, null, 2)}\n`, 'utf8');
+  const noSourceChangePrMention = await finalizeHarnessIteration({
+    runDir: noSourceChangePrMentionRun.runDir,
+    evidencePath: noSourceChangePrMentionEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:10.750Z',
+    evidenceDir: path.join(tmp, 'no-source-change-pr-mention-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'no-source-change-pr-mention-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('closure-candidate', {
+      closureAllowed: true,
+      reasonCode: 'pr-review-required-before-closure',
+    }),
+  });
+  const noSourceChangePrMentionSelection = JSON.parse(await readFile(noSourceChangePrMention.postReviewSelectionPath, 'utf8'));
+  assert.notEqual(noSourceChangePrMentionSelection.nextUnit.unitId, 'pr-review');
 
   const controllerOwnedRun = await createHarnessRun({
     docPath,

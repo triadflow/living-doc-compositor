@@ -159,7 +159,7 @@ try {
       }, null, 2)}\n`, 'utf8');
       return { runId, runDir, supervisorPid: 12345 };
     },
-    startLifecycle: async ({ docPath, cwd, runsDir, now, executeProofRoutes, toolProfile }) => {
+    startLifecycle: async ({ docPath, cwd, runsDir, now, executeProofRoutes, toolProfile, prReviewPolicy }) => {
       const resultId = `ldhl-${now.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}-${path.basename(docPath, '.json')}`;
       const lifecycleDir = path.resolve(cwd, runsDir, resultId);
       await mkdir(lifecycleDir, { recursive: true });
@@ -172,6 +172,9 @@ try {
           runId,
           createdAt: '2026-05-07T12:15:01.000Z',
           status: 'starting',
+          runConfig: {
+            prReviewPolicy,
+          },
           livingDoc: {
             sourcePath: docPath,
             renderedHtml: 'tests/fixtures/minimal-doc.html',
@@ -208,7 +211,7 @@ try {
         await writeFile(path.join(runDir, 'prompt.md'), 'Fixture active lifecycle prompt.\n', 'utf8');
         await writeFile(path.join(runDir, 'codex-turns', 'codex-events.jsonl'), '{"type":"thread.started","thread_id":"active-lifecycle-fixture"}\n{"type":"item.started","item":{"type":"command_execution","status":"in_progress","command":"ACTIVE-LIFECYCLE-WORKER-MARKER"}}\n', 'utf8');
         await writeFile(path.join(runDir, 'codex-turns', 'codex-stderr.log'), '', 'utf8');
-        return { resultId, lifecycleDir, supervisorPid: 23457, executeProofRoutes, toolProfile };
+        return { resultId, lifecycleDir, supervisorPid: 23457, executeProofRoutes, toolProfile, prReviewPolicy };
       }
       await writeFile(path.join(lifecycleDir, 'lifecycle-result.json'), `${JSON.stringify({
         schema: 'living-doc-harness-lifecycle-result/v1',
@@ -216,11 +219,14 @@ try {
         createdAt: now,
         docPath,
         lifecycleDir,
+        runConfig: {
+          prReviewPolicy,
+        },
         iterationCount: 1,
         finalState: { kind: 'closed', reason: 'dashboard route fixture' },
         iterations: [],
       }, null, 2)}\n`, 'utf8');
-      return { resultId, lifecycleDir, supervisorPid: 23456, executeProofRoutes, toolProfile };
+      return { resultId, lifecycleDir, supervisorPid: 23456, executeProofRoutes, toolProfile, prReviewPolicy };
     },
     writeBundle: async ({ runDir, outDir }) => {
       await mkdir(path.join(outDir, path.basename(runDir)), { recursive: true });
@@ -700,11 +706,13 @@ exit 0
       execute: true,
       executeProofRoutes: true,
       toolProfile: 'local-harness',
+      prReviewPolicy: { mode: 'required-when-source-changes' },
     }),
   });
   assert.equal(activeLifecycle.response.status, 202);
   assert.equal(activeLifecycle.body.schema, 'living-doc-harness-dashboard-lifecycle-started/v1');
   assert.equal(activeLifecycle.body.resultId, 'ldhl-20260507T121500Z-minimal-doc');
+  assert.equal(activeLifecycle.body.prReviewPolicy.mode, 'required-when-source-changes');
 
   const activeLifecycles = await jsonFetch(server, `/api/lifecycles`);
   assert.equal(activeLifecycles.response.status, 200);
@@ -712,12 +720,14 @@ exit 0
   assert.equal(activeLifecycleListItem.active, true);
   assert.equal(activeLifecycleListItem.finalState.kind, 'running');
   assert.equal(activeLifecycleListItem.supervisorPid, 23457);
+  assert.equal(activeLifecycleListItem.prReviewPolicy.mode, 'required-when-source-changes');
 
   const activeGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
   assert.equal(activeGraph.response.status, 200);
   assert.equal(activeGraph.body.schema, 'living-doc-harness-inference-graph/v1');
   assert.equal(activeGraph.body.finalState.kind, 'running');
   assert.equal(activeGraph.body.activeInferenceUnitId, 'iteration-1-worker');
+  assert.equal(activeGraph.body.nodes.find((node) => node.id === 'lifecycle-controller').meta.prReviewPolicy.mode, 'required-when-source-changes');
   assert.equal(activeGraph.body.nodes.some((node) => node.id === 'lifecycle-controller' && node.status === 'running'), true);
   assert.equal(activeGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && ['starting', 'running', 'prepared'].includes(node.status)), true);
   assert.equal(activeGraph.body.edges.some((edge) => edge.id === 'lifecycle-to-worker-1'), true);
@@ -793,6 +803,7 @@ exit 0
       executeRepairSkills: false,
       executeProofRoutes: true,
       toolProfile: 'local-harness',
+      prReviewPolicy: { mode: 'required-before-closure' },
     }),
   });
   assert.equal(lifecycle.response.status, 202);
@@ -801,6 +812,7 @@ exit 0
   assert.equal(lifecycle.body.background, true);
   assert.equal(lifecycle.body.toolProfile, 'local-harness');
   assert.equal(lifecycle.body.executeProofRoutes, true);
+  assert.equal(lifecycle.body.prReviewPolicy.mode, 'required-before-closure');
   const lifecycleResultPath = path.join(runsDir, lifecycle.body.resultId, 'lifecycle-result.json');
   const lifecycleResult = await waitFor(async () => {
     try {
@@ -811,6 +823,7 @@ exit 0
   });
   assert.equal(lifecycleResult.finalState.kind, 'closed');
   assert.equal(lifecycleResult.iterationCount, 1);
+  assert.equal(lifecycleResult.runConfig.prReviewPolicy.mode, 'required-before-closure');
   const lifecycleHistory = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(lifecycle.body.resultId)}/events`);
   assert.equal(lifecycleHistory.response.status, 200);
   assert.equal(lifecycleHistory.body.events.some((event) => event.type === 'lifecycle_closed'), true);

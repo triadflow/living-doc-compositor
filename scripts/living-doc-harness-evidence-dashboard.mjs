@@ -241,6 +241,9 @@ export async function collectRunEvidence(runDir) {
     traceRefs: uniqueTraceRefs,
     traceSummaries,
     proofGates: gates,
+    prReviewPolicy: contract.runConfig?.prReviewPolicy || latestProof?.prReviewPolicy || null,
+    prReviewRequired: latestProof?.prReviewRequired === true || latestProof?.requiredHardFacts?.prReviewRequired === true,
+    prReviewEvidencePresent: latestProof?.requiredHardFacts?.prReviewEvidencePresent === true,
     recommendation,
   };
 }
@@ -266,6 +269,16 @@ export async function writeEvidenceBundle({
     status: facts.state?.status || facts.contract?.status || 'unknown',
     recommendation: facts.recommendation,
     proofGates: facts.proofGates,
+    prReviewPolicy: facts.prReviewPolicy,
+    prReviewGate: {
+      required: facts.prReviewRequired === true,
+      evidencePresent: facts.prReviewEvidencePresent === true,
+      state: facts.prReviewPolicy?.mode === 'disabled'
+        ? 'disabled'
+        : facts.prReviewRequired === true
+          ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'blocking'
+          : 'not-required',
+    },
     reviewerVerdict: facts.latestReviewerVerdict ? {
       path: facts.latestReviewerVerdictPath,
       mode: facts.latestReviewerVerdict.mode,
@@ -361,6 +374,7 @@ export async function writeEvidenceBundle({
     `Generated: ${now}`,
     `Lifecycle stage: ${bundle.lifecycleStage}`,
     `Recommendation: ${bundle.recommendation}`,
+    `PR review policy: ${bundle.prReviewPolicy?.mode || 'unknown'} (${bundle.prReviewGate.state})`,
     `Objective hash: ${bundle.objectiveHash || 'missing'}`,
     '',
     '## Gates',
@@ -416,6 +430,8 @@ function renderRunCard(bundle) {
   const mismatch = bundle.stopMismatch
     ? `<p class="mismatch"><strong>Wrapper/native mismatch:</strong> ${esc(bundle.stopMismatch.wrapperClaim || 'wrapper claim')} -> ${esc(bundle.stopMismatch.inferredClassification || 'inferred')} via ${esc(bundle.stopMismatch.authoritativeSource || 'native evidence')}</p>`
     : '<p class="mismatch muted">Wrapper/native mismatch: none recorded</p>';
+  const prPolicy = bundle.prReviewPolicy || {};
+  const prGate = bundle.prReviewGate || {};
   return `
     <section class="run-card" data-run-id="${esc(bundle.runId)}" data-recommendation="${esc(bundle.recommendation)}">
       <header>
@@ -425,6 +441,7 @@ function renderRunCard(bundle) {
       <p><strong>Stage:</strong> ${esc(bundle.lifecycleStage)} · <strong>Status:</strong> ${esc(bundle.status)}</p>
       <p><strong>Objective:</strong> ${esc(objective.sourcePath || 'unknown')} · ${esc(objective.objectiveHash || 'missing hash')}</p>
       <p><strong>Stop:</strong> ${esc(bundle.stopVerdict?.classification || 'none')} · ${esc(bundle.stopVerdict?.reasonCode || 'none')}</p>
+      <p><strong>PR review policy:</strong> ${esc(prPolicy.mode || 'unknown')} · <strong>Gate:</strong> ${esc(prGate.state || 'unknown')}</p>
       <p><strong>Reviewer:</strong> ${esc(bundle.reviewerVerdict?.path || 'missing')} · ${esc(bundle.reviewerVerdict?.mode || 'no mode')}</p>
       ${repairChain}
       ${mismatch}

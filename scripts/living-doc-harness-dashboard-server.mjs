@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createHarnessRun } from './living-doc-harness-runner.mjs';
 import { collectRunEvidence, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
+import { DEFAULT_PR_REVIEW_POLICY, normalizePrReviewPolicy } from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const DEFAULT_PORT = 4334;
@@ -425,8 +426,10 @@ async function writeActiveLifecycleSnapshot({
   supervisorPid = null,
   toolProfile = null,
   executeProofRoutes = false,
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
   command = null,
 } = {}) {
+  const normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
   await mkdir(lifecycleDir, { recursive: true });
   const snapshot = {
     schema: 'living-doc-harness-active-lifecycle/v1',
@@ -438,6 +441,10 @@ async function writeActiveLifecycleSnapshot({
     finalState: { kind: 'running' },
     supervisorPid,
     executeProofRoutes: executeProofRoutes === true,
+    runConfig: {
+      prReviewPolicy: normalizedPrReviewPolicy,
+    },
+    prReviewPolicy: normalizedPrReviewPolicy,
     toolProfile,
     command,
   };
@@ -462,7 +469,9 @@ async function startBackgroundLifecycle({
   executeProofRoutes = false,
   toolProfile = 'local-harness',
   evidenceSequencePath = null,
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
 } = {}) {
+  const normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
   const identity = predictLifecycleIdentity({ docPath, cwd, runsDir, now });
   const args = [
     'scripts/living-doc-harness-lifecycle.mjs',
@@ -490,6 +499,7 @@ async function startBackgroundLifecycle({
   if (executeRepairSkillUnits) args.push('--execute-repair-skill-units');
   if (executeProofRoutes) args.push('--execute-proof-routes');
   if (toolProfile) args.push('--tool-profile', toolProfile);
+  args.push('--pr-review-policy', normalizedPrReviewPolicy.mode);
 
   const child = spawn(process.execPath, args, {
     cwd,
@@ -504,6 +514,7 @@ async function startBackgroundLifecycle({
     supervisorPid: child.pid,
     toolProfile,
     executeProofRoutes,
+    prReviewPolicy: normalizedPrReviewPolicy,
     command: {
       command: process.execPath,
       args,
@@ -516,6 +527,7 @@ async function startBackgroundLifecycle({
     supervisorPid: child.pid,
     toolProfile,
     executeProofRoutes,
+    prReviewPolicy: normalizedPrReviewPolicy,
   };
 }
 
@@ -654,6 +666,7 @@ export async function collectDashboardLifecycles({ runsDir, cwd }) {
         iterationCount: result?.iterationCount ?? (result?.iterations || []).length,
         active: Boolean(activeLifecycleRunning),
         supervisorPid: active?.supervisorPid ?? null,
+        prReviewPolicy: source.runConfig?.prReviewPolicy || source.prReviewPolicy || null,
         toolProfile: active?.toolProfile || null,
       });
     } catch (err) {
@@ -749,6 +762,8 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
       supervisorPid: active.supervisorPid ?? null,
       toolProfile: active.toolProfile || null,
       executeProofRoutes: active.executeProofRoutes === true,
+      runConfig: active.runConfig || null,
+      prReviewPolicy: active.runConfig?.prReviewPolicy || active.prReviewPolicy || null,
     },
   }));
 
@@ -807,6 +822,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
       },
       meta: {
         runId,
+        prReviewPolicy: contract.runConfig?.prReviewPolicy || active.runConfig?.prReviewPolicy || null,
         toolProfile: summarizeToolProfile(contract?.process?.toolProfile),
         pid: contract?.process?.pid ?? null,
         exitCode: contract?.process?.exitCode ?? null,
@@ -1049,6 +1065,8 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       createdAt: lifecycle.createdAt || null,
       docPath: lifecycle.docPath || null,
       iterationCount: lifecycle.iterationCount ?? null,
+      runConfig: lifecycle.runConfig || null,
+      prReviewPolicy: lifecycle.runConfig?.prReviewPolicy || null,
     },
   }));
 
@@ -1094,6 +1112,16 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         runId,
         classification: iterationRecord.classification || null,
         terminalKind: iterationRecord.terminalKind || null,
+        prReviewPolicy: facts.prReviewPolicy || contract.runConfig?.prReviewPolicy || lifecycle.runConfig?.prReviewPolicy || null,
+        prReviewGate: {
+          required: facts.prReviewRequired === true,
+          evidencePresent: facts.prReviewEvidencePresent === true,
+          state: facts.prReviewPolicy?.mode === 'disabled'
+            ? 'disabled'
+            : facts.prReviewRequired === true
+              ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'blocking'
+              : 'not-required',
+        },
         toolProfile: summarizeToolProfile(contract.process?.toolProfile),
       },
     }));
@@ -3269,6 +3297,7 @@ export function createDashboardServer({
         const body = await readBody(req);
         if (!body?.docPath) return sendJson(res, 400, { error: 'missing docPath' });
         const now = body.now || new Date().toISOString();
+        const prReviewPolicy = normalizePrReviewPolicy(body.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
         const result = await startLifecycle({
           docPath: body.docPath,
           runsDir: absoluteRunsDir,
@@ -3286,6 +3315,7 @@ export function createDashboardServer({
           executeProofRoutes: body.executeProofRoutes === true,
           toolProfile: body.toolProfile || 'local-harness',
           evidenceSequencePath: body.evidenceSequencePath || null,
+          prReviewPolicy,
         });
         if (
           result.lifecycleDir
@@ -3300,6 +3330,7 @@ export function createDashboardServer({
             supervisorPid: result.supervisorPid ?? null,
             toolProfile: result.toolProfile || body.toolProfile || 'local-harness',
             executeProofRoutes: result.executeProofRoutes === true,
+            prReviewPolicy: result.prReviewPolicy || prReviewPolicy,
           });
         }
         return sendJson(res, 202, {
@@ -3311,6 +3342,7 @@ export function createDashboardServer({
           supervisorPid: result.supervisorPid,
           toolProfile: result.toolProfile || body.toolProfile || 'local-harness',
           executeProofRoutes: result.executeProofRoutes === true,
+          prReviewPolicy: result.prReviewPolicy || prReviewPolicy,
           nextAction: 'watch /api/runs, /api/runs/:runId/tail, and repair-unit tails until lifecycle-result.json appears',
         });
       }

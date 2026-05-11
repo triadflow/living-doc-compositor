@@ -57,9 +57,23 @@ try {
   assert.equal(workerUnitResult.outputContract.nextAuthority, 'reviewer-inference');
   const workerUnitInput = JSON.parse(await readFile(path.join(result.runDir, contract.artifacts.workerInferenceUnit.inputContract), 'utf8'));
   assert.equal(workerUnitInput.schema, 'living-doc-worker-inference-input/v1');
+  assert.equal(workerUnitInput.runConfig.prReviewPolicy.mode, 'disabled');
   assert.deepEqual(workerUnitInput.requiredInspectionPaths, ['tests/fixtures/minimal-doc.json']);
   assert.equal(workerUnitInput.toolProfile.name, 'local-harness');
   assert.equal(workerUnitInput.toolProfile.sandboxMode, 'danger-full-access');
+
+  await assert.rejects(
+    () => createHarnessRun({
+      docPath: 'tests/fixtures/minimal-doc.json',
+      runsDir: path.join(tmp, 'invalid-pr-policy-runs'),
+      execute: false,
+      cwd: process.cwd(),
+      now: '2026-05-07T06:30:30.000Z',
+      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference', 'post-flight-summary'],
+      prReviewPolicy: { mode: 'required-before-closure' },
+    }),
+    /invalid harness runner inference unit run config: .*prReviewPolicy required-before-closure requires pr-review/,
+  );
 
   assert.equal(state.schema, 'living-doc-harness-state/v1');
   assert.equal(state.lifecycleStage, 'initial-objective-bearing');

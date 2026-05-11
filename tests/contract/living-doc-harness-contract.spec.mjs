@@ -284,6 +284,12 @@ for (const continuation of [
     assert.ok(type.dashboard.label);
     assert.ok(type.closureImplications);
   }
+  assert.ok(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes['reviewer-inference'].inputContract.requiredFields.includes('prReviewPolicy'));
+  assert.ok(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes['reviewer-inference'].inputContract.requiredFields.includes('prReviewRequired'));
+  assert.ok(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes['closure-review'].inputContract.requiredFields.includes('prReviewPolicy'));
+  assert.ok(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes['closure-review'].inputContract.requiredFields.includes('prReviewRequired'));
+  assert.ok(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes['pr-review'].inputContract.requiredFields.includes('prReviewPolicy'));
+  assert.ok(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes['pr-review'].inputContract.requiredFields.includes('prReviewRequired'));
   assert.equal(validateNextUnitSelection({
     currentUnitTypeId: 'reviewer-inference',
     selectedUnitTypeId: 'commit-intent',
@@ -319,6 +325,38 @@ for (const continuation of [
   assert.equal(validateAllowedInferenceUnitRunConfig({
     allowedUnitTypes: requiredTypes,
   }).ok, true);
+  const invalidPrPolicyModeConfig = validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes: requiredTypes,
+    prReviewPolicy: { mode: 'sometimes' },
+  });
+  assert.equal(invalidPrPolicyModeConfig.ok, false);
+  assert.ok(invalidPrPolicyModeConfig.violations.some((violation) => (
+    violation.reasonCode === 'invalid-pr-review-policy-mode'
+    && violation.path === '$.prReviewPolicy.mode'
+  )));
+  const requiredPrPolicyConfig = validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes: requiredTypes.filter((unitTypeId) => unitTypeId !== 'pr-review'),
+    prReviewPolicy: { mode: 'required-before-closure' },
+  });
+  assert.equal(requiredPrPolicyConfig.ok, false);
+  assert.ok(requiredPrPolicyConfig.violations.some((violation) => (
+    violation.reasonCode === 'pr-review-policy-requires-unit-type'
+    && violation.unitTypeId === 'pr-review'
+  )));
+  assert.equal(validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes: requiredTypes.filter((unitTypeId) => unitTypeId !== 'pr-review'),
+    prReviewPolicy: { mode: 'disabled' },
+  }).ok, true);
+  const disabledInitialPrReviewConfig = validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes: requiredTypes,
+    initialUnitType: 'pr-review',
+    prReviewPolicy: { mode: 'disabled' },
+  });
+  assert.equal(disabledInitialPrReviewConfig.ok, false);
+  assert.ok(disabledInitialPrReviewConfig.violations.some((violation) => (
+    violation.reasonCode === 'pr-review-disabled-by-policy'
+    && violation.unitTypeId === 'pr-review'
+  )));
 }
 
 console.log('living-doc harness contract spec: all assertions passed');

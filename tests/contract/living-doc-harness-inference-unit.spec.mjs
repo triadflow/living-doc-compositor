@@ -55,6 +55,40 @@ try {
   assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.requiredHardFacts'));
   assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.commitPolicy'));
 
+  const prReviewWithoutPolicyContext = validateInferenceUnitInputContract({
+    unitTypeId: 'pr-review',
+    inputContract: {
+      schema: 'living-doc-harness-pr-review-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      reviewTarget: 'https://github.example/pr/1',
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+      },
+    },
+  });
+  assert.equal(prReviewWithoutPolicyContext.ok, false);
+  assert.ok(prReviewWithoutPolicyContext.violations.some((violation) => violation.path === '$.livingDocPath'));
+  assert.ok(prReviewWithoutPolicyContext.violations.some((violation) => violation.path === '$.reviewerVerdictPath'));
+  assert.ok(prReviewWithoutPolicyContext.violations.some((violation) => violation.path === '$.evidenceSnapshotPath'));
+  assert.ok(prReviewWithoutPolicyContext.violations.some((violation) => violation.path === '$.prReviewPolicy'));
+  assert.ok(prReviewWithoutPolicyContext.violations.some((violation) => violation.path === '$.prReviewRequired'));
+  assert.ok(prReviewWithoutPolicyContext.violations.some((violation) => violation.path === '$.requiredInspectionPaths'));
+
+  const workerWithoutRunConfig = validateInferenceUnitInputContract({
+    unitTypeId: 'worker',
+    inputContract: {
+      schema: 'living-doc-worker-inference-input/v1',
+      runId: 'run-1',
+      livingDocPath: 'doc.json',
+      objective: 'Do the work.',
+      successCondition: 'The work is done.',
+      requiredInspectionPaths: ['doc.json'],
+    },
+  });
+  assert.equal(workerWithoutRunConfig.ok, false);
+  assert.ok(workerWithoutRunConfig.violations.some((violation) => violation.path === '$.runConfig'));
+
   const postFlightWithoutLifecycleResult = validateInferenceUnitInputContract({
     unitTypeId: 'post-flight-summary',
     inputContract: {
@@ -174,6 +208,11 @@ process.stdin.on('end', () => {
         sourceFilesChanged: false,
         commitEvidencePresent: false,
       },
+      prReviewPolicy: {
+        schema: 'living-doc-harness-pr-review-policy/v1',
+        mode: 'disabled',
+      },
+      prReviewRequired: false,
       proofGates: { acceptanceCriteriaSatisfied: 'pass' },
       stopVerdict: { classification: 'closed' },
       requiredInspectionPaths: [inspectedPath],

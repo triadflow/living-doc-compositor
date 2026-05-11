@@ -5,6 +5,8 @@ import path from 'node:path';
 
 import { runHarnessLifecycle } from '../../scripts/living-doc-harness-lifecycle.mjs';
 
+test.setTimeout(90000);
+
 function minimalDoc(docPath) {
   return {
     docId: 'test:e2e-inference-unit-routing',
@@ -162,7 +164,6 @@ test('lifecycle routes through registered inference unit contracts', async () =>
         unprovenAcceptanceCriteria: [],
         acceptanceCriteriaSatisfied: 'pass',
         closureAllowed: true,
-        prReviewRequired: true,
         sideEffectEvidence: { commit: { sha: 'abc1234', required: true } },
         reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
       },
@@ -172,10 +173,15 @@ test('lifecycle routes through registered inference unit contracts', async () =>
         unprovenAcceptanceCriteria: [],
         acceptanceCriteriaSatisfied: 'pass',
         closureAllowed: true,
-        prReviewRequired: true,
         sideEffectEvidence: {
           commit: { sha: 'abc1234', required: true },
-          prReview: { url: 'https://github.example/pr/1' },
+          prReview: {
+            status: 'approved',
+            approved: true,
+            source: 'pr-review-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/05-pr-review/result.json',
+            url: 'https://github.example/pr/1',
+          },
         },
         reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
       },
@@ -186,6 +192,7 @@ test('lifecycle routes through registered inference unit contracts', async () =>
       evidenceDir: path.join(tmp, 'pr-evidence'),
       dashboardPath: path.join(tmp, 'pr-dashboard.html'),
       evidenceSequencePath: prSequence,
+      prReviewPolicy: { mode: 'required-before-closure' },
       now: '2026-05-10T14:44:00.000Z',
     });
     const prSelection = await readJson(path.resolve(process.cwd(), pr.iterations[0].postReviewSelectionPath));

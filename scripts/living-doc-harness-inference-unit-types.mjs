@@ -21,7 +21,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'worker',
       inputContract: {
         schema: 'living-doc-worker-inference-input/v1',
-        requiredFields: contractFields('runId', 'livingDocPath', 'objective', 'successCondition', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'runConfig', 'livingDocPath', 'objective', 'successCondition', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-worker-prompt/v1',
@@ -53,7 +53,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'reviewer',
       inputContract: {
         schema: 'living-doc-harness-reviewer-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'evidencePath', 'objectiveState', 'workerEvidence', 'proofGates', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'evidencePath', 'objectiveState', 'workerEvidence', 'proofGates', 'requiredHardFacts', 'prReviewPolicy', 'prReviewRequired', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-reviewer-prompt/v1',
@@ -83,7 +83,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'closure-review',
       inputContract: {
         schema: 'living-doc-harness-closure-review-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'evidencePath', 'reviewerVerdictPath', 'evidenceSnapshotPath', 'requiredHardFacts', 'proofGates', 'stopVerdict', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'evidencePath', 'reviewerVerdictPath', 'evidenceSnapshotPath', 'requiredHardFacts', 'prReviewPolicy', 'prReviewRequired', 'proofGates', 'stopVerdict', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-closure-review-prompt/v1',
@@ -203,7 +203,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'pr-review',
       inputContract: {
         schema: 'living-doc-harness-pr-review-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'reviewTarget', 'evidenceSnapshotPath', 'requiredHardFacts', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'livingDocPath', 'reviewerVerdictPath', 'reviewTarget', 'evidenceSnapshotPath', 'requiredHardFacts', 'prReviewPolicy', 'prReviewRequired', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-pr-review-prompt/v1',
@@ -291,6 +291,15 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
 };
 
 export const DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES = Object.freeze(Object.keys(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes));
+export const PR_REVIEW_POLICY_MODES = Object.freeze([
+  'disabled',
+  'required-before-closure',
+  'required-when-source-changes',
+]);
+export const DEFAULT_PR_REVIEW_POLICY = Object.freeze({
+  schema: 'living-doc-harness-pr-review-policy/v1',
+  mode: 'disabled',
+});
 export const REQUIRED_LIFECYCLE_CORE_UNIT_TYPES = Object.freeze([
   'worker',
   'reviewer-inference',
@@ -312,6 +321,30 @@ export function normalizeAllowedInferenceUnitTypes(value = DEFAULT_ALLOWED_INFER
   return unique;
 }
 
+export function normalizePrReviewPolicy(value = DEFAULT_PR_REVIEW_POLICY) {
+  const mode = typeof value === 'string'
+    ? value
+    : value?.mode || DEFAULT_PR_REVIEW_POLICY.mode;
+  if (!PR_REVIEW_POLICY_MODES.includes(mode)) {
+    throw new Error(`invalid pr review policy mode: ${mode}`);
+  }
+  return {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode,
+  };
+}
+
+export function prReviewRequiredForEvidence({ policy = DEFAULT_PR_REVIEW_POLICY, evidence = null, sourceFilesChanged = false } = {}) {
+  const normalized = normalizePrReviewPolicy(policy);
+  if (normalized.mode === 'disabled') return false;
+  if (normalized.mode === 'required-before-closure') return true;
+  const hardFacts = evidence?.requiredHardFacts || {};
+  return sourceFilesChanged === true
+    || evidence?.sourceFilesChanged === true
+    || hardFacts.sourceFilesChanged === true
+    || arr(hardFacts.currentRunChangedFiles).length > 0;
+}
+
 export function validateInferenceUnitAllowed({ unitTypeId, allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES }) {
   getInferenceUnitType(unitTypeId);
   const allowed = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
@@ -330,6 +363,7 @@ export function validateAllowedInferenceUnitRunConfig({
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   requiredUnitTypes = REQUIRED_LIFECYCLE_CORE_UNIT_TYPES,
   initialUnitType = 'worker',
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
 } = {}) {
   const violations = [];
   let allowed = [];
@@ -356,6 +390,17 @@ export function validateAllowedInferenceUnitRunConfig({
     });
   }
 
+  let normalizedPrReviewPolicy = null;
+  try {
+    normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
+  } catch (err) {
+    violations.push({
+      path: '$.prReviewPolicy.mode',
+      reasonCode: 'invalid-pr-review-policy-mode',
+      message: err?.message || String(err),
+    });
+  }
+
   for (const unitTypeId of arr(requiredUnitTypes)) {
     if (!allowed.includes(unitTypeId)) {
       violations.push({
@@ -367,10 +412,29 @@ export function validateAllowedInferenceUnitRunConfig({
     }
   }
 
+  if (normalizedPrReviewPolicy && normalizedPrReviewPolicy.mode !== 'disabled' && !allowed.includes('pr-review')) {
+    violations.push({
+      path: '$.allowedUnitTypes',
+      reasonCode: 'pr-review-policy-requires-unit-type',
+      message: `prReviewPolicy ${normalizedPrReviewPolicy.mode} requires pr-review to be in the run allowed set`,
+      unitTypeId: 'pr-review',
+    });
+  }
+
+  if (normalizedPrReviewPolicy?.mode === 'disabled' && initialUnitType === 'pr-review') {
+    violations.push({
+      path: '$.initialUnitType',
+      reasonCode: 'pr-review-disabled-by-policy',
+      message: 'prReviewPolicy disabled forbids starting a pr-review inference unit',
+      unitTypeId: 'pr-review',
+    });
+  }
+
   return {
     ok: violations.length === 0,
     allowedUnitTypes: allowed,
     requiredUnitTypes: arr(requiredUnitTypes),
+    prReviewPolicy: normalizedPrReviewPolicy || normalizePrReviewPolicy(DEFAULT_PR_REVIEW_POLICY),
     violations,
   };
 }

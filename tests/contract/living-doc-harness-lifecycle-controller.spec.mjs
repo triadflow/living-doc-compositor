@@ -124,6 +124,18 @@ try {
     }),
     /invalid lifecycle inference unit run config: .*continuation-inference.*post-flight-summary/,
   );
+  await assert.rejects(
+    () => runHarnessLifecycle({
+      docPath,
+      runsDir: path.join(tmp, 'invalid-pr-policy-runs'),
+      evidenceDir: path.join(tmp, 'invalid-pr-policy-evidence'),
+      dashboardPath: path.join(tmp, 'invalid-pr-policy-dashboard.html'),
+      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference', 'post-flight-summary'],
+      prReviewPolicy: { mode: 'required-before-closure' },
+      now: '2026-05-07T12:39:30.000Z',
+    }),
+    /invalid lifecycle inference unit run config: .*prReviewPolicy required-before-closure requires pr-review/,
+  );
   const sequencePath = path.join(tmp, 'evidence-sequence.json');
   await writeFile(sequencePath, `${JSON.stringify({
     schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
@@ -199,6 +211,9 @@ try {
   const firstReviewerInput = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[0].runDir, 'reviewer-inference', 'iteration-1-input.json'), 'utf8'));
   assert.equal(firstReviewerInput.evidenceSnapshotPath, firstEvidence.controllerEvidenceSnapshotPath);
   assert.equal(firstReviewerInput.requiredHardFacts.schema, 'living-doc-harness-required-hard-facts/v1');
+  assert.equal(firstReviewerInput.prReviewPolicy.mode, 'disabled');
+  assert.equal(firstReviewerInput.prReviewRequired, false);
+  assert.equal(firstReviewerInput.runConfig.prReviewPolicy.mode, 'disabled');
   assert.equal(firstReviewerInput.controllerEvidence.schema, 'living-doc-harness-controller-evidence-summary/v1');
   assert.equal(firstReviewerInput.controllerEvidence.gitWorktree.schema, 'living-doc-harness-git-worktree-evidence-summary/v1');
   assert.equal(firstReviewerInput.controllerEvidence.gitWorktree.entries.omittedFromInlineContract, true);
@@ -1087,6 +1102,185 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   ), 'utf8'));
   assert.equal(proofRouteProof.controllerProofRoutes.results[0].routeId, 'controller-owned-fixture-proof');
   assert.equal(proofRouteProof.controllerProofRoutes.results[0].closureAllowedContribution, 'pass');
+
+  const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
+  await writeFile(prPolicySequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: true,
+        sideEffectEvidence: { commit: { sha: 'abc1234', required: true } },
+        traceMessage: 'Policy-required PR review is missing.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: true,
+        sideEffectEvidence: {
+          commit: { sha: 'abc1234', required: true },
+          prReview: {
+            status: 'approved',
+            approved: true,
+            source: 'pr-review-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/05-pr-review/result.json',
+            url: 'https://github.example/pr/42',
+          },
+        },
+        traceMessage: 'Policy-required PR review evidence is present.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const requiredPrLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'required-pr-runs'),
+    evidenceDir: path.join(tmp, 'required-pr-evidence'),
+    dashboardPath: path.join(tmp, 'required-pr-dashboard.html'),
+    evidenceSequencePath: prPolicySequencePath,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    now: '2026-05-07T13:06:00.000Z',
+  });
+  assert.equal(requiredPrLifecycle.runConfig.prReviewPolicy.mode, 'required-before-closure');
+  assert.equal(requiredPrLifecycle.iterations[0].terminalKind, 'continuation-required');
+  assert.equal(requiredPrLifecycle.iterations[0].nextAction.selectedUnitType, 'pr-review');
+  assert.equal(requiredPrLifecycle.finalState.kind, 'closed');
+  const requiredPrFirstContract = JSON.parse(await readFile(path.resolve(process.cwd(), requiredPrLifecycle.iterations[0].runDir, 'contract.json'), 'utf8'));
+  assert.equal(requiredPrFirstContract.runConfig.prReviewPolicy.mode, 'required-before-closure');
+  const requiredPrFirstReviewerInput = JSON.parse(await readFile(path.resolve(process.cwd(), requiredPrLifecycle.iterations[0].runDir, 'reviewer-inference', 'iteration-1-input.json'), 'utf8'));
+  assert.equal(requiredPrFirstReviewerInput.prReviewPolicy.mode, 'required-before-closure');
+  assert.equal(requiredPrFirstReviewerInput.prReviewRequired, true);
+  assert.equal(requiredPrFirstReviewerInput.runConfig.prReviewPolicy.mode, 'required-before-closure');
+  const requiredPrSecondContract = JSON.parse(await readFile(path.resolve(process.cwd(), requiredPrLifecycle.iterations[1].runDir, 'contract.json'), 'utf8'));
+  assert.equal(requiredPrSecondContract.runConfig.initialUnitType, 'pr-review');
+  assert.equal(requiredPrSecondContract.runConfig.prReviewPolicy.mode, 'required-before-closure');
+  const requiredPrClosureInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    requiredPrLifecycle.iterations[1].runDir,
+    'inference-units',
+    'iteration-2',
+    '03-closure-review',
+    'input-contract.json',
+  ), 'utf8'));
+  assert.equal(requiredPrClosureInput.prReviewPolicy.mode, 'required-before-closure');
+  assert.equal(requiredPrClosureInput.prReviewRequired, true);
+  assert.ok(requiredPrClosureInput.requiredInspectionPaths.some((inspectionPath) => (
+    inspectionPath.endsWith('initial-inference-units/iteration-2/05-pr-review/result.json')
+  )));
+  const requiredPrDashboard = await readFile(path.join(tmp, 'required-pr-dashboard.html'), 'utf8');
+  assert.match(requiredPrDashboard, /PR review policy:/);
+  assert.match(requiredPrDashboard, /required-before-closure/);
+
+  const disabledPrLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'disabled-pr-runs'),
+    evidenceDir: path.join(tmp, 'disabled-pr-evidence'),
+    dashboardPath: path.join(tmp, 'disabled-pr-dashboard.html'),
+    evidenceSequencePath: prPolicySequencePath,
+    prReviewPolicy: { mode: 'disabled' },
+    now: '2026-05-07T13:07:00.000Z',
+  });
+  assert.equal(disabledPrLifecycle.runConfig.prReviewPolicy.mode, 'disabled');
+  assert.equal(disabledPrLifecycle.iterationCount, 1);
+  assert.equal(disabledPrLifecycle.finalState.kind, 'closed');
+  const disabledPrSelection = JSON.parse(await readFile(path.resolve(process.cwd(), disabledPrLifecycle.iterations[0].postReviewSelectionPath), 'utf8'));
+  assert.equal(disabledPrSelection.nextUnit.unitId, 'closure-review');
+  const disabledPrContract = JSON.parse(await readFile(path.resolve(process.cwd(), disabledPrLifecycle.iterations[0].runDir, 'contract.json'), 'utf8'));
+  assert.equal(disabledPrContract.runConfig.prReviewPolicy.mode, 'disabled');
+  const disabledPrEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    disabledPrLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(disabledPrEvidence.prReviewRequired, false);
+  assert.equal(disabledPrEvidence.requiredHardFacts.prReviewRequired, false);
+  assert.equal(disabledPrEvidence.requiredHardFacts.prReviewEvidencePresent, false);
+  assert.equal(disabledPrEvidence.sideEffectEvidence?.prReview, undefined);
+  const disabledPrInjectedEvidenceSequencePath = path.join(tmp, 'disabled-pr-injected-evidence-sequence.json');
+  await writeFile(disabledPrInjectedEvidenceSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: true,
+        sideEffectEvidence: {
+          commit: { sha: 'abc1234', required: true },
+          prReview: {
+            status: 'approved',
+            approved: true,
+            source: 'pr-review-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/05-pr-review/result.json',
+          },
+        },
+        traceMessage: 'Disabled policy must ignore injected PR-review side-effect evidence.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const disabledPrInjectedLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'disabled-pr-injected-runs'),
+    evidenceDir: path.join(tmp, 'disabled-pr-injected-evidence'),
+    dashboardPath: path.join(tmp, 'disabled-pr-injected-dashboard.html'),
+    evidenceSequencePath: disabledPrInjectedEvidenceSequencePath,
+    prReviewPolicy: { mode: 'disabled' },
+    now: '2026-05-07T13:07:30.000Z',
+  });
+  const disabledPrInjectedEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    disabledPrInjectedLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(disabledPrInjectedEvidence.prReviewRequired, false);
+  assert.equal(disabledPrInjectedEvidence.requiredHardFacts.prReviewEvidencePresent, false);
+  assert.equal(disabledPrInjectedEvidence.sideEffectEvidence?.prReview, undefined);
+
+  const noChangePrSequencePath = path.join(tmp, 'no-change-pr-policy-sequence.json');
+  await writeFile(noChangePrSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: false,
+        traceMessage: 'No source/doc-relevant changes, so PR review is not required.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const changeOnlyPrLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'change-only-pr-runs'),
+    evidenceDir: path.join(tmp, 'change-only-pr-evidence'),
+    dashboardPath: path.join(tmp, 'change-only-pr-dashboard.html'),
+    evidenceSequencePath: noChangePrSequencePath,
+    prReviewPolicy: { mode: 'required-when-source-changes' },
+    gitWorktreeCwd: tmp,
+    now: '2026-05-07T13:08:00.000Z',
+  });
+  assert.equal(changeOnlyPrLifecycle.finalState.kind, 'closed');
+  const noChangeEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    changeOnlyPrLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(noChangeEvidence.prReviewPolicy.mode, 'required-when-source-changes');
+  assert.equal(noChangeEvidence.prReviewRequired, false);
 
   const cliResultDir = path.join(tmp, 'cli-runs');
   const cli = spawnSync(process.execPath, [

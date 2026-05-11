@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
+import { DEFAULT_PR_REVIEW_POLICY, normalizePrReviewPolicy, prReviewRequiredForEvidence } from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -355,6 +356,7 @@ Mandatory raw-log inspection:
 Controller hard facts:
 - Treat input.requiredHardFacts and input.controllerEvidence as deterministic facts, not suggestions.
 - If requiredHardFacts.sourceFilesChanged is true and commitEvidencePresent is false, do not classify as closed.
+- If requiredHardFacts.prReviewRequired is true and prReviewEvidencePresent is false, do not classify as closed; request the pr-review policy gate.
 - If requiredHardFacts.closureAllowed is false, do not classify as closed even when the worker claims completion.
 
 Return this JSON shape:
@@ -404,6 +406,8 @@ export async function writeReviewerInferenceVerdict({
   const promptPath = path.join(reviewerDir, `iteration-${iteration}-prompt.md`);
   const artifactPath = path.join(reviewerDir, `iteration-${iteration}-verdict.json`);
   const logInspection = await buildLogInspection(runDir, evidence);
+  const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+  const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
 
   const input = {
     schema: 'living-doc-harness-reviewer-input/v1',
@@ -422,8 +426,10 @@ export async function writeReviewerInferenceVerdict({
     sourceState: evidence.sourceState || null,
     controllerEvidence: evidence.controllerEvidence || null,
     requiredHardFacts: evidence.requiredHardFacts || null,
+    prReviewPolicy,
+    prReviewRequired,
   };
-  if (allowedUnitTypes) input.runConfig = { schema: 'living-doc-harness-run-inference-config/v1', allowedUnitTypes };
+  if (allowedUnitTypes) input.runConfig = { schema: 'living-doc-harness-run-inference-config/v1', allowedUnitTypes, prReviewPolicy };
   input.requiredInspectionPaths = rawWorkerJsonlPaths(logInspection);
   await writeJson(inputPath, input);
   const prompt = reviewerPrompt(input);

@@ -14,7 +14,15 @@ import { promisify } from 'node:util';
 import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
 import { writeContractBoundInferenceUnitSnapshot } from './living-doc-harness-inference-unit.mjs';
 import { resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
-import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, getInferenceUnitType, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
+import {
+  DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  DEFAULT_PR_REVIEW_POLICY,
+  getInferenceUnitType,
+  normalizeAllowedInferenceUnitTypes,
+  normalizePrReviewPolicy,
+  prReviewRequiredForEvidence,
+  validateAllowedInferenceUnitRunConfig,
+} from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const execFileAsync = promisify(execFile);
@@ -23,6 +31,33 @@ const DEFAULT_RUNS_DIR = '.living-doc-runs';
 
 function arr(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function extractJson(text) {
+  const value = String(text || '').trim();
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+      try {
+        return JSON.parse(fenced[1].trim());
+      } catch {
+        return null;
+      }
+    }
+    const start = value.indexOf('{');
+    const end = value.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(value.slice(start, end + 1));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 function sha256(text) {
@@ -197,7 +232,7 @@ function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex', toolProfi
   };
 }
 
-function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, toolProfile = null, allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES }) {
+function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, toolProfile = null, allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, prReviewPolicy = DEFAULT_PR_REVIEW_POLICY }) {
   return {
     schema: 'living-doc-worker-inference-input/v1',
     runId,
@@ -206,6 +241,7 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, 
       schema: 'living-doc-harness-run-inference-config/v1',
       allowedUnitTypes,
       initialUnitType: 'worker',
+      prReviewPolicy,
     },
     livingDocPath: docPath,
     objective: doc.objective || null,
@@ -309,11 +345,12 @@ async function buildInitialInputContract({
   lifecycleInput = null,
   toolProfile = null,
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
   initialUnit,
   cwd,
 }) {
   if (initialUnit.unitId === 'worker') {
-    return buildWorkerInputContract({ doc, docPath, runId, lifecycleInput, toolProfile, allowedUnitTypes });
+    return buildWorkerInputContract({ doc, docPath, runId, lifecycleInput, toolProfile, allowedUnitTypes, prReviewPolicy });
   }
 
   const previous = await previousOutputInputContext({ cwd, lifecycleInput });
@@ -335,6 +372,7 @@ async function buildInitialInputContract({
       forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
       evidenceSnapshotPath,
       requiredHardFacts: previous.evidence?.requiredHardFacts || null,
+      prReviewPolicy,
       commitIntent: {
         ...(previous.evidence?.commitIntent || previous.evidence?.sideEffectEvidence?.commit || {
           mode: 'required-before-closure',
@@ -385,13 +423,26 @@ async function buildInitialInputContract({
 
   if (initialUnit.unitId === 'pr-review') {
     const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
+    const hardFacts = previous.evidence?.requiredHardFacts || {};
+    const prReviewRequired = prReviewRequiredForEvidence({
+      policy: prReviewPolicy,
+      evidence: previous.evidence,
+    });
     return {
       schema: 'living-doc-harness-pr-review-input/v1',
       runId,
       iteration,
+      livingDocPath: docPath,
+      reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || nextUnit.reviewerVerdictPath || null,
       reviewTarget: previous.evidence?.prReview?.reviewTarget || previous.evidence?.prReview?.url || 'configured-pr-review-target',
       evidenceSnapshotPath,
-      requiredHardFacts: previous.evidence?.requiredHardFacts || null,
+      requiredHardFacts: hardFacts,
+      prReviewPolicy,
+      prReviewRequired,
+      changedFiles: arr(hardFacts.currentRunChangedFiles).length
+        ? arr(hardFacts.currentRunChangedFiles)
+        : arr(previous.evidence?.workerEvidence?.filesChanged),
+      commitEvidence: previous.evidence?.sideEffectEvidence?.commit || null,
       lifecycleInput,
       requiredInspectionPaths,
     };
@@ -399,6 +450,10 @@ async function buildInitialInputContract({
 
   if (initialUnit.unitId === 'closure-review') {
     const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
+    const prReviewRequired = prReviewRequiredForEvidence({
+      policy: prReviewPolicy,
+      evidence: previous.evidence,
+    });
     return {
       schema: 'living-doc-harness-closure-review-input/v1',
       runId,
@@ -407,6 +462,8 @@ async function buildInitialInputContract({
       reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || null,
       evidenceSnapshotPath,
       requiredHardFacts: previous.evidence?.requiredHardFacts || null,
+      prReviewPolicy,
+      prReviewRequired,
       proofGates: previous.evidence?.proofGates || {},
       stopVerdict: previous.outputInput?.previousOutput || {},
       lifecycleInput,
@@ -590,7 +647,7 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
   };
 }
 
-function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
+function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence, rawResult = null }) {
   if (unitTypeId === 'commit-intent') {
     return commitIntentOutputContract({
       inputContract,
@@ -602,6 +659,19 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       commitAfter,
       commitEvidence,
     });
+  }
+  if (unitTypeId === 'pr-review') {
+    const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
+      ? rawResult.outputContract
+      : rawResult;
+    if (output?.schema === 'living-doc-harness-pr-review-result/v1') {
+      return {
+        ...output,
+        exitCode,
+        ...paths,
+        nativeTraceRefs: traceRefs,
+      };
+    }
   }
   return {
     ...preparedOutputContract({
@@ -648,6 +718,7 @@ function parseArgs(argv) {
     iteration: 1,
     toolProfile: 'local-harness',
     allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+    prReviewPolicy: DEFAULT_PR_REVIEW_POLICY,
   };
 
   while (args.length) {
@@ -686,6 +757,10 @@ function parseArgs(argv) {
       const value = args.shift();
       if (!value) throw new Error('--allowed-unit-types requires a comma-separated value');
       options.allowedUnitTypes = value.split(',').map((item) => item.trim()).filter(Boolean);
+    } else if (flag === '--pr-review-policy') {
+      const value = args.shift();
+      if (!value) throw new Error('--pr-review-policy requires a value');
+      options.prReviewPolicy = normalizePrReviewPolicy(value);
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
@@ -707,6 +782,7 @@ export async function createHarnessRun({
   iteration = 1,
   toolProfile = 'local-harness',
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -729,7 +805,16 @@ export async function createHarnessRun({
   const codexStderrPath = path.join(turnsDir, 'codex-stderr.log');
   const resolvedToolProfile = resolveInferenceToolProfile(toolProfile, { cwd });
   const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
+  const normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
   const initialUnit = selectedInitialUnit(lifecycleInput);
+  const runConfigValidation = validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes: normalizedAllowedUnitTypes,
+    initialUnitType: initialUnit.unitId,
+    prReviewPolicy: normalizedPrReviewPolicy,
+  });
+  if (!runConfigValidation.ok) {
+    throw new Error(`invalid harness runner inference unit run config: ${runConfigValidation.violations.map((violation) => violation.message).join('; ')}`);
+  }
   const prompt = `${buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput, initialUnit })}
 
 Harness tool profile:
@@ -743,6 +828,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     lifecycleInput,
     toolProfile: resolvedToolProfile,
     allowedUnitTypes: normalizedAllowedUnitTypes,
+    prReviewPolicy: normalizedPrReviewPolicy,
     initialUnit,
     cwd,
   });
@@ -791,6 +877,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       allowedUnitTypes: normalizedAllowedUnitTypes,
       initialUnitType: initialUnit.unitId,
       initialUnitRole: initialUnit.role,
+      prReviewPolicy: normalizedPrReviewPolicy,
       registrySchema: 'living-doc-harness-inference-unit-type-registry/v1',
     },
     artifacts: {
@@ -996,6 +1083,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     lastMessagePath: path.relative(runDir, lastMessagePath),
     stderrPath: path.relative(runDir, codexStderrPath),
   };
+  const rawLastMessage = await readFile(lastMessagePath, 'utf8').catch(() => '');
+  const rawUnitResult = extractJson(rawLastMessage);
   const finalOutputContract = externalOutputContract({
     unitTypeId: initialUnit.unitId,
     runId,
@@ -1008,6 +1097,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     commitBefore,
     commitAfter,
     commitEvidence,
+    rawResult: rawUnitResult,
   });
   const finalUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,

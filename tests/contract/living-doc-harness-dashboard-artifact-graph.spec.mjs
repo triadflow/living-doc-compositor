@@ -60,6 +60,11 @@ try {
     docPath: 'tests/fixtures/minimal-doc.json',
     lifecycleDir: closableLifecycleDir,
     iterationCount: 1,
+    runConfig: {
+      schema: 'living-doc-harness-run-inference-config/v1',
+      allowedUnitTypes: closableRun.contract.runConfig.allowedUnitTypes,
+      prReviewPolicy: closableRun.contract.runConfig.prReviewPolicy,
+    },
     finalState: {
       kind: 'closed',
       reason: 'Closability fixture reached terminal closure without repair.',
@@ -85,6 +90,12 @@ try {
     runsDir: closableRunsDir,
   });
   assert.equal(closableGraph.finalState.kind, 'closed');
+  const closableController = closableGraph.nodes.find((node) => node.id === 'lifecycle-controller');
+  assert.equal(closableController.meta.prReviewPolicy?.mode, 'disabled');
+  const closableWorker = closableGraph.nodes.find((node) => node.role === 'worker');
+  assert.equal(closableWorker.meta.prReviewPolicy?.mode, 'disabled');
+  assert.equal(closableWorker.meta.prReviewGate.state, 'disabled');
+  assert.equal(closableWorker.meta.prReviewGate.required, false);
   assert.equal(closableGraph.nodes.some((node) => node.role === 'repair-skill' || node.role === 'balance-scan'), false);
   assert.equal(closableGraph.edges.some((edge) => edge.gate === 'ordered-repair-unit-required' || edge.gate === 'balance-scan-required'), false);
   assert.equal(closableGraph.nodes.some((node) => node.role === 'worker'), true);

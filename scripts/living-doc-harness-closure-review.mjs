@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
+import { DEFAULT_PR_REVIEW_POLICY, normalizePrReviewPolicy, prReviewRequiredForEvidence } from './living-doc-harness-inference-unit-types.mjs';
 
 function arr(value) {
   return Array.isArray(value) ? value : [];
@@ -16,6 +17,18 @@ function arr(value) {
 
 function rel(runDir, filePath) {
   return filePath ? path.relative(runDir, filePath) : null;
+}
+
+function pathFromRunRef(runDir, filePath) {
+  if (!filePath) return null;
+  return path.isAbsolute(filePath) ? filePath : path.resolve(runDir, filePath);
+}
+
+function runRefInspectionPaths(runDir, filePath) {
+  if (!filePath) return [];
+  const absolutePath = pathFromRunRef(runDir, filePath);
+  const relativePath = path.isAbsolute(filePath) ? path.relative(runDir, filePath) : filePath;
+  return [...new Set([relativePath, absolutePath].filter(Boolean))];
 }
 
 function closureApprovedFromEvidence({ evidence, verdict }) {
@@ -26,8 +39,12 @@ function closureApprovedFromEvidence({ evidence, verdict }) {
     || sideEffects.commit?.sha
     || sideEffects.commit?.exemption?.approved === true
     || sideEffects.commit?.notRequired === true;
-  const prGateSatisfied = evidence?.prReviewRequired === true
-    ? Boolean(sideEffects.prReview?.url || sideEffects.prReview?.notRequired === true)
+  const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+  const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
+  const prReviewEvidenceFromUnit = sideEffects.prReview?.source === 'pr-review-output-contract'
+    && sideEffects.prReview?.resultPath;
+  const prGateSatisfied = prReviewRequired
+    ? Boolean(prReviewEvidenceFromUnit && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true))
     : true;
   return verdict?.stopVerdict?.classification === 'closed'
     && (verdict.stopVerdict.closureAllowed === true || verdict.proofGates?.closureAllowed === true)
@@ -66,7 +83,7 @@ Return this JSON shape:
 }
 
 Only set approved true and terminalAllowed true when the reviewer verdict is closed, closureAllowed is true, all proof gates pass, native trace evidence exists, no objective terms remain unresolved, and no acceptance criteria remain unproven.
-If source files changed, require sideEffectEvidence.commit.sha or an explicit approved no-commit exemption. If PR review is configured, require sideEffectEvidence.prReview evidence.
+If source files changed, require sideEffectEvidence.commit.sha or an explicit approved no-commit exemption. If PR review is required by prReviewPolicy, require sideEffectEvidence.prReview evidence from a pr-review output contract.
 
 Frozen closure-review input:
 ${JSON.stringify(input, null, 2)}
@@ -110,8 +127,12 @@ export async function runClosureReviewUnit({
     reviewer?.artifactPath,
     reviewer?.artifact?.inferenceUnitResultPath ? path.resolve(runDir, reviewer.artifact.inferenceUnitResultPath) : null,
     reviewer?.artifact?.inferenceUnitValidationPath ? path.resolve(runDir, reviewer.artifact.inferenceUnitValidationPath) : null,
+    ...runRefInspectionPaths(runDir, evidence?.sideEffectEvidence?.prReview?.resultPath),
+    ...runRefInspectionPaths(runDir, evidence?.sideEffectEvidence?.prReview?.validationPath),
   ].filter(Boolean);
   const approved = closureApprovedFromEvidence({ evidence, verdict });
+  const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+  const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
   const input = {
     schema: 'living-doc-harness-closure-review-input/v1',
     runId: evidence.runId,
@@ -121,6 +142,8 @@ export async function runClosureReviewUnit({
     reviewerVerdictPath: rel(runDir, reviewer?.artifactPath),
     evidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || evidence.controllerEvidence?.snapshotPath || null,
     requiredHardFacts: evidence.requiredHardFacts || null,
+    prReviewPolicy,
+    prReviewRequired,
     reviewerInferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
     reviewerInferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
     objectiveState: evidence.objectiveState,
