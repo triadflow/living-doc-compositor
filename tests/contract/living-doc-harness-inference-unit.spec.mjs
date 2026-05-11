@@ -36,6 +36,24 @@ try {
   assert.ok(badInput.violations.some((violation) => violation.path === '$.schema'));
   assert.ok(badInput.violations.some((violation) => violation.path === '$.iteration'));
   assert.ok(badInput.violations.some((violation) => violation.path === '$.evidencePath'));
+  assert.ok(badInput.violations.some((violation) => violation.path === '$.evidenceSnapshotPath'));
+  assert.ok(badInput.violations.some((violation) => violation.path === '$.requiredHardFacts'));
+
+  const sideEffectWithoutSnapshot = validateInferenceUnitInputContract({
+    unitTypeId: 'commit-intent',
+    inputContract: {
+      schema: 'living-doc-harness-commit-intent-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      changedFiles: ['doc.json'],
+      commitIntent: { mode: 'required-before-closure' },
+      requiredInspectionPaths: ['doc.json'],
+    },
+  });
+  assert.equal(sideEffectWithoutSnapshot.ok, false);
+  assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.evidenceSnapshotPath'));
+  assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.requiredHardFacts'));
+  assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.commitPolicy'));
 
   await assert.rejects(
     runContractBoundInferenceUnit({
@@ -136,6 +154,12 @@ process.stdin.on('end', () => {
       iteration: 1,
       evidencePath: inspectedPath,
       reviewerVerdictPath: inspectedPath,
+      evidenceSnapshotPath: inspectedPath,
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+        sourceFilesChanged: false,
+        commitEvidencePresent: false,
+      },
       proofGates: { acceptanceCriteriaSatisfied: 'pass' },
       stopVerdict: { classification: 'closed' },
       requiredInspectionPaths: [inspectedPath],

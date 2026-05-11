@@ -83,7 +83,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'closure-review',
       inputContract: {
         schema: 'living-doc-harness-closure-review-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'evidencePath', 'reviewerVerdictPath', 'proofGates', 'stopVerdict', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'evidencePath', 'reviewerVerdictPath', 'evidenceSnapshotPath', 'requiredHardFacts', 'proofGates', 'stopVerdict', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-closure-review-prompt/v1',
@@ -173,7 +173,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'commit-intent',
       inputContract: {
         schema: 'living-doc-harness-commit-intent-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'changedFiles', 'commitIntent', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'changedFiles', 'evidenceSnapshotPath', 'requiredHardFacts', 'commitIntent', 'commitPolicy', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-commit-intent-prompt/v1',
@@ -203,7 +203,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'pr-review',
       inputContract: {
         schema: 'living-doc-harness-pr-review-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'reviewTarget', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'reviewTarget', 'evidenceSnapshotPath', 'requiredHardFacts', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-pr-review-prompt/v1',

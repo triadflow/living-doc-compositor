@@ -25,8 +25,11 @@ const CONTROLLER_SOURCE_FILES = [
   'scripts/living-doc-harness-lifecycle.mjs',
   'scripts/living-doc-harness-iteration.mjs',
   'scripts/living-doc-harness-inference-unit.mjs',
+  'scripts/living-doc-harness-inference-unit-types.mjs',
   'scripts/living-doc-harness-reviewer-inference.mjs',
+  'scripts/living-doc-harness-closure-review.mjs',
   'scripts/living-doc-harness-skill-router.mjs',
+  'scripts/living-doc-harness-runner.mjs',
 ];
 
 function sha256(text) {
@@ -511,10 +514,6 @@ async function buildEvidenceFromPlan({
     }));
   }
 
-  if (enforceControllerWorktreeEvidence && controllerState.changedDuringLifecycle) {
-    throw new Error('controller source changed during lifecycle; restart required before continuing');
-  }
-
   const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
   const sideEffectEvidence = plan.sideEffectEvidence || runSideEffectEvidence || (
     sourceFilesChanged
@@ -611,6 +610,14 @@ async function buildEvidenceFromPlan({
     requiredHardFacts,
     sourceFilesChanged,
     commitScope,
+    ...(enforceControllerWorktreeEvidence && controllerState.changedDuringLifecycle ? {
+      controllerSourceRestartRequired: {
+        schema: 'living-doc-harness-controller-source-restart-required/v1',
+        reasonCode: 'controller-source-changed-during-lifecycle',
+        reason: 'Controller-owned harness source changed during this lifecycle iteration; restart before reviewer or closure routing.',
+        changedControllerFiles: controllerState.files.filter((file) => file.changedDuringLifecycle),
+      },
+    } : {}),
     ...(sideEffectEvidence ? { sideEffectEvidence } : {}),
     ...(hasOwn(plan, 'prReviewRequired') ? { prReviewRequired: plan.prReviewRequired === true } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
@@ -716,6 +723,95 @@ async function runPostFlightSummaryUnit({
   };
 }
 
+async function writeControllerSourceRestartHandoff({
+  lifecycleDir,
+  run,
+  runDir,
+  iteration,
+  evidence,
+  evidencePath,
+  now,
+  cwd,
+  docPath,
+}) {
+  const restart = evidence.controllerSourceRestartRequired || {};
+  const handoff = {
+    schema: 'living-doc-harness-controller-source-restart-handoff/v1',
+    status: 'restart-required',
+    reasonCode: restart.reasonCode || 'controller-source-changed-during-lifecycle',
+    reason: restart.reason || 'Controller-owned harness source changed during this lifecycle iteration; restart before reviewer or closure routing.',
+    runId: run.runId,
+    iteration,
+    docPath,
+    evidencePath: path.relative(runDir, evidencePath),
+    evidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || null,
+    requiredHardFacts: evidence.requiredHardFacts || null,
+    commitScope: evidence.commitScope || null,
+    sourceFilesChanged: evidence.sourceFilesChanged === true,
+    sideEffectEvidence: evidence.sideEffectEvidence || null,
+    changedControllerFiles: arr(restart.changedControllerFiles),
+    nativeTraceRefs: arr(run.contract?.artifacts?.nativeTraceRefs),
+    workerArtifacts: {
+      state: run.contract?.artifacts?.state || null,
+      events: run.contract?.artifacts?.events || null,
+      lastMessage: run.contract?.artifacts?.lastMessage || null,
+      codexEvents: run.contract?.artifacts?.codexEvents || null,
+      codexStderr: run.contract?.artifacts?.codexStderr || null,
+    },
+    requiredAction: 'Commit or restore controller-owned source changes, then restart the standalone lifecycle from the new controller version.',
+  };
+  const handoffPath = path.join(runDir, 'artifacts', `iteration-${iteration}-controller-source-restart-required.json`);
+  await writeJson(handoffPath, handoff);
+
+  const outputInput = {
+    schema: 'living-doc-harness-output-input/v1',
+    runId: run.runId,
+    iteration,
+    createdAt: now,
+    previousOutput: {
+      classification: 'controller-source-changed-restart-required',
+      terminalKind: 'restart-required',
+      proofValid: false,
+      evidencePath: path.relative(runDir, evidencePath),
+      restartHandoffPath: path.relative(runDir, handoffPath),
+    },
+    postReviewSelection: null,
+    nextUnit: null,
+    terminalAction: {
+      action: 'restart-required',
+      reasonCode: handoff.reasonCode,
+      reason: handoff.reason,
+    },
+    nextAction: {
+      action: 'restart-after-controller-source-commit',
+      allowed: false,
+      reason: handoff.reason,
+    },
+    nextInput: null,
+  };
+  const outputInputPath = path.join(runDir, 'output-input', `iteration-${iteration}.json`);
+  await writeJson(outputInputPath, outputInput);
+  await appendJsonl(path.join(runDir, 'events.jsonl'), {
+    event: 'controller-source-restart-required',
+    at: now,
+    runId: run.runId,
+    iteration,
+    reasonCode: handoff.reasonCode,
+    restartHandoffPath: path.relative(runDir, handoffPath),
+    outputInputPath: path.relative(runDir, outputInputPath),
+  });
+  await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
+    event: 'lifecycle-controller-source-restart-required',
+    at: now,
+    runId: run.runId,
+    iteration,
+    reasonCode: handoff.reasonCode,
+    restartHandoffPath: path.relative(lifecycleDir, handoffPath),
+    outputInputPath: path.relative(lifecycleDir, outputInputPath),
+  });
+  return { handoffPath, outputInputPath, outputInput, handoff };
+}
+
 export async function runHarnessLifecycle({
   docPath,
   runsDir = '.living-doc-runs',
@@ -809,6 +905,50 @@ export async function runHarnessLifecycle({
         proofRouteBundle,
       });
       lastEvidence = evidence;
+      if (evidence.controllerSourceRestartRequired) {
+        const restartHandoff = await writeControllerSourceRestartHandoff({
+          lifecycleDir,
+          run,
+          runDir: run.runDir,
+          iteration,
+          evidence,
+          evidencePath,
+          now: addMs(iterationNow, 500),
+          cwd,
+          docPath,
+        });
+        const nextAction = {
+          action: 'restart-after-controller-source-commit',
+          allowed: false,
+          reason: evidence.controllerSourceRestartRequired.reason,
+        };
+        iterations.push({
+          iteration,
+          runId: run.runId,
+          runDir: run.runDir,
+          classification: 'controller-source-changed-restart-required',
+          terminalKind: 'restart-required',
+          nextAction,
+          outputInputPath: restartHandoff.outputInputPath,
+          reviewerVerdictPath: null,
+          repairSkillResultPath: null,
+          closureReviewResultPath: null,
+          postReviewSelectionPath: null,
+          restartHandoffPath: restartHandoff.handoffPath,
+          proofValid: false,
+        });
+        finalState = {
+          kind: 'controller-source-changed-restart-required',
+          reasonCode: evidence.controllerSourceRestartRequired.reasonCode,
+          reason: evidence.controllerSourceRestartRequired.reason,
+          runId: run.runId,
+          iteration,
+          restartHandoffPath: path.relative(cwd, restartHandoff.handoffPath),
+          outputInputPath: path.relative(cwd, restartHandoff.outputInputPath),
+          evidencePath: path.relative(cwd, evidencePath),
+        };
+        break;
+      }
       const finalization = await finalizeHarnessIteration({
         runDir: run.runDir,
         evidencePath,
@@ -940,11 +1080,12 @@ export async function runHarnessLifecycle({
     iterations: iterations.map((item) => ({
       ...item,
       runDir: path.relative(cwd, item.runDir),
-      outputInputPath: path.relative(cwd, item.outputInputPath),
-      reviewerVerdictPath: path.relative(cwd, item.reviewerVerdictPath),
+      outputInputPath: item.outputInputPath ? path.relative(cwd, item.outputInputPath) : null,
+      reviewerVerdictPath: item.reviewerVerdictPath ? path.relative(cwd, item.reviewerVerdictPath) : null,
       repairSkillResultPath: item.repairSkillResultPath ? path.relative(cwd, item.repairSkillResultPath) : null,
       closureReviewResultPath: item.closureReviewResultPath ? path.relative(cwd, item.closureReviewResultPath) : null,
       postReviewSelectionPath: item.postReviewSelectionPath ? path.relative(cwd, item.postReviewSelectionPath) : null,
+      restartHandoffPath: item.restartHandoffPath ? path.relative(cwd, item.restartHandoffPath) : null,
     })),
     lastEvidenceSummary: lastEvidence ? {
       unresolvedObjectiveTerms: arr(lastEvidence.objectiveState?.unresolvedObjectiveTerms).length,

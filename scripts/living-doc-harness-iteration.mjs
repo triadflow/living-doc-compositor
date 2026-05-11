@@ -77,6 +77,49 @@ function proofGatesAfterBundle(evidence) {
   };
 }
 
+function requiredHardFactsFromIterationEvidence(evidence) {
+  const sideEffects = evidence?.sideEffectEvidence || {};
+  return {
+    schema: 'living-doc-harness-required-hard-facts/v1',
+    sourceFilesChanged: evidence?.sourceFilesChanged === true,
+    dirtyTrackedFiles: arr(evidence?.requiredHardFacts?.dirtyTrackedFiles),
+    relevantUntrackedFiles: arr(evidence?.requiredHardFacts?.relevantUntrackedFiles),
+    currentRunChangedFiles: arr(evidence?.commitScope?.currentRunChangedFiles || evidence?.requiredHardFacts?.currentRunChangedFiles),
+    preExistingDirtyFiles: arr(evidence?.commitScope?.preExistingDirtyFiles || evidence?.requiredHardFacts?.preExistingDirtyFiles),
+    allowedCommitFiles: arr(evidence?.commitScope?.allowedCommitFiles || evidence?.requiredHardFacts?.allowedCommitFiles),
+    forbiddenCommitFiles: arr(evidence?.commitScope?.forbiddenCommitFiles || evidence?.requiredHardFacts?.forbiddenCommitFiles),
+    acceptanceCriteriaSatisfied: evidence?.proofGates?.acceptanceCriteriaSatisfied === 'pass',
+    objectiveReady: evidence?.sourceState?.objectiveReady === true,
+    documentReady: evidence?.sourceState?.documentReady === true,
+    renderedHtmlExists: evidence?.sourceState?.renderedHtmlExists === true,
+    closureAllowed: evidence?.proofGates?.closureAllowed === true,
+    commitEvidencePresent: Boolean(sideEffects.commit?.sha || sideEffects.commit?.exemption?.approved === true || sideEffects.commit?.notRequired === true),
+  };
+}
+
+async function ensureControllerEvidenceSnapshot({ runDir, evidence, iteration, now }) {
+  const requiredHardFacts = evidence.requiredHardFacts || requiredHardFactsFromIterationEvidence(evidence);
+  if (evidence.controllerEvidenceSnapshotPath && evidence.requiredHardFacts) return evidence;
+  const snapshot = {
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    runId: evidence.runId,
+    iteration,
+    createdAt: now,
+    detectors: {
+      suppliedIterationEvidence: evidence,
+      note: 'Snapshot written by the iteration finalizer because the supplied evidence predated controller-owned snapshot artifacts.',
+    },
+    hardFacts: requiredHardFacts,
+  };
+  const snapshotPath = path.join(runDir, 'artifacts', `iteration-${iteration}-controller-evidence-snapshot.json`);
+  await writeJson(snapshotPath, snapshot);
+  return {
+    ...evidence,
+    controllerEvidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || path.relative(runDir, snapshotPath),
+    requiredHardFacts,
+  };
+}
+
 function repairChainBlockedVerdict(originalVerdict, repairRun) {
   const blocked = repairRun?.chain?.skillResults?.find((item) => ['blocked', 'failed'].includes(item.status));
   const status = repairRun?.chain?.status || blocked?.status || 'blocked';
@@ -603,6 +646,11 @@ async function runSelectedSideEffectGateUnit({
         mode: 'required-before-closure',
         reason: selection.nextUnit.reasonCode || 'source-changes-require-commit-evidence',
       },
+      commitPolicy: {
+        exactFilesOnly: true,
+        forbidPreExistingDirtyFiles: true,
+        reason: 'Commit-intent may only approve files scoped by controller-owned evidence.',
+      },
       requiredInspectionPaths,
     };
     return runContractBoundInferenceUnit({
@@ -838,12 +886,18 @@ export async function finalizeHarnessIteration({
     tracePaths,
     now,
   });
-  const finalEvidence = {
+  let finalEvidence = {
     ...traceEnrichedEvidence,
     proofGates: proofGatesAfterBundle(traceEnrichedEvidence),
   };
   const artifactsDir = path.join(runDir, 'artifacts');
   await mkdir(artifactsDir, { recursive: true });
+  finalEvidence = await ensureControllerEvidenceSnapshot({
+    runDir,
+    evidence: finalEvidence,
+    iteration,
+    now,
+  });
 
   const reviewer = await writeReviewerInferenceVerdict({
     runDir,

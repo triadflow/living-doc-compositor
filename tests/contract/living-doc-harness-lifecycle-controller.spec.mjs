@@ -800,6 +800,50 @@ process.exit(2);
   assert.equal(processDefectResult.finalState.kind, 'process-defect');
   assert.equal(processDefectResult.finalState.runId, processDefect.finalState.runId);
 
+  const controllerSourceCwd = path.join(tmp, 'controller-source-cwd');
+  await mkdir(path.join(controllerSourceCwd, 'scripts'), { recursive: true });
+  await writeFile(path.join(controllerSourceCwd, 'scripts', 'living-doc-harness-lifecycle.mjs'), 'baseline controller source\n', 'utf8');
+  await writeFile(path.join(controllerSourceCwd, 'doc.json'), `${JSON.stringify(minimalDoc('doc.json'), null, 2)}\n`, 'utf8');
+  const controllerMutatingCodexPath = path.join(tmp, 'controller-mutating-codex.mjs');
+  await writeFile(controllerMutatingCodexPath, `#!/usr/bin/env node
+import { writeFileSync } from 'node:fs';
+
+const args = process.argv.slice(2);
+const outputPath = args[args.indexOf('-o') + 1];
+writeFileSync('scripts/living-doc-harness-lifecycle.mjs', 'changed controller source\\n');
+writeFileSync(outputPath, 'changed controller-owned harness source');
+console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'changed controller source' } }));
+`, 'utf8');
+  await chmod(controllerMutatingCodexPath, 0o755);
+  const controllerRestart = await runHarnessLifecycle({
+    cwd: controllerSourceCwd,
+    docPath: 'doc.json',
+    runsDir: path.join(controllerSourceCwd, 'runs'),
+    evidenceDir: path.join(controllerSourceCwd, 'evidence'),
+    dashboardPath: path.join(controllerSourceCwd, 'dashboard.html'),
+    execute: true,
+    codexBin: controllerMutatingCodexPath,
+    codexHome: tmp,
+    executeReviewer: false,
+    now: '2026-05-07T13:05:00.000Z',
+  });
+  assert.equal(controllerRestart.iterationCount, 1);
+  assert.equal(controllerRestart.finalState.kind, 'controller-source-changed-restart-required');
+  assert.equal(controllerRestart.finalState.reasonCode, 'controller-source-changed-during-lifecycle');
+  assert.equal(controllerRestart.iterations[0].classification, 'controller-source-changed-restart-required');
+  assert.equal(controllerRestart.iterations[0].terminalKind, 'restart-required');
+  assert.equal(controllerRestart.iterations[0].reviewerVerdictPath, null);
+  assert.match(controllerRestart.iterations[0].restartHandoffPath, /controller-source-restart-required\.json$/);
+  const restartHandoff = JSON.parse(await readFile(path.resolve(controllerSourceCwd, controllerRestart.iterations[0].restartHandoffPath), 'utf8'));
+  assert.equal(restartHandoff.schema, 'living-doc-harness-controller-source-restart-handoff/v1');
+  assert.equal(restartHandoff.status, 'restart-required');
+  assert.equal(restartHandoff.changedControllerFiles.some((file) => file.path === 'scripts/living-doc-harness-lifecycle.mjs'), true);
+  assert.equal(restartHandoff.requiredHardFacts.schema, 'living-doc-harness-required-hard-facts/v1');
+  assert.equal(restartHandoff.workerArtifacts.lastMessage, 'codex-turns/last-message.txt');
+  const restartOutputInput = JSON.parse(await readFile(path.resolve(controllerSourceCwd, controllerRestart.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(restartOutputInput.previousOutput.classification, 'controller-source-changed-restart-required');
+  assert.equal(restartOutputInput.terminalAction.action, 'restart-required');
+
   const sourceClosureDocPath = path.join(tmp, 'source-closure-doc.json');
   const sourceClosureHtmlPath = sourceClosureDocPath.replace(/\.json$/i, '.html');
   const fakeCodexPath = path.join(tmp, 'fake-codex.mjs');

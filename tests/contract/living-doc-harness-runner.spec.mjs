@@ -283,8 +283,22 @@ exit 0
   const scopedPreviousRunDir = path.join(tmp, 'scoped-previous-run');
   await mkdir(path.join(scopedPreviousRunDir, 'artifacts'), { recursive: true });
   await mkdir(path.join(scopedPreviousRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(scopedPreviousRunDir, 'artifacts', 'iteration-1-controller-evidence-snapshot.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    hardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: true,
+      dirtyTrackedFiles: ['doc.json', 'unrelated.md'],
+      currentRunChangedFiles: ['doc.json'],
+      preExistingDirtyFiles: ['unrelated.md'],
+      allowedCommitFiles: ['doc.json'],
+      forbiddenCommitFiles: ['unrelated.md'],
+      commitEvidencePresent: false,
+    },
+  }, null, 2)}\n`, 'utf8');
   await writeFile(path.join(scopedPreviousRunDir, 'artifacts', 'iteration-1-evidence.json'), `${JSON.stringify({
     schema: 'living-doc-harness-iteration-evidence/v1',
+    controllerEvidenceSnapshotPath: 'artifacts/iteration-1-controller-evidence-snapshot.json',
     requiredHardFacts: {
       schema: 'living-doc-harness-required-hard-facts/v1',
       sourceFilesChanged: true,

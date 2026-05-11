@@ -119,6 +119,8 @@ export async function runClosureReviewUnit({
     createdAt: now,
     evidencePath: rel(runDir, evidencePath),
     reviewerVerdictPath: rel(runDir, reviewer?.artifactPath),
+    evidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || evidence.controllerEvidence?.snapshotPath || null,
+    requiredHardFacts: evidence.requiredHardFacts || null,
     reviewerInferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
     reviewerInferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
     objectiveState: evidence.objectiveState,

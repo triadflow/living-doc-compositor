@@ -733,18 +733,18 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T10:38:32.000Z",
+  "updated": "2026-05-11T11:06:51.000Z",
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "source-repaired-commit-scope-clean-rerun-required",
+    "currentPhase": "source-repaired-controller-restart-handoff-clean-rerun-required",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Resolve the local broad commit state, then rerun the standalone lifecycle so commit-intent proves exact scoped file staging before closure review.",
+    "nextObjectiveAction": "Commit the strict snapshot and controller-restart repairs, then rerun the standalone lifecycle from the new controller version so commit-intent, closure-review, and post-flight evidence are produced by the current controller.",
     "repairState": {
-      "status": "source-repaired-clean-rerun-required",
-      "nearestHonestStage": "focused-contract-green-broad-local-commit-not-closure-proof",
-      "updated": "2026-05-11T10:38:32.000Z",
+      "status": "source-repaired-controller-restart-handoff-clean-rerun-required",
+      "nearestHonestStage": "focused-contract-green-controller-restart-handoff-live-rerun-required",
+      "updated": "2026-05-11T11:06:51.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -837,7 +837,15 @@
         "node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T10:35Z and proves a broad commit containing unrelated.md is marked blocked with extraCommittedFiles and forbiddenCommittedFiles instead of approved.",
         "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T10:35Z after the commit-scope repair.",
         "The objective remains not closed: the existing local commit 56709000301b57365259bd04a434905fce757596 is broad evidence, not valid closure proof, and a clean standalone lifecycle rerun is still required.",
-        "npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair."
+        "npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair.",
+        "This worker tightened the registered input contracts for commit-intent, PR-review, and closure-review so side-effect and closure units cannot validate without evidenceSnapshotPath and requiredHardFacts; commit-intent also now requires an explicit exact-files commitPolicy.",
+        "scripts/living-doc-harness-iteration.mjs now backfills a controller-owned evidence snapshot when standalone finalization receives older iteration evidence without one, then routes reviewer, side-effect, and closure inputs through that snapshot contract.",
+        "node tests/contract/living-doc-harness-inference-unit.spec.mjs now proves commit-intent input without controller snapshot, required hard facts, and commit policy is rejected.",
+        "node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T10:52Z after the strict snapshot-contract repair.",
+        "Standalone lifecycle ldhl-20260511T104755Z stopped correctly when the worker changed controller-owned harness source during the lifecycle, but it exposed issue #252 because the stop was recorded as a generic lifecycle-controller-exception instead of a typed restart handoff.",
+        "Issue #252 is fixed in source: controller-owned source changes now become a living-doc-harness-controller-source-restart-handoff/v1 artifact, a controller-source-changed-restart-required iteration, and a finalState kind of controller-source-changed-restart-required before reviewer or closure routing can run under a stale controller process.",
+        "The restart handoff preserves evidencePath, evidenceSnapshotPath, requiredHardFacts, commitScope, sideEffectEvidence, changedControllerFiles, native trace refs, and worker artifact refs so the lifecycle can be restarted from a committed controller version without losing proof context.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T11:06Z and proves controller source mutation writes a typed restart handoff instead of a generic process defect or stale-controller review."
       ]
     }
   },
@@ -992,17 +1000,17 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows that this doc is a fresh implementation objective, not evidence that the type system already exists.",
-      "updated": "2026-05-11T10:38:32.000Z",
+      "updated": "2026-05-11T11:06:51.000Z",
       "data": [
         {
-          "id": "commit-scope-repaired-clean-rerun-required",
-          "name": "Commit scope repaired; clean rerun required",
+          "id": "controller-restart-handoff-repaired-clean-rerun-required",
+          "name": "Controller restart handoff repaired; clean rerun required",
           "status": "source-test-proven-clean-rerun-pending",
-          "updated": "2026-05-11T10:38:32.000Z",
-          "summary": "The lifecycle reached commit-intent in live mode, which proved the route selection path, but the resulting local commit was too broad: it included pre-existing dirty files outside the current objective delta. The source now computes commit scope from pre-run versus post-run worktree state, sends exact allowed/forbidden file sets into commit-intent, and blocks commits containing extra or forbidden files. This is source and focused-contract proven, but terminal objective closure is not claimed until the broad local commit state is resolved and a clean standalone lifecycle rerun proves exact scoped commit evidence before closure review. The full npm run test:contract suite passed on 2026-05-11T10:38Z after this repair.",
+          "updated": "2026-05-11T11:06:51.000Z",
+          "summary": "The latest standalone rerun exposed the harness-on-harness boundary: the worker changed controller-owned source, so the running controller could not honestly continue into reviewer or closure. That stop is now a typed restart-required handoff instead of a generic process defect. The worker strict-snapshot contract changes and the controller restart handoff are source/test repaired, but objective closure is still not claimed until these changes are committed and a fresh standalone lifecycle rerun proves commit-intent, closure-review, and post-flight from the current controller version.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Resolve local git history/worktree, then rerun the standalone lifecycle with exact commit-scope evidence."
+          "nextStep": "Commit the repaired source, then rerun the standalone lifecycle from clean main."
         }
       ]
     },
@@ -1084,8 +1092,8 @@
         {
           "id": "criterion-selection-validation",
           "name": "Routing selections are validated",
-          "status": "complete-source-test-proven-commit-and-rerun-pending",
-          "updated": "2026-05-11T06:54:11.000Z",
+          "status": "complete-source-test-proven-controller-restart-handoff-rerun-pending",
+          "updated": "2026-05-11T11:06:51.000Z",
           "facetIds": [
             "validated-routing"
           ],
@@ -1093,7 +1101,7 @@
           "criterion": "Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.",
           "proofRequired": "Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.",
           "acceptanceTest": "A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.",
-          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. Issue #250 regression coverage proves repairable source-change states with missing commit evidence select commit-intent before balance-scan, repair, or worker continuation. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z.",
+          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. Issue #250 regression coverage proves repairable source-change states with missing commit evidence select commit-intent before balance-scan, repair, or worker continuation. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z. Issue #252 adds a typed controller-source restart route: when the worker changes controller-owned harness source, the lifecycle records controller-source-changed-restart-required and does not continue to reviewer or closure under the stale controller process.",
           "ticketIds": [
             {
               "issueNumber": "222",
@@ -1119,14 +1127,19 @@
               "issueNumber": "248",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/248",
               "title": "Process defect: closure-candidate reviewer verdict set closureAllowed true"
+            },
+            {
+              "issueNumber": "252",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/252",
+              "title": "Process defect: controller source changes force generic lifecycle stop"
             }
           ]
         },
         {
           "id": "criterion-side-effect-contracts",
           "name": "Deterministic side effects require approved contracts",
-          "status": "complete-source-test-proven-clean-commit-scope-rerun-pending",
-          "updated": "2026-05-11T10:38:32.000Z",
+          "status": "complete-source-test-proven-controller-restart-handoff-rerun-pending",
+          "updated": "2026-05-11T11:06:51.000Z",
           "facetIds": [
             "deterministic-side-effects",
             "controller-hard-facts"
@@ -1135,7 +1148,7 @@
           "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts. Commit need is derived from controller-owned hard facts, and commit-intent may approve only the exact current-run file scope, excluding pre-existing dirty files unless an explicit exemption contract allows them.",
           "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. The controller-owned evidence snapshot records pre-run worktree state, post-run worktree state, currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles. Commit evidence is valid only when committed files exactly match the approved scope and contain no forbidden files. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state.",
           "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts and commitScope to reviewer and side-effect units, broad commits containing extra or pre-existing dirty files are blocked, and PR mutations cannot occur without a PR-review output contract.",
-          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 repairs the missing route for repairable source-change states: missing commit evidence now invokes commit-intent before balance-scan, repair, or worker continuation, and workers that write controller-owned harness artifacts are rejected. Issue #251 repairs the broad-commit defect: the lifecycle now derives commitScope from pre-run versus post-run worktree state, carries allowed/forbidden file sets into commit-intent, and commit-intent output contracts block commits that include extra or forbidden files. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T10:35Z after this repair. npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z. Issue #250 repairs the missing route for repairable source-change states: missing commit evidence now invokes commit-intent before balance-scan, repair, or worker continuation, and workers that write controller-owned harness artifacts are rejected. Issue #251 repairs the broad-commit defect: the lifecycle now derives commitScope from pre-run versus post-run worktree state, carries allowed/forbidden file sets into commit-intent, and commit-intent output contracts block commits that include extra or forbidden files. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T10:35Z after this repair. npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair. This worker tightened the registered side-effect contracts further: commit-intent and PR-review input contracts now require evidenceSnapshotPath and requiredHardFacts, commit-intent requires commitPolicy, and the inference-unit contract spec rejects missing snapshot/hard-fact side-effect inputs. node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T10:52Z. Issue #252 preserves commitScope, requiredHardFacts, sideEffectEvidence, and changedControllerFiles in a restart handoff when controller source changes during harness-on-harness work.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -1171,14 +1184,19 @@
               "issueNumber": "251",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/251",
               "title": "Process defect: commit-intent broad-stages pre-existing dirty files"
+            },
+            {
+              "issueNumber": "252",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/252",
+              "title": "Process defect: controller source changes force generic lifecycle stop"
             }
           ]
         },
         {
           "id": "criterion-closure-gates",
           "name": "Closure uses type-system proof gates",
-          "status": "complete-source-test-proven-clean-commit-scope-rerun-pending",
-          "updated": "2026-05-11T10:35:38.000Z",
+          "status": "complete-source-test-proven-controller-restart-handoff-rerun-pending",
+          "updated": "2026-05-11T11:06:51.000Z",
           "facetIds": [
             "closure-contract"
           ],
@@ -1186,7 +1204,7 @@
           "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
           "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
           "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
-          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun. Issue #251 makes broad local commits invalid closure evidence: closure-review may consume commit evidence only when the commit-intent result approves the exact scoped file set and reports no extraCommittedFiles or forbiddenCommittedFiles.",
+          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun. Issue #251 makes broad local commits invalid closure evidence: closure-review may consume commit evidence only when the commit-intent result approves the exact scoped file set and reports no extraCommittedFiles or forbiddenCommittedFiles. This worker tightened closure-review's registered input contract so it cannot validate without evidenceSnapshotPath and requiredHardFacts; runClosureReviewUnit now includes both fields, and finalizeHarnessIteration backfills a controller-owned snapshot for older supplied evidence before reviewer, side-effect, or closure routing. node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T10:52Z. Issue #252 prevents stale-controller closure: controller-owned source mutation now stops before reviewer/closure with a typed restart handoff and requires a clean restart from the committed controller version.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -1202,6 +1220,11 @@
               "issueNumber": "251",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/251",
               "title": "Process defect: commit-intent broad-stages pre-existing dirty files"
+            },
+            {
+              "issueNumber": "252",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/252",
+              "title": "Process defect: controller source changes force generic lifecycle stop"
             }
           ]
         },
@@ -1276,7 +1299,7 @@
       "title": "Issue Spine",
       "convergenceType": "issue-orbit",
       "rationale": "Keeps the GitHub implementation plan attached to this living doc without treating ticket creation as implementation progress.",
-      "updated": "2026-05-11T10:35:38.000Z",
+      "updated": "2026-05-11T11:06:51.000Z",
       "data": [
         {
           "id": "issue-224",
@@ -1431,6 +1454,15 @@
           "url": "https://github.com/triadflow/living-doc-compositor/issues/251",
           "relationship": "defect-repair",
           "relevance": "Covers the live-run defect where commit-intent created a local commit that included pre-existing dirty files outside the current run scope. Commit-intent must now receive an exact commit scope, forbid pre-existing dirty files by default, and block broad commits instead of treating them as closure evidence."
+        },
+        {
+          "id": "issue-252",
+          "name": "Process defect: controller source changes force generic lifecycle stop",
+          "status": "fixed-source-focused-contract-green-clean-rerun-pending",
+          "updated": "2026-05-11T11:06:51.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/252",
+          "relationship": "defect-repair",
+          "relevance": "Covers the harness-on-harness defect where a worker legitimately changes controller-owned harness source during a lifecycle. The controller must stop before reviewer/closure, preserve a typed restart handoff with worker evidence and commit scope, and allow a clean restart after the controller source change is committed."
         }
       ]
     },
@@ -1584,18 +1616,18 @@
         {
           "id": "rung-routing-validation",
           "name": "Contract-bound routing implemented",
-          "status": "focused-contract-green-live-rerun-required",
-          "updated": "2026-05-11T09:46:10.000Z",
-          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, independent acceptance-criteria proof-gate derivation, selected-unit continuation identity, and closure-candidate reviewer normalization are implemented and covered by passing contract tests. Issue #247 regression coverage proves closure-candidate -> commit-intent starts the next run as commit-intent with a commit-intent input contract rather than worker. Issue #248 regression coverage proves non-closed reviewer verdicts cannot carry terminal closure permission and can still route to closure-review from the preserved instruction. Issue #250 regression coverage proves repairable source-change states with missing commit evidence route to commit-intent before balance-scan, repair, or worker continuation, and worker-created controller artifacts are rejected. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z.",
-          "nextStep": "Rerun the standalone lifecycle so live worker/reviewer/commit-intent/closure artifacts prove the repaired route in the actual harness."
+          "status": "source-test-proven-controller-restart-handoff-rerun-required",
+          "updated": "2026-05-11T11:06:51.000Z",
+          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, independent acceptance-criteria proof-gate derivation, selected-unit continuation identity, and closure-candidate reviewer normalization are implemented and covered by passing contract tests. Issue #247 regression coverage proves closure-candidate -> commit-intent starts the next run as commit-intent with a commit-intent input contract rather than worker. Issue #248 regression coverage proves non-closed reviewer verdicts cannot carry terminal closure permission and can still route to closure-review from the preserved instruction. Issue #250 regression coverage proves repairable source-change states with missing commit evidence route to commit-intent before balance-scan, repair, or worker continuation, and worker-created controller artifacts are rejected. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z. Issue #252 adds the controller-source restart handoff route: lifecycle-controller coverage proves source mutation in controller-owned files writes a typed restart-required handoff and avoids reviewer/closure under a stale controller process.",
+          "nextStep": "Commit the controller restart handoff repair and rerun the standalone lifecycle from the new controller version."
         },
         {
           "id": "rung-side-effects",
           "name": "Commit and PR side-effect gates implemented",
-          "status": "source-test-proven-clean-commit-scope-rerun-required",
-          "updated": "2026-05-11T10:38:32.000Z",
-          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. Issue #250 repairs the repairable-source-change route so missing commit evidence invokes commit-intent before any further repair or worker continuation. node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z. Issue #251 adds exact commit-scope proof: currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles are now controller-owned hard facts, and commit-intent result contracts block broad commits with extra or forbidden files. The focused runner and lifecycle-controller contracts passed on 2026-05-11T10:35Z. npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair.",
-          "nextStep": "Resolve the broad local commit state, then rerun the standalone lifecycle to prove exact scoped commit evidence in live mode."
+          "status": "source-test-proven-controller-restart-handoff-rerun-required",
+          "updated": "2026-05-11T11:06:51.000Z",
+          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. Issue #250 repairs the repairable-source-change route so missing commit evidence invokes commit-intent before any further repair or worker continuation. node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T09:46Z. Issue #251 adds exact commit-scope proof: currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles are now controller-owned hard facts, and commit-intent result contracts block broad commits with extra or forbidden files. The focused runner and lifecycle-controller contracts passed on 2026-05-11T10:35Z. npm run test:contract passed on 2026-05-11T10:38Z after the commit-scope repair. Issue #252 preserves commitScope and side-effect evidence across controller-source restart handoffs so harness-on-harness work can be committed before review/closure continues.",
+          "nextStep": "Commit the repaired source and prove the scoped commit path in a fresh standalone lifecycle rerun."
         },
         {
           "id": "rung-observability",
@@ -1616,10 +1648,10 @@
         {
           "id": "rung-objective-closure",
           "name": "Objective closure",
-          "status": "not-closed-broad-local-commit-invalid-clean-rerun-required",
-          "updated": "2026-05-11T10:35:38.000Z",
-          "evidence": "The contract-bound unit type system, dynamic routing, controller-owned hard-fact snapshots, bounded reviewer evidence, deterministic side-effect gates, selected-unit continuation identity, dashboard-visible handoffs, PR-review routing, post-flight routing, and required route proofs are implemented in source and covered by focused contract tests. The latest live lifecycle correctly reached commit-intent, but its local commit 56709000301b57365259bd04a434905fce757596 included files outside the current run scope. That commit is not valid closure proof. Terminal closure is blocked until git history/worktree are resolved and a clean standalone lifecycle rerun proves exact scoped commit evidence, closure review, and post-flight summary.",
-          "nextStep": "Do not push the broad local commit as closure proof; resolve it, then rerun the standalone lifecycle."
+          "status": "not-closed-controller-restart-handoff-rerun-required",
+          "updated": "2026-05-11T11:06:51.000Z",
+          "evidence": "The contract-bound unit type system, dynamic routing, controller-owned hard-fact snapshots, strict side-effect input contracts, exact commit-scope gates, selected-unit continuation identity, dashboard-visible handoffs, PR-review routing, post-flight routing, and typed controller-source restart handoff are implemented in source and covered by focused contract tests. Terminal closure is still not claimed because the current source changes must be committed and the standalone lifecycle must rerun from the new controller version so commit-intent, closure-review, and post-flight evidence are produced by the current controller.",
+          "nextStep": "Commit the repaired source, then rerun the standalone lifecycle from clean main."
         }
       ]
     }
@@ -42899,7 +42931,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-11T10:38:56.803Z" title="2026-05-11T10:38:56.803Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-11T10:38:56.803Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-11T11:07:57.454Z" title="2026-05-11T11:07:57.454Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-11T11:07:57.454Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42945,7 +42977,7 @@ ${tmplLine}
 
 
     <section class="section" id="status" data-section-id="status">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T10:38:32Z" title="2026-05-11T10:38:32Z" data-relative-to-snapshot="true">2026-05-11T10:38:32Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></h2>
 
 
 
@@ -42953,11 +42985,11 @@ ${tmplLine}
 
 
         <div class="card-grid" style="--grid-cols:2">
-    <article class="flow-card" id="commit-scope-repaired-clean-rerun-required" data-section-id="status" data-card-key="commit-scope-repaired-clean-rerun-required">
+    <article class="flow-card" id="controller-restart-handoff-repaired-clean-rerun-required" data-section-id="status" data-card-key="controller-restart-handoff-repaired-clean-rerun-required">
       <header class="flow-card-header">
         <div>
-          <h3>Commit scope repaired; clean rerun required</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T10:38:32Z" title="2026-05-11T10:38:32Z" data-relative-to-snapshot="true">2026-05-11T10:38:32Z</time></span></div>
+          <h3>Controller restart handoff repaired; clean rerun required</h3>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -43020,11 +43052,11 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Routing selections are validated</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T06:54:11Z" title="2026-05-11T06:54:11Z" data-relative-to-snapshot="true">2026-05-11T06:54:11Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Commit And Rerun Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Controller Restart Handoff Rerun Pending</span></div>
       </header>
-      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-validated-routing"><code>Validated routing</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/222" class="ticket-link"><span class="ticket-badge badge badge-neutral">#222</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/242" class="ticket-link"><span class="ticket-badge badge badge-neutral">#242</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/243" class="ticket-link"><span class="ticket-badge badge badge-neutral">#243</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/247" class="ticket-link"><span class="ticket-badge badge badge-neutral">#247</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a></div></div>
+      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-validated-routing"><code>Validated routing</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/222" class="ticket-link"><span class="ticket-badge badge badge-neutral">#222</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/242" class="ticket-link"><span class="ticket-badge badge badge-neutral">#242</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/243" class="ticket-link"><span class="ticket-badge badge badge-neutral">#243</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/247" class="ticket-link"><span class="ticket-badge badge badge-neutral">#247</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/252" class="ticket-link"><span class="ticket-badge badge badge-neutral">#252</span></a></div></div>
 
       <p class="code-refs"><strong>Objective term</strong> allowed next unit types</p><p class="code-refs"><strong>Criterion</strong> Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.</p><p class="code-refs"><strong>Proof required</strong> Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.</p><p class="code-refs"><strong>Acceptance test</strong> A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.</p>
 
@@ -43033,11 +43065,11 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Deterministic side effects require approved contracts</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T10:38:32Z" title="2026-05-11T10:38:32Z" data-relative-to-snapshot="true">2026-05-11T10:38:32Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Clean Commit Scope Rerun Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Controller Restart Handoff Rerun Pending</span></div>
       </header>
-      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-deterministic-side-effects"><code>Deterministic side effects</code></a> <a href="#facet-controller-hard-facts"><code>Controller-owned hard facts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/236" class="ticket-link"><span class="ticket-badge badge badge-neutral">#236</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/244" class="ticket-link"><span class="ticket-badge badge badge-neutral">#244</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/245" class="ticket-link"><span class="ticket-badge badge badge-neutral">#245</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/249" class="ticket-link"><span class="ticket-badge badge badge-neutral">#249</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/250" class="ticket-link"><span class="ticket-badge badge badge-neutral">#250</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a></div></div>
+      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-deterministic-side-effects"><code>Deterministic side effects</code></a> <a href="#facet-controller-hard-facts"><code>Controller-owned hard facts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/236" class="ticket-link"><span class="ticket-badge badge badge-neutral">#236</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/244" class="ticket-link"><span class="ticket-badge badge badge-neutral">#244</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/245" class="ticket-link"><span class="ticket-badge badge badge-neutral">#245</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/249" class="ticket-link"><span class="ticket-badge badge badge-neutral">#249</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/250" class="ticket-link"><span class="ticket-badge badge badge-neutral">#250</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/252" class="ticket-link"><span class="ticket-badge badge badge-neutral">#252</span></a></div></div>
 
       <p class="code-refs"><strong>Objective term</strong> deterministic side effects</p><p class="code-refs"><strong>Criterion</strong> Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts. Commit need is derived from controller-owned hard facts, and commit-intent may approve only the exact current-run file scope, excluding pre-existing dirty files unless an explicit exemption contract allows them.</p><p class="code-refs"><strong>Proof required</strong> Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. The controller-owned evidence snapshot records pre-run worktree state, post-run worktree state, currentRunChangedFiles, preExistingDirtyFiles, allowedCommitFiles, and forbiddenCommitFiles. Commit evidence is valid only when committed files exactly match the approved scope and contain no forbidden files. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state.</p><p class="code-refs"><strong>Acceptance test</strong> Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts and commitScope to reviewer and side-effect units, broad commits containing extra or pre-existing dirty files are blocked, and PR mutations cannot occur without a PR-review output contract.</p>
 
@@ -43046,11 +43078,11 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Closure uses type-system proof gates</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T10:35:38Z" title="2026-05-11T10:35:38Z" data-relative-to-snapshot="true">2026-05-11T10:35:38Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Clean Commit Scope Rerun Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Controller Restart Handoff Rerun Pending</span></div>
       </header>
-      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-closure-contract"><code>Closure contract</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a></div></div>
+      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-closure-contract"><code>Closure contract</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/252" class="ticket-link"><span class="ticket-badge badge badge-neutral">#252</span></a></div></div>
 
       <p class="code-refs"><strong>Objective term</strong> route work until the living doc objective is proven or the user explicitly stops the run</p><p class="code-refs"><strong>Criterion</strong> Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.</p><p class="code-refs"><strong>Proof required</strong> Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.</p><p class="code-refs"><strong>Acceptance test</strong> A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.</p>
 
@@ -43097,7 +43129,7 @@ ${tmplLine}
       </div>
     </section>
     <section class="section" id="issue-spine" data-section-id="issue-spine">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0891b2"><circle cx='10' cy='10' r='2'/><circle cx='10' cy='10' r='6' fill='none' stroke='currentColor' stroke-width='1' opacity='.4'/><circle cx='16' cy='10' r='1.5'/><circle cx='6' cy='14' r='1.5'/><circle cx='6' cy='6' r='1.5'/></svg> Issue Spine <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T10:35:38Z" title="2026-05-11T10:35:38Z" data-relative-to-snapshot="true">2026-05-11T10:35:38Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0891b2"><circle cx='10' cy='10' r='2'/><circle cx='10' cy='10' r='6' fill='none' stroke='currentColor' stroke-width='1' opacity='.4'/><circle cx='16' cy='10' r='1.5'/><circle cx='6' cy='14' r='1.5'/><circle cx='6' cy='6' r='1.5'/></svg> Issue Spine <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></h2>
 
 
 
@@ -43338,6 +43370,19 @@ ${tmplLine}
 
       <p class="code-refs"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/251</p><p class="code-refs"><strong>Relationship</strong> defect-repair</p><p class="code-refs"><strong>Relevance</strong> Covers the live-run defect where commit-intent created a local commit that included pre-existing dirty files outside the current run scope. Commit-intent must now receive an exact commit scope, forbid pre-existing dirty files by default, and block broad commits instead of treating them as closure evidence.</p>
 
+    </article>
+    <article class="flow-card" id="issue-252" data-section-id="issue-spine" data-card-key="issue-252">
+      <header class="flow-card-header">
+        <div>
+          <h3>Process defect: controller source changes force generic lifecycle stop</h3>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Fixed Source Focused Contract Green Clean Rerun Pending</span></div>
+      </header>
+
+
+      <p class="code-refs"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/252</p><p class="code-refs"><strong>Relationship</strong> defect-repair</p><p class="code-refs"><strong>Relevance</strong> Covers the harness-on-harness defect where a worker legitimately changes controller-owned harness source during a lifecycle. The controller must stop before reviewer/closure, preserve a typed restart handoff with worker evidence and commit scope, and allow a clean restart after the controller source change is committed.</p>
+
     </article></div>
       </div>
     </section>
@@ -43496,9 +43541,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Contract-bound routing implemented</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T09:46:10Z" title="2026-05-11T09:46:10Z" data-relative-to-snapshot="true">2026-05-11T09:46:10Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Focused Contract Green Live Rerun Required</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Source Test Proven Controller Restart Handoff Rerun Required</span></div>
       </header>
 
 
@@ -43509,9 +43554,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Commit and PR side-effect gates implemented</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T10:38:32Z" title="2026-05-11T10:38:32Z" data-relative-to-snapshot="true">2026-05-11T10:38:32Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Source Test Proven Clean Commit Scope Rerun Required</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Source Test Proven Controller Restart Handoff Rerun Required</span></div>
       </header>
 
 
@@ -43548,9 +43593,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Objective closure</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T10:35:38Z" title="2026-05-11T10:35:38Z" data-relative-to-snapshot="true">2026-05-11T10:35:38Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-11T11:06:51Z" title="2026-05-11T11:06:51Z" data-relative-to-snapshot="true">2026-05-11T11:06:51Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Not Closed Broad Local Commit Invalid Clean Rerun Required</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Not Closed Controller Restart Handoff Rerun Required</span></div>
       </header>
 
 
@@ -43561,7 +43606,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-5670900 (2026-05-11)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-64fa3d8 (2026-05-11)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -43663,23 +43708,23 @@ ${tmplLine}
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Routing selections are validated</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Commit And Rerun Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Controller Restart Handoff Rerun Pending</span></div>
       <p class="board-card-note"><strong>Objective term</strong> allowed next unit types</p>
-      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-validated-routing"><code>Validated routing</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/222" class="ticket-link"><span class="ticket-badge badge badge-neutral">#222</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/242" class="ticket-link"><span class="ticket-badge badge badge-neutral">#242</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/243" class="ticket-link"><span class="ticket-badge badge badge-neutral">#243</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/247" class="ticket-link"><span class="ticket-badge badge badge-neutral">#247</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a></div></div>
+      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-validated-routing"><code>Validated routing</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/222" class="ticket-link"><span class="ticket-badge badge badge-neutral">#222</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/242" class="ticket-link"><span class="ticket-badge badge badge-neutral">#242</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/243" class="ticket-link"><span class="ticket-badge badge badge-neutral">#243</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/247" class="ticket-link"><span class="ticket-badge badge badge-neutral">#247</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/252" class="ticket-link"><span class="ticket-badge badge badge-neutral">#252</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Deterministic side effects require approved contracts</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Clean Commit Scope Rerun Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Controller Restart Handoff Rerun Pending</span></div>
       <p class="board-card-note"><strong>Objective term</strong> deterministic side effects</p>
-      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-deterministic-side-effects"><code>Deterministic side effects</code></a> <a href="#facet-controller-hard-facts"><code>Controller-owned hard facts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/236" class="ticket-link"><span class="ticket-badge badge badge-neutral">#236</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/244" class="ticket-link"><span class="ticket-badge badge badge-neutral">#244</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/245" class="ticket-link"><span class="ticket-badge badge badge-neutral">#245</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/249" class="ticket-link"><span class="ticket-badge badge badge-neutral">#249</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/250" class="ticket-link"><span class="ticket-badge badge badge-neutral">#250</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a></div></div>
+      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-deterministic-side-effects"><code>Deterministic side effects</code></a> <a href="#facet-controller-hard-facts"><code>Controller-owned hard facts</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/236" class="ticket-link"><span class="ticket-badge badge badge-neutral">#236</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/244" class="ticket-link"><span class="ticket-badge badge badge-neutral">#244</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/245" class="ticket-link"><span class="ticket-badge badge badge-neutral">#245</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/249" class="ticket-link"><span class="ticket-badge badge badge-neutral">#249</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/250" class="ticket-link"><span class="ticket-badge badge badge-neutral">#250</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/252" class="ticket-link"><span class="ticket-badge badge badge-neutral">#252</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Closure uses type-system proof gates</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Clean Commit Scope Rerun Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Complete Source Test Proven Controller Restart Handoff Rerun Pending</span></div>
       <p class="board-card-note"><strong>Objective term</strong> route work until the living doc objective is proven or the user explicitly stops the run</p>
-      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-closure-contract"><code>Closure contract</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a></div></div>
+      <div class="flow-meta"><strong>Objective facets</strong> <a href="#facet-closure-contract"><code>Closure contract</code></a></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/235" class="ticket-link"><span class="ticket-badge badge badge-neutral">#235</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/248" class="ticket-link"><span class="ticket-badge badge badge-neutral">#248</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/251" class="ticket-link"><span class="ticket-badge badge badge-neutral">#251</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/252" class="ticket-link"><span class="ticket-badge badge badge-neutral">#252</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
@@ -43817,7 +43862,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">9</span>
+        <span class="board-count">10</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43882,6 +43927,13 @@ ${tmplLine}
       <h3>Process defect: commit-intent broad-stages pre-existing dirty files</h3>
       <div class="badge-row"><span class="badge badge-neutral">Fixed Source Focused Contract Green Clean Rerun Pending</span></div>
       <p class="board-card-note"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/251</p>
+
+    </article>
+    <article class="board-card" data-section-id="issue-spine">
+      <div class="board-card-kicker">Issue Spine · Issue Orbit</div>
+      <h3>Process defect: controller source changes force generic lifecycle stop</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Fixed Source Focused Contract Green Clean Rerun Pending</span></div>
+      <p class="board-card-note"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/252</p>
 
     </article>
       </div>
@@ -44061,14 +44113,14 @@ ${tmplLine}
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Contract-bound routing implemented</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Focused Contract Green Live Rerun Required</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Source Test Proven Controller Restart Handoff Rerun Required</span></div>
 
 
     </article>
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Commit and PR side-effect gates implemented</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Source Test Proven Clean Commit Scope Rerun Required</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Source Test Proven Controller Restart Handoff Rerun Required</span></div>
 
 
     </article>
@@ -44089,7 +44141,7 @@ ${tmplLine}
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Objective closure</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Not Closed Broad Local Commit Invalid Clean Rerun Required</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Not Closed Controller Restart Handoff Rerun Required</span></div>
 
 
     </article>
@@ -44111,9 +44163,9 @@ ${tmplLine}
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="section" style="--toggle-color: #7c3aed; border-color: #7c3aed; background: #7c3aed;">
             <span class="shape-icon" aria-hidden="true"></span>Sections (5)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="card" style="--toggle-color: #64748b; border-color: #64748b; background: #64748b;">
-            <span class="shape-icon" aria-hidden="true"></span>Cards (38)
+            <span class="shape-icon" aria-hidden="true"></span>Cards (39)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="source" style="--toggle-color: #f59e0b; border-color: #f59e0b; background: #f59e0b;">
-            <span class="shape-icon" aria-hidden="true"></span>Refs (37)
+            <span class="shape-icon" aria-hidden="true"></span>Refs (38)
           </button>
         </div>
         <div class="toolbar-section toolbar-controls">
@@ -44149,7 +44201,7 @@ ${tmplLine}
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-status" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 960 932 L 960 555"><title>section</title></path>
 
-  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-status" data-graph-edge-to="graph-card-status-commit-scope-repaired-clean-rerun-required" data-graph-edge-label="card">
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-status" data-graph-edge-to="graph-card-status-controller-restart-handoff-repaired-clean-rerun-required" data-graph-edge-label="card">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 960 508 L 960 329"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-acceptance-criteria" data-graph-edge-label="section">
@@ -44231,8 +44283,8 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1390.8845362721581 828.873356598903 L 1699.8363670052527 853.5366090251364"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-closure-gates" data-graph-edge-to="graph-source-objective-facet-closure-contract" data-graph-edge-label="facetIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1723.2859923048984 839.6972920978184 L 1761.8698569395435 708.360973159052"><title>facetIds</title></path>
-    <text class="json-graph-edge-label" x="1743.3496019149138" y="771.4024062496599">facetIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1721.0222717915963 839.2069939904038 L 1746.4125335383023 660.1361824762968"><title>facetIds</title></path>
+    <text class="json-graph-edge-label" x="1734.2252078998833" y="746.0901720030681">facetIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-closure-gates" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-235" data-graph-edge-label="ticketIds">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1727.403718110309 841.5739605350844 L 1875.6682340354453 610.0145279811095"><title>ticketIds</title></path>
     <text class="json-graph-edge-label" x="1804.5012663913799" y="721.1630556070174">ticketIds</text>
@@ -44240,8 +44292,11 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1733.8352112562802 849.6426593590454 L 1920.957571709028 782.4698166191952"><title>ticketIds</title></path>
     <text class="json-graph-edge-label" x="1831.138838691709" y="814.7127811343233">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-closure-gates" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-251" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1727.2836213585226 868.5992780530571 L 1800.0688534151172 984.5313843782578"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1765.131942027952" y="928.8839733421614">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1730.0374088269675 866.4144275125361 L 1797.9357573486507 934.9433694368454"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1765.3445500582427" y="902.0494773131769">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-closure-gates" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-252" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1728.5920951765352 867.6836770129431 L 1866.3072681845847 1044.9506585766874"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1800.203985140721" y="959.8625074260901">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-dashboard-artifacts" data-graph-edge-label="card">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1387.328454448548 839.2218875181034 L 1593.6302873568786 975.0695753848817"><title>card</title></path>
 
@@ -44267,8 +44322,8 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1665.6957852422606 1237.2604899210016 L 1556.5694801455836 369.3059952411339"><title>facetIds</title></path>
     <text class="json-graph-edge-label" x="1608.9501065919885" y="785.9241526874705">facetIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-four-route-proofs" data-graph-edge-to="graph-source-objective-facet-closure-contract" data-graph-edge-label="facetIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1670.471057243579 1237.3787552407907 L 1763.7085580113026 708.7918166721931"><title>facetIds</title></path>
-    <text class="json-graph-edge-label" x="1718.9545576427952" y="962.5135471851199">facetIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1669.8011426265928 1237.2751704747966 L 1746.5578158452256 660.1561430641788"><title>facetIds</title></path>
+    <text class="json-graph-edge-label" x="1709.7146127002818" y="937.1732762212753">facetIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-four-route-proofs" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-224" data-graph-edge-label="ticketIds">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1664.4131555093886 1237.4750174242063 L 1445.227153462003 190.50504096844534"><title>ticketIds</title></path>
     <text class="json-graph-edge-label" x="1550.436434444748" y="693.0506296672106">ticketIds</text>
@@ -44279,55 +44334,58 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1224.1992118690018 1289.0926882049705 L 1556.9372993012935 743.2839131659583"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-219" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1227.3146760548148 1291.3908889542802 L 1639.4912316814969 824.9045123117667"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1227.193350552046 1291.2844783852722 L 1638.2930694040888 819.0809047441985"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-220" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1230.2038736262846 1294.487738769356 L 1709.612940110908 926.7630840800194"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1229.977549257955 1294.1977292259435 L 1708.9299092280573 913.9360999860426"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-218" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1230.5580540432136 1294.9625946503427 L 1591.6577188946378 1033.1212169026128"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1230.2242723270556 1294.514374944925 L 1593.3231934423152 1016.8824224832152"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-222" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1233.1783850763559 1299.7173191633156 L 1628.4363696234484 1141.8521271599834"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1232.8246493971392 1298.882062395879 L 1634.3211834889094 1118.9965516056816"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-221" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.628896252004 1305.5944510773622 L 1645.5932378191856 1262.7187860886693"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.446761577509 1304.251162932459 L 1657.9673946447554 1233.4764829493054"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-223" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.7456919838196 1307.5831609878446 L 1492.5863022344531 1304.1354465752077"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.6302619502944 1305.607579488681 L 1509.6041975576031 1277.0864728764093"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-235" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1233.1487771028108 1316.1110405847417 L 1478.618224156946 1415.1806026760664"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1234.0256760348539 1313.4671169859023 L 1504.5690542168647 1384.5398057946861"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-236" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1228.5765948083947 1323.1562072436404 L 1442.9091672682946 1530.0409784155127"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1230.7035764215855 1320.588916884617 L 1479.797576249965 1496.93109092185"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-242" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1221.3742417392937 1328.1154414223183 L 1293.0269238207568 1496.2140416930965"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1225.678934036198 1325.6756814574762 L 1330.8924941965504 1470.4897234505918"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-243" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1214.2741115552635 1329.8242878069125 L 1232.6406334091757 1593.8937832906197"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1218.5261727373238 1329.1048550854614 L 1283.7528860614495 1568.7171663744778"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-244" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1209.009769811939 1329.557441073946 L 1147.7771864328483 1684.712636320674"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1212.7973540091589 1329.8772514528594 L 1213.5516592387635 1663.8041643719846"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-245" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1200.7548221571665 1326.321056570939 L 1028.3381467308755 1591.4801729027697"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1203.8269224414207 1327.9875156464655 L 1091.73011903305 1580.6897622755487"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-247" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1198.6736066040942 1324.7865081428174 L 926.3934526656973 1651.9161628147256"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1201.268105272214 1326.6448289417397 L 1002.8540806295246 1651.0250009254146"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-248" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1196.8337979683845 1323.067733626385 L 807.5671745033571 1694.6385318708612"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1199.083683139847 1325.1195747681777 L 896.1652278231393 1707.365649589284"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-249" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1193.278045520905 1318.1210457172112 L 740.1418943652579 1556.5340065071512"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1194.6381836441071 1320.3691817784572 L 818.3907688598282 1579.903785272699"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-250" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1192.5666866340403 1316.6367810311533 L 621.5422179936867 1564.4877620970717"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1193.7864271294907 1319.0339964024638 L 707.3396016803173 1605.2567504863819"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-251" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1191.8978396067776 1314.897638963255 L 495.94724221494886 1549.230793009743"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1192.9399912119309 1317.4510381586535 L 586.4139979759843 1610.6060254255272"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-spine" data-graph-edge-to="graph-card-issue-spine-issue-252" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1191.3436992144377 1312.9636154279299 L 569.4269833701144 1460.75215453397"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-relationship-maps" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 943.5420129358107 982.6524758424986 L 721.9469728215485 1287.6518827218536"><title>section</title></path>
@@ -44431,8 +44489,8 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="960"
       data-graph-size="24"
-      data-graph-label="contract-bound inference unit type system 5 sections · 38 cards $"
-      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Contract-Bound Inference Unit Type System&quot;,&quot;sections&quot;:5,&quot;cards&quot;:38,&quot;objective&quot;:&quot;Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.&quot;,&quot;successCondition&quot;:&quot;A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.&quot;}"
+      data-graph-label="contract-bound inference unit type system 5 sections · 39 cards $"
+      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Contract-Bound Inference Unit Type System&quot;,&quot;sections&quot;:5,&quot;cards&quot;:39,&quot;objective&quot;:&quot;Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.&quot;,&quot;successCondition&quot;:&quot;A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.&quot;}"
       transform="translate(960, 960)">
       <title>Contract-Bound Inference Unit Type System · $</title>
       <circle class="json-graph-node-hit" r="42"></circle>
@@ -44440,7 +44498,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="40" text-anchor="middle">
         <tspan x="0" dy="0">Contract-Bound Inference</tspan><tspan x="0" dy="12">Unit Type System</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">5 sections · 38 cards</text>
+      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">5 sections · 39 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-governance" tabindex="0" role="button"
       data-graph-node="graph-governance-objective"
@@ -44557,23 +44615,23 @@ ${tmplLine}
       <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Status Snapshot · 1 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
-      data-graph-node="graph-card-status-commit-scope-repaired-clean-rerun-required"
+      data-graph-node="graph-card-status-controller-restart-handoff-repaired-clean-rerun-required"
       data-graph-type="card"
       data-graph-x="960"
       data-graph-y="310"
       data-graph-home-x="960"
       data-graph-home-y="310"
       data-graph-size="12"
-      data-graph-label="commit scope repaired; clean rerun required commit-scope-repaired-clean-rerun-required $.sections[0].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[0].data[0]&quot;,&quot;id&quot;:&quot;commit-scope-repaired-clean-rerun-required&quot;,&quot;title&quot;:&quot;Commit scope repaired; clean rerun required&quot;,&quot;section&quot;:&quot;Status Snapshot&quot;,&quot;statuses&quot;:[]}"
+      data-graph-label="controller restart handoff repaired; clean rerun required controller-restart-handoff-repaired-clean-rerun-required $.sections[0].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[0].data[0]&quot;,&quot;id&quot;:&quot;controller-restart-handoff-repaired-clean-rerun-required&quot;,&quot;title&quot;:&quot;Controller restart handoff repaired; clean rerun required&quot;,&quot;section&quot;:&quot;Status Snapshot&quot;,&quot;statuses&quot;:[]}"
       transform="translate(960, 310)">
-      <title>Commit scope repaired; clean rerun required · $.sections[0].data[0]</title>
+      <title>Controller restart handoff repaired; clean rerun required · $.sections[0].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
-        <tspan x="0" dy="0">Commit scope</tspan><tspan x="0" dy="12">repaired; clean</tspan>
+        <tspan x="0" dy="0">Controller restart</tspan><tspan x="0" dy="12">handoff repaired;</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">commit-scope-repaired-cle...</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">controller-restart-handof...</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-acceptance-criteria"
@@ -44792,8 +44850,8 @@ ${tmplLine}
       data-graph-home-x="1533.2488218264307"
       data-graph-home-y="653.5921210631016"
       data-graph-size="12"
-      data-graph-label="routing selections are validated status: complete source test proven commit and rerun pending $.sections[1].data[3]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-selection-validation&quot;,&quot;title&quot;:&quot;Routing selections are validated&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete Source Test Proven Commit And Rerun Pending&quot;]}"
+      data-graph-label="routing selections are validated status: complete source test proven controller restart handoff rerun pending $.sections[1].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-selection-validation&quot;,&quot;title&quot;:&quot;Routing selections are validated&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete Source Test Proven Controller Restart Handoff Rerun Pending&quot;]}"
       transform="translate(1533.2488218264307, 653.5921210631016)">
       <title>Routing selections are validated · $.sections[1].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -44925,8 +44983,8 @@ ${tmplLine}
       data-graph-home-x="1633.3480135369687"
       data-graph-home-y="741.2159679825372"
       data-graph-size="12"
-      data-graph-label="deterministic side effects require approved contracts status: complete source test proven clean commit scope rerun pending $.sections[1].data[4]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-side-effect-contracts&quot;,&quot;title&quot;:&quot;Deterministic side effects require approved contracts&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete Source Test Proven Clean Commit Scope Rerun Pending&quot;]}"
+      data-graph-label="deterministic side effects require approved contracts status: complete source test proven controller restart handoff rerun pending $.sections[1].data[4]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-side-effect-contracts&quot;,&quot;title&quot;:&quot;Deterministic side effects require approved contracts&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete Source Test Proven Controller Restart Handoff Rerun Pending&quot;]}"
       transform="translate(1633.3480135369687, 741.2159679825372)">
       <title>Deterministic side effects require approved contracts · $.sections[1].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45058,8 +45116,8 @@ ${tmplLine}
       data-graph-home-x="1718.77611477978"
       data-graph-home-y="855.0485462716125"
       data-graph-size="12"
-      data-graph-label="closure uses type-system proof gates status: complete source test proven clean commit scope rerun pending $.sections[1].data[5]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-closure-gates&quot;,&quot;title&quot;:&quot;Closure uses type-system proof gates&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete Source Test Proven Clean Commit Scope Rerun Pending&quot;]}"
+      data-graph-label="closure uses type-system proof gates status: complete source test proven controller restart handoff rerun pending $.sections[1].data[5]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-closure-gates&quot;,&quot;title&quot;:&quot;Closure uses type-system proof gates&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete Source Test Proven Controller Restart Handoff Rerun Pending&quot;]}"
       transform="translate(1718.77611477978, 855.0485462716125)">
       <title>Closure uses type-system proof gates · $.sections[1].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45072,14 +45130,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-objective-facet-closure-contract"
       data-graph-type="source"
-      data-graph-x="1766.6616018099817"
-      data-graph-y="692.0502655993957"
-      data-graph-home-x="1766.6616018099817"
-      data-graph-home-y="692.0502655993957"
+      data-graph-x="1748.799075363357"
+      data-graph-y="643.3045331775126"
+      data-graph-home-x="1748.799075363357"
+      data-graph-home-y="643.3045331775126"
       data-graph-size="10"
       data-graph-label="closure contract objective facets $.sections[1].data[5].facetids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[5].facetIds&quot;,&quot;field&quot;:&quot;facetIds&quot;,&quot;entityType&quot;:&quot;objective-facet&quot;,&quot;label&quot;:&quot;Closure contract&quot;}"
-      transform="translate(1766.6616018099817, 692.0502655993957)">
+      transform="translate(1748.799075363357, 643.3045331775126)">
       <title>Closure contract · $.sections[1].data[5].facetIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -45091,19 +45149,38 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-251"
       data-graph-type="source"
-      data-graph-x="1809.1080791550312"
-      data-graph-y="998.9290368960427"
-      data-graph-home-x="1809.1080791550312"
-      data-graph-home-y="998.9290368960427"
+      data-graph-x="1809.9008822737874"
+      data-graph-y="947.0196182553267"
+      data-graph-home-x="1809.9008822737874"
+      data-graph-home-y="947.0196182553267"
       data-graph-size="10"
       data-graph-label="251 tickets $.sections[1].data[5].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[5].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;251&quot;}"
-      transform="translate(1809.1080791550312, 998.9290368960427)">
+      transform="translate(1809.9008822737874, 947.0196182553267)">
       <title>251 · $.sections[1].data[5].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
       <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
         <tspan x="18" dy="0">251</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-252"
+      data-graph-type="source"
+      data-graph-x="1876.7367473561371"
+      data-graph-y="1058.3754849893512"
+      data-graph-home-x="1876.7367473561371"
+      data-graph-home-y="1058.3754849893512"
+      data-graph-size="10"
+      data-graph-label="252 tickets $.sections[1].data[5].ticketids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[5].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;252&quot;}"
+      transform="translate(1876.7367473561371, 1058.3754849893512)">
+      <title>252 · $.sections[1].data[5].ticketIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">252</tspan>
       </text>
       <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
     </g>
@@ -45248,8 +45325,8 @@ ${tmplLine}
       data-graph-home-x="1212.7476584857634"
       data-graph-home-y="1307.8773075812273"
       data-graph-size="18"
-      data-graph-label="issue spine issue orbit · 18 cards $.sections[2]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[2]&quot;,&quot;id&quot;:&quot;issue-spine&quot;,&quot;title&quot;:&quot;Issue Spine&quot;,&quot;convergenceType&quot;:&quot;issue-orbit&quot;,&quot;cards&quot;:18}"
+      data-graph-label="issue spine issue orbit · 19 cards $.sections[2]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[2]&quot;,&quot;id&quot;:&quot;issue-spine&quot;,&quot;title&quot;:&quot;Issue Spine&quot;,&quot;convergenceType&quot;:&quot;issue-orbit&quot;,&quot;cards&quot;:19}"
       transform="translate(1212.7476584857634, 1307.8773075812273)">
       <title>Issue Spine · $.sections[2]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -45257,7 +45334,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Issue Spine</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Issue Orbit · 18 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Issue Orbit · 19 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-224"
@@ -45281,14 +45358,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-219"
       data-graph-type="card"
-      data-graph-x="1652.0718377638593"
-      data-graph-y="810.6662416794032"
-      data-graph-home-x="1652.0718377638593"
-      data-graph-home-y="810.6662416794032"
+      data-graph-x="1650.7688943704238"
+      data-graph-y="804.7507340749645"
+      data-graph-home-x="1650.7688943704238"
+      data-graph-home-y="804.7507340749645"
       data-graph-size="12"
       data-graph-label="add inference unit type registry for living-doc harness status: open active $.sections[2].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[1]&quot;,&quot;id&quot;:&quot;issue-219&quot;,&quot;title&quot;:&quot;Add inference unit type registry for living-doc harness&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1652.0718377638593, 810.6662416794032)">
+      transform="translate(1650.7688943704238, 804.7507340749645)">
       <title>Add inference unit type registry for living-doc harness · $.sections[2].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45300,14 +45377,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-220"
       data-graph-type="card"
-      data-graph-x="1724.6887622777217"
-      data-graph-y="915.1993655606759"
-      data-graph-home-x="1724.6887622777217"
-      data-graph-home-y="915.1993655606759"
+      data-graph-x="1723.8102694404047"
+      data-graph-y="902.1219186792066"
+      data-graph-home-x="1723.8102694404047"
+      data-graph-home-y="902.1219186792066"
       data-graph-size="12"
       data-graph-label="add standalone lifecycle run config for allowed inference unit types status: open active $.sections[2].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[2]&quot;,&quot;id&quot;:&quot;issue-220&quot;,&quot;title&quot;:&quot;Add standalone lifecycle run config for allowed inference unit types&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1724.6887622777217, 915.1993655606759)">
+      transform="translate(1723.8102694404047, 902.1219186792066)">
       <title>Add standalone lifecycle run config for allowed inference unit types · $.sections[2].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45319,14 +45396,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-218"
       data-graph-type="card"
-      data-graph-x="1607.0394241487993"
-      data-graph-y="1021.967601189576"
-      data-graph-home-x="1607.0394241487993"
-      data-graph-home-y="1021.967601189576"
+      data-graph-x="1608.4166326688858"
+      data-graph-y="1005.3417079336814"
+      data-graph-home-x="1608.4166326688858"
+      data-graph-home-y="1005.3417079336814"
       data-graph-size="12"
       data-graph-label="make inference unit type selection explicit in contracts status: open active $.sections[2].data[3]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[3]&quot;,&quot;id&quot;:&quot;issue-218&quot;,&quot;title&quot;:&quot;Make inference unit type selection explicit in contracts&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1607.0394241487993, 1021.967601189576)">
+      transform="translate(1608.4166326688858, 1005.3417079336814)">
       <title>Make inference unit type selection explicit in contracts · $.sections[2].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45338,14 +45415,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-222"
       data-graph-type="card"
-      data-graph-x="1646.0810880425965"
-      data-graph-y="1134.804864435423"
-      data-graph-home-x="1646.0810880425965"
-      data-graph-home-y="1134.804864435423"
+      data-graph-x="1651.6604029123703"
+      data-graph-y="1111.22793076379"
+      data-graph-home-x="1651.6604029123703"
+      data-graph-home-y="1111.22793076379"
       data-graph-size="12"
       data-graph-label="handle invalid inference unit selections as continuation evidence status: open active $.sections[2].data[4]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[4]&quot;,&quot;id&quot;:&quot;issue-222&quot;,&quot;title&quot;:&quot;Handle invalid inference unit selections as continuation evidence&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1646.0810880425965, 1134.804864435423)">
+      transform="translate(1651.6604029123703, 1111.22793076379)">
       <title>Handle invalid inference unit selections as continuation evidence · $.sections[2].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45357,14 +45434,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-221"
       data-graph-type="card"
-      data-graph-x="1664.4906704354844"
-      data-graph-y="1260.7472281989676"
-      data-graph-home-x="1664.4906704354844"
-      data-graph-home-y="1260.7472281989676"
+      data-graph-x="1676.7075291330812"
+      data-graph-y="1230.3448125708237"
+      data-graph-home-x="1676.7075291330812"
+      data-graph-home-y="1230.3448125708237"
       data-graph-size="12"
       data-graph-label="expose inference unit selection observability in dashboard and narratives status: open active $.sections[2].data[5]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[5]&quot;,&quot;id&quot;:&quot;issue-221&quot;,&quot;title&quot;:&quot;Expose inference unit selection observability in dashboard and narratives&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1664.4906704354844, 1260.7472281989676)">
+      transform="translate(1676.7075291330812, 1230.3448125708237)">
       <title>Expose inference unit selection observability in dashboard and narratives · $.sections[2].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45376,14 +45453,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-223"
       data-graph-type="card"
-      data-graph-x="1511.5846038918653"
-      data-graph-y="1303.8814108809227"
-      data-graph-home-x="1511.5846038918653"
-      data-graph-home-y="1303.8814108809227"
+      data-graph-x="1528.5028096406072"
+      data-graph-y="1275.1262531601192"
+      data-graph-home-x="1528.5028096406072"
+      data-graph-home-y="1275.1262531601192"
       data-graph-size="12"
       data-graph-label="add post-flight inference unit for closed lifecycle run summaries status: open active $.sections[2].data[6]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[6]&quot;,&quot;id&quot;:&quot;issue-223&quot;,&quot;title&quot;:&quot;Add post-flight inference unit for closed lifecycle run summaries&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1511.5846038918653, 1303.8814108809227)">
+      transform="translate(1528.5028096406072, 1275.1262531601192)">
       <title>Add post-flight inference unit for closed lifecycle run summaries · $.sections[2].data[6]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45395,14 +45472,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-235"
       data-graph-type="card"
-      data-graph-x="1496.237372053487"
-      data-graph-y="1422.2915539063742"
-      data-graph-home-x="1496.237372053487"
-      data-graph-home-y="1422.2915539063742"
+      data-graph-x="1522.9455239183521"
+      data-graph-y="1389.36736846236"
+      data-graph-home-x="1522.9455239183521"
+      data-graph-home-y="1389.36736846236"
       data-graph-size="12"
       data-graph-label="add commit-discipline inference unit and commit contract gate status: open active $.sections[2].data[7]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[7]&quot;,&quot;id&quot;:&quot;issue-235&quot;,&quot;title&quot;:&quot;Add commit-discipline inference unit and commit contract gate&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1496.237372053487, 1422.2915539063742)">
+      transform="translate(1522.9455239183521, 1389.36736846236)">
       <title>Add commit-discipline inference unit and commit contract gate · $.sections[2].data[7]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45414,14 +45491,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-236"
       data-graph-type="card"
-      data-graph-x="1456.5796122742033"
-      data-graph-y="1543.2363917603238"
-      data-graph-home-x="1456.5796122742033"
-      data-graph-home-y="1543.2363917603238"
+      data-graph-x="1495.3049599218114"
+      data-graph-y="1507.9092989565956"
+      data-graph-home-x="1495.3049599218114"
+      data-graph-home-y="1507.9092989565956"
       data-graph-size="12"
       data-graph-label="add pr-review inference unit type and review contract handling status: open active $.sections[2].data[8]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[8]&quot;,&quot;id&quot;:&quot;issue-236&quot;,&quot;title&quot;:&quot;Add PR-review inference unit type and review contract handling&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
-      transform="translate(1456.5796122742033, 1543.2363917603238)">
+      transform="translate(1495.3049599218114, 1507.9092989565956)">
       <title>Add PR-review inference unit type and review contract handling · $.sections[2].data[8]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45433,14 +45510,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-242"
       data-graph-type="card"
-      data-graph-x="1300.477154812442"
-      data-graph-y="1513.6924300104024"
-      data-graph-home-x="1300.477154812442"
-      data-graph-home-y="1513.6924300104024"
+      data-graph-x="1342.0604139901075"
+      data-graph-y="1485.8610463437158"
+      data-graph-home-x="1342.0604139901075"
+      data-graph-home-y="1485.8610463437158"
       data-graph-size="12"
       data-graph-label="fix lifecycle defect when balance-scan ordered output does not continue status: fixed source contract green rerun pending $.sections[2].data[9]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[9]&quot;,&quot;id&quot;:&quot;issue-242&quot;,&quot;title&quot;:&quot;Fix lifecycle defect when balance-scan ordered output does not continue&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Contract Green Rerun Pending&quot;]}"
-      transform="translate(1300.477154812442, 1513.6924300104024)">
+      transform="translate(1342.0604139901075, 1485.8610463437158)">
       <title>Fix lifecycle defect when balance-scan ordered output does not continue · $.sections[2].data[9]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45452,14 +45529,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-243"
       data-graph-type="card"
-      data-graph-x="1233.9589337873804"
-      data-graph-y="1612.8479934855295"
-      data-graph-home-x="1233.9589337873804"
-      data-graph-home-y="1612.8479934855295"
+      data-graph-x="1288.7434210968881"
+      data-graph-y="1587.0500483099527"
+      data-graph-home-x="1288.7434210968881"
+      data-graph-home-y="1587.0500483099527"
       data-graph-size="12"
       data-graph-label="process defect: closure-candidate routes back to worker instead of controller gate status: fixed source contract green rerun pending $.sections[2].data[10]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[10]&quot;,&quot;id&quot;:&quot;issue-243&quot;,&quot;title&quot;:&quot;Process defect: closure-candidate routes back to worker instead of controller gate&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Contract Green Rerun Pending&quot;]}"
-      transform="translate(1233.9589337873804, 1612.8479934855295)">
+      transform="translate(1288.7434210968881, 1587.0500483099527)">
       <title>Process defect: closure-candidate routes back to worker instead of controller gate · $.sections[2].data[10]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45471,14 +45548,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-244"
       data-graph-type="card"
-      data-graph-x="1144.549009850909"
-      data-graph-y="1703.4363879734763"
-      data-graph-home-x="1144.549009850909"
-      data-graph-home-y="1703.4363879734763"
+      data-graph-x="1213.594578099878"
+      data-graph-y="1682.804115897485"
+      data-graph-home-x="1213.594578099878"
+      data-graph-home-y="1682.804115897485"
       data-graph-size="12"
       data-graph-label="process defect: lifecycle source-change evidence misses dirty source files status: fixed source contract green rerun pending $.sections[2].data[11]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[11]&quot;,&quot;id&quot;:&quot;issue-244&quot;,&quot;title&quot;:&quot;Process defect: lifecycle source-change evidence misses dirty source files&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Contract Green Rerun Pending&quot;]}"
-      transform="translate(1144.549009850909, 1703.4363879734763)">
+      transform="translate(1213.594578099878, 1682.804115897485)">
       <title>Process defect: lifecycle source-change evidence misses dirty source files · $.sections[2].data[11]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45490,14 +45567,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-245"
       data-graph-type="card"
-      data-graph-x="1017.9806971743599"
-      data-graph-y="1607.408865212066"
-      data-graph-home-x="1017.9806971743599"
-      data-graph-home-y="1607.408865212066"
+      data-graph-x="1084.0258469947541"
+      data-graph-y="1598.0576692409816"
+      data-graph-home-x="1084.0258469947541"
+      data-graph-home-y="1598.0576692409816"
       data-graph-size="12"
       data-graph-label="add controller-owned evidence snapshots for lifecycle routing status: implemented contract green rerun pending $.sections[2].data[12]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[12]&quot;,&quot;id&quot;:&quot;issue-245&quot;,&quot;title&quot;:&quot;Add controller-owned evidence snapshots for lifecycle routing&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Contract Green Rerun Pending&quot;]}"
-      transform="translate(1017.9806971743599, 1607.408865212066)">
+      transform="translate(1084.0258469947541, 1598.0576692409816)">
       <title>Add controller-owned evidence snapshots for lifecycle routing · $.sections[2].data[12]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45509,14 +45586,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-247"
       data-graph-type="card"
-      data-graph-x="914.2385896769829"
-      data-graph-y="1666.5195632997352"
-      data-graph-home-x="914.2385896769829"
-      data-graph-home-y="1666.5195632997352"
+      data-graph-x="992.9399210360046"
+      data-graph-y="1667.2333148276753"
+      data-graph-home-x="992.9399210360046"
+      data-graph-home-y="1667.2333148276753"
       data-graph-size="12"
       data-graph-label="process defect: commit-intent continuation starts as worker unit status: fixed source contract green commit and rerun pending $.sections[2].data[13]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[13]&quot;,&quot;id&quot;:&quot;issue-247&quot;,&quot;title&quot;:&quot;Process defect: commit-intent continuation starts as worker unit&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Contract Green Commit And Rerun Pending&quot;]}"
-      transform="translate(914.2385896769829, 1666.5195632997352)">
+      transform="translate(992.9399210360046, 1667.2333148276753)">
       <title>Process defect: commit-intent continuation starts as worker unit · $.sections[2].data[13]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45528,14 +45605,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-248"
       data-graph-type="card"
-      data-graph-x="793.8233858747117"
-      data-graph-y="1707.7575361825884"
-      data-graph-home-x="793.8233858747117"
-      data-graph-home-y="1707.7575361825884"
+      data-graph-x="884.364521842575"
+      data-graph-y="1722.2566985234685"
+      data-graph-home-x="884.364521842575"
+      data-graph-home-y="1722.2566985234685"
       data-graph-size="12"
       data-graph-label="process defect: closure-candidate reviewer verdict set closureallowed true status: fixed source focused contract green commit and rerun pending $.sections[2].data[14]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[14]&quot;,&quot;id&quot;:&quot;issue-248&quot;,&quot;title&quot;:&quot;Process defect: closure-candidate reviewer verdict set closureAllowed true&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Focused Contract Green Commit And Rerun Pending&quot;]}"
-      transform="translate(793.8233858747117, 1707.7575361825884)">
+      transform="translate(884.364521842575, 1722.2566985234685)">
       <title>Process defect: closure-candidate reviewer verdict set closureAllowed true · $.sections[2].data[14]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45547,14 +45624,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-249"
       data-graph-type="card"
-      data-graph-x="723.3272286228802"
-      data-graph-y="1565.3808712609555"
-      data-graph-home-x="723.3272286228802"
-      data-graph-home-y="1565.3808712609555"
+      data-graph-x="802.750767860216"
+      data-graph-y="1590.6922220793977"
+      data-graph-home-x="802.750767860216"
+      data-graph-home-y="1590.6922220793977"
       data-graph-size="12"
       data-graph-label="process defect: commit-intent commit not captured as controller evidence status: fixed source focused contract green commit and rerun pending $.sections[2].data[15]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[15]&quot;,&quot;id&quot;:&quot;issue-249&quot;,&quot;title&quot;:&quot;Process defect: commit-intent commit not captured as controller evidence&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Focused Contract Green Commit And Rerun Pending&quot;]}"
-      transform="translate(723.3272286228802, 1565.3808712609555)">
+      transform="translate(802.750767860216, 1590.6922220793977)">
       <title>Process defect: commit-intent commit not captured as controller evidence · $.sections[2].data[15]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45566,14 +45643,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-250"
       data-graph-type="card"
-      data-graph-x="604.1131968490167"
-      data-graph-y="1572.052761894735"
-      data-graph-home-x="604.1131968490167"
-      data-graph-home-y="1572.052761894735"
+      data-graph-x="690.9639927817182"
+      data-graph-y="1614.892072650177"
+      data-graph-home-x="690.9639927817182"
+      data-graph-home-y="1614.892072650177"
       data-graph-size="12"
       data-graph-label="process defect: repairable source-change state loops to worker instead of commit-intent status: fixed source focused contract green rerun pending $.sections[2].data[16]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[16]&quot;,&quot;id&quot;:&quot;issue-250&quot;,&quot;title&quot;:&quot;Process defect: repairable source-change state loops to worker instead of commit-intent&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Focused Contract Green Rerun Pending&quot;]}"
-      transform="translate(604.1131968490167, 1572.052761894735)">
+      transform="translate(690.9639927817182, 1614.892072650177)">
       <title>Process defect: repairable source-change state loops to worker instead of commit-intent · $.sections[2].data[16]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45585,19 +45662,38 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-spine-issue-251"
       data-graph-type="card"
-      data-graph-x="477.94058045582466"
-      data-graph-y="1555.2938064760397"
-      data-graph-home-x="477.94058045582466"
-      data-graph-home-y="1555.2938064760397"
+      data-graph-x="569.3073762394927"
+      data-graph-y="1618.8742472878498"
+      data-graph-home-x="569.3073762394927"
+      data-graph-home-y="1618.8742472878498"
       data-graph-size="12"
       data-graph-label="process defect: commit-intent broad-stages pre-existing dirty files status: fixed source focused contract green clean rerun pending $.sections[2].data[17]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[17]&quot;,&quot;id&quot;:&quot;issue-251&quot;,&quot;title&quot;:&quot;Process defect: commit-intent broad-stages pre-existing dirty files&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Focused Contract Green Clean Rerun Pending&quot;]}"
-      transform="translate(477.94058045582466, 1555.2938064760397)">
+      transform="translate(569.3073762394927, 1618.8742472878498)">
       <title>Process defect: commit-intent broad-stages pre-existing dirty files · $.sections[2].data[17]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Process defect:</tspan><tspan x="0" dy="12">commit-intent</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Fixed Source Focu...</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-issue-spine-issue-252"
+      data-graph-type="card"
+      data-graph-x="550.9417458176058"
+      data-graph-y="1465.1448749470312"
+      data-graph-home-x="550.9417458176058"
+      data-graph-home-y="1465.1448749470312"
+      data-graph-size="12"
+      data-graph-label="process defect: controller source changes force generic lifecycle stop status: fixed source focused contract green clean rerun pending $.sections[2].data[18]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[18]&quot;,&quot;id&quot;:&quot;issue-252&quot;,&quot;title&quot;:&quot;Process defect: controller source changes force generic lifecycle stop&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Fixed Source Focused Contract Green Clean Rerun Pending&quot;]}"
+      transform="translate(550.9417458176058, 1465.1448749470312)">
+      <title>Process defect: controller source changes force generic lifecycle stop · $.sections[2].data[18]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Process defect:</tspan><tspan x="0" dy="12">controller source</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Fixed Source Focu...</text>
     </g>
@@ -45970,8 +46066,8 @@ ${tmplLine}
       data-graph-home-x="200.55323618766113"
       data-graph-home-y="860.0169367594407"
       data-graph-size="12"
-      data-graph-label="contract-bound routing implemented status: focused contract green live rerun required $.sections[4].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;rung-routing-validation&quot;,&quot;title&quot;:&quot;Contract-bound routing implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Focused Contract Green Live Rerun Required&quot;]}"
+      data-graph-label="contract-bound routing implemented status: source test proven controller restart handoff rerun required $.sections[4].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;rung-routing-validation&quot;,&quot;title&quot;:&quot;Contract-bound routing implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Source Test Proven Controller Restart Handoff Rerun Required&quot;]}"
       transform="translate(200.55323618766113, 860.0169367594407)">
       <title>Contract-bound routing implemented · $.sections[4].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45979,7 +46075,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Contract-bound</tspan><tspan x="0" dy="12">routing implemented</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Focused Contract ...</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Source Test Prove...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-rung-side-effects"
@@ -45989,8 +46085,8 @@ ${tmplLine}
       data-graph-home-x="341.8132644081502"
       data-graph-home-y="759.138953656284"
       data-graph-size="12"
-      data-graph-label="commit and pr side-effect gates implemented status: source test proven clean commit scope rerun required $.sections[4].data[3]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[3]&quot;,&quot;id&quot;:&quot;rung-side-effects&quot;,&quot;title&quot;:&quot;Commit and PR side-effect gates implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Source Test Proven Clean Commit Scope Rerun Required&quot;]}"
+      data-graph-label="commit and pr side-effect gates implemented status: source test proven controller restart handoff rerun required $.sections[4].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[3]&quot;,&quot;id&quot;:&quot;rung-side-effects&quot;,&quot;title&quot;:&quot;Commit and PR side-effect gates implemented&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Source Test Proven Controller Restart Handoff Rerun Required&quot;]}"
       transform="translate(341.8132644081502, 759.138953656284)">
       <title>Commit and PR side-effect gates implemented · $.sections[4].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -46046,8 +46142,8 @@ ${tmplLine}
       data-graph-home-x="537.8587685853804"
       data-graph-home-y="465.73612235998013"
       data-graph-size="12"
-      data-graph-label="objective closure status: not closed broad local commit invalid clean rerun required $.sections[4].data[6]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[6]&quot;,&quot;id&quot;:&quot;rung-objective-closure&quot;,&quot;title&quot;:&quot;Objective closure&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Not Closed Broad Local Commit Invalid Clean Rerun Required&quot;]}"
+      data-graph-label="objective closure status: not closed controller restart handoff rerun required $.sections[4].data[6]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[6]&quot;,&quot;id&quot;:&quot;rung-objective-closure&quot;,&quot;title&quot;:&quot;Objective closure&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Not Closed Controller Restart Handoff Rerun Required&quot;]}"
       transform="translate(537.8587685853804, 465.73612235998013)">
       <title>Objective closure · $.sections[4].data[6]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -46055,7 +46151,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Objective closure</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="46" text-anchor="middle">Status: Not Closed Broad ...</text>
+      <text class="json-graph-node-meta" x="0" y="46" text-anchor="middle">Status: Not Closed Contro...</text>
     </g>
             </g>
           </svg>
@@ -46069,7 +46165,7 @@ ${tmplLine}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="graph-info" data-graph-info>86 nodes · 96 edges · 100%</div>
+          <div class="graph-info" data-graph-info>88 nodes · 98 edges · 100%</div>
         </div>
         <aside class="json-graph-inspector" aria-live="polite">
           <span class="json-graph-inspector-kicker">Selected node</span>
