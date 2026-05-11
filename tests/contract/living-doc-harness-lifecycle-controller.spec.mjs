@@ -165,6 +165,14 @@ try {
   assert.equal(result.finalState.kind, 'closed');
   assert.match(result.finalState.postFlightSummaryPath, /iteration-2-post-flight-summary\.md$/);
   assert.match(result.finalState.postFlightUnitResultPath, /inference-units\/iteration-2\/04-post-flight-summary\/result\.json$/);
+  const postFlightResult = JSON.parse(await readFile(path.resolve(process.cwd(), result.finalState.postFlightUnitResultPath), 'utf8'));
+  const postFlightInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    result.iterations[1].runDir,
+    postFlightResult.inputContractPath,
+  ), 'utf8'));
+  assert.match(postFlightInput.lifecycleResultPath, /lifecycle-result\.json$/);
+  assert.ok(postFlightInput.requiredInspectionPaths.some((item) => item.endsWith('lifecycle-result.json')));
   assert.equal(result.iterations[0].classification, 'closure-candidate');
   assert.equal(result.iterations[0].terminalKind, 'repair-resumed');
   assert.equal(result.iterations[0].nextAction.action, 'start-next-worker-iteration');

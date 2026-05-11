@@ -666,6 +666,7 @@ async function runPostFlightSummaryUnit({
   runId,
   iteration,
   finalization,
+  lifecycleResultPath,
   now,
   cwd,
   allowedUnitTypes,
@@ -689,8 +690,8 @@ async function runPostFlightSummaryUnit({
     iteration,
     terminalPath: path.relative(runDir, finalization.terminalPath),
     proofPath: path.relative(runDir, finalization.proofPath),
-    lifecycleResultPath: null,
-    requiredInspectionPaths: [finalization.terminalPath, finalization.proofPath],
+    lifecycleResultPath: path.relative(runDir, lifecycleResultPath),
+    requiredInspectionPaths: [finalization.terminalPath, finalization.proofPath, lifecycleResultPath],
   };
   const unit = await runContractBoundInferenceUnit({
     runDir,
@@ -854,6 +855,7 @@ export async function runHarnessLifecycle({
   let lastEvidence = null;
   let currentRun = null;
   let currentIteration = 0;
+  let pendingPostFlight = null;
   const docProofRoutes = proofRoutes || await loadProofRoutesFromDoc(docPath, { cwd });
   const controllerStartFileHashes = await controllerStartHashes({ cwd });
 
@@ -1019,8 +1021,8 @@ export async function runHarnessLifecycle({
       });
 
       if (mayStop) {
-        const postFlight = finalization.terminalKind === 'closed'
-          ? await runPostFlightSummaryUnit({
+        pendingPostFlight = finalization.terminalKind === 'closed'
+          ? {
             runDir: run.runDir,
             runId: run.runId,
             iteration,
@@ -1028,14 +1030,14 @@ export async function runHarnessLifecycle({
             now: addMs(iterationNow, 850),
             cwd,
             allowedUnitTypes: normalizedAllowedUnitTypes,
-          })
+          }
           : null;
         finalState = {
           kind: finalization.terminalKind,
           reason: nextAction.reason,
           runId: run.runId,
-          postFlightSummaryPath: postFlight?.summaryPath ? path.relative(cwd, postFlight.summaryPath) : null,
-          postFlightUnitResultPath: postFlight?.unit?.resultPath ? path.relative(cwd, postFlight.unit.resultPath) : null,
+          postFlightSummaryPath: null,
+          postFlightUnitResultPath: null,
         };
         break;
       }
@@ -1064,7 +1066,8 @@ export async function runHarnessLifecycle({
     });
   }
 
-  const result = {
+  const resultPath = path.join(lifecycleDir, 'lifecycle-result.json');
+  let result = {
     schema: 'living-doc-harness-lifecycle-result/v1',
     resultId,
     createdAt: now,
@@ -1093,8 +1096,22 @@ export async function runHarnessLifecycle({
       nativeTraceRefs: arr(lastEvidence.workerEvidence?.nativeInferenceTraceRefs).length,
     } : null,
   };
-  const resultPath = path.join(lifecycleDir, 'lifecycle-result.json');
   await writeJson(resultPath, result);
+  if (pendingPostFlight) {
+    const postFlight = await runPostFlightSummaryUnit({
+      ...pendingPostFlight,
+      lifecycleResultPath: resultPath,
+    });
+    result = {
+      ...result,
+      finalState: {
+        ...result.finalState,
+        postFlightSummaryPath: postFlight?.summaryPath ? path.relative(cwd, postFlight.summaryPath) : null,
+        postFlightUnitResultPath: postFlight?.unit?.resultPath ? path.relative(cwd, postFlight.unit.resultPath) : null,
+      },
+    };
+    await writeJson(resultPath, result);
+  }
   await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
     event: 'lifecycle-result-written',
     at: addMs(now, (iterations.length + 1) * 1000),

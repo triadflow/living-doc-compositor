@@ -262,7 +262,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       role: 'post-flight-summary',
       inputContract: {
         schema: 'living-doc-harness-post-flight-summary-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'terminalPath', 'proofPath', 'requiredInspectionPaths'),
+        requiredFields: contractFields('runId', 'iteration', 'terminalPath', 'proofPath', 'lifecycleResultPath', 'requiredInspectionPaths'),
       },
       promptContract: {
         template: 'living-doc-harness-post-flight-summary-prompt/v1',

@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T11:06:51.000Z",
+  "updated": "2026-05-11T11:13:18.000Z",
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
@@ -120,7 +120,12 @@
         "Standalone lifecycle ldhl-20260511T104755Z stopped correctly when the worker changed controller-owned harness source during the lifecycle, but it exposed issue #252 because the stop was recorded as a generic lifecycle-controller-exception instead of a typed restart handoff.",
         "Issue #252 is fixed in source: controller-owned source changes now become a living-doc-harness-controller-source-restart-handoff/v1 artifact, a controller-source-changed-restart-required iteration, and a finalState kind of controller-source-changed-restart-required before reviewer or closure routing can run under a stale controller process.",
         "The restart handoff preserves evidencePath, evidenceSnapshotPath, requiredHardFacts, commitScope, sideEffectEvidence, changedControllerFiles, native trace refs, and worker artifact refs so the lifecycle can be restarted from a committed controller version without losing proof context.",
-        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T11:06Z and proves controller source mutation writes a typed restart handoff instead of a generic process defect or stale-controller review."
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T11:06Z and proves controller source mutation writes a typed restart handoff instead of a generic process defect or stale-controller review.",
+        "This worker fixed a post-flight contract gap: the registered post-flight-summary input contract now requires lifecycleResultPath, and the lifecycle controller writes lifecycle-result.json before invoking the post-flight summary unit so the post-flight unit reasons from durable closed-run evidence.",
+        "tests/contract/living-doc-harness-inference-unit.spec.mjs now rejects post-flight-summary input that omits lifecycleResultPath, and tests/contract/living-doc-harness-lifecycle-controller.spec.mjs proves the post-flight unit input includes lifecycle-result.json in requiredInspectionPaths.",
+        "node tests/contract/living-doc-harness-inference-unit.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T11:12Z after the post-flight lifecycle-result contract repair.",
+        "npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T11:12Z after the post-flight lifecycle-result contract repair.",
+        "npm run test:contract passed on 2026-05-11T11:13Z after the post-flight lifecycle-result contract repair."
       ]
     }
   },

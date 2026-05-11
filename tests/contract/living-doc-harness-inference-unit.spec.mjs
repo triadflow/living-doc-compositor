@@ -55,6 +55,20 @@ try {
   assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.requiredHardFacts'));
   assert.ok(sideEffectWithoutSnapshot.violations.some((violation) => violation.path === '$.commitPolicy'));
 
+  const postFlightWithoutLifecycleResult = validateInferenceUnitInputContract({
+    unitTypeId: 'post-flight-summary',
+    inputContract: {
+      schema: 'living-doc-harness-post-flight-summary-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      terminalPath: 'terminal.json',
+      proofPath: 'proof.json',
+      requiredInspectionPaths: ['terminal.json', 'proof.json'],
+    },
+  });
+  assert.equal(postFlightWithoutLifecycleResult.ok, false);
+  assert.ok(postFlightWithoutLifecycleResult.violations.some((violation) => violation.path === '$.lifecycleResultPath'));
+
   await assert.rejects(
     runContractBoundInferenceUnit({
       runDir: path.join(tmp, 'bad-input-run'),
