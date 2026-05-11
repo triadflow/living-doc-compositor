@@ -291,6 +291,13 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
 };
 
 export const DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES = Object.freeze(Object.keys(HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes));
+export const REQUIRED_LIFECYCLE_CORE_UNIT_TYPES = Object.freeze([
+  'worker',
+  'reviewer-inference',
+  'closure-review',
+  'continuation-inference',
+  'post-flight-summary',
+]);
 
 export function getInferenceUnitType(unitTypeId) {
   const type = HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes[unitTypeId];
@@ -317,6 +324,55 @@ export function validateInferenceUnitAllowed({ unitTypeId, allowedUnitTypes = DE
     };
   }
   return { ok: true, allowedUnitTypes: allowed };
+}
+
+export function validateAllowedInferenceUnitRunConfig({
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  requiredUnitTypes = REQUIRED_LIFECYCLE_CORE_UNIT_TYPES,
+  initialUnitType = 'worker',
+} = {}) {
+  const violations = [];
+  let allowed = [];
+  try {
+    allowed = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
+  } catch (err) {
+    return {
+      ok: false,
+      allowedUnitTypes: arr(allowedUnitTypes),
+      requiredUnitTypes,
+      violations: [{
+        path: '$.allowedUnitTypes',
+        reasonCode: 'allowed-unit-type-unregistered',
+        message: err?.message || String(err),
+      }],
+    };
+  }
+
+  if (initialUnitType && !allowed.includes(initialUnitType)) {
+    violations.push({
+      path: '$.initialUnitType',
+      reasonCode: 'initial-unit-type-not-allowed-for-run',
+      message: `initial unit type ${initialUnitType} is not in the run allowed set`,
+    });
+  }
+
+  for (const unitTypeId of arr(requiredUnitTypes)) {
+    if (!allowed.includes(unitTypeId)) {
+      violations.push({
+        path: '$.allowedUnitTypes',
+        reasonCode: 'required-lifecycle-unit-type-missing',
+        message: `lifecycle run config must allow ${unitTypeId}`,
+        unitTypeId,
+      });
+    }
+  }
+
+  return {
+    ok: violations.length === 0,
+    allowedUnitTypes: allowed,
+    requiredUnitTypes: arr(requiredUnitTypes),
+    violations,
+  };
 }
 
 export function registryMetadataForUnit(unitTypeId, allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES) {

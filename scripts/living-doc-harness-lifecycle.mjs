@@ -15,7 +15,11 @@ import { promisify } from 'node:util';
 import { createHarnessRun } from './living-doc-harness-runner.mjs';
 import { finalizeHarnessIteration, writeIterationEvidenceTemplate } from './living-doc-harness-iteration.mjs';
 import { loadProofRoutesFromDoc, runProofRoutes } from './living-doc-harness-proof-route.mjs';
-import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
+import {
+  DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  normalizeAllowedInferenceUnitTypes,
+  validateAllowedInferenceUnitRunConfig,
+} from './living-doc-harness-inference-unit-types.mjs';
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -844,7 +848,14 @@ export async function runHarnessLifecycle({
   const absoluteRunsDir = path.resolve(cwd, runsDir);
   const absoluteEvidenceDir = path.resolve(cwd, evidenceDir);
   const absoluteDashboardPath = path.resolve(cwd, dashboardPath);
-  const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
+  const runConfigValidation = validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes,
+    initialUnitType: 'worker',
+  });
+  if (!runConfigValidation.ok) {
+    throw new Error(`invalid lifecycle inference unit run config: ${runConfigValidation.violations.map((violation) => violation.message).join('; ')}`);
+  }
+  const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(runConfigValidation.allowedUnitTypes);
   const resultId = `ldhl-${timestampForId(now)}-${path.basename(docPath, '.json').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   const lifecycleDir = path.join(absoluteRunsDir, resultId);
   await mkdir(lifecycleDir, { recursive: true });

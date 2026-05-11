@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { loadHarnessContractSchema, validateHarnessContract } from '../../scripts/validate-living-doc-harness-contract.mjs';
 import {
   HARNESS_INFERENCE_UNIT_REGISTRY,
+  validateAllowedInferenceUnitRunConfig,
   validateNextUnitSelection,
   validateRegistryCompleteness,
 } from '../../scripts/living-doc-harness-inference-unit-types.mjs';
@@ -301,6 +302,21 @@ for (const continuation of [
   assert.equal(validateNextUnitSelection({
     currentUnitTypeId: 'closure-review',
     selectedUnitTypeId: 'post-flight-summary',
+    allowedUnitTypes: requiredTypes,
+  }).ok, true);
+  const invalidRunConfig = validateAllowedInferenceUnitRunConfig({
+    allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review'],
+  });
+  assert.equal(invalidRunConfig.ok, false);
+  assert.ok(invalidRunConfig.violations.some((violation) => (
+    violation.reasonCode === 'required-lifecycle-unit-type-missing'
+    && violation.unitTypeId === 'continuation-inference'
+  )));
+  assert.ok(invalidRunConfig.violations.some((violation) => (
+    violation.reasonCode === 'required-lifecycle-unit-type-missing'
+    && violation.unitTypeId === 'post-flight-summary'
+  )));
+  assert.equal(validateAllowedInferenceUnitRunConfig({
     allowedUnitTypes: requiredTypes,
   }).ok, true);
 }

@@ -113,6 +113,17 @@ try {
 
   const docPath = path.join(tmp, 'doc.json');
   await writeFile(docPath, `${JSON.stringify(minimalDoc(docPath), null, 2)}\n`, 'utf8');
+  await assert.rejects(
+    () => runHarnessLifecycle({
+      docPath,
+      runsDir: path.join(tmp, 'invalid-allowed-unit-runs'),
+      evidenceDir: path.join(tmp, 'invalid-allowed-unit-evidence'),
+      dashboardPath: path.join(tmp, 'invalid-allowed-unit-dashboard.html'),
+      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review'],
+      now: '2026-05-07T12:39:00.000Z',
+    }),
+    /invalid lifecycle inference unit run config: .*continuation-inference.*post-flight-summary/,
+  );
   const sequencePath = path.join(tmp, 'evidence-sequence.json');
   await writeFile(sequencePath, `${JSON.stringify({
     schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
