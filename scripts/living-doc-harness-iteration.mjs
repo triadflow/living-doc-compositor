@@ -200,6 +200,40 @@ function terminalKindFromVerdict(verdict) {
   return 'unknown';
 }
 
+function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, reviewer, runDir, closureReview } = {}) {
+  const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
+  const reasonCode = String(verdict?.stopVerdict?.reasonCode || '').toLowerCase();
+  const basisText = arr(verdict?.stopVerdict?.basis).join(' ').toLowerCase();
+  const text = [instruction, reasonCode, basisText].join(' ');
+  const explicitControllerClosure = [
+    'controller-evidence-pending',
+    'controller-owned-closure-review-required',
+    'closure-review-required',
+  ].includes(reasonCode);
+  const preconditionPending = reasonCode.includes('commit-evidence')
+    || /(produce|producing|fresh|missing|pending)[^\n.]{0,80}commit[- ]?(intent|evidence|sha)/.test(text)
+    || /commit[- ]?(intent|evidence|sha)[^\n.]{0,80}(pending|missing|required before|before closure)/.test(text)
+    || /side[- ]effect[^\n.]{0,80}(pending|missing|produce|producing)/.test(text)
+    || /criteria[- ]?pending|acceptance[^\n.]{0,80}pending/.test(text);
+  if (!explicitControllerClosure || preconditionPending) return null;
+  const requiredInputPaths = [
+    evidencePath ? path.relative(runDir, evidencePath) : null,
+    reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+    reviewer?.artifact?.inferenceUnitResultPath || null,
+    reviewer?.artifact?.inferenceUnitValidationPath || null,
+  ].filter(Boolean);
+  return {
+    unitId: 'closure-review',
+    role: 'closure-review',
+    reasonCode: reasonCode || 'controller-owned-closure-review-required',
+    requiredInputPaths,
+    expectedOutputSchema: 'living-doc-harness-closure-review/v1',
+    resultPath: closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
+    validationPath: closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null,
+    status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
+  };
+}
+
 function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes }) {
   if (!selected.nextUnit) {
     selected.contractValidation = {
@@ -362,6 +396,14 @@ function buildPostReviewSelection({
       expectedOutputSchema: 'living-doc-continuation-result/v1',
       status: 'selected',
     };
+    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
+  }
+
+  const controllerOwnedNextUnit = verdict?.nextIteration?.allowed !== false
+    ? controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, reviewer, runDir, closureReview })
+    : null;
+  if (controllerOwnedNextUnit) {
+    selected.nextUnit = controllerOwnedNextUnit;
     return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
 

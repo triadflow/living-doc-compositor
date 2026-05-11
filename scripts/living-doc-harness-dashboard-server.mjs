@@ -643,6 +643,7 @@ export async function collectDashboardLifecycles({ runsDir, cwd }) {
       const result = await readJson(resultPath, null);
       const active = result ? null : await readJson(activePath, {});
       const source = result || active;
+      const activeLifecycleRunning = active && isRunningLifecycleState(source.finalState?.kind || active.status);
       lifecycles.push({
         schema: 'living-doc-harness-dashboard-lifecycle/v1',
         resultId: source.resultId || path.basename(lifecycleDir),
@@ -651,7 +652,7 @@ export async function collectDashboardLifecycles({ runsDir, cwd }) {
         docPath: source.docPath || null,
         finalState: source.finalState || (active?.status ? { kind: active.status } : null),
         iterationCount: result?.iterationCount ?? (result?.iterations || []).length,
-        active: !result,
+        active: Boolean(activeLifecycleRunning),
         supervisorPid: active?.supervisorPid ?? null,
         toolProfile: active?.toolProfile || null,
       });
@@ -757,6 +758,8 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     docPath: active.docPath,
     createdAt: active.createdAt,
   });
+  const lifecycleRunning = isRunningLifecycleState(active.finalState?.kind || active.status);
+  const stoppedInferenceUnitId = active.finalState?.activeInferenceUnitAtStop || null;
 
   for (const [index, activeRun] of activeRuns.entries()) {
     const { runDir, contract, state } = activeRun;
@@ -765,11 +768,14 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     const iteration = Number.isFinite(previousIteration) ? previousIteration + 1 : index + 1;
     const workerUnit = contract?.artifacts?.workerInferenceUnit || {};
     const workerId = `iteration-${iteration}-worker`;
+    const workerStatus = !lifecycleRunning && stoppedInferenceUnitId === workerId
+      ? active.finalState?.kind || active.status || 'stopped'
+      : state.status || contract?.status || 'running';
     addNode(graphNode(workerId, {
       type: 'inference-unit',
       role: 'worker',
       label: `Iteration ${iteration} worker`,
-      status: state.status || contract?.status || 'running',
+      status: workerStatus,
       iteration,
       artifactPaths: {
         runDir: relativeTo(cwd, runDir),
@@ -893,6 +899,9 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     const repairUnits = await listRepairUnits(runDir, { cwd });
     let lastRepairNodeId = null;
     for (const unit of repairUnits) {
+      const changedFiles = arr(unit.changedFiles);
+      const commitIntent = commitIntentForDashboard({ unit, chainSkillResult: null, changedFiles });
+      const commitPolicy = unit.commitPolicy || null;
       const unitNodeId = `iteration-${iteration}-repair-${unit.sequence ?? unit.unitId}`;
       const role = unit.sequence === 0 || unit.unitId === 'living-doc-balance-scan' ? 'balance-scan' : 'repair-skill';
       addNode(graphNode(unitNodeId, {
@@ -909,6 +918,8 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
           validationOk: unit.validationOk,
           hasResult: unit.hasResult,
           hasCodexEvents: unit.hasCodexEvents,
+          commitPolicy,
+          commitIntent,
           toolProfile: unit.toolProfile,
         },
       }));
@@ -925,14 +936,36 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
         gate: role === 'balance-scan' ? 'balance-scan-required' : 'ordered-repair-unit-required',
         lifecycleEffect: role === 'balance-scan' ? 'ordered-skill-list' : 'repair-skill-result',
       }));
+      const changedLivingDoc = changedFiles.some((file) => samePath(cwd, file, livingDocPath) || samePath(cwd, file, renderedLivingDocPath));
+      if (changedLivingDoc) {
+        const commitSha = unit.commitSha || unit.commit?.sha || null;
+        addEdge(graphEdge(`repair-unit-to-living-doc-${iteration}-${unit.sequence ?? unit.unitId}`, unitNodeId, livingDocNodeId, {
+          label: commitSha ? `commit ${shortCommit(commitSha)}` : 'changed living doc',
+          status: commitSha ? 'committed' : 'changed',
+          contract: {
+            changedFiles,
+            commitSha,
+            commitMessage: unit.commitMessage || unit.commit?.message || null,
+            commitPolicy,
+            commitIntent,
+            resultPath: unit.paths.resultPath,
+            validationPath: unit.paths.validationPath,
+            codexEventsPath: unit.paths.codexEventsPath,
+          },
+          gate: 'living-doc-change-recorded',
+          lifecycleEffect: 'living-doc-updated',
+        }));
+      }
       lastRepairNodeId = unitNodeId;
     }
   }
 
-  const activeInferenceUnit = [...nodes].reverse().find((node) =>
-    node.type === 'inference-unit'
-    && isActiveInferenceStatus(node.status)
-  ) || null;
+  const activeInferenceUnit = !lifecycleRunning
+    ? null
+    : [...nodes].reverse().find((node) =>
+      node.type === 'inference-unit'
+      && isActiveInferenceStatus(node.status)
+    ) || null;
 
   return {
     schema: 'living-doc-harness-inference-graph/v1',
@@ -1337,10 +1370,13 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     }
   }
 
-  const activeInferenceUnit = [...nodes].reverse().find((node) =>
-    node.type === 'inference-unit'
-    && isActiveInferenceStatus(node.status)
-  ) || null;
+  const lifecycleIsTerminal = ['closed', 'user-stopped'].includes(String(lifecycle.finalState?.kind || lifecycle.terminalKind || lifecycle.status || '').toLowerCase());
+  const activeInferenceUnit = lifecycleIsTerminal
+    ? null
+    : [...nodes].reverse().find((node) =>
+      node.type === 'inference-unit'
+      && isActiveInferenceStatus(node.status)
+    ) || null;
 
   return {
     schema: 'living-doc-harness-inference-graph/v1',
@@ -1452,6 +1488,10 @@ async function graphLogEvents(graph, { cwd, lines = 30 }) {
 
 function isActiveInferenceStatus(status) {
   return ['starting', 'running', 'prepared'].includes(String(status || '').toLowerCase());
+}
+
+function isRunningLifecycleState(status) {
+  return ['running', 'starting', 'prepared'].includes(String(status || '').toLowerCase());
 }
 
 function isFinishedInferenceStatus(status) {
@@ -1956,6 +1996,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
     .graph-edge-layer { position:absolute; inset:0; width:100%; height:100%; pointer-events:auto; z-index:1; }
     .graph-edge-line { stroke:#8b99aa; stroke-width:2; fill:none; opacity:.86; marker-end:url(#graphArrow); pointer-events:none; }
     .graph-edge-line.active { stroke:var(--blue); stroke-width:3; marker-end:url(#graphArrowActive); }
+    .graph-edge-line.to-living-doc { stroke-dasharray:4 5; }
     .graph-edge-hit { stroke:transparent; stroke-width:22; fill:none; pointer-events:stroke; cursor:pointer; }
     .graph-edge-label-group { cursor:pointer; }
     .graph-edge-label-box { fill:rgba(255,255,255,.96); stroke:var(--line); stroke-width:1; filter:drop-shadow(0 3px 8px rgba(24,34,48,.12)); }
@@ -2211,7 +2252,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
     }
 
     function graphLayoutStorageKey() {
-      return state.selectedLifecycleId ? 'living-doc-harness-graph-layout:v6:' + state.selectedLifecycleId : null;
+      return state.selectedLifecycleId ? 'living-doc-harness-graph-layout:v8:' + state.selectedLifecycleId : null;
     }
 
     const DEFAULT_GRAPH_BOARD = { width: 2400, height: 1400 };
@@ -2302,29 +2343,36 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       return match ? Number(match[1]) : 0;
     }
 
-    function graphCompactLanePosition(role, iteration, repairSequence = 0) {
-      const laneY = iteration ? 76 + (iteration - 1) * 326 : null;
+    function graphCompactLanePosition(role, iteration, repairSequence = 0, maxRepairSequence = 0) {
+      const laneY = iteration ? 76 + (iteration - 1) * 356 : null;
       if (!iteration) return null;
-      if (role === 'worker') return { x: 300, y: laneY };
-      if (role === 'reviewer') return { x: 600, y: laneY };
-      if (role === 'balance-scan') return { x: 900, y: laneY };
+      const laneGap = 146;
+      const xStep = 280;
+      const sequenced = (index) => ({ x: 300 + index * xStep, y: laneY + (index % 2) * laneGap });
+      if (role === 'worker') return sequenced(0);
+      if (role === 'reviewer') return sequenced(1);
+      if (role === 'balance-scan') return sequenced(2);
       if (role === 'repair-skill') {
         const sequence = Math.max(1, repairSequence || 1);
-        const index = sequence - 1;
-        const column = Math.floor(index / 2);
-        const slot = index % 2;
-        const lane = column % 2 === 0 ? slot : 1 - slot;
-        return { x: 1200 + column * 300, y: laneY + lane * 118 };
+        return sequenced(sequence + 2);
       }
-      if (role === 'repair-chain-result') return { x: 820, y: laneY + 112 };
-      if (role === 'terminal') return { x: 1840, y: laneY };
-      if (role === 'blocker') return { x: 1840, y: laneY + 112 };
-      if (role === 'github-issue') return { x: 1840, y: laneY + 224 };
+      if (role === 'repair-chain-result') return sequenced(Math.max(3, maxRepairSequence + 3));
+      const terminalIndex = maxRepairSequence > 0 ? maxRepairSequence + 4 : 3;
+      if (role === 'terminal') return sequenced(terminalIndex);
+      if (role === 'blocker') return { x: 300 + terminalIndex * xStep, y: laneY + laneGap + 118 };
+      if (role === 'github-issue') return { x: 300 + terminalIndex * xStep, y: laneY + laneGap + 236 };
       return null;
     }
 
     function graphNodePositions(nodes) {
       const roleCounts = {};
+      const repairMaxByIteration = new Map();
+      for (const node of nodes || []) {
+        if (graphRole(node) !== 'repair-skill') continue;
+        const iteration = graphNodeIteration(node);
+        if (!iteration) continue;
+        repairMaxByIteration.set(iteration, Math.max(repairMaxByIteration.get(iteration) || 0, graphRepairSequence(node)));
+      }
       const roleBase = {
         controller: { x: 36, y: 96 },
         'living-doc': { x: 36, y: 230 },
@@ -2336,7 +2384,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         const count = roleCounts[role] || 0;
         roleCounts[role] = count + 1;
         const repairSequence = graphRepairSequence(node);
-        const compact = graphCompactLanePosition(role, iteration, repairSequence);
+        const compact = graphCompactLanePosition(role, iteration, repairSequence, repairMaxByIteration.get(iteration) || 0);
         const base = compact || roleBase[role] || { x: 320, y: 500 + count * 190 };
         const override = state.graphPositionOverrides?.[node.id];
         const size = graphNodeSize(node);
@@ -2426,10 +2474,11 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       if (!from || !to) return '';
       const route = graphEdgeRoute(from, to);
       const active = state.selectedGraphEdgeId === edge.id ? ' active' : '';
+      const livingDocEdge = edge.to === 'operated-living-doc' ? ' to-living-doc' : '';
       const pathId = 'graph-edge-path-' + svgSafeId(edge.id);
       const label = String(edge.label || edge.type || '');
       const labelWidth = Math.min(150, Math.max(62, Math.round(label.length * 5.9 + 18)));
-      return '<path id="' + esc(pathId) + '" class="graph-edge-line' + active + '" d="' + esc(route.d) + '" data-graph-edge-id="' + esc(edge.id) + '"></path>' +
+      return '<path id="' + esc(pathId) + '" class="graph-edge-line' + active + livingDocEdge + '" d="' + esc(route.d) + '" data-graph-edge-id="' + esc(edge.id) + '"></path>' +
         '<path class="graph-edge-hit" d="' + esc(route.d) + '" data-graph-edge-id="' + esc(edge.id) + '"></path>' +
         '<g class="graph-edge-label-group" data-graph-edge-id="' + esc(edge.id) + '" transform="translate(' + esc(route.labelX) + ' ' + esc(route.labelY) + ')">' +
           '<rect class="graph-edge-label-box" x="' + esc(-Math.round(labelWidth / 2)) + '" y="-11" width="' + esc(labelWidth) + '" height="22" rx="11"></rect>' +

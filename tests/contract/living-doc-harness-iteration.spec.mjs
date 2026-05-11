@@ -242,6 +242,212 @@ try {
   assert.equal(prSelection.nextUnit.unitId, 'pr-review');
   assert.equal(prSelection.contractValidation.ok, true);
 
+  const controllerOwnedRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'controller-owned-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:11.000Z',
+  });
+  const controllerOwnedEvidencePath = path.join(tmp, 'controller-owned-evidence.json');
+  await writeIterationEvidenceTemplate({
+    runDir: controllerOwnedRun.runDir,
+    outPath: controllerOwnedEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'commit-evidence-recorded-awaiting-controller-closure-review',
+    unprovenAcceptanceCriteria: ['criterion-closure-gates'],
+    acceptanceCriteriaSatisfied: 'pending',
+    closureAllowed: false,
+    finalMessageSummary: 'Worker stopped because the next required work is controller-owned closure review.',
+    now: '2026-05-07T10:21:12.000Z',
+  });
+  const controllerOwned = await finalizeHarnessIteration({
+    runDir: controllerOwnedRun.runDir,
+    evidencePath: controllerOwnedEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:13.000Z',
+    evidenceDir: path.join(tmp, 'controller-owned-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'controller-owned-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'resumable',
+        reasonCode: 'controller-evidence-pending',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Closure review, dashboard artifact production, and post-flight summary are controller-owned.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Continue under the controller lifecycle: run the controller-owned closure review against recorded commit evidence, then produce dashboard artifacts and post-flight summary if closure is approved.',
+        mustNotDo: [],
+      },
+    },
+  });
+  const controllerOwnedSelection = JSON.parse(await readFile(controllerOwned.postReviewSelectionPath, 'utf8'));
+  assert.equal(controllerOwnedSelection.nextUnit.unitId, 'closure-review');
+  assert.equal(controllerOwnedSelection.nextUnit.role, 'closure-review');
+  assert.notEqual(controllerOwnedSelection.nextUnit.unitId, 'worker');
+  assert.equal(controllerOwnedSelection.contractValidation.ok, true);
+  assert.match(controllerOwned.closureReviewResultPath, /inference-units\/iteration-1\/03-closure-review\/result\.json$/);
+
+  const postFlightBeforeClosureRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'post-flight-before-closure-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:14.000Z',
+  });
+  const postFlightBeforeClosureEvidencePath = path.join(tmp, 'post-flight-before-closure-evidence.json');
+  await writeIterationEvidenceTemplate({
+    runDir: postFlightBeforeClosureRun.runDir,
+    outPath: postFlightBeforeClosureEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'criteria-pending-after-routing-fix',
+    unprovenAcceptanceCriteria: ['criterion-post-flight-summary'],
+    acceptanceCriteriaSatisfied: 'pending',
+    closureAllowed: false,
+    finalMessageSummary: 'Worker stopped with pending criteria and mentioned post-flight summary before closure.',
+    now: '2026-05-07T10:21:15.000Z',
+  });
+  const postFlightBeforeClosure = await finalizeHarnessIteration({
+    runDir: postFlightBeforeClosureRun.runDir,
+    evidencePath: postFlightBeforeClosureEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:16.000Z',
+    evidenceDir: path.join(tmp, 'post-flight-before-closure-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'post-flight-before-closure-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'resumable',
+        reasonCode: 'criteria-pending-after-routing-fix',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Post-flight summary remains pending and must only run after closure.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Continue until post-flight summary can run after closure.',
+        mustNotDo: [],
+      },
+    },
+  });
+  const postFlightBeforeClosureSelection = JSON.parse(await readFile(postFlightBeforeClosure.postReviewSelectionPath, 'utf8'));
+  assert.equal(postFlightBeforeClosureSelection.nextUnit.unitId, 'worker');
+  assert.notEqual(postFlightBeforeClosureSelection.nextUnit.unitId, 'post-flight-summary');
+  assert.equal(postFlightBeforeClosureSelection.contractValidation.ok, true);
+
+  const resumablePostFlightRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'resumable-post-flight-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:17.000Z',
+  });
+  const resumablePostFlightEvidencePath = path.join(tmp, 'resumable-post-flight-evidence.json');
+  await writeIterationEvidenceTemplate({
+    runDir: resumablePostFlightRun.runDir,
+    outPath: resumablePostFlightEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'criteria-pending-after-routing-fix',
+    unprovenAcceptanceCriteria: ['criterion-post-flight-summary'],
+    acceptanceCriteriaSatisfied: 'pending',
+    closureAllowed: false,
+    finalMessageSummary: 'Worker stopped with pending criteria after the routing fix.',
+    now: '2026-05-07T10:21:18.000Z',
+  });
+  const resumablePostFlight = await finalizeHarnessIteration({
+    runDir: resumablePostFlightRun.runDir,
+    evidencePath: resumablePostFlightEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:19.000Z',
+    evidenceDir: path.join(tmp, 'resumable-post-flight-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'resumable-post-flight-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'resumable',
+        reasonCode: 'criteria-pending-after-routing-fix',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Post-flight summary remains pending and must only run after closure.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'resume',
+        instruction: 'Resume the harness after the controller-owned routing fix, rerun the objective proof path, and continue until post-flight summary can run after closure.',
+        mustNotDo: [],
+      },
+    },
+  });
+  const resumablePostFlightSelection = JSON.parse(await readFile(resumablePostFlight.postReviewSelectionPath, 'utf8'));
+  assert.equal(resumablePostFlightSelection.classification, 'resumable');
+  assert.equal(resumablePostFlightSelection.reasonCode, 'criteria-pending-after-routing-fix');
+  assert.equal(resumablePostFlightSelection.nextUnit.unitId, 'worker');
+  assert.notEqual(resumablePostFlightSelection.nextUnit.unitId, 'post-flight-summary');
+  assert.equal(resumablePostFlightSelection.contractValidation.ok, true);
+
+  const commitPendingBeforeClosureRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'commit-pending-before-closure-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:20.000Z',
+  });
+  const commitPendingBeforeClosureEvidencePath = path.join(tmp, 'commit-pending-before-closure-evidence.json');
+  await writeIterationEvidenceTemplate({
+    runDir: commitPendingBeforeClosureRun.runDir,
+    outPath: commitPendingBeforeClosureEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'input-contract-gate-implemented-source-and-tests-green-commit-evidence-pending',
+    unprovenAcceptanceCriteria: ['criterion-side-effect-contracts', 'criterion-closure-gates'],
+    acceptanceCriteriaSatisfied: 'pending',
+    closureAllowed: false,
+    finalMessageSummary: 'Worker stopped with source and test proof but current-run commit evidence is still pending.',
+    now: '2026-05-07T10:21:21.000Z',
+  });
+  const commitPendingBeforeClosure = await finalizeHarnessIteration({
+    runDir: commitPendingBeforeClosureRun.runDir,
+    evidencePath: commitPendingBeforeClosureEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:22.000Z',
+    evidenceDir: path.join(tmp, 'commit-pending-before-closure-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'commit-pending-before-closure-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'resumable',
+        reasonCode: 'commit-evidence-and-criteria-pending',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Source files changed, but fresh commit evidence and acceptance criteria are still pending.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Continue by producing fresh current-run commit evidence, then run closure review and post-flight summary only after acceptance criteria pass.',
+        mustNotDo: [],
+      },
+    },
+  });
+  const commitPendingBeforeClosureSelection = JSON.parse(await readFile(commitPendingBeforeClosure.postReviewSelectionPath, 'utf8'));
+  assert.equal(commitPendingBeforeClosureSelection.classification, 'resumable');
+  assert.equal(commitPendingBeforeClosureSelection.reasonCode, 'commit-evidence-and-criteria-pending');
+  assert.equal(commitPendingBeforeClosureSelection.nextUnit.unitId, 'worker');
+  assert.equal(commitPendingBeforeClosureSelection.contractValidation.ok, true);
+  assert.equal(commitPendingBeforeClosure.closureReviewResultPath, null);
+
   const reviewerInput = JSON.parse(await readFile(result.reviewerInputPath, 'utf8'));
   assert.equal(reviewerInput.logInspection.schema, 'living-doc-harness-reviewer-log-inspection/v1');
   assert.equal(reviewerInput.logInspection.nativeTraceSummaries.length, 1);

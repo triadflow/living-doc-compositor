@@ -256,7 +256,7 @@ try {
   assert.match(html, /localStorage/);
   assert.match(html, /startGraphNodeDrag/);
   assert.match(html, /resetGraphLayout/);
-  assert.match(html, /living-doc-harness-graph-layout:v6:/);
+  assert.match(html, /living-doc-harness-graph-layout:v8:/);
   assert.match(html, /DEFAULT_GRAPH_BOARD/);
   assert.match(html, /width:2400px/);
   assert.match(html, /height:1400px/);
@@ -735,6 +735,23 @@ exit 0
   assert.equal(activeWsMessages[0].type, 'stream_opened');
   assert.equal(activeWsMessages.some((event) => event.type === 'lifecycle_snapshot'), true);
   assert.equal(activeWsMessages.some((event) => event.type === 'log_append' && event.payload.nodeId === 'iteration-1-worker'), true);
+
+  const activeLifecyclePath = path.join(runsDir, activeLifecycle.body.resultId, 'active-lifecycle.json');
+  const stoppedActiveLifecycle = JSON.parse(await readFile(activeLifecyclePath, 'utf8'));
+  stoppedActiveLifecycle.status = 'stopped-by-supervisor';
+  stoppedActiveLifecycle.finalState = {
+    kind: 'process-defect-stopped',
+    reasonCode: 'fixture-stopped',
+    activeInferenceUnitAtStop: 'iteration-1-worker',
+  };
+  await writeFile(activeLifecyclePath, `${JSON.stringify(stoppedActiveLifecycle, null, 2)}\n`, 'utf8');
+  const stoppedLifecycles = await jsonFetch(server, `/api/lifecycles`);
+  const stoppedLifecycleListItem = stoppedLifecycles.body.lifecycles.find((item) => item.resultId === activeLifecycle.body.resultId);
+  assert.equal(stoppedLifecycleListItem.active, false);
+  assert.equal(stoppedLifecycleListItem.finalState.kind, 'process-defect-stopped');
+  const stoppedGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
+  assert.equal(stoppedGraph.body.activeInferenceUnitId, null);
+  assert.equal(stoppedGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'process-defect-stopped'), true);
 
   const lifecycleSequencePath = path.join(tmp, 'dashboard-lifecycle-sequence.json');
   await writeFile(lifecycleSequencePath, `${JSON.stringify({

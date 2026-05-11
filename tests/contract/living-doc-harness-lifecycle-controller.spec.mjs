@@ -182,6 +182,109 @@ try {
   assert.match(secondPrompt, /Lifecycle input from previous iteration/);
   assert.match(secondPrompt, /previousRunId:/);
 
+  const resumePostFlightSequencePath = path.join(tmp, 'resume-post-flight-sequence.json');
+  await writeFile(resumePostFlightSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'criteria-pending-after-routing-fix',
+        unresolvedObjectiveTerms: ['objective proof must continue after routing fix'],
+        unprovenAcceptanceCriteria: ['criterion-post-flight-summary'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        finalMessageSummary: 'Worker stopped with pending criteria after the routing fix.',
+        traceMessage: 'Iteration one produced resumable evidence and mentioned post-flight before closure.',
+        reviewerVerdict: reviewerVerdict('resumable', {
+          reasonCode: 'criteria-pending-after-routing-fix',
+          mode: 'resume',
+          instruction: 'Resume the harness after the controller-owned routing fix, rerun the objective proof path, and continue until post-flight summary can run after closure.',
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        finalMessageSummary: 'Lifecycle controller proof is complete after resume.',
+        sideEffectEvidence: {
+          commit: {
+            sha: 'def5678',
+            required: true,
+          },
+        },
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const resumePostFlight = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'resume-post-flight-runs'),
+    evidenceDir: path.join(tmp, 'resume-post-flight-evidence'),
+    dashboardPath: path.join(tmp, 'resume-post-flight-dashboard.html'),
+    evidenceSequencePath: resumePostFlightSequencePath,
+    now: '2026-05-07T12:41:00.000Z',
+  });
+  const resumeOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), resumePostFlight.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(resumePostFlight.iterations[0].classification, 'resumable');
+  assert.equal(resumeOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(resumeOutputInput.nextUnit.unitId, 'worker');
+  assert.equal(resumeOutputInput.nextAction.action, 'start-next-worker-iteration');
+  assert.equal(resumeOutputInput.nextInput.mode, 'resume');
+  assert.notEqual(resumeOutputInput.postReviewSelection.nextUnit.unitId, 'post-flight-summary');
+
+  const commitPendingSequencePath = path.join(tmp, 'commit-pending-sequence.json');
+  await writeFile(commitPendingSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'input-contract-gate-implemented-source-and-tests-green-commit-evidence-pending',
+        unresolvedObjectiveTerms: ['fresh current-run commit evidence must be produced before closure'],
+        unprovenAcceptanceCriteria: ['criterion-side-effect-contracts', 'criterion-closure-gates'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        finalMessageSummary: 'Worker stopped with source and test proof but commit evidence is pending.',
+        traceMessage: 'Iteration one produced proof and mentioned commit evidence before closure review.',
+        reviewerVerdict: reviewerVerdict('resumable', {
+          reasonCode: 'commit-evidence-and-criteria-pending',
+          mode: 'continuation',
+          instruction: 'Continue by producing fresh current-run commit evidence, then run closure review and post-flight summary only after acceptance criteria pass.',
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        finalMessageSummary: 'Lifecycle controller proof is complete after commit evidence.',
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fedcba9',
+            required: true,
+          },
+        },
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const commitPending = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'commit-pending-runs'),
+    evidenceDir: path.join(tmp, 'commit-pending-evidence'),
+    dashboardPath: path.join(tmp, 'commit-pending-dashboard.html'),
+    evidenceSequencePath: commitPendingSequencePath,
+    now: '2026-05-07T12:42:00.000Z',
+  });
+  const commitPendingOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), commitPending.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(commitPending.iterations[0].classification, 'resumable');
+  assert.equal(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(commitPendingOutputInput.nextUnit.unitId, 'worker');
+  assert.equal(commitPendingOutputInput.nextAction.action, 'start-next-worker-iteration');
+  assert.equal(commitPendingOutputInput.nextInput.mode, 'continuation');
+  assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
+  assert.equal(commitPending.iterations[0].closureReviewResultPath, null);
+
   const terminalSequencePath = path.join(tmp, 'terminal-sequence.json');
   await writeFile(terminalSequencePath, `${JSON.stringify({
     iterations: [
