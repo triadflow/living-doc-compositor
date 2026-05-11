@@ -13,7 +13,7 @@ import { spawn } from 'node:child_process';
 import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
 import { writeContractBoundInferenceUnitSnapshot } from './living-doc-harness-inference-unit.mjs';
 import { resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
-import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
+import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, getInferenceUnitType, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -43,13 +43,56 @@ async function writeJson(filePath, value) {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+async function readJson(filePath, fallback = null) {
+  try {
+    return JSON.parse(await readFile(filePath, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
 async function appendJsonl(filePath, event) {
   await writeFile(filePath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', flag: 'a' });
 }
 
-function buildPrompt(doc, { docPath, runId, lifecycleInput = null }) {
+function unique(values) {
+  return [...new Set(arr(values).filter(Boolean))];
+}
+
+function unitArtifactKey(unitTypeId) {
+  if (unitTypeId === 'worker') return 'workerInferenceUnit';
+  return `${String(unitTypeId).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}InferenceUnit`;
+}
+
+function sequenceForUnit(unitTypeId) {
+  return {
+    worker: 1,
+    'reviewer-inference': 2,
+    'closure-review': 3,
+    'living-doc-balance-scan': 4,
+    'commit-intent': 4,
+    'pr-review': 5,
+    'repair-skill': 6,
+    'continuation-inference': 7,
+    'post-flight-summary': 8,
+  }[unitTypeId] || 1;
+}
+
+function selectedInitialUnit(lifecycleInput) {
+  const unitId = lifecycleInput?.nextUnit?.unitId || lifecycleInput?.selectedUnitType || 'worker';
+  const type = getInferenceUnitType(unitId);
+  return {
+    unitId: type.id,
+    role: lifecycleInput?.nextUnit?.role || type.role || type.id,
+    type,
+  };
+}
+
+function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }) {
   const lines = [
     'You are running inside the standalone agentic living-doc harness.',
+    `This run is a contract-bound inference unit of type: ${initialUnit.unitId}.`,
+    `Role: ${initialUnit.role}.`,
     '',
     'Objective:',
     doc.objective || '(missing objective)',
@@ -79,9 +122,17 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null }) {
       `- instruction: ${lifecycleInput.instruction || 'none'}`,
       `- handoverPath: ${lifecycleInput.handoverPath || 'none'}`,
       `- outputInputPath: ${lifecycleInput.outputInputPath || 'none'}`,
+      `- selectedUnitType: ${lifecycleInput.selectedUnitType || lifecycleInput.nextUnit?.unitId || 'none'}`,
       '',
       'Use this lifecycle input as the next controlled input. Continue while the lifecycle input is actionable.',
     );
+    if (lifecycleInput.nextUnit) {
+      lines.push(
+        '',
+        'Selected next unit contract:',
+        JSON.stringify(lifecycleInput.nextUnit, null, 2),
+      );
+    }
   }
   return lines.join('\n');
 }
@@ -123,6 +174,8 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, 
       instruction: lifecycleInput.instruction || null,
       handoverPath: lifecycleInput.handoverPath || null,
       outputInputPath: lifecycleInput.outputInputPath || null,
+      selectedUnitType: lifecycleInput.selectedUnitType || lifecycleInput.nextUnit?.unitId || null,
+      nextUnit: lifecycleInput.nextUnit || null,
     } : null,
     requiredInspectionPaths: [docPath],
     toolProfile,
@@ -131,6 +184,183 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, 
       'run reviewer inference from inside worker inference',
       'decide terminal closure without reviewer inference',
     ],
+  };
+}
+
+async function previousOutputInputContext({ cwd, lifecycleInput }) {
+  const outputInputPath = lifecycleInput?.outputInputPath ? path.resolve(cwd, lifecycleInput.outputInputPath) : null;
+  const outputInput = outputInputPath ? await readJson(outputInputPath, null) : null;
+  const previousRunDir = outputInputPath ? path.dirname(path.dirname(outputInputPath)) : null;
+  const evidencePath = outputInput?.previousOutput?.evidencePath && previousRunDir
+    ? path.resolve(previousRunDir, outputInput.previousOutput.evidencePath)
+    : null;
+  const evidence = evidencePath ? await readJson(evidencePath, null) : null;
+  return { outputInputPath, outputInput, previousRunDir, evidencePath, evidence };
+}
+
+function commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd }) {
+  return unique([
+    docPath,
+    lifecycleInput?.outputInputPath || null,
+    ...arr(lifecycleInput?.nextUnit?.requiredInputPaths),
+    previous?.evidencePath ? path.relative(cwd, previous.evidencePath) : null,
+  ]);
+}
+
+async function buildInitialInputContract({
+  doc,
+  docPath,
+  runId,
+  iteration,
+  lifecycleInput = null,
+  toolProfile = null,
+  allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  initialUnit,
+  cwd,
+}) {
+  if (initialUnit.unitId === 'worker') {
+    return buildWorkerInputContract({ doc, docPath, runId, lifecycleInput, toolProfile, allowedUnitTypes });
+  }
+
+  const previous = await previousOutputInputContext({ cwd, lifecycleInput });
+  const requiredInspectionPaths = commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd });
+  const evidenceChangedFiles = arr(previous.evidence?.workerEvidence?.filesChanged).length
+    ? arr(previous.evidence.workerEvidence.filesChanged)
+    : arr(previous.evidence?.requiredHardFacts?.dirtyTrackedFiles);
+  const nextUnit = lifecycleInput?.nextUnit || {};
+
+  if (initialUnit.unitId === 'commit-intent') {
+    return {
+      schema: 'living-doc-harness-commit-intent-input/v1',
+      runId,
+      iteration,
+      changedFiles: unique([...evidenceChangedFiles, ...arr(nextUnit.changedFiles)]),
+      commitIntent: previous.evidence?.commitIntent || previous.evidence?.sideEffectEvidence?.commit || {
+        mode: 'required-before-closure',
+        reason: nextUnit.reasonCode || 'commit-intent-selected-by-reviewer-contract',
+      },
+      lifecycleInput,
+      requiredInspectionPaths,
+    };
+  }
+
+  if (initialUnit.unitId === 'continuation-inference') {
+    return {
+      schema: 'living-doc-continuation-input/v1',
+      runId,
+      iteration,
+      reasonCode: nextUnit.reasonCode || previous.outputInput?.previousOutput?.classification || 'continuation-required',
+      lifecycleInput,
+      requiredInspectionPaths,
+    };
+  }
+
+  if (initialUnit.unitId === 'living-doc-balance-scan') {
+    return {
+      schema: 'living-doc-repair-skill-chain-input/v1',
+      runId,
+      iteration,
+      livingDocPath: docPath,
+      reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || nextUnit.reviewerVerdictPath || null,
+      handoverPath: previous.outputInput?.previousOutput?.handoverPath || lifecycleInput?.handoverPath || null,
+      lifecycleInput,
+      requiredInspectionPaths,
+    };
+  }
+
+  if (initialUnit.unitId === 'pr-review') {
+    return {
+      schema: 'living-doc-harness-pr-review-input/v1',
+      runId,
+      iteration,
+      reviewTarget: previous.evidence?.prReview?.reviewTarget || previous.evidence?.prReview?.url || 'configured-pr-review-target',
+      lifecycleInput,
+      requiredInspectionPaths,
+    };
+  }
+
+  if (initialUnit.unitId === 'closure-review') {
+    return {
+      schema: 'living-doc-harness-closure-review-input/v1',
+      runId,
+      iteration,
+      evidencePath: previous.outputInput?.previousOutput?.evidencePath || null,
+      reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || null,
+      proofGates: previous.evidence?.proofGates || {},
+      stopVerdict: previous.outputInput?.previousOutput || {},
+      lifecycleInput,
+      requiredInspectionPaths,
+    };
+  }
+
+  return {
+    schema: initialUnit.type.inputContract.schema,
+    runId,
+    iteration,
+    lifecycleInput,
+    requiredInspectionPaths,
+  };
+}
+
+function preparedOutputContract({ unitTypeId, runId, docPath, inputContract, status }) {
+  if (unitTypeId === 'worker') {
+    return {
+      schema: 'living-doc-worker-output/v1',
+      status,
+      runId,
+      livingDocPath: docPath,
+      lifecycleInput: inputContract.lifecycleInput,
+      nextAuthority: 'reviewer-inference',
+    };
+  }
+  if (unitTypeId === 'commit-intent') {
+    return {
+      schema: 'living-doc-harness-commit-intent-result/v1',
+      approved: false,
+      status,
+      changedFiles: arr(inputContract.changedFiles),
+      message: `${unitTypeId} unit ${status}; final verdict comes from its output contract after execution.`,
+      sideEffect: { type: 'git-commit', executed: false, reasonCode: 'unit-not-finalized' },
+    };
+  }
+  if (unitTypeId === 'pr-review') {
+    return {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status,
+      approvedActions: [],
+      sideEffect: { type: 'github-pr-review', executed: false, reasonCode: 'unit-not-finalized' },
+    };
+  }
+  if (unitTypeId === 'continuation-inference') {
+    return {
+      schema: 'living-doc-continuation-result/v1',
+      status,
+      basis: [`${unitTypeId} unit ${status}.`],
+      nextRecommendedUnitType: 'worker',
+    };
+  }
+  if (unitTypeId === 'living-doc-balance-scan') {
+    return {
+      schema: 'living-doc-balance-scan-result/v1',
+      status,
+      basis: [`${unitTypeId} unit ${status}.`],
+      orderedSkills: [],
+    };
+  }
+  if (unitTypeId === 'closure-review') {
+    return {
+      schema: 'living-doc-harness-closure-review/v1',
+      approved: false,
+      reasonCode: 'unit-not-finalized',
+      confidence: 'low',
+      basis: [`${unitTypeId} unit ${status}.`],
+      terminalAllowed: false,
+    };
+  }
+  return {
+    schema: getInferenceUnitType(unitTypeId).outputContract.schema,
+    status,
+    basis: [`${unitTypeId} unit ${status}.`],
   };
 }
 
@@ -246,18 +476,22 @@ export async function createHarnessRun({
   const codexStderrPath = path.join(turnsDir, 'codex-stderr.log');
   const resolvedToolProfile = resolveInferenceToolProfile(toolProfile, { cwd });
   const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
-  const prompt = `${buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput })}
+  const initialUnit = selectedInitialUnit(lifecycleInput);
+  const prompt = `${buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput, initialUnit })}
 
 Harness tool profile:
 ${JSON.stringify(resolvedToolProfile, null, 2)}
 `;
-  const workerInputContract = buildWorkerInputContract({
+  const initialInputContract = await buildInitialInputContract({
     doc,
     docPath: relativeDocPath,
     runId,
+    iteration,
     lifecycleInput,
     toolProfile: resolvedToolProfile,
     allowedUnitTypes: normalizedAllowedUnitTypes,
+    initialUnit,
+    cwd,
   });
   const promptPath = path.join(runDir, 'prompt.md');
   const absoluteCodexHome = path.resolve(cwd, codexHome);
@@ -283,7 +517,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       cwd,
       env: {
         CODEX_HOME: absoluteCodexHome,
-        LIVING_DOC_HARNESS_ROLE: 'worker',
+        LIVING_DOC_HARNESS_ROLE: initialUnit.unitId,
       },
       toolProfile: {
         name: resolvedToolProfile.name,
@@ -302,7 +536,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     runConfig: {
       schema: 'living-doc-harness-run-inference-config/v1',
       allowedUnitTypes: normalizedAllowedUnitTypes,
-      initialUnitType: 'worker',
+      initialUnitType: initialUnit.unitId,
+      initialUnitRole: initialUnit.role,
       registrySchema: 'living-doc-harness-inference-unit-type-registry/v1',
     },
     artifacts: {
@@ -322,6 +557,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       instruction: lifecycleInput.instruction || null,
       handoverPath: lifecycleInput.handoverPath || null,
       outputInputPath: lifecycleInput.outputInputPath || null,
+      selectedUnitType: lifecycleInput.selectedUnitType || lifecycleInput.nextUnit?.unitId || null,
+      nextUnit: lifecycleInput.nextUnit || null,
     } : null,
   };
 
@@ -354,44 +591,47 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     command: codexCommand,
   });
 
-  const initialWorkerUnit = await writeContractBoundInferenceUnitSnapshot({
+  const initialUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,
     iteration,
-    sequence: 1,
-    unitId: 'worker',
-    role: 'worker',
-    unitTypeId: 'worker',
+    sequence: sequenceForUnit(initialUnit.unitId),
+    unitId: initialUnit.unitId,
+    role: initialUnit.role,
+    unitTypeId: initialUnit.unitId,
     allowedUnitTypes: normalizedAllowedUnitTypes,
     prompt,
-    inputContract: workerInputContract,
+    inputContract: initialInputContract,
     mode: execute ? 'external-headless-codex-starting' : 'prepared',
     status: execute ? 'starting' : 'prepared',
     basis: [
       execute
-        ? 'Worker inference unit prepared before launching the externally managed headless Codex process.'
-        : 'Worker inference unit prepared without launching Codex because execute is false.',
+        ? `${initialUnit.unitId} inference unit prepared before launching the externally managed headless Codex process.`
+        : `${initialUnit.unitId} inference unit prepared without launching Codex because execute is false.`,
     ],
-    outputContract: {
-      schema: 'living-doc-worker-output/v1',
-      status: execute ? 'starting' : 'prepared',
+    outputContract: preparedOutputContract({
+      unitTypeId: initialUnit.unitId,
       runId,
-      livingDocPath: relativeDocPath,
-      lifecycleInput: workerInputContract.lifecycleInput,
-      nextAuthority: 'reviewer-inference',
-    },
+      docPath: relativeDocPath,
+      inputContract: initialInputContract,
+      status: execute ? 'starting' : 'prepared',
+    }),
     now,
     cwd,
     toolProfile: resolvedToolProfile,
   });
-  contract.artifacts.workerInferenceUnit = {
-    result: path.relative(runDir, initialWorkerUnit.resultPath),
-    validation: path.relative(runDir, initialWorkerUnit.validationPath),
-    inputContract: path.relative(runDir, initialWorkerUnit.inputContractPath),
-    prompt: path.relative(runDir, initialWorkerUnit.promptPath),
-    codexEvents: path.relative(runDir, initialWorkerUnit.codexEventsPath),
-    lastMessage: path.relative(runDir, initialWorkerUnit.lastMessagePath),
-    stderr: path.relative(runDir, initialWorkerUnit.stderrPath),
+  const initialUnitArtifact = {
+    unitId: initialUnit.unitId,
+    role: initialUnit.role,
+    result: path.relative(runDir, initialUnitSnapshot.resultPath),
+    validation: path.relative(runDir, initialUnitSnapshot.validationPath),
+    inputContract: path.relative(runDir, initialUnitSnapshot.inputContractPath),
+    prompt: path.relative(runDir, initialUnitSnapshot.promptPath),
+    codexEvents: path.relative(runDir, initialUnitSnapshot.codexEventsPath),
+    lastMessage: path.relative(runDir, initialUnitSnapshot.lastMessagePath),
+    stderr: path.relative(runDir, initialUnitSnapshot.stderrPath),
   };
+  contract.artifacts.initialInferenceUnit = initialUnitArtifact;
+  contract.artifacts[unitArtifactKey(initialUnit.unitId)] = initialUnitArtifact;
   await writeJson(path.join(runDir, 'contract.json'), contract);
 
   if (!execute) {
@@ -410,7 +650,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     env: {
       ...process.env,
       CODEX_HOME: absoluteCodexHome,
-      LIVING_DOC_HARNESS_ROLE: 'worker',
+      LIVING_DOC_HARNESS_ROLE: initialUnit.unitId,
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -481,16 +721,16 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     await attachTraceSummaryToRun({ runDir, tracePath: trace.path, now: finishedAt });
   }
   const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
-  const finalWorkerUnit = await writeContractBoundInferenceUnitSnapshot({
+  const finalUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,
     iteration,
-    sequence: 1,
-    unitId: 'worker',
-    role: 'worker',
-    unitTypeId: 'worker',
+    sequence: sequenceForUnit(initialUnit.unitId),
+    unitId: initialUnit.unitId,
+    role: initialUnit.role,
+    unitTypeId: initialUnit.unitId,
     allowedUnitTypes: normalizedAllowedUnitTypes,
     prompt,
-    inputContract: workerInputContract,
+    inputContract: initialInputContract,
     sourcePaths: {
       codexEventsPath,
       stderrPath: codexStderrPath,
@@ -499,35 +739,40 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     mode: 'external-headless-codex',
     status: finalContract.status,
     basis: [
-      `Worker headless Codex process exited with code ${exitCode}.`,
+      `${initialUnit.unitId} headless Codex process exited with code ${exitCode}.`,
       'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',
     ],
     outputContract: {
-      schema: 'living-doc-worker-output/v1',
-      status: finalContract.status,
-      runId,
+      ...preparedOutputContract({
+        unitTypeId: initialUnit.unitId,
+        runId,
+        docPath: relativeDocPath,
+        inputContract: initialInputContract,
+        status: finalContract.status,
+      }),
       exitCode,
-      livingDocPath: relativeDocPath,
-      lifecycleInput: workerInputContract.lifecycleInput,
       codexEventsPath: path.relative(runDir, codexEventsPath),
       lastMessagePath: path.relative(runDir, lastMessagePath),
       stderrPath: path.relative(runDir, codexStderrPath),
       nativeTraceRefs: finalContract.artifacts.nativeTraceRefs,
-      nextAuthority: 'reviewer-inference',
     },
     now: finishedAt,
     cwd,
     toolProfile: resolvedToolProfile,
   });
-  finalContract.artifacts.workerInferenceUnit = {
-    result: path.relative(runDir, finalWorkerUnit.resultPath),
-    validation: path.relative(runDir, finalWorkerUnit.validationPath),
-    inputContract: path.relative(runDir, finalWorkerUnit.inputContractPath),
-    prompt: path.relative(runDir, finalWorkerUnit.promptPath),
-    codexEvents: path.relative(runDir, finalWorkerUnit.codexEventsPath),
-    lastMessage: path.relative(runDir, finalWorkerUnit.lastMessagePath),
-    stderr: path.relative(runDir, finalWorkerUnit.stderrPath),
+  const finalUnitArtifact = {
+    unitId: initialUnit.unitId,
+    role: initialUnit.role,
+    result: path.relative(runDir, finalUnitSnapshot.resultPath),
+    validation: path.relative(runDir, finalUnitSnapshot.validationPath),
+    inputContract: path.relative(runDir, finalUnitSnapshot.inputContractPath),
+    prompt: path.relative(runDir, finalUnitSnapshot.promptPath),
+    codexEvents: path.relative(runDir, finalUnitSnapshot.codexEventsPath),
+    lastMessage: path.relative(runDir, finalUnitSnapshot.lastMessagePath),
+    stderr: path.relative(runDir, finalUnitSnapshot.stderrPath),
   };
+  finalContract.artifacts.initialInferenceUnit = finalUnitArtifact;
+  finalContract.artifacts[unitArtifactKey(initialUnit.unitId)] = finalUnitArtifact;
   await writeJson(path.join(runDir, 'contract.json'), finalContract);
   const finalState = JSON.parse(await readFile(path.join(runDir, 'state.json'), 'utf8'));
   finalState.nextAction = finalContract.artifacts.nativeTraceRefs.length

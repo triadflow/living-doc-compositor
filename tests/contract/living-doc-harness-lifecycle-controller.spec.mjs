@@ -420,6 +420,24 @@ try {
   assert.notEqual(closureCandidateCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
   assert.match(closureCandidateCommitGateOutputInput.postReviewSelection.nextUnit.resultPath, /inference-units\/iteration-1\/04-commit-intent\/result\.json$/);
   assert.equal(closureCandidateCommitGateSelection.contractValidation.ok, true);
+  const closureCandidateCommitGateContinuationContract = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    closureCandidateCommitGate.iterations[1].runDir,
+    'contract.json',
+  ), 'utf8'));
+  assert.equal(closureCandidateCommitGateContinuationContract.runConfig.initialUnitType, 'commit-intent');
+  assert.equal(closureCandidateCommitGateContinuationContract.process.env.LIVING_DOC_HARNESS_ROLE, 'commit-intent');
+  assert.equal(closureCandidateCommitGateContinuationContract.lifecycleInput.selectedUnitType, 'commit-intent');
+  assert.equal(closureCandidateCommitGateContinuationContract.lifecycleInput.nextUnit.unitId, 'commit-intent');
+  assert.equal(closureCandidateCommitGateContinuationContract.artifacts.initialInferenceUnit.unitId, 'commit-intent');
+  assert.equal(closureCandidateCommitGateContinuationContract.artifacts.workerInferenceUnit, undefined);
+  const closureCandidateCommitGateContinuationInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    closureCandidateCommitGate.iterations[1].runDir,
+    closureCandidateCommitGateContinuationContract.artifacts.initialInferenceUnit.inputContract,
+  ), 'utf8'));
+  assert.equal(closureCandidateCommitGateContinuationInput.schema, 'living-doc-harness-commit-intent-input/v1');
+  assert.equal(closureCandidateCommitGateContinuationInput.lifecycleInput.nextUnit.unitId, 'commit-intent');
   assert.equal(closureCandidateCommitGate.iterations[1].classification, 'closed');
   assert.equal(closureCandidateCommitGate.finalState.kind, 'closed');
 

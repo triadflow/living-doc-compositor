@@ -166,6 +166,7 @@ async function assertRequiredInspectionPaths({ eventsPath, requiredInspectionPat
 
 export function validateInferenceUnitResult(result) {
   const violations = [];
+  const lifecycleStatuses = new Set(['prepared', 'starting', 'running', 'finished', 'failed']);
   if (result?.schema !== 'living-doc-contract-bound-inference-result/v1') {
     violations.push({ path: '$.schema', message: 'schema must be living-doc-contract-bound-inference-result/v1' });
   }
@@ -194,7 +195,14 @@ export function validateInferenceUnitResult(result) {
   }
   try {
     const type = getInferenceUnitType(result?.unitType?.unitTypeId || result?.unitId);
-    if (!type.outputVerdicts.includes(result?.status)) {
+    const statusAllowed = type.outputVerdicts.includes(result?.status)
+      || (lifecycleStatuses.has(result?.status) && [
+        'prepared',
+        'snapshot',
+        'external-headless-codex-starting',
+        'external-headless-codex',
+      ].includes(result?.mode));
+    if (!statusAllowed) {
       violations.push({ path: '$.status', message: `status must be one of registered output verdicts: ${type.outputVerdicts.join(', ')}` });
     }
     if (result?.outputContract?.schema !== type.outputContract.schema) {

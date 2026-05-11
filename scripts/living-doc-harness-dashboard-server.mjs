@@ -766,15 +766,17 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     const runId = contract?.runId || path.basename(runDir);
     const previousIteration = Number(contract?.lifecycleInput?.previousIteration);
     const iteration = Number.isFinite(previousIteration) ? previousIteration + 1 : index + 1;
-    const workerUnit = contract?.artifacts?.workerInferenceUnit || {};
-    const workerId = `iteration-${iteration}-worker`;
+    const initialUnitType = contract?.runConfig?.initialUnitType || contract?.artifacts?.initialInferenceUnit?.unitId || 'worker';
+    const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
+    const workerUnit = contract?.artifacts?.initialInferenceUnit || contract?.artifacts?.workerInferenceUnit || {};
+    const workerId = `iteration-${iteration}-${initialUnitType}`;
     const workerStatus = !lifecycleRunning && stoppedInferenceUnitId === workerId
       ? active.finalState?.kind || active.status || 'stopped'
       : state.status || contract?.status || 'running';
     addNode(graphNode(workerId, {
       type: 'inference-unit',
-      role: 'worker',
-      label: `Iteration ${iteration} worker`,
+      role: initialUnitRole,
+      label: initialUnitType === 'worker' ? `Iteration ${iteration} worker` : `${initialUnitRole} iteration ${iteration}`,
       status: workerStatus,
       iteration,
       artifactPaths: {
@@ -810,8 +812,8 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
         exitCode: contract?.process?.exitCode ?? null,
       },
     }));
-    addEdge(graphEdge(`lifecycle-to-worker-${iteration}`, lifecycleNodeId, workerId, {
-      label: 'start worker iteration',
+    addEdge(graphEdge(`lifecycle-to-${initialUnitType}-${iteration}`, lifecycleNodeId, workerId, {
+      label: initialUnitType === 'worker' ? 'start worker iteration' : `start ${initialUnitType}`,
       status: 'recorded',
       contract: {
         inputContractPath: workerUnit.inputContract
@@ -821,8 +823,8 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.prompt }))
           : relativeTo(cwd, path.join(runDir, 'prompt.md')),
       },
-      gate: 'worker-contract-required',
-      lifecycleEffect: 'start-worker',
+      gate: `${initialUnitType}-contract-required`,
+      lifecycleEffect: initialUnitType === 'worker' ? 'start-worker' : `start-${initialUnitType}`,
     }));
 
     let previousNodeId = workerId;
@@ -880,8 +882,8 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
           toolProfile: firstToolProfile(reviewerResult, reviewerInput),
         },
       }));
-      addEdge(graphEdge(`worker-to-reviewer-${iteration}`, workerId, reviewerId, {
-        label: 'raw worker evidence review',
+      addEdge(graphEdge(`${initialUnitType}-to-reviewer-${iteration}`, workerId, reviewerId, {
+        label: initialUnitType === 'worker' ? 'raw worker evidence review' : `raw ${initialUnitType} evidence review`,
         status: 'recorded',
         contract: {
           promptPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerPromptRef })),
@@ -1057,13 +1059,15 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const contract = await readJson(path.join(runDir, 'contract.json'), {});
     const state = await readJson(path.join(runDir, 'state.json'), {});
     const facts = await collectRunEvidence(runDir).catch(() => ({}));
-    const workerUnit = contract.artifacts?.workerInferenceUnit || {};
+    const initialUnitType = contract?.runConfig?.initialUnitType || contract?.artifacts?.initialInferenceUnit?.unitId || 'worker';
+    const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
+    const workerUnit = contract.artifacts?.initialInferenceUnit || contract.artifacts?.workerInferenceUnit || {};
 
-    const workerId = `iteration-${iteration}-worker`;
+    const workerId = `iteration-${iteration}-${initialUnitType}`;
     addNode(graphNode(workerId, {
       type: 'inference-unit',
-      role: 'worker',
-      label: `Iteration ${iteration} worker`,
+      role: initialUnitRole,
+      label: initialUnitType === 'worker' ? `Iteration ${iteration} worker` : `${initialUnitRole} iteration ${iteration}`,
       status: state.status || contract.status || iterationRecord.classification || 'unknown',
       iteration,
       artifactPaths: {
@@ -1093,8 +1097,8 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         toolProfile: summarizeToolProfile(contract.process?.toolProfile),
       },
     }));
-    addEdge(graphEdge(`lifecycle-to-worker-${iteration}`, lifecycleNodeId, workerId, {
-      label: 'start worker iteration',
+    addEdge(graphEdge(`lifecycle-to-${initialUnitType}-${iteration}`, lifecycleNodeId, workerId, {
+      label: initialUnitType === 'worker' ? 'start worker iteration' : `start ${initialUnitType}`,
       status: 'recorded',
       contract: {
         inputContractPath: workerUnit.inputContract
@@ -1104,7 +1108,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.prompt }))
           : relativeTo(cwd, path.join(runDir, 'prompt.md')),
       },
-      lifecycleEffect: 'start-worker',
+      lifecycleEffect: initialUnitType === 'worker' ? 'start-worker' : `start-${initialUnitType}`,
     }));
 
     let previousNodeId = workerId;
@@ -1138,8 +1142,8 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           toolProfile: firstToolProfile(reviewerResult, reviewerInput),
         },
       }));
-      addEdge(graphEdge(`worker-to-reviewer-${iteration}`, workerId, reviewerId, {
-        label: 'raw worker evidence review',
+      addEdge(graphEdge(`${initialUnitType}-to-reviewer-${iteration}`, workerId, reviewerId, {
+        label: initialUnitType === 'worker' ? 'raw worker evidence review' : `raw ${initialUnitType} evidence review`,
         status: 'recorded',
         contract: {
           promptPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: reviewerVerdict.promptPath })),

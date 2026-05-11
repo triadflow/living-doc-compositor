@@ -328,6 +328,7 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
   const mode = ['none', 'user-stop'].includes(finalization.nextIteration?.mode)
     ? 'continuation'
     : finalization.nextIteration?.mode || 'continuation';
+  const nextUnit = finalization.postReviewSelection?.nextUnit || null;
   return {
     mode,
     previousRunId: finalization.runId,
@@ -336,6 +337,9 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
     handoverPath: finalization.handoverPath ? path.relative(process.cwd(), finalization.handoverPath) : null,
     repairSkillResultPath: finalization.repairSkillResultPath ? path.relative(process.cwd(), finalization.repairSkillResultPath) : null,
     outputInputPath: path.relative(process.cwd(), outputInputPath),
+    selectedUnitType: nextUnit?.unitId || null,
+    selectedUnitRole: nextUnit?.role || nextUnit?.unitId || null,
+    nextUnit,
   };
 }
 
