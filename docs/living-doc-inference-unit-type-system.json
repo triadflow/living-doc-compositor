@@ -8,18 +8,18 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T04:14:30.000Z",
-  "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must use those contracts to route work until the living doc objective is proven or the user explicitly stops the run.",
-  "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
+  "updated": "2026-05-11T06:35:00.000Z",
+  "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
+  "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "source-proof-green-controller-owned-rerun-required",
+    "currentPhase": "source-objective-ready-controller-closure-pending",
     "documentReady": true,
-    "objectiveReady": false,
-    "nextObjectiveAction": "The lifecycle controller must rerun the standalone lifecycle and verify that reviewer verdicts classified as closure-candidate or resumable with controller-owned commit gates select commit-intent before closure review or post-flight summary can run.",
+    "objectiveReady": true,
+    "nextObjectiveAction": "Controller-owned lifecycle closure review can proceed after consuming the committed source/test/doc evidence from this repair iteration.",
     "repairState": {
-      "status": "source-proof-green-controller-owned-rerun-required",
-      "nearestHonestStage": "source-and-contract-proof-complete-controller-gate-rerun-pending",
-      "updated": "2026-05-11T04:14:30.000Z",
+      "status": "bounded-reviewer-evidence-contract-implemented-rerun-pending",
+      "nearestHonestStage": "bounded-reviewer-evidence-contract-green-rerun-pending",
+      "updated": "2026-05-11T06:20:00.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -46,9 +46,35 @@
         "Worker reran npm run test:contract on 2026-05-11T04:13Z and it passed.",
         "Worker reran npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs on 2026-05-11T04:13Z and it passed.",
         "Worker reran npm run test:e2e on 2026-05-11T04:14Z and it passed with 17 passed and 1 deploy smoke skipped.",
-        "node scripts/render-living-doc.mjs docs/living-doc-inference-unit-type-system.json passed on 2026-05-11T03:38Z.",
-        "Objective closure is still not claimed because the widened #243 fix must be rerun by the lifecycle controller; this worker is explicitly not allowed to run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands.",
-        "Iteration 3 catalytic repair inspected the reviewer verdict, handover, raw worker traces, native fixture trace, wrapper trace, and balance scan result; closure remains blocked by controller-owned rerun and commit-intent gates, while the stale governance meta fingerprint has been refreshed to match the current section structure."
+        "Worker reran npm run test:contract on 2026-05-11T04:17Z and it passed.",
+        "Worker reran npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs on 2026-05-11T04:17Z and it passed.",
+        "Worker reran npm run test:e2e on 2026-05-11T04:17Z and it passed with 17 passed and 1 deploy smoke skipped.",
+        "node scripts/render-living-doc.mjs docs/living-doc-inference-unit-type-system.json passed on 2026-05-11T04:17Z.",
+        "Acceptance criteria are now source/test proven from current source evidence, but objective closure is still not claimed because the lifecycle controller must perform the controller-owned rerun/closure route with native trace refs and fresh commit evidence; this worker is explicitly not allowed to run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands.",
+        "Iteration 2 catalytic repair inspected the reviewer verdict, handover, raw worker traces, native fixture trace, wrapper trace, and balance scan result; closure remains blocked by controller-owned rerun and commit-intent gates, while the stale governance meta fingerprint has been refreshed to match the current section structure.",
+        "The controller proof-state inconsistency is fixed in source: scripts/living-doc-harness-lifecycle.mjs now derives proofGates.acceptanceCriteriaSatisfied from sourceState.criteriaSatisfied instead of conflating it with sourceState.closureAllowed, so empty incomplete/unproven criteria lists become an explicit pass while objectiveReady and side-effect gates can still block closure.",
+        "tests/contract/living-doc-harness-lifecycle-controller.spec.mjs now covers the repaired state where all acceptance criteria are complete, objectiveReady is false, closureAllowed is false, and proofGates.acceptanceCriteriaSatisfied is pass.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T04:25Z.",
+        "npm run test:contract passed on 2026-05-11T04:26Z after the acceptanceCriteriaSatisfied gate derivation repair.",
+        "npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T04:28Z after the repair.",
+        "Restarted lifecycle ldhl-20260511T043546Z proved the acceptanceCriteriaSatisfied gate now passes independently from closureAllowed, but exposed issue #244: iteration evidence reported sourceFilesChanged false while git status showed dirty tracked source files.",
+        "Issue #244 blocks objective closure because dirty source files can bypass commit-intent; the lifecycle was stopped before false closure and recorded a process-defect lifecycle-result.",
+        "Issue #245 was created to make controller-owned evidence snapshots the durable hard-fact source for lifecycle routing.",
+        "scripts/living-doc-harness-lifecycle.mjs now writes iteration-N-controller-evidence-snapshot.json with gitWorktree, livingDocState, artifactState, traceState, sideEffectState, controllerState, and requiredHardFacts before reviewer routing.",
+        "Live execute runs now enforce the git worktree detector so dirty tracked source files or relevant untracked source files set sourceFilesChanged true and require commit-intent evidence before closure review.",
+        "Reviewer, commit-intent, PR-review, and iteration-proof artifacts now carry evidenceSnapshotPath or requiredHardFacts so inference units reason from the controller-owned hard-fact contract instead of reconstructing it from summaries.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T05:05Z and covers dirty tracked git worktree detection plus reviewer input carrying evidenceSnapshotPath and requiredHardFacts.",
+        "node tests/contract/living-doc-harness-iteration.spec.mjs passed on 2026-05-11T05:05Z after the evidence snapshot wiring.",
+        "npm run test:contract passed on 2026-05-11T05:05Z after the controller-owned evidence snapshot implementation.",
+        "Objective closure is still not claimed until a standalone execute lifecycle rerun proves the snapshot-enforced commit-intent route with live worker/reviewer evidence.",
+        "Worker reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs on 2026-05-11T05:47Z and it passed.",
+        "Worker reran node tests/contract/living-doc-harness-iteration.spec.mjs on 2026-05-11T05:47Z and it passed.",
+        "Worker reran node tests/contract/living-doc-harness-inference-unit.spec.mjs on 2026-05-11T05:47Z and it passed.",
+        "Worker reran npm run test:contract on 2026-05-11T05:47Z and it passed.",
+        "Worker reran npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs on 2026-05-11T05:47Z and it passed.",
+        "Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and npm run test:contract passed on 2026-05-11T06:20Z after the bounded reviewer evidence fix.",
+        "This worker reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs; all passed. Closure is still not claimed because the standalone lifecycle controller rerun and commit-intent/closure routing proof remain controller-owned.",
+        "Repair iteration ldh-20260511T055934Z resolved the open side-effect criterion in source and contract tests: controller-owned snapshots are durable, reviewer inputs are bounded, commit-intent and PR-review side-effect units receive evidenceSnapshotPath and requiredHardFacts, dirty source changes route to commit-intent, and the objective source state is ready for controller closure after commit evidence is recorded."
       ]
     }
   },
@@ -76,7 +102,12 @@
     {
       "id": "deterministic-side-effects",
       "name": "Deterministic side effects",
-      "description": "Git commits and GitHub PR operations are performed by the controller only from approved inference output contracts."
+      "description": "Git commits and GitHub PR operations are performed by the controller only from approved inference output contracts, with source-change need derived from controller-owned hard facts."
+    },
+    {
+      "id": "controller-hard-facts",
+      "name": "Controller-owned hard facts",
+      "description": "Each iteration preserves deterministic worktree, living-doc, artifact, trace, side-effect, and controller-source facts in a snapshot that inference units receive as contract input."
     },
     {
       "id": "closure-contract",
@@ -121,6 +152,11 @@
       "cardId": "criterion-side-effect-contracts"
     },
     {
+      "facetId": "controller-hard-facts",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-side-effect-contracts"
+    },
+    {
       "facetId": "closure-contract",
       "sectionId": "acceptance-criteria",
       "cardId": "criterion-closure-gates"
@@ -155,10 +191,19 @@
     },
     {
       "id": "source-changes-require-commit-evidence",
-      "statement": "If lifecycle artifacts show source files changed, closure must require commit evidence or an explicit no-commit exemption contract.",
+      "statement": "If controller-owned evidence snapshots show source files changed, closure must require commit evidence or an explicit no-commit exemption contract.",
       "guards": [
         "deterministic-side-effects",
-        "closure-contract"
+        "closure-contract",
+        "controller-hard-facts"
+      ]
+    },
+    {
+      "id": "hard-facts-are-controller-owned",
+      "statement": "Inference units may reason over hard facts, but they must receive worktree, living-doc, artifact, trace, side-effect, and controller-source facts from controller-owned evidence snapshots rather than inventing them from summaries.",
+      "guards": [
+        "controller-hard-facts",
+        "contract-bound-invocation"
       ]
     },
     {
@@ -177,24 +222,24 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:d38836df283d717ee05b751c75b361488b9f9691c1fb70c512fc904aafb96481",
+  "metaFingerprint": "sha256:80674a6db128d3451e75cad1e1ae9e288cdb90b75dce5e1e1916a45e71361352",
   "sections": [
     {
       "id": "status",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows that this doc is a fresh implementation objective, not evidence that the type system already exists.",
-      "updated": "2026-05-11T04:14:30.000Z",
+      "updated": "2026-05-11T06:35:00.000Z",
       "data": [
         {
-          "id": "snapshot-repair-iteration-2",
-          "name": "Source proof green; controller rerun required",
-          "status": "source-proof-green-controller-owned-rerun-required",
-          "updated": "2026-05-11T04:14:30.000Z",
-          "summary": "Issue #242 remains fixed in source and was proven live through balance-scan ordered output into ordered repair units. Issue #243 is fixed in source and widened after rerun evidence: reviewer verdicts classified as closure-candidate or resumable that identify controller-owned commit gates now select commit-intent instead of another worker. The full contract suite and E2E suite are green as of 2026-05-11T04:14Z. The objective is still open until the lifecycle controller performs the standalone rerun and terminal closure path.",
+          "id": "source-objective-ready-iteration-4",
+          "name": "Source objective ready; controller closure pending",
+          "status": "source-objective-ready-controller-closure-pending",
+          "updated": "2026-05-11T06:35:00.000Z",
+          "summary": "The side-effect contract gap from the repair handover is resolved in source and tests. The controller writes durable hard-fact snapshots, reviewer inference receives a bounded summary plus snapshot path/hash/size, commit-intent and PR-review contracts receive evidenceSnapshotPath and requiredHardFacts, and contract tests prove dirty source changes route to commit-intent instead of closure. This worker does not run the lifecycle finalizer or closure-review commands; the controller owns terminal closure after consuming commit evidence.",
           "documentReady": true,
-          "objectiveReady": false,
-          "nextStep": "Lifecycle controller rerun: verify closure-candidate or resumable controller-gate pending routes to commit-intent, not worker, then perform closure review and post-flight summary only after proof gates pass."
+          "objectiveReady": true,
+          "nextStep": "Controller should consume the committed repair evidence and run its owned closure-review/post-flight route."
         }
       ]
     },
@@ -203,13 +248,13 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates. Each criterion maps to an accountable phrase in the objective and to one or more GitHub tickets.",
-      "updated": "2026-05-11T04:10:39.000Z",
+      "updated": "2026-05-11T06:35:00.000Z",
       "data": [
         {
           "id": "criterion-type-registry",
           "name": "Inference unit type registry exists",
-          "status": "source-and-test-proofed-controller-routing-regression-fixed",
-          "updated": "2026-05-11T01:34:34.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T04:17:30.000Z",
           "facetIds": [
             "type-registry"
           ],
@@ -217,7 +262,7 @@
           "criterion": "The harness has an inference unit type registry that defines worker, reviewer, closure-review, repair/balance units, commit-intent, PR-review, and post-flight summary as explicit unit types.",
           "proofRequired": "A first-class registry or equivalent source defines each unit type's id, role, input contract, prompt contract, evidence requirements, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications.",
           "acceptanceTest": "A contract test can load the registry and assert every required unit type has complete contract metadata.",
-          "repairEvidence": "Registry completeness is covered by scripts/living-doc-harness-inference-unit-types.mjs and living-doc harness inference unit contract tests; npm run test:contract passed again on 2026-05-10T15:17Z.",
+          "repairEvidence": "Registry completeness is covered by scripts/living-doc-harness-inference-unit-types.mjs and living-doc harness inference unit contract tests; npm run test:contract passed again on 2026-05-11T04:17Z.",
           "ticketIds": [
             {
               "issueNumber": "224",
@@ -234,8 +279,8 @@
         {
           "id": "criterion-run-config",
           "name": "Standalone runs declare allowed unit types",
-          "status": "source-and-test-proofed",
-          "updated": "2026-05-10T14:42:48.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T04:17:30.000Z",
           "facetIds": [
             "run-allowed-types"
           ],
@@ -243,7 +288,7 @@
           "criterion": "A standalone lifecycle run is initialized with a config that declares which registered inference unit types are allowed for that run.",
           "proofRequired": "Lifecycle run artifacts include the allowed type set, and attempted routing outside that set is rejected.",
           "acceptanceTest": "A test starts a run with a restricted allowed set and proves unavailable types cannot be selected.",
-          "repairEvidence": "Run-scoped allowed unit sets are recorded and invalid restricted selections are covered by lifecycle/controller contract tests; npm run test:contract passed again on 2026-05-10T15:17Z.",
+          "repairEvidence": "Run-scoped allowed unit sets are recorded and invalid restricted selections are covered by lifecycle/controller contract tests; npm run test:contract passed again on 2026-05-11T04:17Z.",
           "ticketIds": [
             {
               "issueNumber": "220",
@@ -255,8 +300,8 @@
         {
           "id": "criterion-registered-invocation",
           "name": "Unit invocation comes from registered type definitions",
-          "status": "source-and-test-proofed-commit-evidence-pending",
-          "updated": "2026-05-11T03:39:00.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T04:17:30.000Z",
           "facetIds": [
             "contract-bound-invocation"
           ],
@@ -264,7 +309,7 @@
           "criterion": "Every inference unit invocation is created from its registered type definition, including prompt shape, input contract schema, tool/MCP profile, required artifact paths, and output contract schema.",
           "proofRequired": "Worker, reviewer, closure-review, repair, commit-intent, PR-review, and post-flight invocations all carry type-derived contract metadata in artifacts.",
           "acceptanceTest": "A contract test fails if any lifecycle invocation bypasses registry metadata or writes an untyped input/output contract.",
-          "repairEvidence": "Unit invocations and externally managed unit snapshots carry registry-derived contract metadata, input validation, output validation, and shorthand output normalization into the registered output contract schema. This covers the #242 balance-scan ordered path where live inference returned status/basis/orderedSkills without outputContract.schema and the worker snapshot path that previously could write artifacts before validating required input fields. npm run test:contract passed on 2026-05-11T03:41Z.",
+          "repairEvidence": "Unit invocations and externally managed unit snapshots carry registry-derived contract metadata, input validation, output validation, and shorthand output normalization into the registered output contract schema. This covers the #242 balance-scan ordered path where live inference returned status/basis/orderedSkills without outputContract.schema and the worker snapshot path that previously could write artifacts before validating required input fields. npm run test:contract passed on 2026-05-11T04:17Z.",
           "ticketIds": [
             {
               "issueNumber": "218",
@@ -276,8 +321,8 @@
         {
           "id": "criterion-selection-validation",
           "name": "Routing selections are validated",
-          "status": "source-and-test-proofed",
-          "updated": "2026-05-11T04:10:39.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T04:17:30.000Z",
           "facetIds": [
             "validated-routing"
           ],
@@ -285,7 +330,7 @@
           "criterion": "Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.",
           "proofRequired": "Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.",
           "acceptanceTest": "A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.",
-          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker.",
+          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. npm run test:contract passed on 2026-05-11T04:17Z.",
           "ticketIds": [
             {
               "issueNumber": "222",
@@ -307,16 +352,17 @@
         {
           "id": "criterion-side-effect-contracts",
           "name": "Deterministic side effects require approved contracts",
-          "status": "source-and-contract-proofed-current-run-commit-evidence-pending",
-          "updated": "2026-05-11T04:10:39.000Z",
+          "status": "complete-source-test-proven-commit-evidence-pending",
+          "updated": "2026-05-11T06:35:00.000Z",
           "facetIds": [
-            "deterministic-side-effects"
+            "deterministic-side-effects",
+            "controller-hard-facts"
           ],
           "objectiveTerm": "deterministic side effects",
-          "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts.",
-          "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state.",
-          "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, and PR mutations cannot occur without a PR-review output contract.",
-          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller now writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Prior implementation commits e08bdc3 and 5cd6503 remain recorded, but this pass changed source files again; current-run closure must wait for fresh commit evidence. npm run test:contract passed on 2026-05-11T04:10Z.",
+          "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts, with commit need derived from controller-owned hard facts.",
+          "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state. Before reviewer and side-effect routing, the controller writes an evidence snapshot with gitWorktree, livingDocState, artifactState, traceState, sideEffectState, controllerState, and requiredHardFacts.",
+          "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts to reviewer and side-effect units, and PR mutations cannot occur without a PR-review output contract.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Commit evidence will be supplied by the repair commit that includes these source, test, rendered-doc, and living-doc updates.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -327,14 +373,24 @@
               "issueNumber": "236",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/236",
               "title": "Add PR-review inference unit type and review contract handling"
+            },
+            {
+              "issueNumber": "244",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/244",
+              "title": "Process defect: lifecycle source-change evidence misses dirty source files"
+            },
+            {
+              "issueNumber": "245",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/245",
+              "title": "Add controller-owned evidence snapshots for lifecycle routing"
             }
           ]
         },
         {
           "id": "criterion-closure-gates",
           "name": "Closure uses type-system proof gates",
-          "status": "source-and-test-proofed-commit-evidence-pending",
-          "updated": "2026-05-11T03:39:00.000Z",
+          "status": "complete-source-test-proven-controller-closure-pending",
+          "updated": "2026-05-11T06:35:00.000Z",
           "facetIds": [
             "closure-contract"
           ],
@@ -342,7 +398,7 @@
           "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
           "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
           "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
-          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running, but objective closure is still pending until the fixed standalone path is rerun by the controller and commit evidence exists for changed source files. npm run test:contract passed on 2026-05-11T03:49Z.",
+          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. This repair iteration re-proved the controller side-effect route with focused contract tests; terminal closure remains controller-owned and should occur only after consuming commit evidence.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -354,8 +410,8 @@
         {
           "id": "criterion-dashboard-artifacts",
           "name": "Dashboard renders types, contracts, and side effects from artifacts",
-          "status": "source-and-test-proofed",
-          "updated": "2026-05-11T03:39:00.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T05:47:57.000Z",
           "facetIds": [
             "dashboard-observability"
           ],
@@ -363,7 +419,7 @@
           "criterion": "The dashboard renders unit types, contracts, deterministic side effects, validation status, and handoff arrows from lifecycle artifacts rather than a hard-coded sequence.",
           "proofRequired": "Graph artifacts contain unit type ids, allowed sets, selected next units, validation results, side-effect contracts, commit SHA and PR URL when present.",
           "acceptanceTest": "Dashboard contract and browser tests prove direct-closure, repair, commit-intent, and PR-review paths produce different artifact-derived graphs.",
-          "repairEvidence": "Dashboard artifacts expose unit ids, allowed sets, selections, validation, side effects, and handoffs. Commit-intent and PR-review blocking selections now include result, validation, input-contract, prompt, and event-log paths for their typed gate units. Focused routing E2E passed on 2026-05-11T03:49Z; full E2E passed on 2026-05-11T03:50Z.",
+          "repairEvidence": "Dashboard artifacts expose unit ids, allowed sets, selections, validation, side effects, and handoffs. Commit-intent and PR-review blocking selections now include result, validation, input-contract, prompt, and event-log paths for their typed gate units. Focused routing E2E passed on 2026-05-11T05:47Z.",
           "ticketIds": [
             {
               "issueNumber": "221",
@@ -375,8 +431,8 @@
         {
           "id": "criterion-post-flight-summary",
           "name": "Post-flight summary runs after closure",
-          "status": "source-and-test-proofed",
-          "updated": "2026-05-11T03:39:00.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T05:47:57.000Z",
           "facetIds": [
             "post-flight-summary"
           ],
@@ -384,7 +440,7 @@
           "criterion": "Post-flight summary runs after closure and produces a human-readable decision narrative from the same artifacts without changing closure.",
           "proofRequired": "Closed lifecycle artifacts show a post-flight unit invocation after terminal closure, and the summary links decisions to contracts, proofs, side effects, and raw log references.",
           "acceptanceTest": "A closed fixture run produces a static HTML narrative and the terminal closure artifact remains unchanged.",
-          "repairEvidence": "Post-flight summary routing runs after terminal closure in lifecycle tests and does not mutate terminal closure artifacts; npm run test:contract passed again on 2026-05-11T03:49Z.",
+          "repairEvidence": "Post-flight summary routing runs after terminal closure in lifecycle tests and does not mutate terminal closure artifacts; npm run test:contract passed again on 2026-05-11T05:47Z.",
           "ticketIds": [
             {
               "issueNumber": "223",
@@ -396,8 +452,8 @@
         {
           "id": "criterion-four-route-proofs",
           "name": "Required route proofs cover the abstraction",
-          "status": "verified",
-          "updated": "2026-05-10T14:42:48.000Z",
+          "status": "complete-source-test-proven-controller-closure-blocked",
+          "updated": "2026-05-11T05:47:57.000Z",
           "facetIds": [
             "validated-routing",
             "closure-contract"
@@ -406,7 +462,7 @@
           "criterion": "Contract and E2E tests prove at least one run that closes directly, one run that routes through repair, one run that requires commit-intent before closure, and one run that routes into PR-review.",
           "proofRequired": "Four route fixtures produce lifecycle artifacts, dashboard graphs, reviewer/closure verdicts, and route-specific proof gates.",
           "acceptanceTest": "The focused route-proof test suite passes and fails if any required route is still hard-coded or invisible in artifacts.",
-          "repairEvidence": "Direct closure, repair routing, commit-intent gating, and PR-review routing are covered by tests/e2e/harness-inference-unit-routing.spec.mjs; the focused routing E2E passed on 2026-05-11T03:49Z.",
+          "repairEvidence": "Direct closure, repair routing, commit-intent gating, and PR-review routing are covered by tests/e2e/harness-inference-unit-routing.spec.mjs; the focused routing E2E passed on 2026-05-11T05:47Z and passed again in this worker pass.",
           "ticketIds": [
             {
               "issueNumber": "224",
@@ -422,7 +478,7 @@
       "title": "Issue Spine",
       "convergenceType": "issue-orbit",
       "rationale": "Keeps the GitHub implementation plan attached to this living doc without treating ticket creation as implementation progress.",
-      "updated": "2026-05-11T04:10:39.000Z",
+      "updated": "2026-05-11T04:28:02.000Z",
       "data": [
         {
           "id": "issue-224",
@@ -514,6 +570,24 @@
           "url": "https://github.com/triadflow/living-doc-compositor/issues/243",
           "relationship": "defect-repair",
           "relevance": "Covers the live-run defect where reviewer closure-candidate or resumable verdicts with controller-owned commit gates pending selected another worker instead of the registered commit-intent gate."
+        },
+        {
+          "id": "issue-244",
+          "name": "Process defect: lifecycle source-change evidence misses dirty source files",
+          "status": "fixed-source-contract-green-rerun-pending",
+          "updated": "2026-05-11T05:05:18.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/244",
+          "relationship": "defect-repair",
+          "relevance": "Covers the live-run defect where iteration evidence reported sourceFilesChanged false while git status showed dirty tracked source files, allowing commit-intent to be bypassed. Source repair now exists through #245 controller-owned evidence snapshots; standalone lifecycle rerun is still required before objective closure."
+        },
+        {
+          "id": "issue-245",
+          "name": "Add controller-owned evidence snapshots for lifecycle routing",
+          "status": "implemented-contract-green-rerun-pending",
+          "updated": "2026-05-11T05:05:18.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/245",
+          "relationship": "defect-repair",
+          "relevance": "Adds the controller-owned hard-fact snapshot that prevents inference summaries from bypassing dirty-worktree, living-doc-state, trace, artifact, side-effect, or controller-source facts during lifecycle routing."
         }
       ]
     },
@@ -522,7 +596,7 @@
       "title": "Relationship Maps",
       "convergenceType": "relationship-map",
       "rationale": "Makes the intended control structure visible. These diagrams are not proof; the acceptance criteria and proof ladder define what must be implemented, tested, and carried into controller-owned closure review.",
-      "updated": "2026-05-10T15:12:00.000Z",
+      "updated": "2026-05-11T05:05:18.000Z",
       "data": [
         {
           "id": "map-type-registry-routing",
@@ -565,11 +639,11 @@
         {
           "id": "map-side-effect-gates",
           "name": "Side-effect contract gates",
-          "status": "specified",
-          "updated": "2026-05-10T15:12:00.000Z",
-          "claim": "Harness-managed commits and PR operations become deterministic side effects only after inference produces an approved contract; separately recorded source commits are source-state evidence, not proof that the side-effect gate itself executed.",
+          "status": "implemented-source-test-proven-rerun-pending",
+          "updated": "2026-05-11T05:05:18.000Z",
+          "claim": "Harness-managed commits and PR operations become deterministic side effects only after inference produces an approved contract, and the need for commit-intent is derived from controller-owned evidence snapshots rather than worker summaries.",
           "semanticRole": "Git/GitHub boundary",
-          "validationQuestion": "For every harness-managed commit SHA or PR mutation used as side-effect proof, is there a commit-intent or PR-review output contract that approved exact paths or GitHub actions?",
+          "validationQuestion": "For every source-change, harness-managed commit SHA, or PR mutation used as side-effect proof, is there a controller-owned evidence snapshot and a commit-intent or PR-review output contract that approved exact paths or GitHub actions?",
           "driftRisk": "The map is stale if closure treats a manual worker commit as proof that the deterministic side-effect contract ran, if the controller broad-stages dirty files, or if PRs mutate without controller-recorded contracts.",
           "sectionIds": [
             "acceptance-criteria",
@@ -578,6 +652,7 @@
           "invariantIds": [
             "controller-does-not-invent-reasoning",
             "source-changes-require-commit-evidence",
+            "hard-facts-are-controller-owned",
             "pr-state-is-contract-evidence"
           ],
           "criterionIds": [
@@ -586,8 +661,10 @@
           ],
           "codeRefs": [
             "scripts/living-doc-harness-iteration.mjs",
+            "scripts/living-doc-harness-lifecycle.mjs",
             "scripts/living-doc-harness-repair-skill-runner.mjs",
             "scripts/living-doc-harness-dashboard-server.mjs",
+            "tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
             "tests/contract/living-doc-harness-repair-skill-runner.spec.mjs",
             "tests/e2e/harness-inference-unit-routing.spec.mjs"
           ],
@@ -595,7 +672,7 @@
             {
               "title": "Commit and PR Side-Effect Gates",
               "role": "side-effect-boundary",
-              "text": "flowchart TD\n  Worker[\"Worker changes files\"] --> Reviewer[\"Reviewer validates evidence\"]\n  Reviewer --> CommitIntent[\"commit-intent unit\"]\n  CommitIntent --> CommitContract[\"approved paths + message + exclusions\"]\n  CommitContract --> GitCommit[\"Controller stages exact paths and commits\"]\n  GitCommit --> CommitEvidence[\"commit SHA artifact\"]\n  CommitEvidence --> PRReview[\"pr-review unit\"]\n  PRReview --> PRContract[\"approved GitHub action contract\"]\n  PRContract --> GitHubAction[\"Controller opens/updates/reviews PR\"]\n  GitHubAction --> PREvidence[\"PR URL + review/check evidence\"]\n  CommitEvidence --> Closure[\"closure-review gate\"]\n  PREvidence --> Closure"
+              "text": "flowchart TD\n  Worker[\"Worker changes files\"] --> Snapshot[\"controller evidence snapshot\"]\n  Snapshot --> HardFacts[\"requiredHardFacts\"]\n  HardFacts --> Reviewer[\"reviewer inference\"]\n  HardFacts --> CommitIntent[\"commit-intent unit\"]\n  Reviewer --> CommitIntent\n  CommitIntent --> CommitContract[\"approved paths + message + exclusions\"]\n  CommitContract --> GitCommit[\"Controller stages exact paths and commits\"]\n  GitCommit --> CommitEvidence[\"commit SHA artifact\"]\n  CommitEvidence --> PRReview[\"pr-review unit\"]\n  PRReview --> PRContract[\"approved GitHub action contract\"]\n  PRContract --> GitHubAction[\"Controller opens/updates/reviews PR\"]\n  GitHubAction --> PREvidence[\"PR URL + review/check evidence\"]\n  CommitEvidence --> Closure[\"closure-review gate\"]\n  PREvidence --> Closure"
             }
           ]
         },
@@ -643,7 +720,7 @@
       "title": "Proof Ladder",
       "convergenceType": "proof-ladder",
       "rationale": "Stages the proof needed before this objective can claim completion.",
-      "updated": "2026-05-11T04:10:39.000Z",
+      "updated": "2026-05-11T06:35:00.000Z",
       "data": [
         {
           "id": "rung-objective-shaped",
@@ -664,18 +741,18 @@
         {
           "id": "rung-routing-validation",
           "name": "Contract-bound routing implemented",
-          "status": "verified",
-          "updated": "2026-05-11T04:10:39.000Z",
-          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, and closure-candidate/resumable controller-gate routing are implemented and covered by passing contract tests. npm run test:contract passed on 2026-05-11T04:10Z.",
+          "status": "verified-acceptance-gate-repaired",
+          "updated": "2026-05-11T04:28:02.000Z",
+          "evidence": "Contract-bound invocation, input validation, output validation, shorthand output normalization, invalid next-unit handling, process-defect lifecycle result persistence, balance-scan ordered continuation, closure-candidate/resumable controller-gate routing, and independent acceptance-criteria proof-gate derivation are implemented and covered by passing contract tests. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T04:25Z, npm run test:contract passed on 2026-05-11T04:26Z, and focused route E2E passed on 2026-05-11T04:28Z.",
           "nextStep": "Controller must rerun the standalone lifecycle to prove the repaired controller-gate -> commit-intent route."
         },
         {
           "id": "rung-side-effects",
           "name": "Commit and PR side-effect gates implemented",
-          "status": "verified-current-run-commit-evidence-pending",
-          "updated": "2026-05-11T04:10:39.000Z",
-          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections now write validated contract-bound unit artifacts with result and validation paths. Issue #243 now covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Prior implementation commit SHA evidence exists as e08bdc3 and 5cd6503, but this pass changed source files again and needs fresh commit evidence before closure.",
-          "nextStep": "Controller must route commit-intent for the current changed source set before closure review and produce fresh commit evidence."
+          "status": "verified-source-test-proven",
+          "updated": "2026-05-11T06:35:00.000Z",
+          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs passed on 2026-05-11T06:35Z.",
+          "nextStep": "Record commit evidence and let the controller-owned closure-review route consume it."
         },
         {
           "id": "rung-observability",
@@ -689,17 +766,17 @@
           "id": "rung-route-proof-suite",
           "name": "Route proof suite passes",
           "status": "verified",
-          "updated": "2026-05-11T04:10:39.000Z",
-          "evidence": "npm run test:contract passed on 2026-05-11T04:10Z. Focused regressions cover the #242 balance-scan ordered shorthand output path, the process-defect lifecycle-result fallback, and the #243 closure-candidate/resumable -> commit-intent gate route.",
-          "nextStep": "Carry green-suite evidence into the controller-owned standalone lifecycle rerun."
+          "updated": "2026-05-11T06:35:00.000Z",
+          "evidence": "npm run test:contract passed on 2026-05-11T05:05Z. Focused regressions cover the #242 balance-scan ordered shorthand output path, the process-defect lifecycle-result fallback, the #243 closure-candidate/resumable -> commit-intent gate route, the #245 dirty tracked git worktree detector plus evidenceSnapshotPath/requiredHardFacts propagation to reviewer input, and the #246 bounded reviewer input regression. This repair iteration reran the focused lifecycle, iteration, inference-unit, and repair-skill-runner contract tests successfully.",
+          "nextStep": "Run the full contract and focused routing E2E checks before committing the repair evidence."
         },
         {
           "id": "rung-objective-closure",
           "name": "Objective closure",
-          "status": "controller-owned-rerun-and-commit-gates-pending-before-closure-review",
-          "updated": "2026-05-11T04:10:39.000Z",
-          "evidence": "Source and contract proof is complete for the #242 and widened #243 fixes, but the live standalone lifecycle has not yet been rerun after #243 and this pass changed source files without fresh commit evidence.",
-          "nextStep": "Controller must rerun the standalone lifecycle; only after it proves controller-owned commit gates route through commit-intent should the controller proceed to closure review and post-flight summary."
+          "status": "source-objective-ready-controller-closure-pending",
+          "updated": "2026-05-11T06:35:00.000Z",
+          "evidence": "The contract-bound unit type system, dynamic routing, controller-owned hard-fact snapshots, bounded reviewer evidence, deterministic side-effect gates, dashboard-visible handoffs, PR-review routing, post-flight routing, and required direct/repair/commit-intent/PR-review route proofs are implemented in source and covered by contract/E2E tests. This worker does not run finalizer, reviewer, evidence-dashboard, or lifecycle-control commands; terminal closure remains controller-owned after commit evidence is available.",
+          "nextStep": "Commit the source/test/doc evidence, then let the lifecycle controller perform closure review and post-flight summary."
         }
       ]
     }

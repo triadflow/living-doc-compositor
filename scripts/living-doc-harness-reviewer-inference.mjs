@@ -334,6 +334,11 @@ Mandatory raw-log inspection:
 - In stopVerdict.basis, mention the raw JSONL path(s) you inspected and what they showed structurally.
 - Your own reviewer codex-events log must show command_execution entries that reference the raw JSONL path(s); otherwise the lifecycle will reject your verdict.
 
+Controller hard facts:
+- Treat input.requiredHardFacts and input.controllerEvidence as deterministic facts, not suggestions.
+- If requiredHardFacts.sourceFilesChanged is true and commitEvidencePresent is false, do not classify as closed.
+- If requiredHardFacts.closureAllowed is false, do not classify as closed even when the worker claims completion.
+
 Return this JSON shape:
 {
   "schema": "living-doc-harness-stop-verdict/v1",
@@ -387,6 +392,7 @@ export async function writeReviewerInferenceVerdict({
     iteration,
     createdAt: now,
     evidencePath: evidencePath ? path.relative(runDir, evidencePath) : null,
+    evidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || evidence.controllerEvidence?.snapshotPath || null,
     objectiveState: evidence.objectiveState,
     workerEvidence: evidence.workerEvidence,
     proofGates: evidence.proofGates,
@@ -395,6 +401,8 @@ export async function writeReviewerInferenceVerdict({
     availableNextActions: evidence.availableNextActions || [],
     terminalSignal: evidence.terminalSignal || null,
     sourceState: evidence.sourceState || null,
+    controllerEvidence: evidence.controllerEvidence || null,
+    requiredHardFacts: evidence.requiredHardFacts || null,
   };
   if (allowedUnitTypes) input.runConfig = { schema: 'living-doc-harness-run-inference-config/v1', allowedUnitTypes };
   input.requiredInspectionPaths = rawWorkerJsonlPaths(logInspection);

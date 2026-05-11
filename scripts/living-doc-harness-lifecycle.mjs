@@ -6,9 +6,11 @@
 // next worker iteration when the stop verdict allows repair or resume.
 
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { createHarnessRun } from './living-doc-harness-runner.mjs';
 import { finalizeHarnessIteration, writeIterationEvidenceTemplate } from './living-doc-harness-iteration.mjs';
@@ -17,6 +19,15 @@ import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, normalizeAllowedInferenceUnitType
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
+const execFileAsync = promisify(execFile);
+
+const CONTROLLER_SOURCE_FILES = [
+  'scripts/living-doc-harness-lifecycle.mjs',
+  'scripts/living-doc-harness-iteration.mjs',
+  'scripts/living-doc-harness-inference-unit.mjs',
+  'scripts/living-doc-harness-reviewer-inference.mjs',
+  'scripts/living-doc-harness-skill-router.mjs',
+];
 
 function sha256(text) {
   return `sha256:${createHash('sha256').update(text).digest('hex')}`;
@@ -62,6 +73,177 @@ async function fileHash(filePath) {
   } catch {
     return null;
   }
+}
+
+function unique(values) {
+  return [...new Set(arr(values).filter(Boolean))];
+}
+
+function boundedList(values, limit = 80) {
+  const items = arr(values).filter(Boolean);
+  return {
+    items: items.slice(0, limit),
+    count: items.length,
+    omitted: Math.max(0, items.length - limit),
+  };
+}
+
+function parseGitStatusPorcelain(raw) {
+  const entries = [];
+  for (const line of String(raw || '').split('\n')) {
+    if (!line) continue;
+    const status = line.slice(0, 2);
+    let filePath = line.slice(3);
+    if (filePath.includes(' -> ')) filePath = filePath.split(' -> ').at(-1);
+    entries.push({
+      status,
+      path: filePath,
+      tracked: status !== '??',
+      untracked: status === '??',
+    });
+  }
+  return entries;
+}
+
+function isRelevantUntrackedPath(filePath) {
+  const normalized = String(filePath || '').replace(/\\/g, '/');
+  if (!normalized) return false;
+  if (normalized.startsWith('.living-doc-runs/')) return false;
+  if (normalized.startsWith('evidence/living-doc-harness/')) return false;
+  if (normalized.startsWith('node_modules/')) return false;
+  return /(^|\/)(scripts|tests|docs|src|app)\//.test(normalized)
+    || /\.(mjs|js|ts|tsx|jsx|json|html|css|md)$/.test(normalized);
+}
+
+function relativizeGitPath({ gitWorktreeCwd, cwd, filePath }) {
+  const absolute = path.resolve(gitWorktreeCwd, filePath);
+  return path.relative(cwd, absolute) || '.';
+}
+
+export async function deriveGitWorktreeEvidence({ cwd = process.cwd(), gitWorktreeCwd = cwd } = {}) {
+  const gitCwd = path.resolve(cwd, gitWorktreeCwd);
+  try {
+    const { stdout } = await execFileAsync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+      cwd: gitCwd,
+      maxBuffer: 1024 * 1024 * 8,
+    });
+    const entries = parseGitStatusPorcelain(stdout)
+      .map((entry) => ({
+        ...entry,
+        cwdPath: relativizeGitPath({ gitWorktreeCwd: gitCwd, cwd, filePath: entry.path }),
+      }));
+    const dirtyTrackedFiles = entries.filter((entry) => entry.tracked).map((entry) => entry.cwdPath);
+    const untrackedFiles = entries.filter((entry) => entry.untracked).map((entry) => entry.cwdPath);
+    const relevantUntrackedFiles = entries
+      .filter((entry) => entry.untracked && isRelevantUntrackedPath(entry.cwdPath))
+      .map((entry) => entry.cwdPath);
+    return {
+      schema: 'living-doc-harness-git-worktree-evidence/v1',
+      detector: 'git-status-porcelain-v1',
+      cwd: path.relative(cwd, gitCwd) || '.',
+      ok: true,
+      error: null,
+      dirtyTrackedFiles,
+      untrackedFiles,
+      relevantUntrackedFiles,
+      changedFiles: unique([...dirtyTrackedFiles, ...relevantUntrackedFiles]),
+      sourceFilesChanged: dirtyTrackedFiles.length > 0 || relevantUntrackedFiles.length > 0,
+      entries,
+    };
+  } catch (err) {
+    return {
+      schema: 'living-doc-harness-git-worktree-evidence/v1',
+      detector: 'git-status-porcelain-v1',
+      cwd: path.relative(cwd, gitCwd) || '.',
+      ok: false,
+      error: err?.message || String(err),
+      dirtyTrackedFiles: [],
+      untrackedFiles: [],
+      relevantUntrackedFiles: [],
+      changedFiles: [],
+      sourceFilesChanged: false,
+      entries: [],
+    };
+  }
+}
+
+async function deriveControllerSourceState({ cwd, startHashes = null }) {
+  const files = [];
+  for (const filePath of CONTROLLER_SOURCE_FILES) {
+    const absolutePath = path.resolve(cwd, filePath);
+    const currentHash = await fileHash(absolutePath);
+    const startHash = startHashes?.[filePath] || currentHash;
+    files.push({
+      path: filePath,
+      startHash,
+      currentHash,
+      changedDuringLifecycle: startHash !== currentHash,
+    });
+  }
+  return {
+    schema: 'living-doc-harness-controller-source-state/v1',
+    files,
+    changedDuringLifecycle: files.some((file) => file.changedDuringLifecycle),
+  };
+}
+
+async function controllerStartHashes({ cwd }) {
+  const hashes = {};
+  for (const filePath of CONTROLLER_SOURCE_FILES) {
+    hashes[filePath] = await fileHash(path.resolve(cwd, filePath));
+  }
+  return hashes;
+}
+
+function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence }) {
+  return {
+    schema: 'living-doc-harness-required-hard-facts/v1',
+    sourceFilesChanged,
+    dirtyTrackedFiles: arr(gitWorktree?.dirtyTrackedFiles),
+    relevantUntrackedFiles: arr(gitWorktree?.relevantUntrackedFiles),
+    acceptanceCriteriaSatisfied: sourceState?.criteriaSatisfied === true,
+    objectiveReady: sourceState?.objectiveReady === true,
+    documentReady: sourceState?.documentReady === true,
+    renderedHtmlExists: sourceState?.renderedHtmlExists === true,
+    closureAllowed,
+    commitEvidencePresent: Boolean(sideEffectEvidence?.commit?.sha || sideEffectEvidence?.commit?.exemption?.approved === true || sideEffectEvidence?.commit?.notRequired === true),
+  };
+}
+
+function compactGitWorktreeEvidence(gitWorktree) {
+  return {
+    schema: 'living-doc-harness-git-worktree-evidence-summary/v1',
+    detector: gitWorktree?.detector || 'git-status-porcelain-v1',
+    cwd: gitWorktree?.cwd || '.',
+    ok: gitWorktree?.ok === true,
+    error: gitWorktree?.error || null,
+    sourceFilesChanged: gitWorktree?.sourceFilesChanged === true,
+    dirtyTrackedFiles: boundedList(gitWorktree?.dirtyTrackedFiles),
+    relevantUntrackedFiles: boundedList(gitWorktree?.relevantUntrackedFiles),
+    changedFiles: boundedList(gitWorktree?.changedFiles),
+    untrackedFiles: {
+      count: arr(gitWorktree?.untrackedFiles).length,
+      omittedFromInlineContract: true,
+      reason: 'Full untracked-file list is durable in controller evidence snapshot; reviewer receives only relevant untracked files inline.',
+    },
+    entries: {
+      count: arr(gitWorktree?.entries).length,
+      omittedFromInlineContract: true,
+      reason: 'Full git status entries are durable in controller evidence snapshot and can be inspected by path when needed.',
+    },
+  };
+}
+
+function compactControllerEvidence({ evidenceSnapshotPath, evidenceSnapshotHash, evidenceSnapshotBytes, gitWorktree, controllerState, requiredHardFacts }) {
+  return {
+    schema: 'living-doc-harness-controller-evidence-summary/v1',
+    snapshotPath: evidenceSnapshotPath,
+    snapshotHash: evidenceSnapshotHash,
+    snapshotBytes: evidenceSnapshotBytes,
+    gitWorktree: compactGitWorktreeEvidence(gitWorktree),
+    controllerState,
+    hardFacts: requiredHardFacts,
+  };
 }
 
 async function fileExists(filePath) {
@@ -116,6 +298,7 @@ async function deriveSourceStateEvidence({ docPath, cwd }) {
     renderedHtmlExists,
     criteriaCount: criteria.length,
     incompleteCriteria,
+    criteriaSatisfied,
     currentPhase: doc.runState?.currentPhase || null,
     closureAllowed,
   };
@@ -158,6 +341,29 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
 
 function lifecycleMayStop(finalization) {
   return finalization.terminalKind === 'closed' || finalization.terminalKind === 'user-stopped';
+}
+
+function nextActionFromFinalization(finalization) {
+  if (lifecycleMayStop(finalization)) {
+    return {
+      action: 'stop-terminal-state',
+      allowed: false,
+      reason: finalization.terminalKind === 'closed'
+        ? 'Objective closure reached.'
+        : 'User explicitly stopped the lifecycle.',
+    };
+  }
+
+  const nextUnit = finalization.postReviewSelection?.nextUnit || null;
+  const unitId = nextUnit?.unitId || 'worker';
+  return {
+    action: unitId === 'worker' ? 'start-next-worker-iteration' : `continue-with-${unitId}`,
+    allowed: true,
+    reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
+    selectedUnitType: unitId,
+    selectedUnitRole: nextUnit?.role || unitId,
+    contractValidation: finalization.postReviewSelection?.contractValidation || null,
+  };
 }
 
 async function writeOutputInput({
@@ -216,19 +422,30 @@ async function buildEvidenceFromPlan({
   plan = {},
   docPath,
   cwd,
+  gitWorktreeCwd = cwd,
+  enforceControllerWorktreeEvidence = false,
+  controllerStartFileHashes = null,
   now,
   proofRouteBundle = null,
 }) {
   const sourceState = await deriveSourceStateEvidence({ docPath, cwd });
+  const gitWorktree = await deriveGitWorktreeEvidence({ cwd, gitWorktreeCwd });
+  const controllerState = await deriveControllerSourceState({ cwd, startHashes: controllerStartFileHashes });
   const currentDocHash = await fileHash(path.resolve(cwd, docPath));
   const docChangedDuringRun = Boolean(run?.contract?.livingDoc?.sourceHash && currentDocHash && run.contract.livingDoc.sourceHash !== currentDocHash);
   const explicitFilesChanged = hasOwn(plan, 'filesChanged');
-  const filesChanged = explicitFilesChanged ? arr(plan.filesChanged) : [docPath, sourceState?.renderedHtml].filter(Boolean);
-  const sourceFilesChanged = hasOwn(plan, 'sourceFilesChanged')
+  const filesChanged = unique([
+    ...(explicitFilesChanged ? arr(plan.filesChanged) : [docPath, sourceState?.renderedHtml].filter(Boolean)),
+    ...(enforceControllerWorktreeEvidence ? arr(gitWorktree.changedFiles) : []),
+  ]);
+  const sourceFilesChangedByPlan = hasOwn(plan, 'sourceFilesChanged')
     ? plan.sourceFilesChanged === true
     : docChangedDuringRun || (explicitFilesChanged && filesChanged.length > 0);
+  const sourceFilesChanged = sourceFilesChangedByPlan
+    || (enforceControllerWorktreeEvidence && gitWorktree.sourceFilesChanged === true);
   const sourceClosureAllowed = sourceState?.closureAllowed === true;
   const sourceUnprovenCriteria = sourceState ? sourceState.incompleteCriteria : [];
+  const sourceCriteriaSatisfied = sourceState?.criteriaSatisfied === true;
   const sourceStageAfter = sourceClosureAllowed ? 'closed' : sourceState?.currentPhase || 'stopped';
   const sourceFinalMessage = sourceClosureAllowed
     ? 'Lifecycle evidence derived closure from post-worker living-doc state: objectiveReady true, acceptance criteria complete, and rendered HTML present.'
@@ -243,6 +460,67 @@ async function buildEvidenceFromPlan({
     }));
   }
 
+  if (enforceControllerWorktreeEvidence && controllerState.changedDuringLifecycle) {
+    throw new Error('controller source changed during lifecycle; restart required before continuing');
+  }
+
+  const sideEffectEvidence = plan.sideEffectEvidence || (
+    sourceFilesChanged
+      ? {
+        commit: {
+          required: true,
+          reasonCode: gitWorktree.sourceFilesChanged
+            ? 'controller-detected-dirty-worktree'
+            : 'controller-detected-source-change',
+          changedFiles: filesChanged,
+        },
+      }
+      : undefined
+  );
+  const closureAllowed = hasOwn(plan, 'closureAllowed') ? plan.closureAllowed === true : sourceClosureAllowed;
+  const requiredHardFacts = requiredHardFactsFromEvidence({
+    sourceState,
+    gitWorktree,
+    sourceFilesChanged,
+    closureAllowed,
+    sideEffectEvidence,
+  });
+  const evidenceSnapshot = {
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    runId: run.runId,
+    iteration,
+    createdAt: now,
+    detectors: {
+      gitWorktree,
+      livingDocState: sourceState,
+      artifactState: {
+        renderedHtml: sourceState?.renderedHtml || null,
+        renderedHtmlExists: sourceState?.renderedHtmlExists === true,
+      },
+      traceState: {
+        tracePaths: tracePaths.map((tracePath) => path.relative(cwd, tracePath)),
+      },
+      sideEffectState: sideEffectEvidence || null,
+      controllerState,
+    },
+    hardFacts: requiredHardFacts,
+  };
+  const evidenceSnapshotPath = path.join(runDir, 'artifacts', `iteration-${iteration}-controller-evidence-snapshot.json`);
+  const evidenceSnapshotText = `${JSON.stringify(evidenceSnapshot, null, 2)}\n`;
+  await mkdir(path.dirname(evidenceSnapshotPath), { recursive: true });
+  await writeFile(evidenceSnapshotPath, evidenceSnapshotText, 'utf8');
+  const relativeEvidenceSnapshotPath = path.relative(runDir, evidenceSnapshotPath);
+  const evidenceSnapshotHash = sha256(evidenceSnapshotText);
+  const evidenceSnapshotBytes = Buffer.byteLength(evidenceSnapshotText, 'utf8');
+  const controllerEvidence = compactControllerEvidence({
+    evidenceSnapshotPath: relativeEvidenceSnapshotPath,
+    evidenceSnapshotHash,
+    evidenceSnapshotBytes,
+    gitWorktree,
+    controllerState,
+    requiredHardFacts,
+  });
+
   const evidencePath = path.join(runDir, 'artifacts', `lifecycle-iteration-${iteration}-evidence-input.json`);
   const template = await writeIterationEvidenceTemplate({
     runDir,
@@ -255,8 +533,8 @@ async function buildEvidenceFromPlan({
     finalMessageSummary: plan.finalMessageSummary || sourceFinalMessage,
     toolFailures: arr(plan.toolFailures),
     filesChanged,
-    acceptanceCriteriaSatisfied: plan.acceptanceCriteriaSatisfied || (sourceClosureAllowed ? 'pass' : 'pending'),
-    closureAllowed: hasOwn(plan, 'closureAllowed') ? plan.closureAllowed === true : sourceClosureAllowed,
+    acceptanceCriteriaSatisfied: plan.acceptanceCriteriaSatisfied || (sourceCriteriaSatisfied ? 'pass' : 'pending'),
+    closureAllowed,
     now,
   });
 
@@ -270,8 +548,11 @@ async function buildEvidenceFromPlan({
     ...(plan.requiredProof ? { requiredProof: plan.requiredProof } : {}),
     ...(plan.issueRef ? { issueRef: plan.issueRef } : {}),
     ...(sourceState ? { sourceState } : {}),
+    controllerEvidenceSnapshotPath: relativeEvidenceSnapshotPath,
+    controllerEvidence,
+    requiredHardFacts,
     sourceFilesChanged,
-    ...(plan.sideEffectEvidence ? { sideEffectEvidence: plan.sideEffectEvidence } : {}),
+    ...(sideEffectEvidence ? { sideEffectEvidence } : {}),
     ...(hasOwn(plan, 'prReviewRequired') ? { prReviewRequired: plan.prReviewRequired === true } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
     ...(plan.prReview ? { prReview: plan.prReview } : {}),
@@ -397,6 +678,8 @@ export async function runHarnessLifecycle({
   proofRoutes = null,
   toolProfile = 'local-harness',
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+  gitWorktreeCwd = cwd,
+  enforceControllerWorktreeEvidence = execute,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -417,6 +700,7 @@ export async function runHarnessLifecycle({
   let currentRun = null;
   let currentIteration = 0;
   const docProofRoutes = proofRoutes || await loadProofRoutesFromDoc(docPath, { cwd });
+  const controllerStartFileHashes = await controllerStartHashes({ cwd });
 
   try {
     for (let iteration = 1; ; iteration += 1) {
@@ -455,6 +739,9 @@ export async function runHarnessLifecycle({
         plan,
         docPath,
         cwd,
+        gitWorktreeCwd,
+        enforceControllerWorktreeEvidence,
+        controllerStartFileHashes,
         now: addMs(iterationNow, 250),
         proofRouteBundle,
       });
@@ -480,19 +767,7 @@ export async function runHarnessLifecycle({
       });
 
       const mayStop = lifecycleMayStop(finalization);
-      const nextAction = !mayStop
-        ? {
-          action: 'start-next-worker-iteration',
-          allowed: true,
-          reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
-        }
-        : {
-          action: 'stop-terminal-state',
-          allowed: false,
-          reason: finalization.terminalKind === 'closed'
-            ? 'Objective closure reached.'
-            : 'User explicitly stopped the lifecycle.',
-        };
+      const nextAction = nextActionFromFinalization(finalization);
 
       const provisionalOutputInputPath = path.join(run.runDir, 'output-input', `iteration-${iteration}.json`);
       const nextInput = nextAction.allowed
@@ -655,6 +930,8 @@ function parseArgs(argv) {
     executeProofRoutes: false,
     toolProfile: 'local-harness',
     allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
+    gitWorktreeCwd: process.cwd(),
+    enforceControllerWorktreeEvidence: null,
   };
   while (args.length) {
     const flag = args.shift();
@@ -706,12 +983,20 @@ function parseArgs(argv) {
       const value = args.shift();
       if (!value) throw new Error('--allowed-unit-types requires a comma-separated value');
       options.allowedUnitTypes = value.split(',').map((item) => item.trim()).filter(Boolean);
+    } else if (flag === '--git-worktree-cwd') {
+      options.gitWorktreeCwd = args.shift();
+      if (!options.gitWorktreeCwd) throw new Error('--git-worktree-cwd requires a value');
+    } else if (flag === '--enforce-controller-worktree-evidence') {
+      options.enforceControllerWorktreeEvidence = true;
+    } else if (flag === '--no-enforce-controller-worktree-evidence') {
+      options.enforceControllerWorktreeEvidence = false;
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
   }
   if (options.executeReviewer == null) options.executeReviewer = options.execute;
   if (options.executeClosureReview == null) options.executeClosureReview = options.executeReviewer;
+  if (options.enforceControllerWorktreeEvidence == null) options.enforceControllerWorktreeEvidence = options.execute;
   return options;
 }
 

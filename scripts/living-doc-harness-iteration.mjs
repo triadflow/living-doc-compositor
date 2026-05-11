@@ -577,6 +577,8 @@ async function runSelectedSideEffectGateUnit({
       runId: evidence?.runId,
       iteration,
       changedFiles,
+      evidenceSnapshotPath: evidence?.controllerEvidenceSnapshotPath || evidence?.controllerEvidence?.snapshotPath || null,
+      requiredHardFacts: evidence?.requiredHardFacts || null,
       commitIntent: evidence?.commitIntent || {
         mode: 'required-before-closure',
         reason: selection.nextUnit.reasonCode || 'source-changes-require-commit-evidence',
@@ -611,6 +613,8 @@ async function runSelectedSideEffectGateUnit({
     runId: evidence?.runId,
     iteration,
     reviewTarget: evidence?.prReview?.reviewTarget || evidence?.prReview?.url || 'configured-pr-review-target',
+    evidenceSnapshotPath: evidence?.controllerEvidenceSnapshotPath || evidence?.controllerEvidence?.snapshotPath || null,
+    requiredHardFacts: evidence?.requiredHardFacts || null,
     requiredInspectionPaths,
   };
   return runContractBoundInferenceUnit({
@@ -774,6 +778,8 @@ async function buildIterationProof({ runDir, evidence, verdict, reviewer, closur
     } : null,
     stopVerdict: verdict.stopVerdict,
     skillsApplied: skillsAppliedFromRouting(routing, repairRun),
+    controllerEvidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || null,
+    requiredHardFacts: evidence.requiredHardFacts || null,
     controllerProofRoutes: evidence.controllerProofRoutes || null,
     proofGates: proofGatesAfterBundle(evidence),
     nextIteration: verdict.nextIteration,

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
-import { runHarnessLifecycle } from '../../scripts/living-doc-harness-lifecycle.mjs';
+import { deriveGitWorktreeEvidence, runHarnessLifecycle } from '../../scripts/living-doc-harness-lifecycle.mjs';
 
 function minimalDoc(docPath) {
   return {
@@ -98,6 +98,19 @@ function reviewerVerdict(classification, {
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-lifecycle-controller-'));
 
 try {
+  const gitFixture = path.join(tmp, 'git-fixture');
+  await mkdir(gitFixture, { recursive: true });
+  spawnSync('git', ['init'], { cwd: gitFixture, stdio: 'ignore' });
+  await mkdir(path.join(gitFixture, 'scripts'), { recursive: true });
+  await writeFile(path.join(gitFixture, 'scripts', 'example.mjs'), 'export const value = 1;\n', 'utf8');
+  spawnSync('git', ['add', 'scripts/example.mjs'], { cwd: gitFixture, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'initial'], { cwd: gitFixture, stdio: 'ignore' });
+  await writeFile(path.join(gitFixture, 'scripts', 'example.mjs'), 'export const value = 2;\n', 'utf8');
+  const worktreeEvidence = await deriveGitWorktreeEvidence({ cwd: gitFixture });
+  assert.equal(worktreeEvidence.ok, true);
+  assert.equal(worktreeEvidence.sourceFilesChanged, true);
+  assert.deepEqual(worktreeEvidence.dirtyTrackedFiles, ['scripts/example.mjs']);
+
   const docPath = path.join(tmp, 'doc.json');
   await writeFile(docPath, `${JSON.stringify(minimalDoc(docPath), null, 2)}\n`, 'utf8');
   const sequencePath = path.join(tmp, 'evidence-sequence.json');
@@ -161,6 +174,15 @@ try {
   const lifecycleEvents = await readFile(path.join(result.lifecycleDir, 'events.jsonl'), 'utf8');
   assert.match(lifecycleEvents, /closureReviewResultPath/);
   assert.match(lifecycleEvents, /03-closure-review/);
+  const firstEvidence = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[0].runDir, 'artifacts', 'iteration-1-evidence.json'), 'utf8'));
+  assert.match(firstEvidence.controllerEvidenceSnapshotPath, /iteration-1-controller-evidence-snapshot\.json$/);
+  assert.equal(firstEvidence.requiredHardFacts.schema, 'living-doc-harness-required-hard-facts/v1');
+  const firstReviewerInput = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[0].runDir, 'reviewer-inference', 'iteration-1-input.json'), 'utf8'));
+  assert.equal(firstReviewerInput.evidenceSnapshotPath, firstEvidence.controllerEvidenceSnapshotPath);
+  assert.equal(firstReviewerInput.requiredHardFacts.schema, 'living-doc-harness-required-hard-facts/v1');
+  assert.equal(firstReviewerInput.controllerEvidence.schema, 'living-doc-harness-controller-evidence-summary/v1');
+  assert.equal(firstReviewerInput.controllerEvidence.gitWorktree.schema, 'living-doc-harness-git-worktree-evidence-summary/v1');
+  assert.equal(firstReviewerInput.controllerEvidence.gitWorktree.entries.omittedFromInlineContract, true);
 
   const firstOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[0].outputInputPath), 'utf8'));
   assert.equal(firstOutputInput.schema, 'living-doc-harness-output-input/v1');
@@ -181,6 +203,64 @@ try {
   const secondPrompt = await readFile(path.resolve(process.cwd(), result.iterations[1].runDir, 'prompt.md'), 'utf8');
   assert.match(secondPrompt, /Lifecycle input from previous iteration/);
   assert.match(secondPrompt, /previousRunId:/);
+
+  const noisyGitFixture = path.join(tmp, 'noisy-git-fixture');
+  await mkdir(path.join(noisyGitFixture, 'scripts'), { recursive: true });
+  await mkdir(path.join(noisyGitFixture, 'docs'), { recursive: true });
+  await mkdir(path.join(noisyGitFixture, 'evidence', 'living-doc-harness'), { recursive: true });
+  const noisyDocPath = path.join(noisyGitFixture, 'docs', 'noisy-doc.json');
+  spawnSync('git', ['init'], { cwd: noisyGitFixture, stdio: 'ignore' });
+  await writeFile(path.join(noisyGitFixture, 'scripts', 'example.mjs'), 'export const value = 1;\n', 'utf8');
+  await writeFile(noisyDocPath, `${JSON.stringify(minimalDoc(noisyDocPath), null, 2)}\n`, 'utf8');
+  spawnSync('git', ['add', 'scripts/example.mjs', 'docs/noisy-doc.json'], { cwd: noisyGitFixture, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'initial'], { cwd: noisyGitFixture, stdio: 'ignore' });
+  await writeFile(path.join(noisyGitFixture, 'scripts', 'example.mjs'), 'export const value = 2;\n', 'utf8');
+  for (let index = 0; index < 1200; index += 1) {
+    await writeFile(
+      path.join(noisyGitFixture, 'evidence', 'living-doc-harness', `historical-run-${String(index).padStart(4, '0')}-artifact-with-long-name.json`),
+      '{"fixture":true}\n',
+      'utf8',
+    );
+  }
+  const noisySequencePath = path.join(noisyGitFixture, 'noisy-sequence.json');
+  await writeFile(noisySequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'operator-stop-after-noisy-controller-snapshot',
+        acceptanceCriteriaSatisfied: 'fail',
+        closureAllowed: false,
+        traceMessage: 'Noisy worktree fixture stops after reviewer input is written.',
+        reviewerVerdict: reviewerVerdict('user-stopped', {
+          reasonCode: 'operator-stop',
+          mode: 'user-stop',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const noisyLifecycle = await runHarnessLifecycle({
+    docPath: noisyDocPath,
+    runsDir: 'runs',
+    evidenceDir: 'evidence-out',
+    dashboardPath: 'dashboard.html',
+    evidenceSequencePath: noisySequencePath,
+    cwd: noisyGitFixture,
+    gitWorktreeCwd: noisyGitFixture,
+    enforceControllerWorktreeEvidence: true,
+    now: '2026-05-07T12:41:30.000Z',
+  });
+  const noisyRunDir = path.resolve(noisyGitFixture, noisyLifecycle.iterations[0].runDir);
+  const noisyReviewerInputPath = path.join(noisyRunDir, 'reviewer-inference', 'iteration-1-input.json');
+  const noisyReviewerInputRaw = await readFile(noisyReviewerInputPath, 'utf8');
+  const noisyReviewerInput = JSON.parse(noisyReviewerInputRaw);
+  const noisyEvidence = JSON.parse(await readFile(path.join(noisyRunDir, 'artifacts', 'iteration-1-evidence.json'), 'utf8'));
+  const noisySnapshotRaw = await readFile(path.join(noisyRunDir, noisyEvidence.controllerEvidenceSnapshotPath), 'utf8');
+  assert.equal(noisyReviewerInput.requiredHardFacts.sourceFilesChanged, true);
+  assert.deepEqual(noisyReviewerInput.requiredHardFacts.dirtyTrackedFiles, ['scripts/example.mjs']);
+  assert.ok(noisyReviewerInput.controllerEvidence.gitWorktree.untrackedFiles.count >= 1200);
+  assert.equal(noisyReviewerInput.controllerEvidence.gitWorktree.untrackedFiles.omittedFromInlineContract, true);
+  assert.equal(Object.hasOwn(noisyReviewerInput.controllerEvidence.gitWorktree, 'entries') && Array.isArray(noisyReviewerInput.controllerEvidence.gitWorktree.entries), false);
+  assert.ok(Buffer.byteLength(noisyReviewerInputRaw, 'utf8') < 120_000);
+  assert.ok(Buffer.byteLength(noisySnapshotRaw, 'utf8') > Buffer.byteLength(noisyReviewerInputRaw, 'utf8'));
 
   const resumePostFlightSequencePath = path.join(tmp, 'resume-post-flight-sequence.json');
   await writeFile(resumePostFlightSequencePath, `${JSON.stringify({
@@ -280,7 +360,8 @@ try {
   assert.equal(commitPending.iterations[0].classification, 'resumable');
   assert.equal(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'commit-intent');
   assert.equal(commitPendingOutputInput.nextUnit.unitId, 'commit-intent');
-  assert.equal(commitPendingOutputInput.nextAction.action, 'start-next-worker-iteration');
+  assert.equal(commitPendingOutputInput.nextAction.action, 'continue-with-commit-intent');
+  assert.equal(commitPendingOutputInput.nextAction.selectedUnitType, 'commit-intent');
   assert.equal(commitPendingOutputInput.nextInput.mode, 'continuation');
   assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
   assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
@@ -391,9 +472,10 @@ try {
   assert.equal(terminal.finalState.kind, 'closed');
   assert.equal(terminal.iterations[0].classification, 'true-block');
   assert.equal(terminal.iterations[0].terminalKind, 'continuation-required');
-  assert.equal(terminal.iterations[0].nextAction.action, 'start-next-worker-iteration');
+  assert.equal(terminal.iterations[0].nextAction.action, 'continue-with-continuation-inference');
   const trueBlockOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), terminal.iterations[0].outputInputPath), 'utf8'));
   assert.equal(trueBlockOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(trueBlockOutputInput.nextAction.selectedUnitType, 'continuation-inference');
   assert.equal(trueBlockOutputInput.terminalAction, null);
 
   const trueBlockBatchSequencePath = path.join(tmp, 'true-block-batch-sequence.json');
@@ -446,13 +528,14 @@ try {
   assert.equal(trueBlockBatch.finalState.kind, 'closed');
   assert.equal(trueBlockBatch.iterations[0].classification, 'true-block');
   assert.equal(trueBlockBatch.iterations[0].terminalKind, 'continuation-required');
-  assert.equal(trueBlockBatch.iterations[0].nextAction.action, 'start-next-worker-iteration');
+  assert.equal(trueBlockBatch.iterations[0].nextAction.action, 'continue-with-continuation-inference');
   assert.equal(trueBlockBatch.iterations[0].nextAction.allowed, true);
   assert.equal(trueBlockBatch.iterations[1].classification, 'closed');
   const trueBlockBatchOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), trueBlockBatch.iterations[0].outputInputPath), 'utf8'));
   assert.equal(trueBlockBatchOutputInput.previousOutput.classification, 'true-block');
   assert.equal(trueBlockBatchOutputInput.previousOutput.terminalKind, 'continuation-required');
   assert.equal(trueBlockBatchOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(trueBlockBatchOutputInput.nextAction.selectedUnitType, 'continuation-inference');
   assert.equal(trueBlockBatchOutputInput.terminalAction, null);
   assert.equal(trueBlockBatchOutputInput.nextInput.mode, 'continuation');
   assert.match(trueBlockBatchOutputInput.nextAction.reason, /unresolved objective state/);
@@ -695,6 +778,60 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
   assert.equal(inferredCommitEvidence.sourceFilesChanged, true);
   const inferredCommitSelection = JSON.parse(await readFile(path.resolve(process.cwd(), inferredCommitGate.iterations[0].postReviewSelectionPath), 'utf8'));
   assert.equal(inferredCommitSelection.nextUnit.unitId, 'commit-intent');
+
+  const criteriaOnlyDocPath = path.join(tmp, 'criteria-only-doc.json');
+  const criteriaOnlyHtmlPath = criteriaOnlyDocPath.replace(/\.json$/i, '.html');
+  const fakeCriteriaOnlyCodexPath = path.join(tmp, 'fake-criteria-only-codex.mjs');
+  await writeFile(criteriaOnlyDocPath, `${JSON.stringify(sourceClosureDoc(criteriaOnlyDocPath), null, 2)}\n`, 'utf8');
+  await writeFile(criteriaOnlyHtmlPath, '<!doctype html><title>criteria-only</title>\n', 'utf8');
+  await writeFile(fakeCriteriaOnlyCodexPath, `#!/usr/bin/env node
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const docPath = ${JSON.stringify(criteriaOnlyDocPath)};
+const outputPath = process.argv[process.argv.indexOf('-o') + 1];
+const doc = JSON.parse(readFileSync(docPath, 'utf8'));
+doc.runState.currentPhase = 'acceptance-criteria-satisfied-objective-pending';
+doc.runState.objectiveReady = false;
+doc.runState.nextObjectiveAction = 'objective proof still requires controller-owned side-effect evidence';
+for (const criterion of doc.sections[0].data) {
+  criterion.status = 'complete-source-test-proven-controller-closure-blocked';
+  criterion.updated = '2026-05-07T13:27:00.000Z';
+}
+doc.updated = '2026-05-07T13:27:00.000Z';
+writeFileSync(docPath, JSON.stringify(doc, null, 2) + '\\n');
+writeFileSync(outputPath, 'acceptance criteria complete; objective not closure-ready');
+console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'criteria complete, objective pending' } }));
+`, 'utf8');
+  await chmod(fakeCriteriaOnlyCodexPath, 0o755);
+  const criteriaOnlyLifecycle = await runHarnessLifecycle({
+    docPath: criteriaOnlyDocPath,
+    runsDir: path.join(tmp, 'criteria-only-runs'),
+    evidenceDir: path.join(tmp, 'criteria-only-evidence'),
+    dashboardPath: path.join(tmp, 'criteria-only-dashboard.html'),
+    execute: true,
+    codexBin: fakeCriteriaOnlyCodexPath,
+    codexHome: tmp,
+    executeReviewer: false,
+    reviewerVerdictSequence: [
+      reviewerVerdict('user-stopped', {
+        reasonCode: 'operator-stop',
+        mode: 'user-stop',
+      }),
+    ],
+    now: '2026-05-07T13:26:00.000Z',
+  });
+  assert.equal(criteriaOnlyLifecycle.iterationCount, 1);
+  const criteriaOnlyEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    criteriaOnlyLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(criteriaOnlyEvidence.sourceState.criteriaSatisfied, true);
+  assert.deepEqual(criteriaOnlyEvidence.sourceState.incompleteCriteria, []);
+  assert.equal(criteriaOnlyEvidence.sourceState.objectiveReady, false);
+  assert.equal(criteriaOnlyEvidence.proofGates.acceptanceCriteriaSatisfied, 'pass');
+  assert.equal(criteriaOnlyEvidence.proofGates.closureAllowed, false);
 
   const proofRouteSequencePath = path.join(tmp, 'proof-route-sequence.json');
   await writeFile(proofRouteSequencePath, `${JSON.stringify({
