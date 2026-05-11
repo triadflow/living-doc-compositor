@@ -8,18 +8,18 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T07:19:04.000Z",
+  "updated": "2026-05-11T08:34:23.000Z",
   "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
   "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
   "runState": {
-    "currentPhase": "initial-unit-snapshot-collision-repaired",
+    "currentPhase": "commit-intent-side-effect-evidence-repaired",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Commit the controller evidence handoff and initial-unit snapshot collision repair, then rerun the standalone lifecycle so controller-owned closure consumes fresh commit evidence.",
+    "nextObjectiveAction": "Commit the commit-intent side-effect evidence repair, then rerun the standalone lifecycle so controller-owned closure consumes the approved commit contract.",
     "repairState": {
-      "status": "initial-unit-snapshot-collision-repaired-contract-and-e2e-green-rerun-pending",
+      "status": "commit-intent-side-effect-contract-repaired-focused-tests-green-rerun-pending",
       "nearestHonestStage": "contract-and-e2e-green-controller-rerun-pending",
-      "updated": "2026-05-11T07:28:00.000Z",
+      "updated": "2026-05-11T08:34:23.000Z",
       "basis": [
         "Contract-bound inference unit registry, run-allowed type configuration, typed invocation metadata, route validation, side-effect contracts, dashboard graph artifacts, PR-review routing, and post-flight summary routing are implemented in source.",
         "The inference unit runner now validates each invocation input contract against the registered unit type before writing or executing the unit, including schema and required input fields.",
@@ -89,7 +89,12 @@
         "tests/e2e/harness-inference-unit-routing.spec.mjs now proves PR-review continuation runs preserve evidenceSnapshotPath, requiredHardFacts, and required inspection of the prior controller-owned snapshot.",
         "node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T07:27Z after the initial-unit snapshot collision repair.",
         "npm run test:contract passed on 2026-05-11T07:27Z after the collision repair.",
-        "npm run test:e2e passed on 2026-05-11T07:27Z with 17 passed and 1 deploy smoke skipped."
+        "npm run test:e2e passed on 2026-05-11T07:27Z with 17 passed and 1 deploy smoke skipped.",
+        "Live rerun ldhl-20260511T072339Z reached a commit-intent continuation that created git commit 018b4ac4c54f7d706f4805f7724d32899cd9f3cc, but the commit-intent output contract still reported approved false and sideEffect.executed false, so reviewer correctly classified the run as repairable instead of letting closure consume inferred commit evidence.",
+        "Issue #249 is fixed in source: commit-intent external runs now compare git HEAD before/after execution, read the created commit metadata, write an approved living-doc-harness-commit-intent-result/v1 output contract with sideEffect.executed true, sha, committed files, required changed files, and missing changed files, and expose that result as the unit verdict.",
+        "scripts/living-doc-harness-lifecycle.mjs now ingests commit-intent output contracts from the run artifact and converts approved git side effects into controller sideEffectEvidence for the next reviewer and closure gates.",
+        "node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T08:34Z and reproduces the commit-intent continuation path with a real git commit, proving the output contract records approved true and sideEffect.executed true with a commit SHA.",
+        "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z and proves a commit-intent result artifact becomes controller-owned sideEffectEvidence rather than raw trace inference."
       ]
     }
   },
@@ -377,8 +382,8 @@
         {
           "id": "criterion-side-effect-contracts",
           "name": "Deterministic side effects require approved contracts",
-          "status": "complete-source-test-proven-commit-evidence-pending",
-          "updated": "2026-05-11T06:35:00.000Z",
+          "status": "complete-source-test-proven-commit-contract-evidence-rerun-pending",
+          "updated": "2026-05-11T08:34:23.000Z",
           "facetIds": [
             "deterministic-side-effects",
             "controller-hard-facts"
@@ -387,7 +392,7 @@
           "criterion": "Deterministic side effects, including git commits and GitHub PR operations, happen only from approved output contracts and are recorded as proof artifacts, with commit need derived from controller-owned hard facts.",
           "proofRequired": "Commit-intent emits approved paths/message/exclusions; controller stages only those paths and records commit SHA. PR-review emits approved GitHub actions; controller records PR URL, comments, review status, and check state. Before reviewer and side-effect routing, the controller writes an evidence snapshot with gitWorktree, livingDocState, artifactState, traceState, sideEffectState, controllerState, and requiredHardFacts.",
           "acceptanceTest": "Tests prove dirty source changes cannot close without commit evidence, controller-owned snapshots expose requiredHardFacts to reviewer and side-effect units, and PR mutations cannot occur without a PR-review output contract.",
-          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Commit evidence will be supplied by the repair commit that includes these source, test, rendered-doc, and living-doc updates.",
+          "repairEvidence": "Commit-intent and PR-review side-effect contracts are implemented and tested, including dirty-source commit gating. When either gate blocks closure, the controller writes a contract-bound inference unit result and validation artifact for the selected gate without executing the side effect. Issue #243 ensures closure-candidate and resumable controller-gate states select commit-intent rather than worker continuation. Issue #245 implements the #244 repair: controller-owned evidence snapshots are now written before routing, live execute runs enforce git worktree hard facts, reviewer input carries evidenceSnapshotPath and requiredHardFacts, and commit-intent/PR-review input contracts carry requiredHardFacts. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T05:47Z. Issue #246 is fixed in source: controller-owned full snapshots remain durable on disk, but reviewer inference now receives a bounded controller evidence summary with snapshot path/hash/bytes, compact git worktree counts, relevant changed-file subsets, controller state, and required hard facts. The regression creates a noisy git worktree with 1,200 historical evidence artifacts and proves reviewer input stays bounded while full snapshot evidence remains inspectable. This repair iteration reran node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs; all passed on 2026-05-11T06:35Z. Issue #249 repairs the live commit-intent evidence mismatch: a commit-intent continuation that creates a git commit now writes an approved output contract with sideEffect.executed true, commit SHA, committed files, required changed files, and missing changed files; the lifecycle controller ingests that contract into sideEffectEvidence for the next route. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -408,6 +413,11 @@
               "issueNumber": "245",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/245",
               "title": "Add controller-owned evidence snapshots for lifecycle routing"
+            },
+            {
+              "issueNumber": "249",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/249",
+              "title": "Process defect: commit-intent commit not captured as controller evidence"
             }
           ]
         },
@@ -636,6 +646,15 @@
           "url": "https://github.com/triadflow/living-doc-compositor/issues/248",
           "relationship": "defect-repair",
           "relevance": "Covers the live-run defect where reviewer inference emitted closure-candidate with closureAllowed true and the controller treated that as a process defect instead of normalizing the non-terminal flag and routing to closure-review."
+        },
+        {
+          "id": "issue-249",
+          "name": "Process defect: commit-intent commit not captured as controller evidence",
+          "status": "fixed-source-focused-contract-green-commit-and-rerun-pending",
+          "updated": "2026-05-11T08:34:23.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/249",
+          "relationship": "defect-repair",
+          "relevance": "Covers the live-run defect where commit-intent created git commit 018b4ac4c54f7d706f4805f7724d32899cd9f3cc, but the machine-readable commit-intent output contract still said approved false and sideEffect.executed false, preventing controller-owned closure from consuming real commit evidence."
         }
       ]
     },
@@ -797,10 +816,10 @@
         {
           "id": "rung-side-effects",
           "name": "Commit and PR side-effect gates implemented",
-          "status": "verified-source-test-proven",
-          "updated": "2026-05-11T06:35:00.000Z",
-          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-repair-skill-runner.spec.mjs passed on 2026-05-11T06:35Z.",
-          "nextStep": "Record commit evidence and let the controller-owned closure-review route consume it."
+          "status": "verified-commit-intent-output-contract-repaired",
+          "updated": "2026-05-11T08:34:23.000Z",
+          "evidence": "Commit-intent and PR-review gates are implemented and tested. Blocking gate selections write validated contract-bound unit artifacts with result and validation paths. Issue #243 covers closure-candidate and resumable controller-gate states selecting commit-intent instead of another worker. Issue #245 repairs the #244 source-change evidence defect by writing controller-owned evidence snapshots and enforcing git worktree hard facts for live execute runs. Issue #246 bounds reviewer input while preserving the full durable controller snapshot. Issue #249 repairs the live mismatch where commit-intent created a git commit but its output contract still denied the side effect; runner and lifecycle controller tests now prove commit-intent writes approved sideEffect evidence and the controller ingests it from the result artifact. node tests/contract/living-doc-harness-runner.spec.mjs and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs passed on 2026-05-11T08:34Z.",
+          "nextStep": "Commit this repair and rerun the standalone lifecycle so closure review consumes controller-owned commit evidence."
         },
         {
           "id": "rung-observability",

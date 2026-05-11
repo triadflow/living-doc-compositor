@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 
-import { deriveGitWorktreeEvidence, runHarnessLifecycle } from '../../scripts/living-doc-harness-lifecycle.mjs';
+import { deriveGitWorktreeEvidence, runHarnessLifecycle, sideEffectEvidenceFromRun } from '../../scripts/living-doc-harness-lifecycle.mjs';
 
 function minimalDoc(docPath) {
   return {
@@ -203,6 +203,47 @@ try {
   const secondPrompt = await readFile(path.resolve(process.cwd(), result.iterations[1].runDir, 'prompt.md'), 'utf8');
   assert.match(secondPrompt, /Lifecycle input from previous iteration/);
   assert.match(secondPrompt, /previousRunId:/);
+
+  const commitEvidenceRunDir = path.join(tmp, 'commit-evidence-ingest-run');
+  await mkdir(path.join(commitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent'), { recursive: true });
+  await writeFile(path.join(commitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent', 'result.json'), `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'commit-intent',
+    role: 'commit-intent',
+    outputContract: {
+      schema: 'living-doc-harness-commit-intent-result/v1',
+      approved: true,
+      status: 'approved',
+      changedFiles: ['docs/example.json'],
+      message: 'commit-intent captured source repair',
+      sideEffect: {
+        type: 'git-commit',
+        executed: true,
+        reasonCode: 'git-commit-created',
+        sha: '1234567890abcdef1234567890abcdef12345678',
+        committedAt: '2026-05-07T12:45:00.000Z',
+        committedFiles: ['docs/example.json', 'docs/example.html'],
+        requiredChangedFiles: ['docs/example.json'],
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  const commitEvidence = await sideEffectEvidenceFromRun({
+    runDir: commitEvidenceRunDir,
+    run: {
+      contract: {
+        artifacts: {
+          initialInferenceUnit: {
+            unitId: 'commit-intent',
+            result: 'initial-inference-units/iteration-2/04-commit-intent/result.json',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(commitEvidence.commit.sha, '1234567890abcdef1234567890abcdef12345678');
+  assert.equal(commitEvidence.commit.source, 'commit-intent-output-contract');
+  assert.deepEqual(commitEvidence.commit.changedFiles, ['docs/example.json']);
+  assert.deepEqual(commitEvidence.commit.committedFiles, ['docs/example.json', 'docs/example.html']);
 
   const noisyGitFixture = path.join(tmp, 'noisy-git-fixture');
   await mkdir(path.join(noisyGitFixture, 'scripts'), { recursive: true });

@@ -9,13 +9,15 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
 import { writeContractBoundInferenceUnitSnapshot } from './living-doc-harness-inference-unit.mjs';
 import { resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
 import { DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES, getInferenceUnitType, normalizeAllowedInferenceUnitTypes } from './living-doc-harness-inference-unit-types.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_RUNS_DIR = '.living-doc-runs';
 
@@ -386,6 +388,112 @@ function preparedOutputContract({ unitTypeId, runId, docPath, inputContract, sta
   };
 }
 
+async function gitHead(cwd) {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function gitCommitEvidence(cwd, sha) {
+  if (!sha) return null;
+  try {
+    const [{ stdout: metadata }, { stdout: filesRaw }] = await Promise.all([
+      execFileAsync('git', ['show', '-s', '--format=%H%n%s%n%aI', sha], { cwd }),
+      execFileAsync('git', ['show', '--format=', '--name-only', '--no-renames', sha], { cwd }),
+    ]);
+    const [commitSha, subject, committedAt] = metadata.trim().split('\n');
+    return {
+      sha: commitSha || sha,
+      subject: subject || null,
+      committedAt: committedAt || null,
+      files: filesRaw.split('\n').map((line) => line.trim()).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
+  const changedFiles = unique(arr(inputContract.changedFiles));
+  if (commitEvidence?.sha && commitBefore && commitAfter && commitBefore !== commitAfter) {
+    const committedSet = new Set(arr(commitEvidence.files));
+    const missingChangedFiles = changedFiles.filter((filePath) => !committedSet.has(filePath));
+    return {
+      schema: 'living-doc-harness-commit-intent-result/v1',
+      approved: missingChangedFiles.length === 0,
+      status: missingChangedFiles.length === 0 ? 'approved' : 'blocked',
+      changedFiles,
+      message: commitEvidence.subject || inputContract.commitIntent?.message || 'Harness-managed commit-intent side effect.',
+      sideEffect: {
+        type: 'git-commit',
+        executed: true,
+        reasonCode: missingChangedFiles.length === 0 ? 'git-commit-created' : 'git-commit-missing-required-files',
+        sha: commitEvidence.sha,
+        beforeSha: commitBefore,
+        committedAt: commitEvidence.committedAt,
+        committedFiles: arr(commitEvidence.files),
+        requiredChangedFiles: changedFiles,
+        missingChangedFiles,
+      },
+      exitCode,
+      ...paths,
+      nativeTraceRefs: traceRefs,
+    };
+  }
+  return {
+    ...preparedOutputContract({
+      unitTypeId: 'commit-intent',
+      runId: inputContract.runId,
+      docPath: null,
+      inputContract,
+      status,
+    }),
+    status: status === 'finished' ? 'blocked' : status,
+    message: 'Commit-intent unit finished without a controller-detectable git commit.',
+    sideEffect: {
+      type: 'git-commit',
+      executed: false,
+      reasonCode: commitBefore === commitAfter ? 'git-head-unchanged' : 'git-commit-not-detected',
+      beforeSha: commitBefore,
+      afterSha: commitAfter,
+      requiredChangedFiles: changedFiles,
+    },
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+}
+
+function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
+  if (unitTypeId === 'commit-intent') {
+    return commitIntentOutputContract({
+      inputContract,
+      status,
+      exitCode,
+      traceRefs,
+      paths,
+      commitBefore,
+      commitAfter,
+      commitEvidence,
+    });
+  }
+  return {
+    ...preparedOutputContract({
+      unitTypeId,
+      runId,
+      docPath,
+      inputContract,
+      status,
+    }),
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+}
+
 function timestampInWindow(value, { startedAt, finishedAt, skewMs = 5000 }) {
   const timestamp = new Date(value || '').getTime();
   if (!Number.isFinite(timestamp)) return false;
@@ -667,6 +775,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     return { runId, runDir, contract, state, executed: false };
   }
 
+  const commitBefore = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
   const processStartedAt = new Date().toISOString();
   const child = spawn(codexCommand.command, codexCommand.args, {
     cwd,
@@ -744,6 +853,27 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     await attachTraceSummaryToRun({ runDir, tracePath: trace.path, now: finishedAt });
   }
   const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
+  const commitAfter = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
+  const commitEvidence = initialUnit.unitId === 'commit-intent' ? await gitCommitEvidence(cwd, commitAfter) : null;
+  const outputPaths = {
+    exitCode,
+    codexEventsPath: path.relative(runDir, codexEventsPath),
+    lastMessagePath: path.relative(runDir, lastMessagePath),
+    stderrPath: path.relative(runDir, codexStderrPath),
+  };
+  const finalOutputContract = externalOutputContract({
+    unitTypeId: initialUnit.unitId,
+    runId,
+    docPath: relativeDocPath,
+    inputContract: initialInputContract,
+    status: finalContract.status,
+    exitCode,
+    traceRefs: finalContract.artifacts.nativeTraceRefs,
+    paths: outputPaths,
+    commitBefore,
+    commitAfter,
+    commitEvidence,
+  });
   const finalUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,
     rootDir: initialUnitRootDir(initialUnit.unitId),
@@ -761,25 +891,12 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       lastMessagePath,
     },
     mode: 'external-headless-codex',
-    status: finalContract.status,
+    status: initialUnit.unitId === 'commit-intent' ? finalOutputContract.status : finalContract.status,
     basis: [
       `${initialUnit.unitId} headless Codex process exited with code ${exitCode}.`,
       'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',
     ],
-    outputContract: {
-      ...preparedOutputContract({
-        unitTypeId: initialUnit.unitId,
-        runId,
-        docPath: relativeDocPath,
-        inputContract: initialInputContract,
-        status: finalContract.status,
-      }),
-      exitCode,
-      codexEventsPath: path.relative(runDir, codexEventsPath),
-      lastMessagePath: path.relative(runDir, lastMessagePath),
-      stderrPath: path.relative(runDir, codexStderrPath),
-      nativeTraceRefs: finalContract.artifacts.nativeTraceRefs,
-    },
+    outputContract: finalOutputContract,
     now: finishedAt,
     cwd,
     toolProfile: resolvedToolProfile,

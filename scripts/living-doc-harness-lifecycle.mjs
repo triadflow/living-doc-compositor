@@ -210,6 +210,31 @@ function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesCh
   };
 }
 
+export async function sideEffectEvidenceFromRun({ run, runDir }) {
+  const initialUnitResultRef = run?.contract?.artifacts?.initialInferenceUnit?.unitId === 'commit-intent'
+    ? run.contract.artifacts.initialInferenceUnit.result
+    : null;
+  const commitResultRef = run?.contract?.artifacts?.commitIntentInferenceUnit?.result || initialUnitResultRef;
+  if (!commitResultRef) return null;
+  const commitResult = await readJson(path.resolve(runDir, commitResultRef), null);
+  const output = commitResult?.outputContract || commitResult;
+  const sideEffect = output?.sideEffect || {};
+  if (output?.schema !== 'living-doc-harness-commit-intent-result/v1') return null;
+  if (sideEffect.type !== 'git-commit' || sideEffect.executed !== true || !sideEffect.sha) return null;
+  return {
+    commit: {
+      required: arr(sideEffect.requiredChangedFiles).length > 0 || arr(output.changedFiles).length > 0,
+      sha: sideEffect.sha,
+      message: output.message || null,
+      committedAt: sideEffect.committedAt || null,
+      changedFiles: arr(output.changedFiles).length ? arr(output.changedFiles) : arr(sideEffect.requiredChangedFiles),
+      committedFiles: arr(sideEffect.committedFiles),
+      source: 'commit-intent-output-contract',
+      resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
+    },
+  };
+}
+
 function compactGitWorktreeEvidence(gitWorktree) {
   return {
     schema: 'living-doc-harness-git-worktree-evidence-summary/v1',
@@ -468,7 +493,8 @@ async function buildEvidenceFromPlan({
     throw new Error('controller source changed during lifecycle; restart required before continuing');
   }
 
-  const sideEffectEvidence = plan.sideEffectEvidence || (
+  const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
+  const sideEffectEvidence = plan.sideEffectEvidence || runSideEffectEvidence || (
     sourceFilesChanged
       ? {
         commit: {
