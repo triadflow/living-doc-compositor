@@ -733,7 +733,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T02:18:30.000Z",
+  "updated": "2026-05-12T02:53:36.032Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
@@ -742,10 +742,12 @@
     "objectiveReady": false,
     "nextObjectiveAction": "Lifecycle controller must run the configured proof routes and standalone PR-enabled/PR-disabled lifecycle runs before objective closure.",
     "repairState": {
-      "status": "implementation-produced-focused-proof",
-      "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T02:18:30.000Z",
+      "status": "gate-outcome-model-scoped",
+      "nearestHonestStage": "implemented-awaiting-gate-outcome-model-and-controller-proof",
+      "updated": "2026-05-12T02:53:36.032Z",
       "basis": [
+        "Live harness run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved the #265 routing fix: pr-review-policy-gate-missing selected pr-review instead of worker. The same run then exposed #266: a blocked pr-review output was treated like missing PR-review evidence and caused another pr-review unit. This means the controller needs explicit gate outcomes: missing, requested, satisfied, blocked.",
+        "Worker-owned verification passed again on 2026-05-12T02:35:25.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed again on 2026-05-12T02:18:30.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed again on 2026-05-11T14:53:09.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed again on 2026-05-11T14:52:11.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
@@ -1042,17 +1044,17 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows the current stage and remaining proof gate.",
-      "updated": "2026-05-12T02:18:30.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "objective-shaped",
           "name": "Objective shaped",
-          "status": "implemented-pending-controller-proof",
-          "updated": "2026-05-12T02:18:30.000Z",
-          "summary": "The worker implemented lifecycle-start PR review policy configuration, tightened required-when-source-changes routing so reviewer text cannot force PR review without controller evidence, added dashboard graph policy metadata, hardened PR gate satisfaction so URL-only or result-path-only metadata cannot satisfy required review, added negative pr-review input contract coverage, ensured closure-review must inspect prior pr-review result artifacts, added invalid policy-mode validation coverage, made worker runConfig required so worker-side prReviewPolicy propagation is contract-enforced, hardened dashboard lifecycle-start policy propagation through POST /api/lifecycles and active lifecycle snapshots, fixed lifecycle result path references for runs created outside the repo, and reran worker-owned policy-sensitive contract and Playwright checks at 2026-05-12T02:18:30.000Z. Objective closure is still blocked on controller-owned standalone lifecycle runs.",
+          "status": "implemented-pending-gate-outcome-model",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "summary": "The PR-review policy implementation now routes missing PR-review gates to the pr-review unit, confirmed by live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration after #265. That run exposed the next deeper requirement: blocked pr-review output must be modeled as a real gate outcome, not collapsed back into missing evidence. The controller now needs an explicit missing/requested/satisfied/blocked gate outcome model before standalone closure proof can be honest.",
           "documentReady": true,
           "objectiveReady": false,
-          "nextStep": "Run the full contract route and standalone PR-enabled/PR-disabled lifecycle proof routes from the lifecycle controller."
+          "nextStep": "Implement #267: gate outcome state model and no-repeat routing invariant, then rerun the PR-enabled and PR-disabled standalone lifecycle proof paths."
         }
       ]
     },
@@ -1061,7 +1063,7 @@
       "title": "Policy Decisions",
       "convergenceType": "decision-record",
       "rationale": "Captures the semantic decisions that must remain stable while implementation changes.",
-      "updated": "2026-05-11T12:55:00.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "decision-policy-at-lifecycle-start",
@@ -1093,6 +1095,30 @@
           "decision": "The pr-review inference unit judges whether the work passes review, but the deterministic controller decides whether the review unit is mandatory from policy and hard facts.",
           "notes": [
             "This preserves intelligence where it belongs while keeping mandatory gates enforceable."
+          ]
+        },
+        {
+          "id": "decision-gate-outcomes-are-first-class",
+          "name": "Gate outcomes are first-class controller state",
+          "status": "ground-truth",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "decision": "Policy and side-effect gates must be represented as explicit outcomes: missing, requested, satisfied, or blocked. A blocked gate is real evidence, not missing evidence.",
+          "notes": [
+            "This prevents the controller from repeatedly invoking the same gate unit after that unit already produced a blocked output contract.",
+            "The invariant applies first to pr-review and should generalize to other controller-owned gates such as commit intent or closure review.",
+            "A blocked pr-review result must route to continuation/blocker reasoning with the blocked result path, not another identical pr-review unit."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
           ]
         }
       ]
@@ -1154,7 +1180,7 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates for the PR-review policy implementation.",
-      "updated": "2026-05-11T14:53:09.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "criterion-policy-config-surface",
@@ -1325,6 +1351,28 @@
               "title": "Prove PR review policy with standalone lifecycle runs"
             }
           ]
+        },
+        {
+          "id": "criterion-gate-outcome-state-model",
+          "name": "Gate outcome state prevents repeated gate loops",
+          "status": "newly-scoped",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "objectiveTerm": "The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.",
+          "criterion": "The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state.",
+          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence.",
+          "acceptanceTest": "A lifecycle with a blocked pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; dashboard graph shows the blocked gate and result artifact.",
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
+          ]
         }
       ]
     },
@@ -1333,7 +1381,7 @@
       "title": "Relationship Maps",
       "convergenceType": "relationship-map",
       "rationale": "Makes the policy/control relationship inspectable before implementation starts. The diagrams are not proof; the acceptance criteria define what must become true.",
-      "updated": "2026-05-11T12:23:03.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "map-policy-vs-judgment",
@@ -1395,6 +1443,54 @@
               "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> NeedPR[\"Select pr-review before closure if PR evidence missing\"]\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
             }
           ]
+        },
+        {
+          "id": "map-gate-outcome-state-machine",
+          "name": "Gate outcome state machine",
+          "status": "newly-scoped",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "claim": "A controller-owned gate is not binary. Missing, requested, satisfied, and blocked are distinct states with different next-unit routing obligations.",
+          "semanticRole": "Control invariant",
+          "validationQuestion": "Can the lifecycle prove that a blocked pr-review output becomes blocked gate evidence and cannot immediately select pr-review again without new evidence?",
+          "driftRisk": "The map is stale if blocked PR-review output is treated as absent evidence or if the controller repeats the same gate unit for the same blocked state.",
+          "sectionIds": [
+            "policy-decisions",
+            "acceptance-criteria",
+            "verification-plan"
+          ],
+          "invariantIds": [
+            "blocked-gate-is-real-evidence",
+            "no-repeat-same-gate-without-new-evidence"
+          ],
+          "criterionIds": [
+            "criterion-gate-outcome-state-model",
+            "criterion-required-before-closure",
+            "criterion-dashboard-policy-visibility"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
+          ],
+          "diagrams": [
+            {
+              "title": "Gate Outcome Routing",
+              "role": "state-machine",
+              "text": "stateDiagram-v2\n  [*] --> Missing\n  Missing --> Requested: controller selects gate unit\n  Requested --> Satisfied: unit returns approved/not-required\n  Requested --> Blocked: unit returns blocked\n  Satisfied --> ClosureReview: gate can support closure\n  Blocked --> Continuation: explain blocker and choose non-repeating next move\n  Blocked --> Requested: only if new evidence changes gate state\n  Continuation --> [*]"
+            },
+            {
+              "title": "PR Review Loop Guard",
+              "role": "controller-invariant",
+              "text": "flowchart LR\n  Reviewer[\"reviewer: pr-review-policy-gate-missing\"] --> Controller[\"controller selection\"]\n  Controller --> PR[\"pr-review unit\"]\n  PR --> Blocked[\"outputContract.status = blocked\"]\n  Blocked --> Evidence[\"prReviewGate.status = blocked\"]\n  Evidence --> Guard{\"new evidence changed gate?\"}\n  Guard -->|no| Continue[\"continuation-inference / blocker\"]\n  Guard -->|yes| PR\n  Continue --> Dashboard[\"dashboard shows blocked gate + resultPath\"]"
+            }
+          ]
         }
       ]
     },
@@ -1403,7 +1499,7 @@
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
       "rationale": "Names the proof surfaces needed before this living doc can honestly close.",
-      "updated": "2026-05-11T14:53:09.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "verification-contract-suite",
@@ -1447,6 +1543,35 @@
           ],
           "gaps": [
             "Controller-owned standalone dashboard artifact is not recorded yet."
+          ]
+        },
+        {
+          "id": "verification-gate-outcome-loop-guard",
+          "name": "Gate outcome loop guard",
+          "status": "newly-scoped",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "currentCoverage": "Live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved routing to pr-review, then exposed that blocked pr-review output loops because blocked is not yet a first-class gate outcome.",
+          "nextStep": "Add contract and dashboard coverage for prReviewGate.status missing/requested/satisfied/blocked and prove blocked pr-review routes to continuation or blocker rather than another pr-review.",
+          "automation": [
+            "node tests/contract/living-doc-harness-iteration.spec.mjs",
+            "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
+            "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs"
+          ],
+          "gaps": [
+            "Blocked pr-review output is not yet preserved as a distinct gate outcome in controller evidence.",
+            "The lifecycle can still repeat pr-review for the same blocked gate state."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
           ]
         }
       ]
@@ -42766,7 +42891,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-12T02:20:29.139Z" title="2026-05-12T02:20:29.139Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-12T02:20:29.139Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-12T02:53:36.095Z" title="2026-05-12T02:53:36.095Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-12T02:53:36.095Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42812,7 +42937,7 @@ ${tmplLine}
 
 
     <section class="section" id="status" data-section-id="status">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T02:18:30Z" title="2026-05-12T02:18:30Z" data-relative-to-snapshot="true">2026-05-12T02:18:30Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></h2>
 
 
 
@@ -42824,7 +42949,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Objective shaped</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T02:18:30Z" title="2026-05-12T02:18:30Z" data-relative-to-snapshot="true">2026-05-12T02:18:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -42836,7 +42961,7 @@ ${tmplLine}
       </div>
     </section>
     <section class="section" id="policy-decisions" data-section-id="policy-decisions">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Policy Decisions <span class="kind-badge kind-act" title="Act type — a kind of thinking-action recorded here">act</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T12:55:00Z" title="2026-05-11T12:55:00Z" data-relative-to-snapshot="true">2026-05-11T12:55:00Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#be123c"><path opacity='.28' d='M11 3h2v18h-2z'/><path d='M13 5h6l-2 3 2 3h-6V5zm-2 8H5l2 3-2 3h6v-6z'/></svg> Policy Decisions <span class="kind-badge kind-act" title="Act type — a kind of thinking-action recorded here">act</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></h2>
 
 
 
@@ -42888,6 +43013,22 @@ ${tmplLine}
 
     <div class="note-stack">
       <p class="note-description"><span class="note-line">This preserves intelligence where it belongs while keeping mandatory gates enforceable.</span></p>
+    </div>
+
+
+    </article>
+    <article class="flow-card" id="decision-gate-outcomes-are-first-class" data-section-id="policy-decisions" data-card-key="decision-gate-outcomes-are-first-class">
+      <header class="flow-card-header">
+        <div>
+          <h3>Gate outcomes are first-class controller state</h3>
+          <div class="meta-row"><span><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">This prevents the controller from repeatedly invoking the same gate unit after that unit already produced a blocked output contract.</span></p><p class="note-description"><span class="note-line">The invariant applies first to pr-review and should generalize to other controller-owned gates such as commit intent or closure review.</span></p><p class="note-description"><span class="note-line">A blocked pr-review result must route to continuation/blocker reasoning with the blocked result path, not another identical pr-review unit.</span></p>
     </div>
 
 
@@ -42945,7 +43086,7 @@ ${tmplLine}
       </div>
     </section>
     <section class="section" id="acceptance-criteria" data-section-id="acceptance-criteria">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0f766e"><rect x='4' y='4' width='16' height='16' rx='3' opacity='.24'/><path d='M8 12.2l2.3 2.3L16.2 8.6l1.4 1.4-7.3 7.3-3.7-3.7z'/><path d='M7 7h8v1.8H7z' opacity='.75'/></svg> Acceptance Criteria <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T14:53:09Z" title="2026-05-11T14:53:09Z" data-relative-to-snapshot="true">2026-05-11T14:53:09Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0f766e"><rect x='4' y='4' width='16' height='16' rx='3' opacity='.24'/><path d='M8 12.2l2.3 2.3L16.2 8.6l1.4 1.4-7.3 7.3-3.7-3.7z'/><path d='M7 7h8v1.8H7z' opacity='.75'/></svg> Acceptance Criteria <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></h2>
 
 
 
@@ -43082,11 +43223,24 @@ ${tmplLine}
 
       <p class="code-refs"><strong>Objective term</strong> proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs</p><p class="code-refs"><strong>Criterion</strong> At least one standalone run proves a PR-required path and one standalone run proves a PR-disabled path from lifecycle-result.json, graph artifacts, inference-unit contracts, and closure-review evidence.</p><p class="code-refs"><strong>Proof required</strong> Two .living-doc-runs lifecycle-result.json artifacts show closed final states with the expected presence or absence of pr-review units.</p><p class="code-refs"><strong>Acceptance test</strong> The living doc records the run IDs and proof paths before the objective can be marked closed.</p>
 
+    </article>
+    <article class="flow-card" id="criterion-gate-outcome-state-model" data-section-id="acceptance-criteria" data-card-key="criterion-gate-outcome-state-model">
+      <header class="flow-card-header">
+        <div>
+          <h3>Gate outcome state prevents repeated gate loops</h3>
+          <div class="meta-row"><span><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Newly Scoped</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
+
+      <p class="code-refs"><strong>Objective term</strong> The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.</p><p class="code-refs"><strong>Criterion</strong> The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state.</p><p class="code-refs"><strong>Proof required</strong> Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence.</p><p class="code-refs"><strong>Acceptance test</strong> A lifecycle with a blocked pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; dashboard graph shows the blocked gate and result artifact.</p>
+
     </article></div>
       </div>
     </section>
     <section class="section" id="relationship-maps" data-section-id="relationship-maps">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0f766e"><path opacity='.24' d='M4 5h6v6H4zM14 13h6v6h-6zM15 4h4v4h-4z'/><path d='M10 8h3.2a3.8 3.8 0 013.8 3.8V13h-2v-1.2A1.8 1.8 0 0013.2 10H10V8zM7 11v2.2A3.8 3.8 0 0010.8 17H14v-2h-3.2A1.8 1.8 0 019 13.2V11H7z'/></svg> Relationship Maps <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T12:23:03Z" title="2026-05-11T12:23:03Z" data-relative-to-snapshot="true">2026-05-11T12:23:03Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#0f766e"><path opacity='.24' d='M4 5h6v6H4zM14 13h6v6h-6zM15 4h4v4h-4z'/><path d='M10 8h3.2a3.8 3.8 0 013.8 3.8V13h-2v-1.2A1.8 1.8 0 0013.2 10H10V8zM7 11v2.2A3.8 3.8 0 0010.8 17H14v-2h-3.2A1.8 1.8 0 019 13.2V11H7z'/></svg> Relationship Maps <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></h2>
 
 
 
@@ -43164,11 +43318,47 @@ ${tmplLine}
   PRUnit --&gt; Closure
   SkipPR --&gt; Closure</code></pre></details></article></div>
     </details>
+    </article>
+    <article class="flow-card" id="map-gate-outcome-state-machine" data-section-id="relationship-maps" data-card-key="map-gate-outcome-state-machine">
+      <header class="flow-card-header">
+        <div>
+          <h3>Gate outcome state machine</h3>
+          <div class="meta-row"><span><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Newly Scoped</span></div>
+      </header>
+      <div class="flow-meta"><strong>Sections</strong> <a href="#policy-decisions"><code>Policy Decisions</code></a> <a href="#acceptance-criteria"><code>Acceptance Criteria</code></a> <a href="#verification-plan"><code>Verification Plan</code></a></div><div class="flow-meta"><strong>Acceptance criteria</strong> <a href="#criterion-gate-outcome-state-model"><code>criterion-gate-outcome-state-model</code></a> <a href="#criterion-required-before-closure"><code>criterion-required-before-closure</code></a> <a href="#criterion-dashboard-policy-visibility"><code>criterion-dashboard-policy-visibility</code></a></div><div class="flow-meta"><strong>Invariants</strong> <code>blocked-gate-is-real-evidence</code> <code>no-repeat-same-gate-without-new-evidence</code></div><div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
+
+      <p class="code-refs"><strong>Relationship claim</strong> A controller-owned gate is not binary. Missing, requested, satisfied, and blocked are distinct states with different next-unit routing obligations.</p><p class="code-refs"><strong>Semantic role</strong> Control invariant</p><p class="code-refs"><strong>Validation question</strong> Can the lifecycle prove that a blocked pr-review output becomes blocked gate evidence and cannot immediately select pr-review again without new evidence?</p><p class="code-refs"><strong>Drift risk</strong> The map is stale if blocked PR-review output is treated as absent evidence or if the controller repeats the same gate unit for the same blocked state.</p>
+
+    <details class="details-block mermaid-details" open>
+      <summary>Mermaid diagrams (2)</summary>
+      <div class="mermaid-stack">
+    <div class="note-stack">
+      <p class="note-description"><strong class="note-title">Gate Outcome Routing</strong><span class="note-line">stateDiagram-v2</span><span class="note-line">[*] --&gt; Missing</span><span class="note-line">Missing --&gt; Requested: controller selects gate unit</span><span class="note-line">Requested --&gt; Satisfied: unit returns approved/not-required</span><span class="note-line">Requested --&gt; Blocked: unit returns blocked</span><span class="note-line">Satisfied --&gt; ClosureReview: gate can support closure</span><span class="note-line">Blocked --&gt; Continuation: explain blocker and choose non-repeating next move</span><span class="note-line">Blocked --&gt; Requested: only if new evidence changes gate state</span><span class="note-line">Continuation --&gt; [*]</span></p>
+    </div><article class="mermaid-card"><h4 class="mermaid-title">PR Review Loop Guard</h4><div class="mermaid-rendered"><svg class="mermaid-svg" viewBox="0 0 2028 128" role="img" aria-label="Rendered Mermaid flowchart">
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M 0 0 L 10 4 L 0 8 z" class="mermaid-arrowhead"/>
+      </marker>
+    </defs>
+    <g class="mermaid-edge" data-edge-index="0"><path d="M 212 54 C 246 54, 246 50, 280 50" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="1"><path d="M 468 50 C 502 50, 502 50, 536 50" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="2"><path d="M 724 50 C 758 50, 758 54, 792 54" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="3"><path d="M 980 54 C 1014 54, 1014 54, 1048 54" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="4"><path d="M 1236 54 C 1270 54, 1270 54, 1304 54" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="5"><path d="M 1492 54 C 1526 54, 1526 54, 1560 54" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="1526" y="48" text-anchor="middle">no</text></g><g class="mermaid-edge" data-edge-index="6"><path d="M 1492 54 C 1014 54, 1014 50, 536 50" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="1014" y="46" text-anchor="middle">yes</text></g><g class="mermaid-edge" data-edge-index="7"><path d="M 1748 54 C 1782 54, 1782 54, 1816 54" marker-end="url(#arrowhead)"/></g>
+    <g class="mermaid-node"><rect x="24" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="118" y="50" text-anchor="middle"><tspan x="118" dy="0">reviewer:</tspan><tspan x="118" dy="16">pr-review-policy-gate-missing</tspan></text></g><g class="mermaid-node"><rect x="280" y="24" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="374" y="54" text-anchor="middle"><tspan x="374" dy="0">controller selection</tspan></text></g><g class="mermaid-node"><rect x="536" y="24" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="630" y="54" text-anchor="middle"><tspan x="630" dy="0">pr-review unit</tspan></text></g><g class="mermaid-node"><rect x="792" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="886" y="50" text-anchor="middle"><tspan x="886" dy="0">outputContract.status =</tspan><tspan x="886" dy="16">blocked</tspan></text></g><g class="mermaid-node"><rect x="1048" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="1142" y="50" text-anchor="middle"><tspan x="1142" dy="0">prReviewGate.status =</tspan><tspan x="1142" dy="16">blocked</tspan></text></g><g class="mermaid-node"><rect x="1304" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="1398" y="50" text-anchor="middle"><tspan x="1398" dy="0">new evidence changed</tspan><tspan x="1398" dy="16">gate?</tspan></text></g><g class="mermaid-node"><rect x="1560" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="1654" y="50" text-anchor="middle"><tspan x="1654" dy="0">continuation-inference /</tspan><tspan x="1654" dy="16">blocker</tspan></text></g><g class="mermaid-node"><rect x="1816" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="1910" y="50" text-anchor="middle"><tspan x="1910" dy="0">dashboard shows blocked</tspan><tspan x="1910" dy="16">gate + resultPath</tspan></text></g>
+  </svg></div><details class="mermaid-source"><summary>Mermaid source</summary><pre><code>flowchart LR
+  Reviewer[&quot;reviewer: pr-review-policy-gate-missing&quot;] --&gt; Controller[&quot;controller selection&quot;]
+  Controller --&gt; PR[&quot;pr-review unit&quot;]
+  PR --&gt; Blocked[&quot;outputContract.status = blocked&quot;]
+  Blocked --&gt; Evidence[&quot;prReviewGate.status = blocked&quot;]
+  Evidence --&gt; Guard{&quot;new evidence changed gate?&quot;}
+  Guard --&gt;|no| Continue[&quot;continuation-inference / blocker&quot;]
+  Guard --&gt;|yes| PR
+  Continue --&gt; Dashboard[&quot;dashboard shows blocked gate + resultPath&quot;]</code></pre></details></article></div>
+    </details>
     </article></div>
       </div>
     </section>
     <section class="section" id="verification-plan" data-section-id="verification-plan">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-11T14:53:09Z" title="2026-05-11T14:53:09Z" data-relative-to-snapshot="true">2026-05-11T14:53:09Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></h2>
 
 
 
@@ -43235,6 +43425,26 @@ ${tmplLine}
       <p class="note-description"><span class="note-line">Controller-owned standalone dashboard artifact is not recorded yet.</span></p>
     </div>
     </details>
+    </article>
+    <article class="flow-card" id="verification-gate-outcome-loop-guard" data-section-id="verification-plan" data-card-key="verification-gate-outcome-loop-guard">
+      <header class="flow-card-header">
+        <div>
+          <h3>Gate outcome loop guard</h3>
+          <div class="meta-row"><span><time datetime="2026-05-12T02:53:36.032Z" title="2026-05-12T02:53:36.032Z" data-relative-to-snapshot="true">2026-05-12T02:53:36.032Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Newly Scoped</span></div>
+      </header>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
+
+      <p class="code-refs"><strong>Current coverage</strong> Live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved routing to pr-review, then exposed that blocked pr-review output loops because blocked is not yet a first-class gate outcome.</p><p class="code-refs"><strong>Next step</strong> Add contract and dashboard coverage for prReviewGate.status missing/requested/satisfied/blocked and prove blocked pr-review routes to continuation or blocker rather than another pr-review.</p>
+
+    <details class="details-block">
+      <summary>Current gaps (2)</summary>
+
+    <div class="note-stack">
+      <p class="note-description"><span class="note-line">Blocked pr-review output is not yet preserved as a distinct gate outcome in controller evidence.</span></p><p class="note-description"><span class="note-line">The lifecycle can still repeat pr-review for the same blocked gate state.</span></p>
+    </div>
+    </details>
     </article></div>
       </div>
     </section>
@@ -43283,7 +43493,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-434f15c (2026-05-12)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-f3a6f53 (2026-05-12)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -43312,7 +43522,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Ground Truth</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43336,6 +43546,13 @@ ${tmplLine}
       <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
 
 
+    </article>
+    <article class="board-card" data-section-id="policy-decisions">
+      <div class="board-card-kicker">Policy Decisions · Decision Record</div>
+      <h3>Gate outcomes are first-class controller state</h3>
+      <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
+
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
     </article>
       </div>
     </section>
@@ -43394,7 +43611,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Ground Truth</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43418,6 +43635,13 @@ ${tmplLine}
       <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
 
 
+    </article>
+    <article class="board-card" data-section-id="policy-decisions">
+      <div class="board-card-kicker">Policy Decisions · Decision Record</div>
+      <h3>Gate outcomes are first-class controller state</h3>
+      <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
+
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
     </article>
       </div>
     </section>
@@ -43584,7 +43808,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">10</span>
+        <span class="board-count">11</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43657,6 +43881,13 @@ ${tmplLine}
       <div class="badge-row"><span class="badge badge-neutral">Blocked For Controller Owned Proof</span></div>
       <p class="board-card-note"><strong>Objective term</strong> proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/263" class="ticket-link"><span class="ticket-badge badge badge-neutral">#263</span></a></div></div>
+    </article>
+    <article class="board-card" data-section-id="acceptance-criteria">
+      <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
+      <h3>Gate outcome state prevents repeated gate loops</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Newly Scoped</span></div>
+      <p class="board-card-note"><strong>Objective term</strong> The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
     </article>
       </div>
     </section>
@@ -43748,6 +43979,22 @@ ${tmplLine}
         <div class="board-empty">No items</div>
       </div>
     </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
+        <span class="board-count">1</span>
+      </header>
+      <div class="board-lane-cards">
+
+    <article class="board-card" data-section-id="relationship-maps">
+      <div class="board-card-kicker">Relationship Maps · Relationship Map</div>
+      <h3>Gate outcome state machine</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Newly Scoped</span></div>
+      <p class="board-card-note"><strong>Relationship claim</strong> A controller-owned gate is not binary. Missing, requested, satisfied, and blocked are distinct states with different next-unit routing obligations.</p>
+      <div class="flow-meta"><strong>Sections</strong> <a href="#policy-decisions"><code>Policy Decisions</code></a> <a href="#acceptance-criteria"><code>Acceptance Criteria</code></a> <a href="#verification-plan"><code>Verification Plan</code></a></div><div class="flow-meta"><strong>Acceptance criteria</strong> <a href="#criterion-gate-outcome-state-model"><code>criterion-gate-outcome-state-model</code></a> <a href="#criterion-required-before-closure"><code>criterion-required-before-closure</code></a> <a href="#criterion-dashboard-policy-visibility"><code>criterion-dashboard-policy-visibility</code></a></div>
+    </article>
+      </div>
+    </section>
           </div>
         </div>
       </div>
@@ -43798,7 +44045,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43822,6 +44069,13 @@ ${tmplLine}
       <div class="badge-row"><span class="badge badge-neutral">Focused E2e Pass</span></div>
       <p class="board-card-note"><strong>Current coverage</strong> The sanitized evidence dashboard bundle, HTML card, active worker graph nodes, lifecycle dashboard graph metadata, and dashboard lifecycle-start API expose and preserve PR policy mode and PR gate state. The focused Playwright E2E passed on 2026-05-12T02:18:30.000Z for the policy routing and inference-unit routing dashboard paths.</p>
 
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Gate outcome loop guard</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Newly Scoped</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved routing to pr-review, then exposed that blocked pr-review output loops because blocked is not yet a first-class gate outcome.</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
     </article>
       </div>
     </section>
@@ -43857,7 +44111,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43881,6 +44135,13 @@ ${tmplLine}
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
       <p class="board-card-note"><strong>Current coverage</strong> The sanitized evidence dashboard bundle, HTML card, active worker graph nodes, lifecycle dashboard graph metadata, and dashboard lifecycle-start API expose and preserve PR policy mode and PR gate state. The focused Playwright E2E passed on 2026-05-12T02:18:30.000Z for the policy routing and inference-unit routing dashboard paths.</p>
 
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Gate outcome loop guard</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved routing to pr-review, then exposed that blocked pr-review output loops because blocked is not yet a first-class gate outcome.</p>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a></div></div>
     </article>
       </div>
     </section>
@@ -43961,9 +44222,9 @@ ${tmplLine}
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="section" style="--toggle-color: #7c3aed; border-color: #7c3aed; background: #7c3aed;">
             <span class="shape-icon" aria-hidden="true"></span>Sections (7)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="card" style="--toggle-color: #64748b; border-color: #64748b; background: #64748b;">
-            <span class="shape-icon" aria-hidden="true"></span>Cards (24)
+            <span class="shape-icon" aria-hidden="true"></span>Cards (28)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="source" style="--toggle-color: #f59e0b; border-color: #f59e0b; background: #f59e0b;">
-            <span class="shape-icon" aria-hidden="true"></span>Refs (20)
+            <span class="shape-icon" aria-hidden="true"></span>Refs (25)
           </button>
         </div>
         <div class="toolbar-section toolbar-controls">
@@ -43973,7 +44234,7 @@ ${tmplLine}
       </div>
       <div class="json-graph-shell">
         <div class="json-graph-canvas graph-container" tabindex="0" aria-label="Living doc JSON structure graph">
-          <svg class="json-graph-svg graph-canvas" viewBox="-43 168 1945 1922" data-graph-svg data-graph-initial-view-box="-43 168 1945 1922" role="img" aria-labelledby="json-graph-title">
+          <svg class="json-graph-svg graph-canvas" viewBox="-43 168 2025 1922" data-graph-svg data-graph-initial-view-box="-43 168 2025 1922" role="img" aria-labelledby="json-graph-title">
             <title id="json-graph-title">Living doc JSON structure graph</title>
             <defs>
               <marker id="json-graph-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -44006,14 +44267,23 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.8912815091048 942.5422855479554 L 1276.641750399552 707.4866302472128"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-policy-decisions" data-graph-edge-to="graph-card-policy-decisions-decision-policy-at-lifecycle-start" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1298.7398955642798 670.0479443303142 L 1325.2916434486372 442.73111593797756"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1297.9376229874188 669.9691047499363 L 1316.571600443996 436.4671727432151"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-policy-decisions" data-graph-edge-to="graph-card-policy-decisions-decision-policy-and-availability-are-separate" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1313.3878300755493 678.1826095598524 L 1498.6818914204725 530.4155265193326"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1309.2181061825522 674.1735769314583 L 1453.1086036549752 478.4357373543358"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-policy-decisions" data-graph-edge-to="graph-card-policy-decisions-decision-inference-judges-quality" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1318.173325170191 691.1087279946781 L 1653.3615892814164 679.0546219550437"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1316.1255711262434 682.6002017111202 L 1588.3050434365023 555.6545410883036"><title>card</title></path>
 
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-policy-decisions" data-graph-edge-to="graph-card-policy-decisions-decision-gate-outcomes-are-first-class" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1317.957410660507 695.0731244604176 L 1549.7514117892003 728.8654077137733"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-policy-decisions-decision-gate-outcomes-are-first-class" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-267" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1581.6225243321426 722.3771281394273 L 1722.1953068683954 623.1121343594364"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1654.720371250994" y="670.7593313738321">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-policy-decisions-decision-gate-outcomes-are-first-class" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-266" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1584.3639979276797 729.1565112880588 L 1824.5767006081708 691.9372672643534"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1709.274603321535" y="709.8025043957321">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-policy-modes" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 987.2979815410911 966.2305861507768 L 1354.8458044336387 1050.1209782523074"><title>section</title></path>
 
@@ -44030,65 +44300,74 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 972.1487446952916 985.2271283012677 L 1135.7229143426111 1324.8923915004796"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-policy-config-surface" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1166.9641590510523 1339.1656377655593 L 1555.911034092278 1181.8072326898193"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1166.2370650650853 1337.5572592972933 L 1571.4913964021555 1134.3979445720122"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-policy-config-surface" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-254" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1588.626297985373 1179.9658552621413 L 1746.2548141468703 1235.122458608654"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1670.5931263893517" y="1208.6472890023279">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1603.9467749969742 1129.9663230495858 L 1765.4169122709905 1172.585506156614"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1687.9112463794627" y="1152.1282982652403">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-policy-types-separated" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1168.4706886370425 1345.3285088486086 L 1558.5971908512804 1308.1321836326129"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1168.1393100322541 1343.0847311474558 L 1584.6695010325852 1259.4306731621368"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-policy-types-separated" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-255" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1591.4664754231424 1314.1554608031252 L 1686.5353232423724 1367.4744459240378"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1640.902276289142" y="1341.8813330659998">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1617.8353321566012 1262.3717509398227 L 1716.8740769149842 1307.8945697967852"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1669.3354794309605" y="1286.0436167454432">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-disabled-mode" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1167.9614489725227 1352.5553139522858 L 1534.4081244824993 1440.5839696401385"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1168.4457648280081 1349.7514055551142 L 1571.7381913084546 1392.794673712253"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-disabled-mode" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-256" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1565.26652066419 1455.1529450210971 L 1604.7404241857678 1487.4455283920383"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1585.7929504954104" y="1471.9450883739867">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1603.8033373420049 1403.8933011741635 L 1645.7905115164833 1432.8428642942176"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1625.6366679127336" y="1418.9470739965916">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-required-before-closure" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1166.6818260725038 1356.3337184794855 L 1366.617519749546 1444.9804836651144"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1167.935271435434 1352.6630892216685 L 1405.2745527243528 1410.944366307342"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-required-before-closure" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-257" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1394.4234159112289 1464.8091676148717 L 1503.355413594675 1591.3904453801622"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1451.0680547066208" y="1530.6314320528227">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1435.1411742867108 1426.6871162753966 L 1554.2831804516966 1543.7092610471552"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1497.0950174925033" y="1487.5386315567112">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-required-when-source-changes" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1160.219486644618 1364.6703585256878 L 1309.8279760340038 1553.7843025853651"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1163.4687107864288 1361.50326780696 L 1357.692250394939 1523.4068130027822"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-required-when-source-changes" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-258" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1329.7882789531004 1582.4408636560618 L 1385.4608237126142 1676.1508831843914"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1358.7380022280477" y="1631.1700738107932">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1381.6037957299188 1548.579849660286 L 1445.0772953632904 1637.1920093467102"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1414.6100155392721" y="1594.6581726972265">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-pr-review-contract" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1152.0339301333893 1368.7273042464142 L 1226.2215393334452 1658.077907853064"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1156.1154500811363 1367.2379282918932 L 1284.1111531208162 1633.023744323107"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-pr-review-contract" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-259" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1236.5997104448588 1691.4482894790447 L 1254.6388219956104 1739.1514387928953"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1245.9800484512496" y="1716.253927122247">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1299.2970839899308 1664.5576546996917 L 1321.4251546849262 1710.507066962715"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1310.8036807513283" y="1688.4513490764639">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-closure-enforcement" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1141.0021678851365 1368.7003900821744 L 1085.6511336910244 1580.2867639289757"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1145.698764779347 1369.3993549643246 L 1137.8905353436521 1566.4124537429927"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-closure-enforcement" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-260" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1083.8171303705012 1614.38927117337 L 1114.864368766708 1778.477872203329"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1099.9616943365288" y="1699.7153437089487">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1141.498420588238 1600.7919501085942 L 1187.0092858108142 1761.4710126733617"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1165.1640705039777" y="1684.3450626422732">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-dashboard-policy-visibility" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1135.900886623616 1366.6564118686379 L 978.0403917672696 1651.3287933155596"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1139.1434162678097 1368.125204118447 L 1039.3665807925006 1646.3467347516337"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-dashboard-policy-visibility" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-261" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 969.0256117670806 1683.9437397562258 L 970.3844400579809 1792.935269636652"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="969.7322024783488" y="1740.6193352940475">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1034.6013549989375 1680.1462614166117 L 1045.8327744670096 1788.5660714917642"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1040.441693122335" y="1736.524562655691">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-contract-tests" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1132.4039449547597 1364.2488044660383 L 848.6342823757254 1701.4254273455226"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1134.7561105882464 1365.9754879533848 L 916.9599776643898 1708.1192423513683"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-contract-tests" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-262" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 833.8182311851452 1731.752655465956 L 825.5889853928721 1782.0843503876488"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="829.5390233731632" y="1757.9251368252362">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 905.6449424792664 1740.1086640474632 L 902.1000474235665 1790.9853160505588"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="903.8015970503025" y="1766.564523089073">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-standalone-proof-runs" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1127.4035901565835 1358.2170036507223 L 761.8714249843854 1564.1965547640318"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1128.6407223258796 1360.1657591165163 L 819.4934805855477 1579.9940002593946"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-standalone-proof-runs" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-263" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 740.0341447378588 1588.626297985373 L 684.8775413913459 1746.2548141468703"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="711.352710997672" y="1670.5931263893517">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 800.1693216006912 1606.5370478498637 L 760.0916589990627 1768.6566979863908"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="779.3289370478444" y="1690.8392659208578">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-gate-outcome-state-model" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1127.3067266392575 1358.0432776855669 L 691.0879247953463 1598.6850877032712"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-gate-outcome-state-model" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-267" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 686.128011873116 1596.9238311013992 L 1723.6756894225373 624.9285782710599"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1225.652804198815" y="1091.4862996296229">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-gate-outcome-state-model" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-266" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 687.0238605652956 1597.9664698688284 L 1828.01805962213 699.8490020810045"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1280.3408440748497" y="1130.94538661916">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-relationship-maps" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 947.8512553047084 985.2271283012677 L 784.2770856573889 1324.8923915004796"><title>section</title></path>
 
@@ -44114,38 +44393,68 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 848.6086823605732 1611.945880880509 L 534.6393824938133 1841.7253948574853"><title>criterionIds</title></path>
     <text class="json-graph-edge-label" x="685.344646429858" y="1731.4312281485368">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-relationship-maps" data-graph-edge-to="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 753.3835773597285 1356.4797943655801 L 497.04604875761595 1472.3725104773353"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 763.8845499188636 1367.2379282918932 L 661.0541037480023 1580.7675499847664"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-to="graph-source-section-ref-policy-modes" data-graph-edge-label="sectionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 486.59702991423046 1494.6527729826682 L 590.6030697785702 1713.656453793447"><title>sectionIds</title></path>
-    <text class="json-graph-edge-label" x="540.6801706436871" y="1608.5346870042733">sectionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 663.599830891633 1609.7006229769338 L 827.0917809619837 1788.7264613330942"><title>sectionIds</title></path>
+    <text class="json-graph-edge-label" x="748.6156449282154" y="1702.7940589221373">sectionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-to="graph-source-section-ref-acceptance-criteria" data-graph-edge-label="sectionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 492.2972147407617 1490.106691673338 L 975.381720154853 1871.0261719757186"><title>sectionIds</title></path>
-    <text class="json-graph-edge-label" x="743.5011575560892" y="1688.184821430576">sectionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 665.0347919238689 1608.2088508904028 L 975.74243844043 1870.5841676768441"><title>sectionIds</title></path>
+    <text class="json-graph-edge-label" x="826.6027681124806" y="1744.6440156193523">sectionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-to="graph-source-section-ref-criterion-disabled-mode" data-graph-edge-label="criterionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 471.57432801955264 1493.9632411461687 L 340.2396726398517 1715.514505032053"><title>criterionIds</title></path>
-    <text class="json-graph-edge-label" x="403.28030722210815" y="1609.1698983668284">criterionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 649.0319500238396 1613.4334333647898 L 588.211315167258 1863.702497791019"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="617.4052198984172" y="1743.573346866429">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-to="graph-source-section-ref-criterion-required-before-closure" data-graph-edge-label="criterionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 490.85792653980275 1491.6994232747934 L 768.3467983319745 1778.540351436511"><title>criterionIds</title></path>
-    <text class="json-graph-edge-label" x="635.1521398717321" y="1640.8567059188865">criterionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 661.6267033435073 1611.237784421395 L 770.7993670206666 1776.5723825875036"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="718.3964884556301" y="1697.2117754677715">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-to="graph-source-section-ref-criterion-required-when-source-changes" data-graph-edge-label="criterionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 463.8541371425122 1482.163020251527 L 238.45953500944537 1510.029746691336"><title>criterionIds</title></path>
-    <text class="json-graph-edge-label" x="346.64894403331743" y="1496.6537180002276">criterionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 638.1990440721122 1604.405991369335 L 430.8005563981137 1696.954078457793"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="530.351830481633" y="1652.5309966553332">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-three-policy-modes" data-graph-edge-to="graph-source-invariant-allowed-types-do-not-imply-required-types" data-graph-edge-label="invariantIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 463.77129208147096 1479.0969217788884 L 114.27756312024167 1454.9488493559193"><title>invariantIds</title></path>
-    <text class="json-graph-edge-label" x="282.0345530216317" y="1466.5399241189443">invariantIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 637.2233785089373 1601.498088369424 L 295.9406502239863 1680.5872491902996"><title>invariantIds</title></path>
+    <text class="json-graph-edge-label" x="459.75635980076277" y="1642.6244519962793">invariantIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-relationship-maps" data-graph-edge-to="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 753.9645352223133 1357.6682465044876 L 457.2004249720416 1513.9613581174951"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-to="graph-source-section-ref-policy-decisions" data-graph-edge-label="sectionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 455.10483855807377 1529.0963114120448 L 1074.1933105792846 1793.352671483307"><title>sectionIds</title></path>
+    <text class="json-graph-edge-label" x="777.0308440091035" y="1666.5096186491012">sectionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-to="graph-source-section-ref-acceptance-criteria" data-graph-edge-label="sectionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 453.77855623556644 1531.5745571937034 L 974.5049144013109 1872.245255366827"><title>sectionIds</title></path>
+    <text class="json-graph-edge-label" x="724.5562624817535" y="1708.7233202437276">sectionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-to="graph-source-section-ref-verification-plan" data-graph-edge-label="sectionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 432.95340540042133 1536.9821424043466 L 339.4715225073665 1715.0856129517356"><title>sectionIds</title></path>
+    <text class="json-graph-edge-label" x="384.3428262960328" y="1629.5959470889889">sectionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-to="graph-source-section-ref-criterion-gate-outcome-state-model" data-graph-edge-label="criterionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 424.94103611377597 1526.9803318301754 L 362.77096924049283 1543.743093758349"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="392.61260133966874" y="1535.6969680328257">criterionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-to="graph-source-section-ref-criterion-required-before-closure" data-graph-edge-label="criterionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 452.95289613349763 1532.7224765693843 L 766.8180127233614 1780.2320478175047"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="616.1627567602268" y="1661.4274536184068">criterionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-gate-outcome-state-machine" data-graph-edge-to="graph-source-section-ref-criterion-dashboard-policy-visibility" data-graph-edge-label="criterionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 424.70379443153035 1519.6585571046803 L 113.98389895799134 1457.130802328762"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="263.12944878529004" y="1487.1441246212028">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-verification-plan" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 932.7020184589089 966.2305861507768 L 565.1541955663614 1050.1209782523074"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-contract-suite" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 529.0004177012813 1074.264042866975 L 406.44904400187005 1267.5490567466152"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 529.6890331046801 1074.683167899894 L 411.58770818085856 1276.9761594195252"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-standalone-runs" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 519.3325836938156 1060.5794621482542 L 288.27466850672346 1113.3169234959007"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 521.3499210421032 1066.0006511306235 L 306.7815967099435 1179.9226037932685"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-dashboard" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 520.6294341948226 1046.8570833504648 L 213.40516274415853 912.2847202816678"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 518.7826856392504 1055.411487825061 L 218.4777967098227 1051.6913288045055"><title>card</title></path>
 
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-gate-outcome-loop-guard" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 522.5440536080756 1043.3789673496026 L 328.3667970358703 912.3615242482517"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-verification-plan-verification-gate-outcome-loop-guard" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-267" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 328.2980364851659 898.5570343415598 L 1719.4206208797777 616.6820741894138"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1051.6817803703639" y="751.9820550624438">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-verification-plan-verification-gate-outcome-loop-guard" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-266" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 328.4644829356368 899.5326185622673 L 1824.5379809611861 691.6737434552501"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1106.4227019089224" y="791.4460035066184">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-scope-boundaries" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.1087184908952 942.5422855479554 L 643.3582496004478 707.4866302472129"><title>section</title></path>
 
@@ -44167,8 +44476,8 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="960"
       data-graph-size="24"
-      data-graph-label="lifecycle pr review policy configuration 7 sections · 24 cards $"
-      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Lifecycle PR Review Policy Configuration&quot;,&quot;sections&quot;:7,&quot;cards&quot;:24,&quot;objective&quot;:&quot;Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.&quot;,&quot;successCondition&quot;:&quot;A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.&quot;}"
+      data-graph-label="lifecycle pr review policy configuration 7 sections · 28 cards $"
+      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Lifecycle PR Review Policy Configuration&quot;,&quot;sections&quot;:7,&quot;cards&quot;:28,&quot;objective&quot;:&quot;Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.&quot;,&quot;successCondition&quot;:&quot;A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.&quot;}"
       transform="translate(960, 960)">
       <title>Lifecycle PR Review Policy Configuration · $</title>
       <circle class="json-graph-node-hit" r="42"></circle>
@@ -44176,7 +44485,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="40" text-anchor="middle">
         <tspan x="0" dy="0">Lifecycle PR Review Policy</tspan><tspan x="0" dy="12">Configuration</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">7 sections · 24 cards</text>
+      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">7 sections · 28 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-governance" tabindex="0" role="button"
       data-graph-node="graph-governance-objective"
@@ -44319,8 +44628,8 @@ ${tmplLine}
       data-graph-home-x="1296.1875374612528"
       data-graph-home-y="691.8993852007445"
       data-graph-size="18"
-      data-graph-label="policy decisions decision record · 3 cards $.sections[1]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[1]&quot;,&quot;id&quot;:&quot;policy-decisions&quot;,&quot;title&quot;:&quot;Policy Decisions&quot;,&quot;convergenceType&quot;:&quot;decision-record&quot;,&quot;cards&quot;:3}"
+      data-graph-label="policy decisions decision record · 4 cards $.sections[1]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[1]&quot;,&quot;id&quot;:&quot;policy-decisions&quot;,&quot;title&quot;:&quot;Policy Decisions&quot;,&quot;convergenceType&quot;:&quot;decision-record&quot;,&quot;cards&quot;:4}"
       transform="translate(1296.1875374612528, 691.8993852007445)">
       <title>Policy Decisions · $.sections[1]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44328,19 +44637,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Policy Decisions</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Decision Record · 3 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Decision Record · 4 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-policy-decisions-decision-policy-at-lifecycle-start"
       data-graph-type="card"
-      data-graph-x="1327.4959527194333"
-      data-graph-y="423.85941700442413"
-      data-graph-home-x="1327.4959527194333"
-      data-graph-home-y="423.85941700442413"
+      data-graph-x="1318.0830379438667"
+      data-graph-y="417.5273850811534"
+      data-graph-home-x="1318.0830379438667"
+      data-graph-home-y="417.5273850811534"
       data-graph-size="12"
       data-graph-label="policy is configured at lifecycle start status: ground truth $.sections[1].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[0]&quot;,&quot;id&quot;:&quot;decision-policy-at-lifecycle-start&quot;,&quot;title&quot;:&quot;Policy is configured at lifecycle start&quot;,&quot;section&quot;:&quot;Policy Decisions&quot;,&quot;statuses&quot;:[&quot;Status: Ground Truth&quot;]}"
-      transform="translate(1327.4959527194333, 423.85941700442413)">
+      transform="translate(1318.0830379438667, 417.5273850811534)">
       <title>Policy is configured at lifecycle start · $.sections[1].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44352,14 +44661,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-policy-decisions-decision-policy-and-availability-are-separate"
       data-graph-type="card"
-      data-graph-x="1513.5366895873651"
-      data-graph-y="518.5692202840166"
-      data-graph-home-x="1513.5366895873651"
-      data-graph-home-y="518.5692202840166"
+      data-graph-x="1464.362276641552"
+      data-graph-y="463.1270847581341"
+      data-graph-home-x="1464.362276641552"
+      data-graph-home-y="463.1270847581341"
       data-graph-size="12"
       data-graph-label="policy is not the same as allowed unit types status: ground truth $.sections[1].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[1]&quot;,&quot;id&quot;:&quot;decision-policy-and-availability-are-separate&quot;,&quot;title&quot;:&quot;Policy is not the same as allowed unit types&quot;,&quot;section&quot;:&quot;Policy Decisions&quot;,&quot;statuses&quot;:[&quot;Status: Ground Truth&quot;]}"
-      transform="translate(1513.5366895873651, 518.5692202840166)">
+      transform="translate(1464.362276641552, 463.1270847581341)">
       <title>Policy is not the same as allowed unit types · $.sections[1].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44371,14 +44680,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-policy-decisions-decision-inference-judges-quality"
       data-graph-type="card"
-      data-graph-x="1672.3493150300449"
-      data-graph-y="678.3717816407136"
-      data-graph-home-x="1672.3493150300449"
-      data-graph-home-y="678.3717816407136"
+      data-graph-x="1605.5242543289942"
+      data-graph-y="547.6234280745373"
+      data-graph-home-x="1605.5242543289942"
+      data-graph-home-y="547.6234280745373"
       data-graph-size="12"
       data-graph-label="inference judges review quality status: ground truth $.sections[1].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;decision-inference-judges-quality&quot;,&quot;title&quot;:&quot;Inference judges review quality&quot;,&quot;section&quot;:&quot;Policy Decisions&quot;,&quot;statuses&quot;:[&quot;Status: Ground Truth&quot;]}"
-      transform="translate(1672.3493150300449, 678.3717816407136)">
+      transform="translate(1605.5242543289942, 547.6234280745373)">
       <title>Inference judges review quality · $.sections[1].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44386,6 +44695,63 @@ ${tmplLine}
         <tspan x="0" dy="0">Inference judges</tspan><tspan x="0" dy="12">review quality</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Ground Truth</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-policy-decisions-decision-gate-outcomes-are-first-class"
+      data-graph-type="card"
+      data-graph-x="1568.552665915829"
+      data-graph-y="731.6063643471273"
+      data-graph-home-x="1568.552665915829"
+      data-graph-home-y="731.6063643471273"
+      data-graph-size="12"
+      data-graph-label="gate outcomes are first-class controller state status: ground truth $.sections[1].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;decision-gate-outcomes-are-first-class&quot;,&quot;title&quot;:&quot;Gate outcomes are first-class controller state&quot;,&quot;section&quot;:&quot;Policy Decisions&quot;,&quot;statuses&quot;:[&quot;Status: Ground Truth&quot;]}"
+      transform="translate(1568.552665915829, 731.6063643471273)">
+      <title>Gate outcomes are first-class controller state · $.sections[1].data[3]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Gate outcomes are</tspan><tspan x="0" dy="12">first-class</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Ground Truth</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-267"
+      data-graph-type="source"
+      data-graph-x="1736.0820314357284"
+      data-graph-y="613.3060708887551"
+      data-graph-home-x="1736.0820314357284"
+      data-graph-home-y="613.3060708887551"
+      data-graph-size="10"
+      data-graph-label="267 tickets $.sections[1].data[3].ticketids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[3].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;267&quot;}"
+      transform="translate(1736.0820314357284, 613.3060708887551)">
+      <title>267 · $.sections[1].data[3].ticketIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">267</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-266"
+      data-graph-type="source"
+      data-graph-x="1841.376240870762"
+      data-graph-y="689.3342983890932"
+      data-graph-home-x="1841.376240870762"
+      data-graph-home-y="689.3342983890932"
+      data-graph-size="10"
+      data-graph-label="266 tickets $.sections[1].data[3].ticketids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[3].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;266&quot;}"
+      transform="translate(1841.376240870762, 689.3342983890932)">
+      <title>266 · $.sections[1].data[3].ticketIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">266</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-policy-modes"
@@ -44471,8 +44837,8 @@ ${tmplLine}
       data-graph-home-x="1146.57000782055"
       data-graph-home-y="1347.41661319804"
       data-graph-size="18"
-      data-graph-label="acceptance criteria acceptance criteria · 10 cards $.sections[3]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[3]&quot;,&quot;id&quot;:&quot;acceptance-criteria&quot;,&quot;title&quot;:&quot;Acceptance Criteria&quot;,&quot;convergenceType&quot;:&quot;acceptance-criteria&quot;,&quot;cards&quot;:10}"
+      data-graph-label="acceptance criteria acceptance criteria · 11 cards $.sections[3]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[3]&quot;,&quot;id&quot;:&quot;acceptance-criteria&quot;,&quot;title&quot;:&quot;Acceptance Criteria&quot;,&quot;convergenceType&quot;:&quot;acceptance-criteria&quot;,&quot;cards&quot;:11}"
       transform="translate(1146.57000782055, 1347.41661319804)">
       <title>Acceptance Criteria · $.sections[3]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44480,19 +44846,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Acceptance Criteria</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Acceptance Criteria · 10 ...</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Acceptance Criteria · 11 ...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-policy-config-surface"
       data-graph-type="card"
-      data-graph-x="1573.524164700439"
-      data-graph-y="1174.6813902708586"
-      data-graph-home-x="1573.524164700439"
-      data-graph-home-y="1174.6813902708586"
+      data-graph-x="1588.476582204254"
+      data-graph-y="1125.8830480213674"
+      data-graph-home-x="1588.476582204254"
+      data-graph-home-y="1125.8830480213674"
       data-graph-size="12"
       data-graph-label="lifecycle start accepts explicit pr policy status: implemented focused proof $.sections[3].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[0]&quot;,&quot;id&quot;:&quot;criterion-policy-config-surface&quot;,&quot;title&quot;:&quot;Lifecycle start accepts explicit PR policy&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1573.524164700439, 1174.6813902708586)">
+      transform="translate(1588.476582204254, 1125.8830480213674)">
       <title>Lifecycle start accepts explicit PR policy · $.sections[3].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44504,14 +44870,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-254"
       data-graph-type="source"
-      data-graph-x="1762.3008307621126"
-      data-graph-y="1240.7372026618918"
-      data-graph-home-x="1762.3008307621126"
-      data-graph-home-y="1240.7372026618918"
+      data-graph-x="1781.8539921132556"
+      data-graph-y="1176.923985874096"
+      data-graph-home-x="1781.8539921132556"
+      data-graph-home-y="1176.923985874096"
       data-graph-size="10"
       data-graph-label="254 tickets $.sections[3].data[0].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[0].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;254&quot;}"
-      transform="translate(1762.3008307621126, 1240.7372026618918)">
+      transform="translate(1781.8539921132556, 1176.923985874096)">
       <title>254 · $.sections[3].data[0].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44523,14 +44889,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-policy-types-separated"
       data-graph-type="card"
-      data-graph-x="1577.5114151927967"
-      data-graph-y="1306.3288207853766"
-      data-graph-home-x="1577.5114151927967"
-      data-graph-home-y="1306.3288207853766"
+      data-graph-x="1603.2975347608751"
+      data-graph-y="1255.6895023002687"
+      data-graph-home-x="1603.2975347608751"
+      data-graph-home-y="1255.6895023002687"
       data-graph-size="12"
       data-graph-label="policy is separate from unit availability status: implemented focused proof $.sections[3].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[1]&quot;,&quot;id&quot;:&quot;criterion-policy-types-separated&quot;,&quot;title&quot;:&quot;Policy is separate from unit availability&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1577.5114151927967, 1306.3288207853766)">
+      transform="translate(1603.2975347608751, 1255.6895023002687)">
       <title>Policy is separate from unit availability · $.sections[3].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44542,14 +44908,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-255"
       data-graph-type="source"
-      data-graph-x="1701.3625747371148"
-      data-graph-y="1375.7902509428957"
-      data-graph-home-x="1701.3625747371148"
-      data-graph-home-y="1375.7902509428957"
+      data-graph-x="1732.3204866479432"
+      data-graph-y="1314.9944589763113"
+      data-graph-home-x="1732.3204866479432"
+      data-graph-home-y="1314.9944589763113"
       data-graph-size="10"
       data-graph-label="255 tickets $.sections[3].data[1].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[1].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;255&quot;}"
-      transform="translate(1701.3625747371148, 1375.7902509428957)">
+      transform="translate(1732.3204866479432, 1314.9944589763113)">
       <title>255 · $.sections[3].data[1].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44561,14 +44927,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-disabled-mode"
       data-graph-type="card"
-      data-graph-x="1552.8825509319304"
-      data-graph-y="1445.021938473351"
-      data-graph-home-x="1552.8825509319304"
-      data-graph-home-y="1445.021938473351"
+      data-graph-x="1590.6308905421683"
+      data-graph-y="1394.8110852933623"
+      data-graph-home-x="1590.6308905421683"
+      data-graph-home-y="1394.8110852933623"
       data-graph-size="12"
       data-graph-label="disabled mode never invokes pr review status: implemented focused proof $.sections[3].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[2]&quot;,&quot;id&quot;:&quot;criterion-disabled-mode&quot;,&quot;title&quot;:&quot;Disabled mode never invokes PR review&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1552.8825509319304, 1445.021938473351)">
+      transform="translate(1590.6308905421683, 1394.8110852933623)">
       <title>Disabled mode never invokes PR review · $.sections[3].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44580,14 +44946,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-256"
       data-graph-type="source"
-      data-graph-x="1617.8983920262935"
-      data-graph-y="1498.2097228490188"
-      data-graph-home-x="1617.8983920262935"
-      data-graph-home-y="1498.2097228490188"
+      data-graph-x="1659.7862362413096"
+      data-graph-y="1442.492718667569"
+      data-graph-home-x="1659.7862362413096"
+      data-graph-home-y="1442.492718667569"
       data-graph-size="10"
       data-graph-label="256 tickets $.sections[3].data[2].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[2].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;256&quot;}"
-      transform="translate(1617.8983920262935, 1498.2097228490188)">
+      transform="translate(1659.7862362413096, 1442.492718667569)">
       <title>256 · $.sections[3].data[2].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44599,14 +44965,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-required-before-closure"
       data-graph-type="card"
-      data-graph-x="1383.9868173307789"
-      data-graph-y="1452.6816200445444"
-      data-graph-home-x="1383.9868173307789"
-      data-graph-home-y="1452.6816200445444"
+      data-graph-x="1423.7263713008438"
+      data-graph-y="1415.475413782294"
+      data-graph-home-x="1423.7263713008438"
+      data-graph-home-y="1415.475413782294"
       data-graph-size="12"
       data-graph-label="required-before-closure blocks closure until pr evidence exists status: implemented focused proof $.sections[3].data[3]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[3]&quot;,&quot;id&quot;:&quot;criterion-required-before-closure&quot;,&quot;title&quot;:&quot;Required-before-closure blocks closure until PR evidence exists&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1383.9868173307789, 1452.6816200445444)">
+      transform="translate(1423.7263713008438, 1415.475413782294)">
       <title>Required-before-closure blocks closure until PR evidence exists · $.sections[3].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44618,14 +44984,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-257"
       data-graph-type="source"
-      data-graph-x="1514.444299586403"
-      data-graph-y="1604.275964673635"
-      data-graph-home-x="1514.444299586403"
-      data-graph-home-y="1604.275964673635"
+      data-graph-x="1566.4114086241802"
+      data-graph-y="1555.6216949460768"
+      data-graph-home-x="1566.4114086241802"
+      data-graph-home-y="1555.6216949460768"
       data-graph-size="10"
       data-graph-label="257 tickets $.sections[3].data[3].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[3].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;257&quot;}"
-      transform="translate(1514.444299586403, 1604.275964673635)">
+      transform="translate(1566.4114086241802, 1555.6216949460768)">
       <title>257 · $.sections[3].data[3].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44637,14 +45003,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-required-when-source-changes"
       data-graph-type="card"
-      data-graph-x="1321.6161622911534"
-      data-graph-y="1568.6852644592427"
-      data-graph-home-x="1321.6161622911534"
-      data-graph-home-y="1568.6852644592427"
+      data-graph-x="1372.2865847745616"
+      data-graph-y="1535.572560165031"
+      data-graph-home-x="1372.2865847745616"
+      data-graph-home-y="1535.572560165031"
       data-graph-size="12"
       data-graph-label="required-when-source-changes follows controller hard facts status: implemented focused proof $.sections[3].data[4]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[4]&quot;,&quot;id&quot;:&quot;criterion-required-when-source-changes&quot;,&quot;title&quot;:&quot;Required-when-source-changes follows controller hard facts&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1321.6161622911534, 1568.6852644592427)">
+      transform="translate(1372.2865847745616, 1535.572560165031)">
       <title>Required-when-source-changes follows controller hard facts · $.sections[3].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44656,14 +45022,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-258"
       data-graph-type="source"
-      data-graph-x="1394.143697665933"
-      data-graph-y="1690.7662073310116"
-      data-graph-home-x="1394.143697665933"
-      data-graph-home-y="1690.7662073310116"
+      data-graph-x="1454.9768320033577"
+      data-graph-y="1651.0122544354185"
+      data-graph-home-x="1454.9768320033577"
+      data-graph-home-y="1651.0122544354185"
       data-graph-size="10"
       data-graph-label="258 tickets $.sections[3].data[4].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[4].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;258&quot;}"
-      transform="translate(1394.143697665933, 1690.7662073310116)">
+      transform="translate(1454.9768320033577, 1651.0122544354185)">
       <title>258 · $.sections[3].data[4].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44675,14 +45041,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-pr-review-contract"
       data-graph-type="card"
-      data-graph-x="1230.9403813308975"
-      data-graph-y="1676.48259557666"
-      data-graph-home-x="1230.9403813308975"
-      data-graph-home-y="1676.48259557666"
+      data-graph-x="1292.3549441640498"
+      data-graph-y="1650.142152813253"
+      data-graph-home-x="1292.3549441640498"
+      data-graph-home-y="1650.142152813253"
       data-graph-size="12"
       data-graph-label="pr review receives a complete contract status: implemented focused proof $.sections[3].data[5]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[5]&quot;,&quot;id&quot;:&quot;criterion-pr-review-contract&quot;,&quot;title&quot;:&quot;PR review receives a complete contract&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1230.9403813308975, 1676.48259557666)">
+      transform="translate(1292.3549441640498, 1650.142152813253)">
       <title>PR review receives a complete contract · $.sections[3].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44694,14 +45060,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-259"
       data-graph-type="source"
-      data-graph-x="1260.6518591791944"
-      data-graph-y="1755.052488564179"
-      data-graph-home-x="1260.6518591791944"
-      data-graph-home-y="1755.052488564179"
+      data-graph-x="1328.8011782499245"
+      data-graph-y="1725.8235377170563"
+      data-graph-home-x="1328.8011782499245"
+      data-graph-home-y="1725.8235377170563"
       data-graph-size="10"
       data-graph-label="259 tickets $.sections[3].data[5].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[5].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;259&quot;}"
-      transform="translate(1260.6518591791944, 1755.052488564179)">
+      transform="translate(1328.8011782499245, 1725.8235377170563)">
       <title>259 · $.sections[3].data[5].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44713,14 +45079,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-closure-enforcement"
       data-graph-type="card"
-      data-graph-x="1080.8425446558945"
-      data-graph-y="1598.6682076016373"
-      data-graph-home-x="1080.8425446558945"
-      data-graph-home-y="1598.6682076016373"
+      data-graph-x="1137.1380981717039"
+      data-graph-y="1585.3975489047841"
+      data-graph-home-x="1137.1380981717039"
+      data-graph-home-y="1585.3975489047841"
       data-graph-size="12"
       data-graph-label="closure review enforces pr policy status: implemented focused proof $.sections[3].data[6]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[6]&quot;,&quot;id&quot;:&quot;criterion-closure-enforcement&quot;,&quot;title&quot;:&quot;Closure review enforces PR policy&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(1080.8425446558945, 1598.6682076016373)">
+      transform="translate(1137.1380981717039, 1585.3975489047841)">
       <title>Closure review enforces PR policy · $.sections[3].data[6]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44732,14 +45098,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-260"
       data-graph-type="source"
-      data-graph-x="1118.0248660884774"
-      data-graph-y="1795.181502248295"
-      data-graph-home-x="1118.0248660884774"
-      data-graph-home-y="1795.181502248295"
+      data-graph-x="1191.6421283783818"
+      data-graph-y="1777.82756395241"
+      data-graph-home-x="1191.6421283783818"
+      data-graph-home-y="1777.82756395241"
       data-graph-size="10"
       data-graph-label="260 tickets $.sections[3].data[6].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[6].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;260&quot;}"
-      transform="translate(1118.0248660884774, 1795.181502248295)">
+      transform="translate(1191.6421283783818, 1777.82756395241)">
       <title>260 · $.sections[3].data[6].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44751,14 +45117,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-dashboard-policy-visibility"
       data-graph-type="card"
-      data-graph-x="968.826150733554"
-      data-graph-y="1667.9449830765302"
-      data-graph-home-x="968.826150733554"
-      data-graph-home-y="1667.9449830765302"
+      data-graph-x="1032.9527062696793"
+      data-graph-y="1664.231426910167"
+      data-graph-home-x="1032.9527062696793"
+      data-graph-home-y="1664.231426910167"
       data-graph-size="12"
       data-graph-label="dashboard exposes policy state status: implemented focused proof $.sections[3].data[7]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[7]&quot;,&quot;id&quot;:&quot;criterion-dashboard-policy-visibility&quot;,&quot;title&quot;:&quot;Dashboard exposes policy state&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Focused Proof&quot;]}"
-      transform="translate(968.826150733554, 1667.9449830765302)">
+      transform="translate(1032.9527062696793, 1664.231426910167)">
       <title>Dashboard exposes policy state · $.sections[3].data[7]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44770,14 +45136,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-261"
       data-graph-type="source"
-      data-graph-x="970.5963674061029"
-      data-graph-y="1809.9339486088286"
-      data-graph-home-x="970.5963674061029"
-      data-graph-home-y="1809.9339486088286"
+      data-graph-x="1047.5844637418465"
+      data-graph-y="1805.4755831548614"
+      data-graph-home-x="1047.5844637418465"
+      data-graph-home-y="1805.4755831548614"
       data-graph-size="10"
       data-graph-label="261 tickets $.sections[3].data[7].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[7].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;261&quot;}"
-      transform="translate(970.5963674061029, 1809.9339486088286)">
+      transform="translate(1047.5844637418465, 1805.4755831548614)">
       <title>261 · $.sections[3].data[7].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44789,14 +45155,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-contract-tests"
       data-graph-type="card"
-      data-graph-x="836.3999553552702"
-      data-graph-y="1715.9623198042484"
-      data-graph-home-x="836.3999553552702"
-      data-graph-home-y="1715.9623198042484"
+      data-graph-x="906.7570664183096"
+      data-graph-y="1724.147361458257"
+      data-graph-home-x="906.7570664183096"
+      data-graph-home-y="1724.147361458257"
       data-graph-size="12"
       data-graph-label="contract tests cover all policy modes status: complete $.sections[3].data[8]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[8]&quot;,&quot;id&quot;:&quot;criterion-contract-tests&quot;,&quot;title&quot;:&quot;Contract tests cover all policy modes&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Complete&quot;]}"
-      transform="translate(836.3999553552702, 1715.9623198042484)">
+      transform="translate(906.7570664183096, 1724.147361458257)">
       <title>Contract tests cover all policy modes · $.sections[3].data[8]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44808,14 +45174,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-262"
       data-graph-type="source"
-      data-graph-x="822.8459034621144"
-      data-graph-y="1798.861582028213"
-      data-graph-home-x="822.8459034621144"
-      data-graph-home-y="1798.861582028213"
+      data-graph-x="900.9184157383331"
+      data-graph-y="1807.9442000515905"
+      data-graph-home-x="900.9184157383331"
+      data-graph-home-y="1807.9442000515905"
       data-graph-size="10"
       data-graph-label="262 tickets $.sections[3].data[8].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[8].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;262&quot;}"
-      transform="translate(822.8459034621144, 1798.861582028213)">
+      transform="translate(900.9184157383331, 1807.9442000515905)">
       <title>262 · $.sections[3].data[8].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44827,14 +45193,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-standalone-proof-runs"
       data-graph-type="card"
-      data-graph-x="745.3186097291415"
-      data-graph-y="1573.524164700439"
-      data-graph-home-x="745.3186097291415"
-      data-graph-home-y="1573.524164700439"
+      data-graph-x="804.0090976583323"
+      data-graph-y="1591.004626279897"
+      data-graph-home-x="804.0090976583323"
+      data-graph-home-y="1591.004626279897"
       data-graph-size="12"
       data-graph-label="standalone runs prove enabled and disabled paths status: blocked for controller owned proof $.sections[3].data[9]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[9]&quot;,&quot;id&quot;:&quot;criterion-standalone-proof-runs&quot;,&quot;title&quot;:&quot;Standalone runs prove enabled and disabled paths&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Blocked For Controller Owned Proof&quot;]}"
-      transform="translate(745.3186097291415, 1573.524164700439)">
+      transform="translate(804.0090976583323, 1591.004626279897)">
       <title>Standalone runs prove enabled and disabled paths · $.sections[3].data[9]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44846,14 +45212,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-263"
       data-graph-type="source"
-      data-graph-x="679.262797338108"
-      data-graph-y="1762.3008307621126"
-      data-graph-home-x="679.262797338108"
-      data-graph-home-y="1762.3008307621126"
+      data-graph-x="756.0118969378191"
+      data-graph-y="1785.1598959044804"
+      data-graph-home-x="756.0118969378191"
+      data-graph-home-y="1785.1598959044804"
       data-graph-size="10"
       data-graph-label="263 tickets $.sections[3].data[9].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[9].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;263&quot;}"
-      transform="translate(679.262797338108, 1762.3008307621126)">
+      transform="translate(756.0118969378191, 1785.1598959044804)">
       <title>263 · $.sections[3].data[9].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44861,6 +45227,25 @@ ${tmplLine}
         <tspan x="18" dy="0">263</tspan>
       </text>
       <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-acceptance-criteria-criterion-gate-outcome-state-model"
+      data-graph-type="card"
+      data-graph-x="674.4514546842302"
+      data-graph-y="1607.8626615788626"
+      data-graph-home-x="674.4514546842302"
+      data-graph-home-y="1607.8626615788626"
+      data-graph-size="12"
+      data-graph-label="gate outcome state prevents repeated gate loops status: newly scoped $.sections[3].data[10]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[10]&quot;,&quot;id&quot;:&quot;criterion-gate-outcome-state-model&quot;,&quot;title&quot;:&quot;Gate outcome state prevents repeated gate loops&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Newly Scoped&quot;]}"
+      transform="translate(674.4514546842302, 1607.8626615788626)">
+      <title>Gate outcome state prevents repeated gate loops · $.sections[3].data[10]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Gate outcome state</tspan><tspan x="0" dy="12">prevents repeated</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Newly Scoped</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-relationship-maps"
@@ -44870,8 +45255,8 @@ ${tmplLine}
       data-graph-home-x="773.4299921794499"
       data-graph-home-y="1347.41661319804"
       data-graph-size="18"
-      data-graph-label="relationship maps relationship map · 2 cards $.sections[4]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[4]&quot;,&quot;id&quot;:&quot;relationship-maps&quot;,&quot;title&quot;:&quot;Relationship Maps&quot;,&quot;convergenceType&quot;:&quot;relationship-map&quot;,&quot;cards&quot;:2}"
+      data-graph-label="relationship maps relationship map · 3 cards $.sections[4]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[4]&quot;,&quot;id&quot;:&quot;relationship-maps&quot;,&quot;title&quot;:&quot;Relationship Maps&quot;,&quot;convergenceType&quot;:&quot;relationship-map&quot;,&quot;cards&quot;:3}"
       transform="translate(773.4299921794499, 1347.41661319804)">
       <title>Relationship Maps · $.sections[4]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44879,7 +45264,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Relationship Maps</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Relationship Map · 2 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Relationship Map · 3 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-relationship-maps-map-policy-vs-judgment"
@@ -45017,14 +45402,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-relationship-maps-map-three-policy-modes"
       data-graph-type="card"
-      data-graph-x="479.73323595876565"
-      data-graph-y="1480.1998033038471"
-      data-graph-home-x="479.73323595876565"
-      data-graph-home-y="1480.1998033038471"
+      data-graph-x="652.8103127047686"
+      data-graph-y="1597.8859584749125"
+      data-graph-home-x="652.8103127047686"
+      data-graph-home-y="1597.8859584749125"
       data-graph-size="12"
       data-graph-label="three pr policy modes status: specified $.sections[4].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[1]&quot;,&quot;id&quot;:&quot;map-three-policy-modes&quot;,&quot;title&quot;:&quot;Three PR policy modes&quot;,&quot;section&quot;:&quot;Relationship Maps&quot;,&quot;statuses&quot;:[&quot;Status: Specified&quot;]}"
-      transform="translate(479.73323595876565, 1480.1998033038471)">
+      transform="translate(652.8103127047686, 1597.8859584749125)">
       <title>Three PR policy modes · $.sections[4].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45036,14 +45421,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-section-ref-policy-modes"
       data-graph-type="source"
-      data-graph-x="597.8958508562516"
-      data-graph-y="1729.0127340771946"
-      data-graph-home-x="597.8958508562516"
-      data-graph-home-y="1729.0127340771946"
+      data-graph-x="838.5556440355269"
+      data-graph-y="1801.279542366492"
+      data-graph-home-x="838.5556440355269"
+      data-graph-home-y="1801.279542366492"
       data-graph-size="10"
       data-graph-label="pr review policy modes sections $.sections[4].data[1].sectionids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].sectionIds&quot;,&quot;field&quot;:&quot;sectionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;PR Review Policy Modes&quot;}"
-      transform="translate(597.8958508562516, 1729.0127340771946)">
+      transform="translate(838.5556440355269, 1801.279542366492)">
       <title>PR Review Policy Modes · $.sections[4].data[1].sectionIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -45055,14 +45440,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-section-ref-criterion-disabled-mode"
       data-graph-type="source"
-      data-graph-x="331.57083295443783"
-      data-graph-y="1730.1381577395196"
-      data-graph-home-x="331.57083295443783"
-      data-graph-home-y="1730.1381577395196"
+      data-graph-x="584.1968048187709"
+      data-graph-y="1880.2216898615134"
+      data-graph-home-x="584.1968048187709"
+      data-graph-home-y="1880.2216898615134"
       data-graph-size="10"
       data-graph-label="criterion-disabled-mode acceptance criteria $.sections[4].data[1].criterionids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-disabled-mode&quot;}"
-      transform="translate(331.57083295443783, 1730.1381577395196)">
+      transform="translate(584.1968048187709, 1880.2216898615134)">
       <title>criterion-disabled-mode · $.sections[4].data[1].criterionIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -45074,14 +45459,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-section-ref-criterion-required-when-source-changes"
       data-graph-type="source"
-      data-graph-x="221.58799251717608"
-      data-graph-y="1512.115664698246"
-      data-graph-home-x="221.58799251717608"
-      data-graph-home-y="1512.115664698246"
+      data-graph-x="415.27608347591627"
+      data-graph-y="1703.881613408117"
+      data-graph-home-x="415.27608347591627"
+      data-graph-home-y="1703.881613408117"
       data-graph-size="10"
       data-graph-label="criterion-required-when-source-changes acceptance criteria $.sections[4].data[1].criterionids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-required-when-source-changes&quot;}"
-      transform="translate(221.58799251717608, 1512.115664698246)">
+      transform="translate(415.27608347591627, 1703.881613408117)">
       <title>criterion-required-when-source-changes · $.sections[4].data[1].criterionIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -45093,14 +45478,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-invariant-allowed-types-do-not-imply-required-types"
       data-graph-type="source"
-      data-graph-x="97.31799775061609"
-      data-graph-y="1453.7770377356505"
-      data-graph-home-x="97.31799775061609"
-      data-graph-home-y="1453.7770377356505"
+      data-graph-x="279.3795326409155"
+      data-graph-y="1684.4251372032181"
+      data-graph-home-x="279.3795326409155"
+      data-graph-home-y="1684.4251372032181"
       data-graph-size="10"
       data-graph-label="allowed-types-do-not-imply-required-types invariants $.sections[4].data[1].invariantids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].invariantIds&quot;,&quot;field&quot;:&quot;invariantIds&quot;,&quot;entityType&quot;:&quot;invariant&quot;,&quot;label&quot;:&quot;allowed-types-do-not-imply-required-types&quot;}"
-      transform="translate(97.31799775061609, 1453.7770377356505)">
+      transform="translate(279.3795326409155, 1684.4251372032181)">
       <title>allowed-types-do-not-imply-required-types · $.sections[4].data[1].invariantIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -45108,6 +45493,82 @@ ${tmplLine}
         <tspan x="18" dy="0">allowed-types-do-not-imply-required-types</tspan>
       </text>
       <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Invariants</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-relationship-maps-map-gate-outcome-state-machine"
+      data-graph-type="card"
+      data-graph-x="440.38934850906"
+      data-graph-y="1522.8150414276088"
+      data-graph-home-x="440.38934850906"
+      data-graph-home-y="1522.8150414276088"
+      data-graph-size="12"
+      data-graph-label="gate outcome state machine status: newly scoped $.sections[4].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;map-gate-outcome-state-machine&quot;,&quot;title&quot;:&quot;Gate outcome state machine&quot;,&quot;section&quot;:&quot;Relationship Maps&quot;,&quot;statuses&quot;:[&quot;Status: Newly Scoped&quot;]}"
+      transform="translate(440.38934850906, 1522.8150414276088)">
+      <title>Gate outcome state machine · $.sections[4].data[2]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Gate outcome state</tspan><tspan x="0" dy="12">machine</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Newly Scoped</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-section-ref-verification-plan"
+      data-graph-type="source"
+      data-graph-x="331.57083295443783"
+      data-graph-y="1730.1381577395196"
+      data-graph-home-x="331.57083295443783"
+      data-graph-home-y="1730.1381577395196"
+      data-graph-size="10"
+      data-graph-label="verification plan sections $.sections[4].data[2].sectionids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[2].sectionIds&quot;,&quot;field&quot;:&quot;sectionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;Verification Plan&quot;}"
+      transform="translate(331.57083295443783, 1730.1381577395196)">
+      <title>Verification Plan · $.sections[4].data[2].sectionIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">Verification Plan</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Sections</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-section-ref-criterion-gate-outcome-state-model"
+      data-graph-type="source"
+      data-graph-x="346.3571373205035"
+      data-graph-y="1548.168714811076"
+      data-graph-home-x="346.3571373205035"
+      data-graph-home-y="1548.168714811076"
+      data-graph-size="10"
+      data-graph-label="criterion-gate-outcome-state-model acceptance criteria $.sections[4].data[2].criterionids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[2].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-gate-outcome-state-model&quot;}"
+      transform="translate(346.3571373205035, 1548.168714811076)">
+      <title>criterion-gate-outcome-state-model · $.sections[4].data[2].criterionIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">criterion-gate-outcome-state-model</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Acceptance criteria</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-section-ref-criterion-dashboard-policy-visibility"
+      data-graph-type="source"
+      data-graph-x="97.31799775061609"
+      data-graph-y="1453.7770377356505"
+      data-graph-home-x="97.31799775061609"
+      data-graph-home-y="1453.7770377356505"
+      data-graph-size="10"
+      data-graph-label="criterion-dashboard-policy-visibility acceptance criteria $.sections[4].data[2].criterionids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[2].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-dashboard-policy-visibility&quot;}"
+      transform="translate(97.31799775061609, 1453.7770377356505)">
+      <title>criterion-dashboard-policy-visibility · $.sections[4].data[2].criterionIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">criterion-dashboard-policy-visibility</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Acceptance criteria</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-verification-plan"
@@ -45117,8 +45578,8 @@ ${tmplLine}
       data-graph-home-x="540.7809977618158"
       data-graph-home-y="1055.6840016012152"
       data-graph-size="18"
-      data-graph-label="verification plan verification surface · 3 cards $.sections[5]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[5]&quot;,&quot;id&quot;:&quot;verification-plan&quot;,&quot;title&quot;:&quot;Verification Plan&quot;,&quot;convergenceType&quot;:&quot;verification-surface&quot;,&quot;cards&quot;:3}"
+      data-graph-label="verification plan verification surface · 4 cards $.sections[5]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[5]&quot;,&quot;id&quot;:&quot;verification-plan&quot;,&quot;title&quot;:&quot;Verification Plan&quot;,&quot;convergenceType&quot;:&quot;verification-surface&quot;,&quot;cards&quot;:4}"
       transform="translate(540.7809977618158, 1055.6840016012152)">
       <title>Verification Plan · $.sections[5]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -45126,19 +45587,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Verification Plan</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Verification Surface · 3 ...</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Verification Surface · 4 ...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-contract-suite"
       data-graph-type="card"
-      data-graph-x="396.274906676863"
-      data-graph-y="1283.5954560215896"
-      data-graph-home-x="396.274906676863"
-      data-graph-home-y="1283.5954560215896"
+      data-graph-x="402.00828415878686"
+      data-graph-y="1293.3845303138387"
+      data-graph-home-x="402.00828415878686"
+      data-graph-home-y="1293.3845303138387"
       data-graph-size="12"
       data-graph-label="contract suite status: complete $.sections[5].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[0]&quot;,&quot;id&quot;:&quot;verification-contract-suite&quot;,&quot;title&quot;:&quot;Contract suite&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Complete&quot;]}"
-      transform="translate(396.274906676863, 1283.5954560215896)">
+      transform="translate(402.00828415878686, 1293.3845303138387)">
       <title>Contract suite · $.sections[5].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45150,14 +45611,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-standalone-runs"
       data-graph-type="card"
-      data-graph-x="269.75103817526883"
-      data-graph-y="1117.5448212410706"
-      data-graph-home-x="269.75103817526883"
-      data-graph-home-y="1117.5448212410706"
+      data-graph-x="290.0002122701917"
+      data-graph-y="1188.8324374777576"
+      data-graph-home-x="290.0002122701917"
+      data-graph-home-y="1188.8324374777576"
       data-graph-size="12"
       data-graph-label="standalone lifecycle proof status: blocked for controller owned proof $.sections[5].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-standalone-runs&quot;,&quot;title&quot;:&quot;Standalone lifecycle proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Blocked For Controller Owned Proof&quot;]}"
-      transform="translate(269.75103817526883, 1117.5448212410706)">
+      transform="translate(290.0002122701917, 1188.8324374777576)">
       <title>Standalone lifecycle proof · $.sections[5].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45169,14 +45630,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-dashboard"
       data-graph-type="card"
-      data-graph-x="196.00153966357345"
-      data-graph-y="904.6614727014743"
-      data-graph-home-x="196.00153966357345"
-      data-graph-home-y="904.6614727014743"
+      data-graph-x="199.47925442215262"
+      data-graph-y="1051.4559759978267"
+      data-graph-home-x="199.47925442215262"
+      data-graph-home-y="1051.4559759978267"
       data-graph-size="12"
       data-graph-label="dashboard policy visibility status: focused e2e pass $.sections[5].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[2]&quot;,&quot;id&quot;:&quot;verification-dashboard&quot;,&quot;title&quot;:&quot;Dashboard policy visibility&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Focused E2e Pass&quot;]}"
-      transform="translate(196.00153966357345, 904.6614727014743)">
+      transform="translate(199.47925442215262, 1051.4559759978267)">
       <title>Dashboard policy visibility · $.sections[5].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -45184,6 +45645,25 @@ ${tmplLine}
         <tspan x="0" dy="0">Dashboard policy</tspan><tspan x="0" dy="12">visibility</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Focused E2e Pass</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-verification-plan-verification-gate-outcome-loop-guard"
+      data-graph-type="card"
+      data-graph-x="312.6167089030947"
+      data-graph-y="901.734449212768"
+      data-graph-home-x="312.6167089030947"
+      data-graph-home-y="901.734449212768"
+      data-graph-size="12"
+      data-graph-label="gate outcome loop guard status: newly scoped $.sections[5].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[3]&quot;,&quot;id&quot;:&quot;verification-gate-outcome-loop-guard&quot;,&quot;title&quot;:&quot;Gate outcome loop guard&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Newly Scoped&quot;]}"
+      transform="translate(312.6167089030947, 901.734449212768)">
+      <title>Gate outcome loop guard · $.sections[5].data[3]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Gate outcome loop</tspan><tspan x="0" dy="12">guard</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Newly Scoped</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-scope-boundaries"
@@ -45254,7 +45734,7 @@ ${tmplLine}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="graph-info" data-graph-info>57 nodes · 58 edges · 100%</div>
+          <div class="graph-info" data-graph-info>66 nodes · 74 edges · 100%</div>
         </div>
         <aside class="json-graph-inspector" aria-live="polite">
           <span class="json-graph-inspector-kicker">Selected node</span>

@@ -8,7 +8,7 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T02:35:25.000Z",
+  "updated": "2026-05-12T02:53:36.032Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
@@ -17,10 +17,11 @@
     "objectiveReady": false,
     "nextObjectiveAction": "Lifecycle controller must run the configured proof routes and standalone PR-enabled/PR-disabled lifecycle runs before objective closure.",
     "repairState": {
-      "status": "implementation-produced-focused-proof",
-      "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T02:35:25.000Z",
+      "status": "gate-outcome-model-scoped",
+      "nearestHonestStage": "implemented-awaiting-gate-outcome-model-and-controller-proof",
+      "updated": "2026-05-12T02:53:36.032Z",
       "basis": [
+        "Live harness run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved the #265 routing fix: pr-review-policy-gate-missing selected pr-review instead of worker. The same run then exposed #266: a blocked pr-review output was treated like missing PR-review evidence and caused another pr-review unit. This means the controller needs explicit gate outcomes: missing, requested, satisfied, blocked.",
         "Worker-owned verification passed again on 2026-05-12T02:35:25.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed again on 2026-05-12T02:18:30.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed again on 2026-05-11T14:53:09.000Z in this worker process: npm run test:contract and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
@@ -318,17 +319,17 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows the current stage and remaining proof gate.",
-      "updated": "2026-05-12T02:35:25.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "objective-shaped",
           "name": "Objective shaped",
-          "status": "implemented-pending-controller-proof",
-          "updated": "2026-05-12T02:35:25.000Z",
-          "summary": "The worker implemented lifecycle-start PR review policy configuration, tightened required-when-source-changes routing so reviewer text cannot force PR review without controller evidence, added dashboard graph policy metadata, hardened PR gate satisfaction so URL-only or result-path-only metadata cannot satisfy required review, added negative pr-review input contract coverage, ensured closure-review must inspect prior pr-review result artifacts, added invalid policy-mode validation coverage, made worker runConfig required so worker-side prReviewPolicy propagation is contract-enforced, hardened dashboard lifecycle-start policy propagation through POST /api/lifecycles and active lifecycle snapshots, fixed lifecycle result path references for runs created outside the repo, and reran worker-owned policy-sensitive contract and Playwright checks at 2026-05-12T02:35:25.000Z. Objective closure is still blocked on controller-owned standalone lifecycle runs.",
+          "status": "implemented-pending-gate-outcome-model",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "summary": "The PR-review policy implementation now routes missing PR-review gates to the pr-review unit, confirmed by live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration after #265. That run exposed the next deeper requirement: blocked pr-review output must be modeled as a real gate outcome, not collapsed back into missing evidence. The controller now needs an explicit missing/requested/satisfied/blocked gate outcome model before standalone closure proof can be honest.",
           "documentReady": true,
           "objectiveReady": false,
-          "nextStep": "Run the full contract route and standalone PR-enabled/PR-disabled lifecycle proof routes from the lifecycle controller."
+          "nextStep": "Implement #267: gate outcome state model and no-repeat routing invariant, then rerun the PR-enabled and PR-disabled standalone lifecycle proof paths."
         }
       ]
     },
@@ -337,7 +338,7 @@
       "title": "Policy Decisions",
       "convergenceType": "decision-record",
       "rationale": "Captures the semantic decisions that must remain stable while implementation changes.",
-      "updated": "2026-05-11T12:55:00.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "decision-policy-at-lifecycle-start",
@@ -369,6 +370,30 @@
           "decision": "The pr-review inference unit judges whether the work passes review, but the deterministic controller decides whether the review unit is mandatory from policy and hard facts.",
           "notes": [
             "This preserves intelligence where it belongs while keeping mandatory gates enforceable."
+          ]
+        },
+        {
+          "id": "decision-gate-outcomes-are-first-class",
+          "name": "Gate outcomes are first-class controller state",
+          "status": "ground-truth",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "decision": "Policy and side-effect gates must be represented as explicit outcomes: missing, requested, satisfied, or blocked. A blocked gate is real evidence, not missing evidence.",
+          "notes": [
+            "This prevents the controller from repeatedly invoking the same gate unit after that unit already produced a blocked output contract.",
+            "The invariant applies first to pr-review and should generalize to other controller-owned gates such as commit intent or closure review.",
+            "A blocked pr-review result must route to continuation/blocker reasoning with the blocked result path, not another identical pr-review unit."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
           ]
         }
       ]
@@ -430,7 +455,7 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates for the PR-review policy implementation.",
-      "updated": "2026-05-11T14:53:09.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "criterion-policy-config-surface",
@@ -601,6 +626,28 @@
               "title": "Prove PR review policy with standalone lifecycle runs"
             }
           ]
+        },
+        {
+          "id": "criterion-gate-outcome-state-model",
+          "name": "Gate outcome state prevents repeated gate loops",
+          "status": "newly-scoped",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "objectiveTerm": "The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.",
+          "criterion": "The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state.",
+          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence.",
+          "acceptanceTest": "A lifecycle with a blocked pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; dashboard graph shows the blocked gate and result artifact.",
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
+          ]
         }
       ]
     },
@@ -609,7 +656,7 @@
       "title": "Relationship Maps",
       "convergenceType": "relationship-map",
       "rationale": "Makes the policy/control relationship inspectable before implementation starts. The diagrams are not proof; the acceptance criteria define what must become true.",
-      "updated": "2026-05-11T12:23:03.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "map-policy-vs-judgment",
@@ -671,6 +718,54 @@
               "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> NeedPR[\"Select pr-review before closure if PR evidence missing\"]\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
             }
           ]
+        },
+        {
+          "id": "map-gate-outcome-state-machine",
+          "name": "Gate outcome state machine",
+          "status": "newly-scoped",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "claim": "A controller-owned gate is not binary. Missing, requested, satisfied, and blocked are distinct states with different next-unit routing obligations.",
+          "semanticRole": "Control invariant",
+          "validationQuestion": "Can the lifecycle prove that a blocked pr-review output becomes blocked gate evidence and cannot immediately select pr-review again without new evidence?",
+          "driftRisk": "The map is stale if blocked PR-review output is treated as absent evidence or if the controller repeats the same gate unit for the same blocked state.",
+          "sectionIds": [
+            "policy-decisions",
+            "acceptance-criteria",
+            "verification-plan"
+          ],
+          "invariantIds": [
+            "blocked-gate-is-real-evidence",
+            "no-repeat-same-gate-without-new-evidence"
+          ],
+          "criterionIds": [
+            "criterion-gate-outcome-state-model",
+            "criterion-required-before-closure",
+            "criterion-dashboard-policy-visibility"
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
+          ],
+          "diagrams": [
+            {
+              "title": "Gate Outcome Routing",
+              "role": "state-machine",
+              "text": "stateDiagram-v2\n  [*] --> Missing\n  Missing --> Requested: controller selects gate unit\n  Requested --> Satisfied: unit returns approved/not-required\n  Requested --> Blocked: unit returns blocked\n  Satisfied --> ClosureReview: gate can support closure\n  Blocked --> Continuation: explain blocker and choose non-repeating next move\n  Blocked --> Requested: only if new evidence changes gate state\n  Continuation --> [*]"
+            },
+            {
+              "title": "PR Review Loop Guard",
+              "role": "controller-invariant",
+              "text": "flowchart LR\n  Reviewer[\"reviewer: pr-review-policy-gate-missing\"] --> Controller[\"controller selection\"]\n  Controller --> PR[\"pr-review unit\"]\n  PR --> Blocked[\"outputContract.status = blocked\"]\n  Blocked --> Evidence[\"prReviewGate.status = blocked\"]\n  Evidence --> Guard{\"new evidence changed gate?\"}\n  Guard -->|no| Continue[\"continuation-inference / blocker\"]\n  Guard -->|yes| PR\n  Continue --> Dashboard[\"dashboard shows blocked gate + resultPath\"]"
+            }
+          ]
         }
       ]
     },
@@ -679,7 +774,7 @@
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
       "rationale": "Names the proof surfaces needed before this living doc can honestly close.",
-      "updated": "2026-05-11T14:53:09.000Z",
+      "updated": "2026-05-12T02:53:36.032Z",
       "data": [
         {
           "id": "verification-contract-suite",
@@ -723,6 +818,35 @@
           ],
           "gaps": [
             "Controller-owned standalone dashboard artifact is not recorded yet."
+          ]
+        },
+        {
+          "id": "verification-gate-outcome-loop-guard",
+          "name": "Gate outcome loop guard",
+          "status": "newly-scoped",
+          "updated": "2026-05-12T02:53:36.032Z",
+          "currentCoverage": "Live lifecycle run ldhl-20260512T023353Z-living-doc-pr-review-policy-configuration proved routing to pr-review, then exposed that blocked pr-review output loops because blocked is not yet a first-class gate outcome.",
+          "nextStep": "Add contract and dashboard coverage for prReviewGate.status missing/requested/satisfied/blocked and prove blocked pr-review routes to continuation or blocker rather than another pr-review.",
+          "automation": [
+            "node tests/contract/living-doc-harness-iteration.spec.mjs",
+            "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
+            "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs"
+          ],
+          "gaps": [
+            "Blocked pr-review output is not yet preserved as a distinct gate outcome in controller evidence.",
+            "The lifecycle can still repeat pr-review for the same blocked gate state."
+          ],
+          "ticketIds": [
+            {
+              "issueNumber": "267",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/267",
+              "title": "Add gate outcome state model for controller routing"
+            },
+            {
+              "issueNumber": "266",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
+              "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            }
           ]
         }
       ]
