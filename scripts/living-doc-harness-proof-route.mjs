@@ -52,6 +52,38 @@ function normalizeRoute(route, index = 0) {
   };
 }
 
+function unquoteShellToken(value) {
+  const text = String(value || '').trim();
+  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+    return text.slice(1, -1);
+  }
+  return text;
+}
+
+function lifecycleRunDocPathFromCommand(command) {
+  const text = String(command || '');
+  const match = text.match(/(?:^|\s)(?:node\s+)?(?:"[^"]*living-doc-harness-lifecycle\.mjs"|'[^']*living-doc-harness-lifecycle\.mjs'|\S*living-doc-harness-lifecycle\.mjs)\s+run\s+("[^"]+"|'[^']+'|\S+)/);
+  const docToken = unquoteShellToken(match?.[1] || '');
+  if (!docToken || docToken.startsWith('-')) return null;
+  return docToken;
+}
+
+function recursiveLifecycleProofRouteGuard(route, { cwd, docPath } = {}) {
+  const lifecycleDocPath = lifecycleRunDocPathFromCommand(route?.command);
+  if (!lifecycleDocPath || !docPath) return { blocked: false };
+  const targetDocPath = path.resolve(cwd, lifecycleDocPath);
+  const currentDocPath = path.resolve(cwd, docPath);
+  if (targetDocPath !== currentDocPath) return { blocked: false };
+  return {
+    blocked: true,
+    reasonCode: 'recursive-lifecycle-proof-route',
+    failureClass: 'recursive-lifecycle-proof-route',
+    message: 'Blocked proof route before execution because it would start the lifecycle harness on the same living doc.',
+    lifecycleDocPath,
+    docPath,
+  };
+}
+
 export async function loadProofRoutesFromDoc(docPath, { cwd = process.cwd() } = {}) {
   if (!docPath) return [];
   const doc = await readJson(path.resolve(cwd, docPath), null);
@@ -164,6 +196,7 @@ export async function runProofRoute({
   iteration,
   route,
   cwd = process.cwd(),
+  docPath = null,
   now = new Date().toISOString(),
 } = {}) {
   if (!runDir) throw new Error('runDir is required');
@@ -174,11 +207,17 @@ export async function runProofRoute({
   const stderrPath = path.join(routeDir, 'stderr.log');
   const resultPath = path.join(routeDir, 'result.json');
   const environment = await probeProofEnvironment(normalized.kind);
+  const recursionGuard = recursiveLifecycleProofRouteGuard(normalized, { cwd, docPath });
   let commandResult = null;
   let status = 'blocked';
   let failureClass = environment.checks.find((check) => check.ok === false)?.failureClass || null;
 
-  if (environment.ok && normalized.command) {
+  if (recursionGuard.blocked) {
+    status = 'blocked';
+    failureClass = recursionGuard.failureClass;
+    await writeFile(stdoutPath, '', 'utf8');
+    await writeFile(stderrPath, `${recursionGuard.message}\n`, 'utf8');
+  } else if (environment.ok && normalized.command) {
     commandResult = await runCommand(normalized.command, {
       cwd,
       timeoutMs: normalized.timeoutMs,
@@ -203,7 +242,9 @@ export async function runProofRoute({
     command: normalized.command,
     acceptanceCriteria: normalized.acceptanceCriteria,
     environment,
+    controllerGuard: recursionGuard.blocked ? recursionGuard : null,
     failureClass,
+    reasonCode: recursionGuard.reasonCode || failureClass || null,
     stdoutPath: path.relative(runDir, stdoutPath),
     stderrPath: path.relative(runDir, stderrPath),
     commandResult,
@@ -219,6 +260,7 @@ export async function runProofRoute({
     proofRoute: normalized.kind,
     status,
     failureClass,
+    reasonCode: recursionGuard.reasonCode || failureClass || null,
     resultPath: path.relative(runDir, resultPath),
   });
   return {
@@ -232,12 +274,13 @@ export async function runProofRoutes({
   iteration,
   routes = [],
   cwd = process.cwd(),
+  docPath = null,
   now = new Date().toISOString(),
 } = {}) {
   const normalizedRoutes = arr(routes).map(normalizeRoute);
   const results = [];
   for (const route of normalizedRoutes) {
-    results.push(await runProofRoute({ runDir, iteration, route, cwd, now }));
+    results.push(await runProofRoute({ runDir, iteration, route, cwd, docPath, now }));
   }
   return {
     schema: 'living-doc-harness-proof-route-bundle/v1',
@@ -259,6 +302,7 @@ function parseArgs(argv) {
     iteration: 1,
     route: null,
     cwd: process.cwd(),
+    docPath: null,
   };
   while (args.length) {
     const flag = args.shift();
@@ -268,6 +312,8 @@ function parseArgs(argv) {
       options.route = JSON.parse(args.shift());
     } else if (flag === '--cwd') {
       options.cwd = args.shift();
+    } else if (flag === '--doc-path') {
+      options.docPath = args.shift();
     } else {
       throw new Error(`unknown option: ${flag}`);
     }

@@ -47,10 +47,48 @@ try {
   assert.equal(failed.failureClass, 'test-command-failed');
   assert.equal(failed.closureAllowedContribution, 'fail');
 
+  const blockedRecursiveLifecycle = await runProofRoute({
+    runDir,
+    iteration: 1,
+    route: {
+      id: 'recursive-lifecycle',
+      kind: 'command',
+      command: `${process.execPath} scripts/living-doc-harness-lifecycle.mjs run tests/fixtures/minimal-doc.json --execute --execute-proof-routes`,
+    },
+    cwd: process.cwd(),
+    docPath: 'tests/fixtures/minimal-doc.json',
+    now: '2026-05-10T07:22:00.000Z',
+  });
+
+  assert.equal(blockedRecursiveLifecycle.status, 'blocked');
+  assert.equal(blockedRecursiveLifecycle.failureClass, 'recursive-lifecycle-proof-route');
+  assert.equal(blockedRecursiveLifecycle.reasonCode, 'recursive-lifecycle-proof-route');
+  assert.equal(blockedRecursiveLifecycle.commandResult, null);
+  assert.equal(blockedRecursiveLifecycle.controllerGuard.blocked, true);
+  assert.match(await readFile(path.join(runDir, blockedRecursiveLifecycle.stderrPath), 'utf8'), /Blocked proof route before execution/);
+
+  const blockedAbsoluteRecursiveLifecycle = await runProofRoute({
+    runDir,
+    iteration: 1,
+    route: {
+      id: 'absolute-recursive-lifecycle',
+      kind: 'command',
+      command: `${process.execPath} ${path.resolve(process.cwd(), 'scripts/living-doc-harness-lifecycle.mjs')} run tests/fixtures/minimal-doc.json --execute`,
+    },
+    cwd: process.cwd(),
+    docPath: 'tests/fixtures/minimal-doc.json',
+    now: '2026-05-10T07:23:00.000Z',
+  });
+
+  assert.equal(blockedAbsoluteRecursiveLifecycle.status, 'blocked');
+  assert.equal(blockedAbsoluteRecursiveLifecycle.reasonCode, 'recursive-lifecycle-proof-route');
+
   const events = await readFile(path.join(runDir, 'events.jsonl'), 'utf8');
   assert.match(events, /proof-route-result-written/);
   assert.match(events, /fixture-command/);
   assert.match(events, /fixture-failure/);
+  assert.match(events, /recursive-lifecycle/);
+  assert.match(events, /absolute-recursive-lifecycle/);
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

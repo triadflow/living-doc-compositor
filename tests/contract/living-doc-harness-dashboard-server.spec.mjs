@@ -211,7 +211,7 @@ try {
         await writeFile(path.join(runDir, 'prompt.md'), 'Fixture active lifecycle prompt.\n', 'utf8');
         await writeFile(path.join(runDir, 'codex-turns', 'codex-events.jsonl'), '{"type":"thread.started","thread_id":"active-lifecycle-fixture"}\n{"type":"item.started","item":{"type":"command_execution","status":"in_progress","command":"ACTIVE-LIFECYCLE-WORKER-MARKER"}}\n', 'utf8');
         await writeFile(path.join(runDir, 'codex-turns', 'codex-stderr.log'), '', 'utf8');
-        return { resultId, lifecycleDir, supervisorPid: 23457, executeProofRoutes, toolProfile, prReviewPolicy };
+        return { resultId, lifecycleDir, supervisorPid: process.pid, executeProofRoutes, toolProfile, prReviewPolicy };
       }
       await writeFile(path.join(lifecycleDir, 'lifecycle-result.json'), `${JSON.stringify({
         schema: 'living-doc-harness-lifecycle-result/v1',
@@ -719,7 +719,7 @@ exit 0
   const activeLifecycleListItem = activeLifecycles.body.lifecycles.find((item) => item.resultId === activeLifecycle.body.resultId);
   assert.equal(activeLifecycleListItem.active, true);
   assert.equal(activeLifecycleListItem.finalState.kind, 'running');
-  assert.equal(activeLifecycleListItem.supervisorPid, 23457);
+  assert.equal(activeLifecycleListItem.supervisorPid, process.pid);
   assert.equal(activeLifecycleListItem.prReviewPolicy.mode, 'required-when-source-changes');
 
   const activeGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
@@ -747,6 +747,20 @@ exit 0
   assert.equal(activeWsMessages.some((event) => event.type === 'log_append' && event.payload.nodeId === 'iteration-1-worker'), true);
 
   const activeLifecyclePath = path.join(runsDir, activeLifecycle.body.resultId, 'active-lifecycle.json');
+  const staleActiveLifecycle = JSON.parse(await readFile(activeLifecyclePath, 'utf8'));
+  staleActiveLifecycle.supervisorPid = 99999999;
+  await writeFile(activeLifecyclePath, `${JSON.stringify(staleActiveLifecycle, null, 2)}\n`, 'utf8');
+  const staleLifecycles = await jsonFetch(server, `/api/lifecycles`);
+  const staleLifecycleListItem = staleLifecycles.body.lifecycles.find((item) => item.resultId === activeLifecycle.body.resultId);
+  assert.equal(staleLifecycleListItem.active, false);
+  assert.equal(staleLifecycleListItem.finalState.kind, 'stale-active-lifecycle');
+  assert.equal(staleLifecycleListItem.finalState.reasonCode, 'supervisor-pid-not-running');
+  const staleGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
+  assert.equal(staleGraph.body.finalState.kind, 'stale-active-lifecycle');
+  assert.equal(staleGraph.body.activeInferenceUnitId, null);
+  assert.equal(staleGraph.body.nodes.some((node) => node.type === 'inference-unit'), false);
+  assert.equal(staleGraph.body.nodes.some((node) => node.id === 'stale-active-lifecycle'), true);
+
   const stoppedActiveLifecycle = JSON.parse(await readFile(activeLifecyclePath, 'utf8'));
   stoppedActiveLifecycle.status = 'stopped-by-supervisor';
   stoppedActiveLifecycle.finalState = {

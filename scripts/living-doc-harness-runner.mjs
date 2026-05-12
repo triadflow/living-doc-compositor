@@ -183,6 +183,7 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
     '- Do not claim closure unless acceptance criteria and proof gates are satisfied.',
     '- If blocked, make the blocker explicit with required evidence or decision.',
     '- Do not run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands from inside this worker process; the lifecycle controller owns review, transition, proof, dashboard, and next-iteration decisions after the worker exits.',
+    '- Do not execute proof-route commands that start living-doc-harness-lifecycle.mjs, living-doc-harness-runner.mjs, reviewer, closure-review, finalizer, dashboard, or proof-route scripts. Treat those as controller-owned contracts and leave them for the lifecycle controller.',
     '',
     'Run context:',
     `- runId: ${runId}`,
@@ -261,6 +262,7 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, 
     forbiddenActions: [
       'run lifecycle finalizer from inside worker inference',
       'run reviewer inference from inside worker inference',
+      'execute runState.proofRoutes that start lifecycle, runner, reviewer, closure-review, finalizer, dashboard, or proof-route scripts',
       'decide terminal closure without reviewer inference',
     ],
   };

@@ -981,6 +981,7 @@ export async function runHarnessLifecycle({
           iteration,
           routes: iterationProofRoutes,
           cwd,
+          docPath,
           now: addMs(iterationNow, 125),
         })
         : null;

@@ -655,17 +655,18 @@ export async function collectDashboardLifecycles({ runsDir, cwd }) {
       const result = await readJson(resultPath, null);
       const active = result ? null : await readJson(activePath, {});
       const source = result || active;
-      const activeLifecycleRunning = active && isRunningLifecycleState(source.finalState?.kind || active.status);
+      const activeRuntime = active ? activeLifecycleRuntime(active) : null;
       lifecycles.push({
         schema: 'living-doc-harness-dashboard-lifecycle/v1',
         resultId: source.resultId || path.basename(lifecycleDir),
         lifecycleDir: relativeTo(cwd, lifecycleDir),
         createdAt: source.createdAt || null,
         docPath: source.docPath || null,
-        finalState: source.finalState || (active?.status ? { kind: active.status } : null),
+        finalState: result?.finalState || activeRuntime?.finalState || (active?.status ? { kind: active.status } : null),
         iterationCount: result?.iterationCount ?? (result?.iterations || []).length,
-        active: Boolean(activeLifecycleRunning),
+        active: Boolean(activeRuntime?.active),
         supervisorPid: active?.supervisorPid ?? null,
+        supervisorAlive: activeRuntime?.supervisorAlive ?? null,
         prReviewPolicy: source.runConfig?.prReviewPolicy || source.prReviewPolicy || null,
         toolProfile: active?.toolProfile || null,
       });
@@ -678,6 +679,41 @@ export async function collectDashboardLifecycles({ runsDir, cwd }) {
   }
   lifecycles.sort((a, b) => String(b.resultId).localeCompare(String(a.resultId)));
   return { lifecycles, errors };
+}
+
+function processIsAlive(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0) return false;
+  try {
+    process.kill(numericPid, 0);
+    return true;
+  } catch (err) {
+    return err?.code === 'EPERM';
+  }
+}
+
+function activeLifecycleRuntime(active) {
+  const lifecycleKind = active?.finalState?.kind || active?.status || 'running';
+  const running = isRunningLifecycleState(lifecycleKind);
+  const supervisorPid = active?.supervisorPid ?? null;
+  const supervisorAlive = processIsAlive(supervisorPid);
+  const stale = Boolean(running && !supervisorAlive);
+  const finalState = stale
+    ? {
+      kind: 'stale-active-lifecycle',
+      reasonCode: supervisorPid ? 'supervisor-pid-not-running' : 'supervisor-pid-missing',
+      previousKind: lifecycleKind,
+      supervisorPid,
+    }
+    : active?.finalState || (active?.status ? { kind: active.status } : null);
+  return {
+    running,
+    active: Boolean(running && supervisorAlive),
+    stale,
+    supervisorPid,
+    supervisorAlive,
+    finalState,
+  };
 }
 
 async function findActiveLifecycleRuns({ runsDir, cwd, docPath, createdAt }) {
@@ -707,6 +743,7 @@ async function findActiveLifecycleRun(options) {
 async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activePath }) {
   const active = await readJson(activePath || path.join(lifecycleDir, 'active-lifecycle.json'), null);
   if (!active?.schema) throw new Error(`lifecycle result not found: ${path.basename(lifecycleDir)}`);
+  const runtime = activeLifecycleRuntime(active);
 
   const nodes = [];
   const edges = [];
@@ -751,7 +788,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     type: 'lifecycle',
     role: 'controller',
     label: active.resultId || path.basename(lifecycleDir),
-    status: active.status || active.finalState?.kind || 'running',
+    status: runtime.finalState?.kind || active.status || active.finalState?.kind || 'running',
     artifactPaths: {
       activeLifecyclePath: relativeTo(cwd, path.join(lifecycleDir, 'active-lifecycle.json')),
       lifecycleResultPath: relativeTo(cwd, path.join(lifecycleDir, 'lifecycle-result.json')),
@@ -760,6 +797,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
       createdAt: active.createdAt || null,
       docPath: active.docPath || null,
       supervisorPid: active.supervisorPid ?? null,
+      supervisorAlive: runtime.supervisorAlive,
       toolProfile: active.toolProfile || null,
       executeProofRoutes: active.executeProofRoutes === true,
       runConfig: active.runConfig || null,
@@ -767,13 +805,42 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     },
   }));
 
-  const activeRuns = await findActiveLifecycleRuns({
-    runsDir,
-    cwd,
-    docPath: active.docPath,
-    createdAt: active.createdAt,
-  });
-  const lifecycleRunning = isRunningLifecycleState(active.finalState?.kind || active.status);
+  if (runtime.stale) {
+    const terminalNodeId = 'stale-active-lifecycle';
+    addNode(graphNode(terminalNodeId, {
+      type: 'terminal',
+      role: 'terminal',
+      label: 'Stale active lifecycle',
+      status: 'stale-active-lifecycle',
+      artifactPaths: {
+        activeLifecyclePath: relativeTo(cwd, path.join(lifecycleDir, 'active-lifecycle.json')),
+      },
+      meta: {
+        reasonCode: runtime.finalState?.reasonCode || null,
+        supervisorPid: runtime.supervisorPid,
+        previousKind: runtime.finalState?.previousKind || null,
+      },
+    }));
+    addEdge(graphEdge('lifecycle-to-stale-active-lifecycle', lifecycleNodeId, terminalNodeId, {
+      label: runtime.finalState?.reasonCode || 'supervisor not running',
+      status: 'blocked',
+      contract: {
+        activeLifecyclePath: relativeTo(cwd, path.join(lifecycleDir, 'active-lifecycle.json')),
+      },
+      gate: 'supervisor-process-alive-required',
+      lifecycleEffect: 'stale-active-lifecycle',
+    }));
+  }
+
+  const activeRuns = !runtime.stale
+    ? await findActiveLifecycleRuns({
+      runsDir,
+      cwd,
+      docPath: active.docPath,
+      createdAt: active.createdAt,
+    })
+    : [];
+  const lifecycleRunning = runtime.active;
   const stoppedInferenceUnitId = active.finalState?.activeInferenceUnitAtStop || null;
 
   for (const [index, activeRun] of activeRuns.entries()) {
@@ -990,7 +1057,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     resultId: active.resultId || path.basename(lifecycleDir),
     lifecycleDir: relativeTo(cwd, lifecycleDir),
     generatedAt: new Date().toISOString(),
-    finalState: active.finalState || { kind: active.status || 'running' },
+    finalState: runtime.finalState || { kind: active.status || 'running' },
     activeInferenceUnitId: activeInferenceUnit?.id || null,
     nodeCount: nodes.length,
     edgeCount: edges.length,
