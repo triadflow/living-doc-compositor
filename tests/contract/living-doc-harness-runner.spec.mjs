@@ -266,6 +266,130 @@ exit 0
   ), 'utf8'));
   assert.equal(prReviewValidation.ok, true);
 
+  const previousContinuationRunDir = path.join(tmp, 'previous-continuation-run');
+  await mkdir(path.join(previousContinuationRunDir, 'artifacts'), { recursive: true });
+  await mkdir(path.join(previousContinuationRunDir, 'reviewer-inference'), { recursive: true });
+  await mkdir(path.join(previousContinuationRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(previousContinuationRunDir, 'reviewer-inference', 'iteration-3-verdict.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'repairable',
+      reasonCode: 'pr-review-policy-gate-blocked',
+      closureAllowed: false,
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(previousContinuationRunDir, 'artifacts', 'iteration-3-controller-evidence-snapshot.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    hardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      prReviewRequired: true,
+      prReviewGate: {
+        required: true,
+        status: 'blocked',
+        evidencePresent: false,
+        reasonCode: 'pr-review-non-verdict-output',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(previousContinuationRunDir, 'artifacts', 'iteration-3-evidence.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-iteration-evidence/v1',
+    controllerEvidenceSnapshotPath: 'artifacts/iteration-3-controller-evidence-snapshot.json',
+    requiredHardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      prReviewRequired: true,
+      prReviewGate: {
+        required: true,
+        status: 'blocked',
+        evidencePresent: false,
+        reasonCode: 'pr-review-non-verdict-output',
+      },
+    },
+    prReviewPolicy: {
+      schema: 'living-doc-harness-pr-review-policy/v1',
+      mode: 'required-before-closure',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const previousContinuationOutputInputPath = path.join(previousContinuationRunDir, 'output-input', 'iteration-3.json');
+  await writeFile(previousContinuationOutputInputPath, `${JSON.stringify({
+    schema: 'living-doc-harness-output-input/v1',
+    previousOutput: {
+      evidencePath: 'artifacts/iteration-3-evidence.json',
+      reviewerVerdictPath: 'reviewer-inference/iteration-3-verdict.json',
+      classification: 'repairable',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const fakeContinuationCodex = path.join(tmp, 'fake-continuation-codex');
+  const fakeContinuationCodexHome = path.join(tmp, 'fake-continuation-codex-home');
+  await writeFile(fakeContinuationCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-continuation-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"continuation-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"continuation non-verdict fixture"}]}}
+EOF
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-continuation-result/v1",
+  "status": "finished",
+  "basis": [
+    "Continuation process finished but did not emit a registered continuation verdict."
+  ],
+  "nextRecommendedUnitType": "worker"
+}
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeContinuationCodex, 0o755);
+  await mkdir(fakeContinuationCodexHome, { recursive: true });
+  const continuationRun = await createHarnessRun({
+    docPath: 'tests/fixtures/minimal-doc.json',
+    runsDir: path.join(tmp, 'continuation-runs'),
+    execute: true,
+    cwd: process.cwd(),
+    now: '2026-05-07T06:31:25.000Z',
+    codexBin: fakeContinuationCodex,
+    codexHome: fakeContinuationCodexHome,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    iteration: 4,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'previous-continuation-run',
+      previousIteration: 3,
+      instruction: 'Continue after blocked PR-review gate.',
+      outputInputPath: previousContinuationOutputInputPath,
+      selectedUnitType: 'continuation-inference',
+      nextUnit: {
+        unitId: 'continuation-inference',
+        role: 'continuation',
+        reasonCode: 'pr-review-non-verdict-output',
+      },
+    },
+  });
+  const continuationUnit = JSON.parse(await readFile(path.join(
+    continuationRun.runDir,
+    continuationRun.contract.artifacts.initialInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(continuationUnit.mode, 'external-headless-codex');
+  assert.equal(continuationUnit.status, 'blocked');
+  assert.equal(continuationUnit.outputContract.status, 'blocked');
+  assert.equal(continuationUnit.outputContract.reasonCode, 'continuation-non-verdict-output');
+  assert.equal(continuationUnit.outputContract.nextRecommendedUnitType, 'worker');
+  const continuationValidation = JSON.parse(await readFile(path.join(
+    continuationRun.runDir,
+    continuationRun.contract.artifacts.initialInferenceUnit.validation,
+  ), 'utf8'));
+  assert.equal(continuationValidation.ok, true);
+
   const fakeBoundaryCodex = path.join(tmp, 'fake-boundary-codex');
   const fakeBoundaryCodexHome = path.join(tmp, 'fake-boundary-codex-home');
   await writeFile(fakeBoundaryCodex, `#!/bin/sh

@@ -224,6 +224,36 @@ try {
   assert.equal(nonVerdictPrReviewRun.result.outputContract.reasonCode, 'pr-review-non-verdict-output');
   assert.equal(nonVerdictPrReviewRun.result.outputContract.sideEffect.reasonCode, 'pr-review-non-verdict-output');
 
+  const nonVerdictContinuationRun = await runContractBoundInferenceUnit({
+    runDir: path.join(tmp, 'non-verdict-continuation-run'),
+    unitId: 'continuation-inference',
+    role: 'continuation',
+    prompt: 'Return the historical bad continuation shape.',
+    inputContract: {
+      schema: 'living-doc-continuation-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      reasonCode: 'pr-review-non-verdict-output',
+      requiredInspectionPaths: [inspectedPath],
+    },
+    fixtureResult: {
+      status: 'finished',
+      basis: ['This is the old non-verdict continuation output.'],
+      outputContract: {
+        schema: 'living-doc-continuation-result/v1',
+        status: 'finished',
+        basis: ['This is the old non-verdict continuation output.'],
+        nextRecommendedUnitType: 'worker',
+      },
+    },
+    execute: false,
+    now: '2026-05-08T07:39:50.000Z',
+  });
+  assert.equal(nonVerdictContinuationRun.validation.ok, true);
+  assert.equal(nonVerdictContinuationRun.result.status, 'blocked');
+  assert.equal(nonVerdictContinuationRun.result.outputContract.status, 'blocked');
+  assert.equal(nonVerdictContinuationRun.result.outputContract.reasonCode, 'continuation-non-verdict-output');
+
   const fakeCodex = path.join(tmp, 'fake-codex.mjs');
   await writeFile(fakeCodex, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';

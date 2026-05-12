@@ -575,6 +575,28 @@ function normalizePrReviewExternalOutputContract({ output, exitCode, paths, trac
   };
 }
 
+function normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs }) {
+  const allowedStatuses = getInferenceUnitType('continuation-inference').outputVerdicts;
+  const base = {
+    ...(output && typeof output === 'object' ? output : {}),
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+  if (allowedStatuses.includes(base.status)) return base;
+  const reasonCode = base.reasonCode || 'continuation-non-verdict-output';
+  return {
+    ...base,
+    schema: 'living-doc-continuation-result/v1',
+    status: 'blocked',
+    reasonCode,
+    basis: arr(base.basis).length
+      ? base.basis
+      : ['Continuation headless process exited without emitting continuation-required, blocked, or ready.'],
+    nextRecommendedUnitType: base.nextRecommendedUnitType || 'worker',
+  };
+}
+
 async function gitHead(cwd) {
   try {
     const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd });
@@ -701,6 +723,26 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       return normalizePrReviewExternalOutputContract({ output, exitCode, paths, traceRefs });
     }
     return normalizePrReviewExternalOutputContract({
+      output: preparedOutputContract({
+        unitTypeId,
+        runId,
+        docPath,
+        inputContract,
+        status,
+      }),
+      exitCode,
+      paths,
+      traceRefs,
+    });
+  }
+  if (unitTypeId === 'continuation-inference') {
+    const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
+      ? rawResult.outputContract
+      : rawResult;
+    if (output?.schema === 'living-doc-continuation-result/v1') {
+      return normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs });
+    }
+    return normalizeContinuationExternalOutputContract({
       output: preparedOutputContract({
         unitTypeId,
         runId,
@@ -1156,7 +1198,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       lastMessagePath,
     },
     mode: 'external-headless-codex',
-    status: ['commit-intent', 'pr-review'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
+    status: ['commit-intent', 'pr-review', 'continuation-inference'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
     basis: [
       `${initialUnit.unitId} headless Codex process exited with code ${exitCode}.`,
       'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',
