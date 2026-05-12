@@ -359,6 +359,9 @@ try {
     },
   });
   const closureCandidatePrGateSelection = JSON.parse(await readFile(closureCandidatePrGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(closureCandidatePrGateSelection.prReviewPolicy.mode, 'required-before-closure');
+  assert.equal(closureCandidatePrGateSelection.prReviewRequired, true);
+  assert.equal(closureCandidatePrGateSelection.prReviewGate.status, 'missing');
   assert.equal(closureCandidatePrGateSelection.nextUnit.unitId, 'pr-review');
   assert.equal(closureCandidatePrGateSelection.nextUnit.reasonCode, 'pr-review-policy-gate-missing');
   assert.match(closureCandidatePrGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
@@ -523,6 +526,14 @@ try {
   assert.equal(disabledPrClosureReviewInput.prReviewRequired, false);
   assert.equal(disabledPrClosureReviewInput.sideEffectEvidence.prReview, undefined);
   assert.equal(disabledPrClosureReviewInput.requiredInspectionPaths.some((entry) => entry.includes('05-pr-review')), false);
+  const disabledPrClosureSelection = JSON.parse(await readFile(disabledPrClosure.postReviewSelectionPath, 'utf8'));
+  assert.equal(disabledPrClosureSelection.prReviewPolicy.mode, 'disabled');
+  assert.equal(disabledPrClosureSelection.prReviewRequired, false);
+  assert.equal(disabledPrClosureSelection.prReviewGate.status, 'disabled');
+  const disabledPrClosureProof = JSON.parse(await readFile(disabledPrClosure.proofPath, 'utf8'));
+  assert.equal(disabledPrClosureProof.postReviewSelection.prReviewPolicy.mode, 'disabled');
+  assert.equal(disabledPrClosureProof.postReviewSelection.prReviewRequired, false);
+  assert.equal(disabledPrClosureProof.postReviewSelection.prReviewGate.status, 'disabled');
 
   const noSourceChangePrMentionRun = await createHarnessRun({
     docPath,

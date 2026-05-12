@@ -492,6 +492,8 @@ function buildPostReviewSelection({
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
 }) {
   const classification = verdict?.stopVerdict?.classification || 'unknown';
+  const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+  const prReviewGate = evidence?.prReviewGate || evidence?.requiredHardFacts?.prReviewGate || prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
   const selected = {
     schema: 'living-doc-harness-post-review-selection/v1',
     runId: verdict?.runId || reviewer?.artifact?.runId || null,
@@ -501,6 +503,9 @@ function buildPostReviewSelection({
     reviewerInferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
     classification,
     reasonCode: verdict?.stopVerdict?.reasonCode || null,
+    prReviewPolicy,
+    prReviewRequired: prReviewGate.required === true,
+    prReviewGate,
     selectionBasis: [
       'Only worker and reviewer are fixed bootstrap units.',
       'This selection records the post-review unit or terminal action chosen from reviewer output and proof state.',
@@ -509,9 +514,6 @@ function buildPostReviewSelection({
 
   if (classification === 'closed') {
     const sideEffects = evidence?.sideEffectEvidence || {};
-    const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
-    const prReviewGate = prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
-    const prRequired = prReviewGate.required === true;
     const prSatisfied = evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy);
 
     if (evidenceRequiresCommitIntent(evidence)) {
@@ -973,6 +975,9 @@ async function buildIterationProof({ runDir, evidence, verdict, reviewer, closur
     } : null,
     postReviewSelection: postReviewSelection ? {
       selectionPath: postReviewSelection.selectionPath ? path.relative(runDir, postReviewSelection.selectionPath) : null,
+      prReviewPolicy: postReviewSelection.artifact.prReviewPolicy || null,
+      prReviewRequired: postReviewSelection.artifact.prReviewRequired === true,
+      prReviewGate: postReviewSelection.artifact.prReviewGate || null,
       nextUnit: postReviewSelection.artifact.nextUnit || null,
       terminalAction: postReviewSelection.artifact.terminalAction || null,
     } : null,
@@ -1246,6 +1251,9 @@ export async function finalizeHarnessIteration({
     closureReviewResultPath: closureReview?.unit?.resultPath || null,
     postReviewSelectionPath,
     postReviewSelection: postReviewSelectionArtifact,
+    prReviewPolicy: postReviewSelectionArtifact.prReviewPolicy || null,
+    prReviewRequired: postReviewSelectionArtifact.prReviewRequired === true,
+    prReviewGate: postReviewSelectionArtifact.prReviewGate || null,
   };
 }
 

@@ -607,6 +607,9 @@ function nextActionFromFinalization(finalization) {
       reason: finalization.terminalKind === 'closed'
         ? 'Objective closure reached.'
         : 'User explicitly stopped the lifecycle.',
+      prReviewPolicy: finalization.prReviewPolicy || finalization.postReviewSelection?.prReviewPolicy || null,
+      prReviewRequired: finalization.prReviewRequired === true || finalization.postReviewSelection?.prReviewRequired === true,
+      prReviewGate: finalization.prReviewGate || finalization.postReviewSelection?.prReviewGate || null,
     };
   }
 
@@ -618,6 +621,9 @@ function nextActionFromFinalization(finalization) {
     reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
     selectedUnitType: unitId,
     selectedUnitRole: nextUnit?.role || unitId,
+    prReviewPolicy: finalization.prReviewPolicy || finalization.postReviewSelection?.prReviewPolicy || null,
+    prReviewRequired: finalization.prReviewRequired === true || finalization.postReviewSelection?.prReviewRequired === true,
+    prReviewGate: finalization.prReviewGate || finalization.postReviewSelection?.prReviewGate || null,
     contractValidation: finalization.postReviewSelection?.contractValidation || null,
   };
 }
@@ -650,6 +656,9 @@ async function writeOutputInput({
       postReviewSelectionPath: finalization.postReviewSelectionPath ? path.relative(runDir, finalization.postReviewSelectionPath) : null,
     },
     postReviewSelection: finalization.postReviewSelection ? {
+      prReviewPolicy: finalization.postReviewSelection.prReviewPolicy || null,
+      prReviewRequired: finalization.postReviewSelection.prReviewRequired === true,
+      prReviewGate: finalization.postReviewSelection.prReviewGate || null,
       nextUnit: finalization.postReviewSelection.nextUnit || null,
       terminalAction: finalization.postReviewSelection.terminalAction || null,
     } : null,
@@ -1265,6 +1274,9 @@ export async function runHarnessLifecycle({
         repairSkillResultPath: finalization.repairSkillResultPath,
         closureReviewResultPath: finalization.closureReviewResultPath,
         postReviewSelectionPath: finalization.postReviewSelectionPath,
+        prReviewPolicy: finalization.prReviewPolicy || null,
+        prReviewRequired: finalization.prReviewRequired === true,
+        prReviewGate: finalization.prReviewGate || null,
         proofValid: finalization.proofValid,
       });
 

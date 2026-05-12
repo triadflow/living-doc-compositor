@@ -97,6 +97,8 @@ test('PR review policy modes produce distinct lifecycle routing and dashboard st
       now: '2026-05-11T13:01:00.000Z',
     });
     expect(required.iterations[0].nextAction.selectedUnitType).toBe('pr-review');
+    expect(required.iterations[0].nextAction.prReviewPolicy.mode).toBe('required-before-closure');
+    expect(required.iterations[0].nextAction.prReviewGate.status).toBe('missing');
     expect(required.runConfig.prReviewPolicy.mode).toBe('required-before-closure');
     expect(required.finalState.kind).toBe('closed');
 
@@ -115,7 +117,13 @@ test('PR review policy modes produce distinct lifecycle routing and dashboard st
     expect(disabled.lastEvidenceSummary.prReviewRequired).toBe(false);
     expect(disabled.lastEvidenceSummary.prReviewEvidencePresent).toBe(false);
     const disabledSelection = await readJson(path.resolve(process.cwd(), disabled.iterations[0].postReviewSelectionPath));
+    expect(disabledSelection.prReviewPolicy.mode).toBe('disabled');
+    expect(disabledSelection.prReviewRequired).toBe(false);
+    expect(disabledSelection.prReviewGate.status).toBe('disabled');
     expect(disabledSelection.nextUnit.unitId).toBe('closure-review');
+    const disabledOutputInput = await readJson(path.resolve(process.cwd(), disabled.iterations[0].outputInputPath));
+    expect(disabledOutputInput.postReviewSelection.prReviewPolicy.mode).toBe('disabled');
+    expect(disabledOutputInput.nextAction.prReviewGate.status).toBe('disabled');
     const disabledRunDir = path.resolve(process.cwd(), disabled.iterations[0].runDir);
     const disabledEvidence = await readJson(path.join(disabledRunDir, 'artifacts/lifecycle-iteration-1-evidence-input.json'));
     expect(disabledEvidence.prReviewPolicy.mode).toBe('disabled');
