@@ -306,10 +306,62 @@ try {
     },
   });
   const repairablePrGateSelection = JSON.parse(await readFile(repairablePrGate.postReviewSelectionPath, 'utf8'));
-  assert.equal(repairablePrGateSelection.nextUnit.unitId, 'pr-review');
-  assert.equal(repairablePrGateSelection.nextUnit.reasonCode, 'pr-review-policy-gate-missing');
-  assert.notEqual(repairablePrGateSelection.nextUnit.unitId, 'worker');
-  assert.match(repairablePrGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
+  assert.equal(repairablePrGateSelection.nextUnit.unitId, 'worker');
+  assert.equal(repairablePrGateSelection.nextUnit.reasonCode, 'reviewer-authorized-continuation');
+  assert.notEqual(repairablePrGateSelection.nextUnit.unitId, 'pr-review');
+
+  const closureCandidatePrGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'closure-candidate-pr-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:08.800Z',
+  });
+  const closureCandidatePrGateEvidencePath = path.join(tmp, 'closure-candidate-pr-gate-evidence.json');
+  const closureCandidatePrGateTemplate = await writeIterationEvidenceTemplate({
+    runDir: closureCandidatePrGateRun.runDir,
+    outPath: closureCandidatePrGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closure-candidate',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: false,
+    now: '2026-05-07T10:21:08.820Z',
+  });
+  closureCandidatePrGateTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-before-closure',
+  };
+  closureCandidatePrGateTemplate.evidence.sideEffectEvidence = { commit: { sha: 'abc1234', required: true } };
+  await writeFile(closureCandidatePrGateEvidencePath, `${JSON.stringify(closureCandidatePrGateTemplate.evidence, null, 2)}\n`, 'utf8');
+  const closureCandidatePrGate = await finalizeHarnessIteration({
+    runDir: closureCandidatePrGateRun.runDir,
+    evidencePath: closureCandidatePrGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:08.840Z',
+    evidenceDir: path.join(tmp, 'closure-candidate-pr-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'closure-candidate-pr-gate-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'closure-candidate',
+        reasonCode: 'pr-review-policy-gate-missing',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['The living doc is otherwise ready for closure review, but required-before-closure PR review evidence is missing.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Run the required pr-review policy gate before closure review.',
+      },
+    },
+  });
+  const closureCandidatePrGateSelection = JSON.parse(await readFile(closureCandidatePrGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(closureCandidatePrGateSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(closureCandidatePrGateSelection.nextUnit.reasonCode, 'pr-review-policy-gate-missing');
+  assert.match(closureCandidatePrGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
 
   const blockedPrGateRun = await createHarnessRun({
     docPath,

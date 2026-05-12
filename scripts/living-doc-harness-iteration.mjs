@@ -311,6 +311,10 @@ function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
   return gate.status === 'satisfied';
 }
 
+function prReviewGateEligibleAtClosureBoundary({ classification }) {
+  return ['closed', 'closure-candidate'].includes(classification);
+}
+
 function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
   const classification = String(verdict?.stopVerdict?.classification || '').toLowerCase();
   const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
@@ -396,9 +400,10 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     prReviewRequiredByPolicy
     && !prReviewSatisfied
     && !prReviewBlocked
+    && prReviewGateEligibleAtClosureBoundary({ classification })
     && (
-      ['closure-candidate', 'resumable'].includes(classification)
-      || classification === 'repairable' && prReviewGateMentioned
+      classification === 'closure-candidate'
+      || prReviewGateMentioned
     )
   ) {
     return {
