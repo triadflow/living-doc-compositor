@@ -67,6 +67,12 @@ async function readJson(filePath, fallback = null) {
   }
 }
 
+async function validationArtifactOk(runDir, validationRef) {
+  if (!validationRef) return false;
+  const validation = await readJson(path.resolve(runDir, validationRef), null);
+  return validation?.ok === true;
+}
+
 async function writeJson(filePath, value) {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -443,7 +449,8 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
     const prResult = await readJson(path.resolve(runDir, prReviewResultRef), null);
     const output = prResult?.outputContract || prResult;
     const sideEffect = output?.sideEffect || {};
-    if (output?.schema === 'living-doc-harness-pr-review-result/v1' && ['approved', 'not-required', 'blocked', 'failed'].includes(output.status)) {
+    const validationOk = await validationArtifactOk(runDir, prReviewValidationRef);
+    if (validationOk && output?.schema === 'living-doc-harness-pr-review-result/v1' && ['approved', 'not-required', 'blocked', 'failed'].includes(output.status)) {
       evidence.prReview = {
         status: output.status,
         approved: output.status === 'approved',

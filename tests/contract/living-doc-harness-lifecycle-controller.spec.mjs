@@ -321,6 +321,43 @@ try {
   assert.equal(prReviewEvidence.prReview.validationPath, 'initial-inference-units/iteration-3/05-pr-review/validation.json');
   assert.equal(prReviewEvidence.prReview.reasonCode, 'pr-review-policy-gate-missing');
 
+  const invalidPrReviewEvidenceRunDir = path.join(tmp, 'invalid-pr-review-evidence-ingest-run');
+  await mkdir(path.join(invalidPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review'), { recursive: true });
+  await writeFile(path.join(invalidPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'result.json'), `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'pr-review',
+    role: 'pr-review',
+    outputContract: {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status: 'approved',
+      basis: ['This must not satisfy the PR gate because validation failed.'],
+      sideEffect: {
+        type: 'pr-review',
+        executed: false,
+        reasonCode: 'pr-review-validation-failed',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(invalidPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'validation.json'), `${JSON.stringify({
+    ok: false,
+    violations: [{ path: '$.outputContract.sideEffect', message: 'fixture validation failure' }],
+  }, null, 2)}\n`, 'utf8');
+  const invalidPrReviewEvidence = await sideEffectEvidenceFromRun({
+    runDir: invalidPrReviewEvidenceRunDir,
+    run: {
+      contract: {
+        artifacts: {
+          initialInferenceUnit: {
+            unitId: 'pr-review',
+            result: 'initial-inference-units/iteration-3/05-pr-review/result.json',
+            validation: 'initial-inference-units/iteration-3/05-pr-review/validation.json',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(invalidPrReviewEvidence?.prReview, undefined);
+
   const noisyGitFixture = path.join(tmp, 'noisy-git-fixture');
   await mkdir(path.join(noisyGitFixture, 'scripts'), { recursive: true });
   await mkdir(path.join(noisyGitFixture, 'docs'), { recursive: true });
