@@ -257,6 +257,60 @@ try {
   assert.equal(prReviewResult.outputContract.schema, 'living-doc-harness-pr-review-result/v1');
   assert.equal(prReviewResult.outputContract.sideEffect.executed, false);
 
+  const repairablePrGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'repairable-pr-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:08.250Z',
+  });
+  const repairablePrGateEvidencePath = path.join(tmp, 'repairable-pr-gate-evidence.json');
+  const repairablePrGateTemplate = await writeIterationEvidenceTemplate({
+    runDir: repairablePrGateRun.runDir,
+    outPath: repairablePrGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'repairable',
+    acceptanceCriteriaSatisfied: 'fail',
+    closureAllowed: false,
+    now: '2026-05-07T10:21:08.500Z',
+  });
+  repairablePrGateTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-before-closure',
+  };
+  repairablePrGateTemplate.evidence.sideEffectEvidence = { commit: { sha: 'abc1234', required: true } };
+  await writeFile(repairablePrGateEvidencePath, `${JSON.stringify(repairablePrGateTemplate.evidence, null, 2)}\n`, 'utf8');
+  const repairablePrGate = await finalizeHarnessIteration({
+    runDir: repairablePrGateRun.runDir,
+    evidencePath: repairablePrGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:08.750Z',
+    evidenceDir: path.join(tmp, 'repairable-pr-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'repairable-pr-gate-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'repairable',
+        reasonCode: 'pr-review-policy-gate-missing',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Controller hard facts require PR review before closure, but prReviewEvidencePresent is false.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Run the required pr-review policy gate and continue controller proof.',
+      },
+    },
+  });
+  const repairablePrGateSelection = JSON.parse(await readFile(repairablePrGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(repairablePrGateSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(repairablePrGateSelection.nextUnit.reasonCode, 'pr-review-policy-gate-missing');
+  assert.notEqual(repairablePrGateSelection.nextUnit.unitId, 'worker');
+  assert.match(repairablePrGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
+
   const prUrlOnlyRun = await createHarnessRun({
     docPath,
     runsDir: path.join(tmp, 'pr-url-only-runs'),

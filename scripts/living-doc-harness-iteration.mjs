@@ -275,6 +275,14 @@ function evidenceRequiresCommitIntent(evidence) {
     || hardFacts.commitEvidencePresent === true);
 }
 
+function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
+  const sideEffects = evidence?.sideEffectEvidence || {};
+  const prReviewEvidenceFromUnit = sideEffects.prReview?.source === 'pr-review-output-contract'
+    && sideEffects.prReview?.resultPath;
+  if (!prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence })) return true;
+  return Boolean(prReviewEvidenceFromUnit && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true));
+}
+
 function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
   const classification = String(verdict?.stopVerdict?.classification || '').toLowerCase();
   const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
@@ -284,6 +292,10 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   const commitRequiredByEvidence = evidenceRequiresCommitIntent(evidence);
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequiredByPolicy = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
+  const prReviewSatisfied = evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy);
+  const prReviewGateMentioned = reasonCode.includes('pr-review')
+    || /pr[- ]?review[^\n.]{0,120}(gate|missing|required|policy|evidence)/.test(text)
+    || /(gate|missing|required|policy|evidence)[^\n.]{0,120}pr[- ]?review/.test(text);
   const commitPreconditionMentioned = /(controller[- ]owned|controller)[^\n.]{0,120}commit[- ]?(intent|gate)s?/.test(text)
     || /(produce|producing|fresh|missing|pending|requires?|required)[^\n.]{0,100}commit[- ]?(intent|evidence|sha|gate)/.test(text)
     || /commit[- ]?(intent|evidence|sha|gate)[^\n.]{0,120}(pending|missing|required|before closure|controller[- ]owned)/.test(text);
@@ -328,20 +340,25 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     };
   }
 
-  if (['closure-candidate', 'resumable'].includes(classification)) {
-    if (prReviewRequiredByPolicy) {
-      return {
-        unitId: 'pr-review',
-        role: 'pr-review',
-        reasonCode: 'pr-review-required-by-run-policy',
-        prReviewPolicy,
-        reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-        livingDocPath: evidence?.livingDocPath || null,
-        requiredInputPaths,
-        expectedOutputSchema: 'living-doc-harness-pr-review-result/v1',
-        status: 'selected',
-      };
-    }
+  if (
+    prReviewRequiredByPolicy
+    && !prReviewSatisfied
+    && (
+      ['closure-candidate', 'resumable'].includes(classification)
+      || classification === 'repairable' && prReviewGateMentioned
+    )
+  ) {
+    return {
+      unitId: 'pr-review',
+      role: 'pr-review',
+      reasonCode: prReviewGateMentioned ? reasonCode || 'pr-review-policy-gate-missing' : 'pr-review-required-by-run-policy',
+      prReviewPolicy,
+      reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+      livingDocPath: evidence?.livingDocPath || null,
+      requiredInputPaths,
+      expectedOutputSchema: 'living-doc-harness-pr-review-result/v1',
+      status: 'selected',
+    };
   }
 
   const explicitControllerClosure = [
