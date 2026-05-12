@@ -8,19 +8,20 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T05:36:30.000Z",
+  "updated": "2026-05-12T05:42:14.000Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "validation-gated-pr-review-evidence-implemented-awaiting-controller-proof",
+    "currentPhase": "validation-artifact-paired-pr-review-evidence-hardened-awaiting-controller-proof",
     "documentReady": true,
     "objectiveReady": false,
     "nextObjectiveAction": "Lifecycle controller must rerun the configured proof routes and standalone PR-enabled/PR-disabled lifecycle runs, proving that required-before-closure PR-review is only invoked at the closure boundary.",
     "repairState": {
-      "status": "validation-gated-pr-review-evidence-implemented",
+      "status": "validation-artifact-paired-pr-review-evidence-hardened",
       "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T05:36:30.000Z",
+      "updated": "2026-05-12T05:42:14.000Z",
       "basis": [
+        "Worker-owned hardening completed on 2026-05-12T05:42:14.000Z: required PR-review policy gates and closure-review approval now require a paired pr-review result path and validation path before sideEffectEvidence.prReview can satisfy, block, or request the PR gate as contract-bound evidence. This closes the remaining fabricated-evidence shape where an injected approved pr-review output-contract-looking result path without validation could satisfy required PR policy. Focused worker-safe verification passed: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-closure-review.mjs, and node tests/contract/living-doc-harness-inference-unit.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned hardening completed on 2026-05-12T05:36:30.000Z: PR-review side-effect ingestion now requires the paired pr-review validation artifact to have ok true before sideEffectEvidence.prReview can satisfy or block the policy gate. This preserves the contract-bound requirement by rejecting approved/not-required-looking PR-review result JSON when validation failed or is missing. Focused worker-owned verification passed without running controller-owned lifecycle/proof commands: node --check scripts/living-doc-harness-lifecycle.mjs and a direct sideEffectEvidenceFromRun validation-gate check. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned artifact propagation hardening completed on 2026-05-12T05:31:24.000Z: post-review selection, iteration proof, output-input, nextAction, and lifecycle iteration summaries now preserve prReviewPolicy, prReviewRequired, and prReviewGate state so routing artifacts expose the policy decision without reconstructing it from sibling evidence files. Focused worker-owned verification passed: node tests/contract/living-doc-harness-iteration.spec.mjs and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned hardening completed on 2026-05-12T05:25:06.000Z: closure-review input construction now strips sideEffectEvidence.prReview and PR-review inspection paths when prReviewPolicy is disabled, even if injected evidence reaches runClosureReviewUnit directly. Focused worker-owned verification passed: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-iteration.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
@@ -326,14 +327,14 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows the current stage and remaining proof gate.",
-      "updated": "2026-05-12T03:58:07.000Z",
+      "updated": "2026-05-12T05:42:14.000Z",
       "data": [
         {
           "id": "objective-shaped",
           "name": "Objective shaped",
           "status": "implemented-awaiting-controller-owned-standalone-proof",
-          "updated": "2026-05-12T03:58:07.000Z",
-          "summary": "The PR-review policy implementation now separates three concerns: policy availability, gate outcome state, and closure-boundary timing. Live lifecycle runs exposed that required-before-closure had been treated too broadly: missing PR-review evidence could interrupt repairable work. The current correction makes PR-review a closure-boundary gate for required-before-closure while preserving blocked gate evidence as non-repeatable controller state.",
+          "updated": "2026-05-12T05:42:14.000Z",
+          "summary": "The PR-review policy implementation now separates three concerns: policy availability, gate outcome state, and closure-boundary timing. Required PR-review evidence must now carry both a pr-review result artifact path and the paired validation artifact path before it can satisfy or shape the PR gate for closure. The remaining proof is controller-owned standalone lifecycle execution for the PR-enabled and PR-disabled paths.",
           "documentReady": true,
           "objectiveReady": false,
           "nextStep": "Rerun the PR-enabled and PR-disabled standalone lifecycle proof paths and record that required-before-closure invokes PR-review only when the lifecycle is closure-ready."

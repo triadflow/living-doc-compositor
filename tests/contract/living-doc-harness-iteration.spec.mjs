@@ -477,6 +477,54 @@ try {
   const prUrlOnlySelection = JSON.parse(await readFile(prUrlOnly.postReviewSelectionPath, 'utf8'));
   assert.equal(prUrlOnlySelection.nextUnit.unitId, 'pr-review');
 
+  const unvalidatedPrContractRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'unvalidated-pr-contract-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:09.800Z',
+  });
+  const unvalidatedPrContractEvidencePath = path.join(tmp, 'unvalidated-pr-contract-evidence.json');
+  const unvalidatedPrContractTemplate = await writeIterationEvidenceTemplate({
+    runDir: unvalidatedPrContractRun.runDir,
+    outPath: unvalidatedPrContractEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closed',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    now: '2026-05-07T10:21:09.850Z',
+  });
+  unvalidatedPrContractTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-before-closure',
+  };
+  unvalidatedPrContractTemplate.evidence.sideEffectEvidence = {
+    commit: { sha: 'abc1234', required: false },
+    prReview: {
+      status: 'approved',
+      approved: true,
+      source: 'pr-review-output-contract',
+      resultPath: 'inference-units/iteration-1/05-pr-review/result.json',
+    },
+  };
+  await writeFile(unvalidatedPrContractEvidencePath, `${JSON.stringify(unvalidatedPrContractTemplate.evidence, null, 2)}\n`, 'utf8');
+  const unvalidatedPrContract = await finalizeHarnessIteration({
+    runDir: unvalidatedPrContractRun.runDir,
+    evidencePath: unvalidatedPrContractEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:09.900Z',
+    evidenceDir: path.join(tmp, 'unvalidated-pr-contract-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'unvalidated-pr-contract-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  });
+  assert.equal(unvalidatedPrContract.classification, 'true-block');
+  const unvalidatedPrContractSelection = JSON.parse(await readFile(unvalidatedPrContract.postReviewSelectionPath, 'utf8'));
+  assert.equal(unvalidatedPrContractSelection.prReviewGate.status, 'missing');
+  assert.equal(unvalidatedPrContractSelection.prReviewGate.evidencePresent, false);
+  assert.equal(unvalidatedPrContractSelection.nextUnit.unitId, 'pr-review');
+
   const disabledPrClosureRun = await createHarnessRun({
     docPath,
     runsDir: path.join(tmp, 'disabled-pr-closure-runs'),

@@ -97,7 +97,10 @@ function prReviewGateFromIterationEvidence(evidence, prReviewPolicy = null) {
       evidencePresent: false,
     };
   }
-  if (prReview.source === 'pr-review-output-contract' && prReview.resultPath) {
+  const hasContractArtifactPair = prReview.source === 'pr-review-output-contract'
+    && prReview.resultPath
+    && prReview.validationPath;
+  if (hasContractArtifactPair) {
     const satisfied = prReview.approved === true || prReview.notRequired === true;
     const blocked = prReview.blocked === true || ['blocked', 'failed'].includes(prReview.status);
     return {

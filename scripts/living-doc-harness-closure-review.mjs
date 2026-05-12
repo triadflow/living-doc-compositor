@@ -42,7 +42,8 @@ function closureApprovedFromEvidence({ evidence, verdict }) {
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
   const prReviewEvidenceFromUnit = sideEffects.prReview?.source === 'pr-review-output-contract'
-    && sideEffects.prReview?.resultPath;
+    && sideEffects.prReview?.resultPath
+    && sideEffects.prReview?.validationPath;
   const prGateSatisfied = prReviewRequired
     ? Boolean(prReviewEvidenceFromUnit && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true))
     : true;
