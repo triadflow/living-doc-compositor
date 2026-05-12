@@ -750,6 +750,120 @@ exit 0
   ), 'utf8'));
   assert.equal(continuationValidation.ok, true);
 
+  const previousBalanceScanRunDir = path.join(tmp, 'previous-balance-scan-run');
+  await mkdir(path.join(previousBalanceScanRunDir, 'artifacts'), { recursive: true });
+  await mkdir(path.join(previousBalanceScanRunDir, 'handovers'), { recursive: true });
+  await mkdir(path.join(previousBalanceScanRunDir, 'reviewer-inference'), { recursive: true });
+  await mkdir(path.join(previousBalanceScanRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(previousBalanceScanRunDir, 'reviewer-inference', 'iteration-5-verdict.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'repairable',
+      reasonCode: 'acceptance-criteria-unproven',
+      closureAllowed: false,
+      selectedUnitType: 'living-doc-balance-scan',
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(previousBalanceScanRunDir, 'handovers', 'iteration-5-handover.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-handover/v1',
+    previousIteration: 5,
+    reasonCode: 'acceptance-criteria-unproven',
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(previousBalanceScanRunDir, 'artifacts', 'iteration-5-evidence.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-iteration-evidence/v1',
+    requiredHardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      acceptanceCriteriaSatisfied: false,
+      objectiveReady: false,
+    },
+  }, null, 2)}\n`, 'utf8');
+  const previousBalanceScanOutputInputPath = path.join(previousBalanceScanRunDir, 'output-input', 'iteration-5.json');
+  await writeFile(previousBalanceScanOutputInputPath, `${JSON.stringify({
+    schema: 'living-doc-harness-output-input/v1',
+    previousOutput: {
+      evidencePath: 'artifacts/iteration-5-evidence.json',
+      reviewerVerdictPath: 'reviewer-inference/iteration-5-verdict.json',
+      handoverPath: 'handovers/iteration-5-handover.json',
+      classification: 'repairable',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const fakeBalanceScanCodex = path.join(tmp, 'fake-balance-scan-codex');
+  const fakeBalanceScanCodexHome = path.join(tmp, 'fake-balance-scan-codex-home');
+  await writeFile(fakeBalanceScanCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-balance-scan-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"balance-scan-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"balance-scan blocked verdict fixture"}]}}
+EOF
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-balance-scan-result/v1",
+  "status": "blocked",
+  "basis": [
+    "Controller-owned standalone proof is required before another repair unit can help."
+  ],
+  "orderedSkills": [],
+  "blocker": {
+    "reasonCode": "controller-owned-standalone-proof-required",
+    "requiredEvidence": [
+      "Run controller-owned standalone proof routes."
+    ]
+  }
+}
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeBalanceScanCodex, 0o755);
+  await mkdir(fakeBalanceScanCodexHome, { recursive: true });
+  const balanceScanRun = await createHarnessRun({
+    docPath: 'tests/fixtures/minimal-doc.json',
+    runsDir: path.join(tmp, 'balance-scan-runs'),
+    execute: true,
+    cwd: process.cwd(),
+    now: '2026-05-07T06:31:27.000Z',
+    codexBin: fakeBalanceScanCodex,
+    codexHome: fakeBalanceScanCodexHome,
+    iteration: 6,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'previous-balance-scan-run',
+      previousIteration: 5,
+      instruction: 'Diagnose the repair order.',
+      outputInputPath: previousBalanceScanOutputInputPath,
+      selectedUnitType: 'living-doc-balance-scan',
+      nextUnit: {
+        unitId: 'living-doc-balance-scan',
+        role: 'balance-scan',
+        reasonCode: 'acceptance-criteria-unproven',
+      },
+    },
+  });
+  const balanceScanUnit = JSON.parse(await readFile(path.join(
+    balanceScanRun.runDir,
+    balanceScanRun.contract.artifacts.initialInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(balanceScanUnit.mode, 'external-headless-codex');
+  assert.equal(balanceScanUnit.status, 'blocked');
+  assert.equal(balanceScanUnit.outputContract.status, 'blocked');
+  assert.equal(balanceScanUnit.outputContract.blocker.reasonCode, 'controller-owned-standalone-proof-required');
+  assert.deepEqual(balanceScanUnit.outputContract.orderedSkills, []);
+  const balanceScanValidation = JSON.parse(await readFile(path.join(
+    balanceScanRun.runDir,
+    balanceScanRun.contract.artifacts.initialInferenceUnit.validation,
+  ), 'utf8'));
+  assert.equal(balanceScanValidation.ok, true);
+
   const fakeBoundaryCodex = path.join(tmp, 'fake-boundary-codex');
   const fakeBoundaryCodexHome = path.join(tmp, 'fake-boundary-codex-home');
   await writeFile(fakeBoundaryCodex, `#!/bin/sh

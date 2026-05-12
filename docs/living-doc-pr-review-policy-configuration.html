@@ -733,19 +733,24 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T11:46:40.000Z",
+  "updated": "2026-05-12T12:43:12.000Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "selected-unit-pr-review-output-recovery-hardened",
+    "currentPhase": "balance-scan-verdict-preserved-awaiting-controller-proof-rerun",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Rerun standalone lifecycle proof after the issue #274 selected-unit handoff artifact recovery fix, then record the PR-enabled and PR-disabled proof artifacts.",
+    "nextObjectiveAction": "Rerun the lifecycle through the controller so the repaired balance-scan verdict path can hand control back to controller-owned standalone proof routes instead of crashing as a process defect.",
     "repairState": {
-      "status": "selected-unit-pr-review-output-recovery-hardened",
-      "nearestHonestStage": "implemented-awaiting-standalone-proof-rerun",
-      "updated": "2026-05-12T11:46:40.000Z",
+      "status": "balance-scan-verdict-preserved-awaiting-controller-proof-rerun",
+      "nearestHonestStage": "repaired-open-awaiting-controller-owned-standalone-proof",
+      "updated": "2026-05-12T12:43:12.000Z",
       "basis": [
+        "Runner hardening completed on 2026-05-12T12:43:12.000Z after live lifecycle ldhl-20260512T115308Z-living-doc-pr-review-policy-configuration exposed a generic selected-unit normalization defect at iteration 6: living-doc-balance-scan returned a valid living-doc-balance-scan-result/v1 with status=blocked and blocker.reasonCode=controller-owned-standalone-proof-required, but the runner stored the final contract-bound unit snapshot as status=finished, which is not a registered balance-scan verdict. The external runner now preserves raw balance-scan output contracts with registered verdicts and writes the unit snapshot status from the output contract. Regression coverage proves a selected balance-scan unit that emits blocked JSON validates as blocked instead of causing a lifecycle-controller process defect. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-proof-route.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun from the controller.",
+        "Catalytic repair accounting completed on 2026-05-12T12:19:21.651Z for lifecycle run ldh-20260512T115313Z-doc-living-doc-pr-review-policy-configuration: required inspection paths were readable, iteration-5 reviewer verdict classified the lifecycle as repairable with acceptance-criteria-unproven, iteration-5 handover listed ten unproven acceptance criteria, and raw traces showed the PR-review approval path stopped short of closure. The honest stage is open repair/proof readiness, not closure.",
+        "Iteration-5 evidence says the PR-review policy gate is satisfied, so the next move is not another PR-review request. Objective readiness is still false because acceptanceCriteriaSatisfied=false, objectiveReady=false, closureAllowed=false, and controllerProofRoutes=blocked until the standalone lifecycle proof reruns and reconciles the criteria.",
+        "Balance scan found the previous metaFingerprint stale against the current sections; this repair refreshes the fingerprint and aligns the verification commands with the finite same-doc proof-route guard by omitting nested --execute-proof-routes from the standalone lifecycle proof commands.",
+        "Worker-owned proof-route guard fix completed on 2026-05-12T12:08:00.000Z: controller-owned proof routes now block same-doc lifecycle commands only when the nested command also enables --execute-proof-routes, which is the recursive case. Finite same-doc lifecycle proof routes without nested proof-route execution are allowed, and this doc's standalone lifecycle proof commands were corrected to omit --execute-proof-routes so the controller can produce the required PR-enabled and PR-disabled standalone run evidence without self-recursing.",
         "Worker-owned hardening completed on 2026-05-12T11:46:40.000Z: current-run self-authored inference-unit result recovery now rejects fixture-mode artifacts, matching the existing selected-unit handoff recovery rule. The runner regression covers a PR-review unit whose current initial-unit result artifact is mutated to a fixture-looking not-required verdict while final chat output is prose; the runner rejects that artifact, preserves the required PR gate as blocked with reasonCode=pr-review-non-verdict-output, and does not emit self-authored-inference-unit-result-recovered. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. Standalone lifecycle proof still must rerun under the controller-owned proof routes.",
         "Worker-owned fix for issue #274 completed on 2026-05-12T11:36:36.000Z: the external runner now validates recovery candidates from both the current initial-unit artifact and the previous selected-unit handoff artifact. A selected-unit handoff recovery is accepted only when it is non-fixture, matches the current unitId, carries the registered output schema and verdict, and passes validateInferenceUnitResult. The regression covers a PR-review unit that writes a valid not-required verdict to the previous selected-unit result path while final chat output is prose; the current runner preserves the not-required verdict and records self-authored-inference-unit-result-recovered with source=selected-unit-handoff-artifact. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
         "Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the current initial-unit self-authored recovery path at iteration 3, then exposed issue #274 at iteration 6: PR-review inference wrote a valid not-required verdict to the previous selected-unit handoff artifact (.living-doc-runs/ldh-20260512T094401Z-doc-living-doc-pr-review-policy-configuration/inference-units/iteration-5/05-pr-review/result.json), while the current initial-unit artifact (.living-doc-runs/ldh-20260512T094402Z-doc-living-doc-pr-review-policy-configuration/initial-inference-units/iteration-6/05-pr-review/result.json) was normalized to blocked with reasonCode=pr-review-non-verdict-output. The lifecycle was stopped after issue #274 was created; that exact selected-unit handoff recovery path is now covered by the runner regression, but objective closure remains blocked until standalone lifecycle proof reruns.",
@@ -914,7 +919,7 @@
       {
         "id": "standalone-lifecycle-required-pr",
         "kind": "harness-run",
-        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy required-before-closure",
+        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --pr-review-policy required-before-closure",
         "required": true,
         "timeoutMs": 600000,
         "acceptanceCriteria": [
@@ -925,7 +930,7 @@
       {
         "id": "standalone-lifecycle-disabled-pr",
         "kind": "harness-run",
-        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy disabled",
+        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --pr-review-policy disabled",
         "required": true,
         "timeoutMs": 600000,
         "acceptanceCriteria": [
@@ -1059,24 +1064,24 @@
       ]
     }
   ],
-  "metaFingerprint": "sha256:43995cbb53bff941a334e164734278c0713727102bd199f106fe17b87b1cf8cc",
+  "metaFingerprint": "sha256:c166c521f774790cf9cb669e182d1ecddf123998db77a9221f40f2a90c3b9833",
   "sections": [
     {
       "id": "status",
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows the current stage and remaining proof gate.",
-      "updated": "2026-05-12T05:42:14.000Z",
+      "updated": "2026-05-12T12:43:12.000Z",
       "data": [
         {
           "id": "objective-shaped",
           "name": "Objective shaped",
-          "status": "implemented-awaiting-controller-owned-standalone-proof",
-          "updated": "2026-05-12T05:42:14.000Z",
-          "summary": "The PR-review policy implementation now separates three concerns: policy availability, gate outcome state, and closure-boundary timing. Required PR-review evidence must now carry both a pr-review result artifact path and the paired validation artifact path before it can satisfy or shape the PR gate for closure. The remaining proof is controller-owned standalone lifecycle execution for the PR-enabled and PR-disabled paths.",
+          "status": "balance-scan-verdict-preserved-awaiting-controller-owned-proof-rerun",
+          "updated": "2026-05-12T12:43:12.000Z",
+          "summary": "The PR-review policy gate is satisfied, and the newest runner repair keeps balance-scan blocked verdicts as valid contract-bound inference results instead of illegal lifecycle finished statuses. The objective is still open: controller-owned standalone proof routes must rerun and reconcile acceptance criteria before closure is allowed.",
           "documentReady": true,
           "objectiveReady": false,
-          "nextStep": "Rerun the PR-enabled and PR-disabled standalone lifecycle proof paths and record that required-before-closure invokes PR-review only when the lifecycle is closure-ready."
+          "nextStep": "Rerun the lifecycle through the controller, confirm balance-scan blocked verdicts no longer create process defects, then complete the PR-enabled and PR-disabled standalone proof paths."
         }
       ]
     },
@@ -1394,8 +1399,8 @@
         {
           "id": "criterion-standalone-proof-runs",
           "name": "Standalone runs prove enabled and disabled paths",
-          "status": "blocked-for-controller-owned-proof",
-          "updated": "2026-05-11T14:53:09.000Z",
+          "status": "awaiting-controller-owned-proof-rerun",
+          "updated": "2026-05-12T12:19:21.651Z",
           "objectiveTerm": "proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs",
           "criterion": "At least one standalone run proves a PR-required path and one standalone run proves a PR-disabled path from lifecycle-result.json, graph artifacts, inference-unit contracts, and closure-review evidence.",
           "proofRequired": "Two .living-doc-runs lifecycle-result.json artifacts show closed final states with the expected presence or absence of pr-review units.",
@@ -1411,12 +1416,12 @@
         {
           "id": "criterion-gate-outcome-state-model",
           "name": "Gate outcome state prevents repeated gate loops",
-          "status": "implemented-awaiting-standalone-proof-rerun",
-          "updated": "2026-05-12T11:36:36.000Z",
+          "status": "implemented-awaiting-controller-owned-proof-rerun",
+          "updated": "2026-05-12T12:43:12.000Z",
           "objectiveTerm": "The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.",
-          "criterion": "The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state. A pr-review artifact with the right schema but a non-verdict status, such as finished, is blocked gate evidence rather than missing PR-review evidence; a continuation-inference artifact with a process-level finished status is likewise normalized to a registered continuation verdict instead of crashing the lifecycle.",
-          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output. Continuation-inference output contracts preserve non-verdict continuation exits as blocked results with reasonCode=continuation-non-verdict-output. External runners now recover valid self-authored PR-review result artifacts when the final last-message text is prose, so a real not-required or approved verdict is not downgraded to blocked only because the final chat message did not emit JSON. External runners also recover valid non-fixture PR-review verdicts written to the selected-unit handoff artifact from the previous run, provided the artifact matches the current unitId, carries the registered output schema and verdict, and passes validateInferenceUnitResult. Standalone lifecycle proof still must rerun to prove this recovery in the full controller loop.",
-          "acceptanceTest": "A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; a non-verdict continuation result validates as blocked rather than a lifecycle-controller exception; dashboard graph shows the blocked gate and result artifact. The runner regression now covers a PR-review unit writing a valid not-required verdict to the previous selected-unit result path while final chat output is prose; the current lifecycle result preserves the verdict instead of repeating the same gate. Full standalone lifecycle proof must rerun to close this criterion.",
+          "criterion": "The controller represents each policy/side-effect/diagnostic gate as missing, requested, satisfied, blocked, or ordered, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state. A pr-review artifact with the right schema but a non-verdict status, such as finished, is blocked gate evidence rather than missing PR-review evidence; a continuation-inference artifact with a process-level finished status is normalized to a registered continuation verdict; and a living-doc-balance-scan result with a registered blocked or ordered verdict is preserved as that verdict instead of being overwritten by the lifecycle process status.",
+          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output. Continuation-inference output contracts preserve non-verdict continuation exits as blocked results with reasonCode=continuation-non-verdict-output. Balance-scan output contracts preserve registered ordered, no-op, blocked, or failed verdicts from raw unit output, including blocker details. External runners recover valid self-authored PR-review result artifacts and valid non-fixture PR-review verdicts written to the selected-unit handoff artifact. Standalone lifecycle proof still must rerun to prove the full controller loop.",
+          "acceptanceTest": "A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; a non-verdict continuation result validates as blocked rather than a lifecycle-controller exception; a selected balance-scan unit that emits blocked JSON validates as blocked rather than process-defect; dashboard graph shows the gate/result artifact. Full standalone lifecycle proof must rerun to close this criterion.",
           "ticketIds": [
             {
               "issueNumber": "267",
@@ -1575,14 +1580,14 @@
       "title": "Verification Plan",
       "convergenceType": "verification-surface",
       "rationale": "Names the proof surfaces needed before this living doc can honestly close.",
-      "updated": "2026-05-12T04:01:52.000Z",
+      "updated": "2026-05-12T12:43:12.000Z",
       "data": [
         {
           "id": "verification-contract-suite",
           "name": "Contract suite",
           "status": "complete-awaiting-standalone-proof",
-          "updated": "2026-05-12T11:36:36.000Z",
-          "currentCoverage": "Full contract coverage passed on 2026-05-12T11:36:36.000Z after the selected-unit handoff PR-review output recovery fix. The runner regressions cover an external pr-review Codex process that writes a valid not-required result into its own unit artifact while the final last-message output is prose, and a PR-review process that writes a valid not-required result to the previous selected-unit handoff artifact while the final last-message output is prose. In both cases the runner recovers the validated artifact and records self-authored-inference-unit-result-recovered with the recovery source. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, final external pr-review normalization, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, final external continuation normalization, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
+          "updated": "2026-05-12T12:43:12.000Z",
+          "currentCoverage": "Full contract coverage passed on 2026-05-12T12:43:12.000Z after balance-scan verdict preservation was added to the runner. Runner regressions now cover final external pr-review validation, current self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, fixture artifact rejection, final external continuation normalization, and selected living-doc-balance-scan output that returns a registered blocked verdict with blocker evidence. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
           "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.",
           "automation": [
             "npm run test:contract"
@@ -1594,19 +1599,20 @@
         {
           "id": "verification-standalone-runs",
           "name": "Standalone lifecycle proof",
-          "status": "awaiting-rerun-after-issue-274-fix",
-          "updated": "2026-05-12T11:36:36.000Z",
-          "currentCoverage": "Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the initial-unit self-authored PR-review recovery at iteration 3, then blocked at issue #274 when iteration 6 wrote a valid not-required PR-review verdict to the previous selected-unit handoff artifact while the current initial-unit artifact normalized to pr-review-non-verdict-output. Contract suite and PR-policy E2E passed during the run. Issue #274 is now fixed in the runner contract path and covered by a regression; standalone proof cannot close until the PR-enabled lifecycle rerun proves the same recovery path in the full controller loop.",
-          "nextStep": "Rerun the PR-enabled standalone lifecycle from a clean or scoped worktree, record the recovery behavior, and then run the disabled-mode lifecycle proof.",
+          "status": "awaiting-rerun-after-pr-review-gate-satisfied",
+          "updated": "2026-05-12T12:43:12.000Z",
+          "currentCoverage": "Standalone lifecycle ldhl-20260512T115308Z-living-doc-pr-review-policy-configuration proved commit-intent, PR-review not-required, PR-review approved, and repair-skill routing through iteration 5. Iteration 6 then exposed a generic balance-scan verdict preservation defect: raw balance-scan output correctly blocked on controller-owned standalone proof, but the runner stored the unit as status=finished and the lifecycle ended as process-defect. That runner defect is now fixed and covered by a regression. Standalone proof cannot close until the lifecycle reruns and records PR-enabled and PR-disabled closed paths from controller-owned artifacts.",
+          "nextStep": "Rerun the PR-enabled lifecycle through the dashboard/controller and verify iteration 6 continues from the preserved balance-scan blocked verdict instead of crashing, then run the disabled-mode lifecycle proof.",
           "automation": [
-            "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy required-before-closure",
-            "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy disabled"
+            "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --pr-review-policy required-before-closure",
+            "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --pr-review-policy disabled"
           ],
           "gaps": [
-            "Standalone required-before-closure run artifact is not recorded yet.",
+            "Standalone required-before-closure run artifact is not recorded as closed yet.",
             "Standalone disabled run artifact is not recorded yet.",
             "Standalone closure-boundary PR-review routing proof is not recorded yet.",
-            "Standalone selected-unit PR-review handoff recovery proof is not recorded yet."
+            "Standalone selected-unit PR-review handoff recovery proof still needs closed-run confirmation.",
+            "Standalone balance-scan blocked verdict preservation still needs full lifecycle confirmation."
           ],
           "ticketIds": [
             {
@@ -1639,9 +1645,9 @@
           "id": "verification-gate-outcome-loop-guard",
           "name": "Gate outcome loop guard",
           "status": "implemented-awaiting-standalone-proof-rerun",
-          "updated": "2026-05-12T11:36:36.000Z",
-          "currentCoverage": "Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output now normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner now recovers a valid self-authored PR-review result artifact when the final message is prose, preserving the inference unit verdict rather than downgrading it to a non-verdict blocker. It also recovers a valid non-fixture PR-review verdict written to the previous selected-unit handoff artifact, preserving that verdict when the final message is prose. Focused contract tests passed on 2026-05-12T11:36:36.000Z for final external pr-review validation, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, continuation validation, lifecycle controller ingestion, iteration no-repeat routing, and runner normalization coverage.",
-          "nextStep": "Rerun the lifecycle to prove the selected-unit handoff recovery path in the full controller loop and confirm the gate no longer loops.",
+          "updated": "2026-05-12T12:43:12.000Z",
+          "currentCoverage": "Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner recovers valid self-authored PR-review result artifacts and valid non-fixture selected-unit handoff PR-review verdicts when final chat output is prose. The runner also preserves raw living-doc-balance-scan output contracts with registered verdicts, so blocked balance-scan evidence remains blocked instead of failing validation as a process-level finished status. Focused and full contract tests passed on 2026-05-12T12:43:12.000Z.",
+          "nextStep": "Rerun the lifecycle to prove PR-review recovery and balance-scan verdict preservation in the full controller loop.",
           "automation": [
             "node tests/contract/living-doc-harness-iteration.spec.mjs",
             "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
@@ -1650,9 +1656,10 @@
             "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs"
           ],
           "gaps": [
-            "Standalone lifecycle proof has not yet rerun after the selected-unit handoff PR-review recovery implementation.",
+            "Standalone lifecycle proof has not yet rerun after balance-scan verdict preservation.",
             "Dashboard confirmation from a live controller-owned run still needs to be recorded.",
-            "Standalone selected-unit PR-review handoff recovery proof still needs to be recorded."
+            "Standalone selected-unit PR-review handoff recovery proof still needs to be recorded.",
+            "Standalone balance-scan blocked verdict preservation proof still needs to be recorded."
           ],
           "ticketIds": [
             {
@@ -42999,7 +43006,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-12T11:49:08.164Z" title="2026-05-12T11:49:08.164Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-12T11:49:08.164Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-12T12:45:31.741Z" title="2026-05-12T12:45:31.741Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-12T12:45:31.741Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -43045,7 +43052,7 @@ ${tmplLine}
 
 
     <section class="section" id="status" data-section-id="status">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T05:42:14Z" title="2026-05-12T05:42:14Z" data-relative-to-snapshot="true">2026-05-12T05:42:14Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></h2>
 
 
 
@@ -43057,7 +43064,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Objective shaped</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T05:42:14Z" title="2026-05-12T05:42:14Z" data-relative-to-snapshot="true">2026-05-12T05:42:14Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -43339,9 +43346,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone runs prove enabled and disabled paths</h3>
-          <div class="meta-row"><span><time datetime="2026-05-11T14:53:09Z" title="2026-05-11T14:53:09Z" data-relative-to-snapshot="true">2026-05-11T14:53:09Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T12:19:21.651Z" title="2026-05-12T12:19:21.651Z" data-relative-to-snapshot="true">2026-05-12T12:19:21.651Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Blocked For Controller Owned Proof</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Awaiting Controller Owned Proof Rerun</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/263" class="ticket-link"><span class="ticket-badge badge badge-neutral">#263</span></a></div></div>
 
@@ -43352,13 +43359,13 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Gate outcome state prevents repeated gate loops</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T11:36:36Z" title="2026-05-12T11:36:36Z" data-relative-to-snapshot="true">2026-05-12T11:36:36Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Standalone Proof Rerun</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Controller Owned Proof Rerun</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/272" class="ticket-link"><span class="ticket-badge badge badge-neutral">#272</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/273" class="ticket-link"><span class="ticket-badge badge badge-neutral">#273</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
 
-      <p class="code-refs"><strong>Objective term</strong> The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.</p><p class="code-refs"><strong>Criterion</strong> The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state. A pr-review artifact with the right schema but a non-verdict status, such as finished, is blocked gate evidence rather than missing PR-review evidence; a continuation-inference artifact with a process-level finished status is likewise normalized to a registered continuation verdict instead of crashing the lifecycle.</p><p class="code-refs"><strong>Proof required</strong> Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output. Continuation-inference output contracts preserve non-verdict continuation exits as blocked results with reasonCode=continuation-non-verdict-output. External runners now recover valid self-authored PR-review result artifacts when the final last-message text is prose, so a real not-required or approved verdict is not downgraded to blocked only because the final chat message did not emit JSON. External runners also recover valid non-fixture PR-review verdicts written to the selected-unit handoff artifact from the previous run, provided the artifact matches the current unitId, carries the registered output schema and verdict, and passes validateInferenceUnitResult. Standalone lifecycle proof still must rerun to prove this recovery in the full controller loop.</p><p class="code-refs"><strong>Acceptance test</strong> A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; a non-verdict continuation result validates as blocked rather than a lifecycle-controller exception; dashboard graph shows the blocked gate and result artifact. The runner regression now covers a PR-review unit writing a valid not-required verdict to the previous selected-unit result path while final chat output is prose; the current lifecycle result preserves the verdict instead of repeating the same gate. Full standalone lifecycle proof must rerun to close this criterion.</p>
+      <p class="code-refs"><strong>Objective term</strong> The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.</p><p class="code-refs"><strong>Criterion</strong> The controller represents each policy/side-effect/diagnostic gate as missing, requested, satisfied, blocked, or ordered, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state. A pr-review artifact with the right schema but a non-verdict status, such as finished, is blocked gate evidence rather than missing PR-review evidence; a continuation-inference artifact with a process-level finished status is normalized to a registered continuation verdict; and a living-doc-balance-scan result with a registered blocked or ordered verdict is preserved as that verdict instead of being overwritten by the lifecycle process status.</p><p class="code-refs"><strong>Proof required</strong> Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output. Continuation-inference output contracts preserve non-verdict continuation exits as blocked results with reasonCode=continuation-non-verdict-output. Balance-scan output contracts preserve registered ordered, no-op, blocked, or failed verdicts from raw unit output, including blocker details. External runners recover valid self-authored PR-review result artifacts and valid non-fixture PR-review verdicts written to the selected-unit handoff artifact. Standalone lifecycle proof still must rerun to prove the full controller loop.</p><p class="code-refs"><strong>Acceptance test</strong> A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; a non-verdict continuation result validates as blocked rather than a lifecycle-controller exception; a selected balance-scan unit that emits blocked JSON validates as blocked rather than process-defect; dashboard graph shows the gate/result artifact. Full standalone lifecycle proof must rerun to close this criterion.</p>
 
     </article></div>
       </div>
@@ -43485,7 +43492,7 @@ ${tmplLine}
       </div>
     </section>
     <section class="section" id="verification-plan" data-section-id="verification-plan">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T04:01:52Z" title="2026-05-12T04:01:52Z" data-relative-to-snapshot="true">2026-05-12T04:01:52Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#059669"><path opacity='.28' d='M12 2l7 3v6c0 4.4-2.6 8.4-7 10-4.4-1.6-7-5.6-7-10V5l7-3z'/><path d='M10.2 13.8l-2.5-2.5 1.4-1.4 1.1 1.1 4.6-4.6 1.4 1.4-6 6z'/></svg> Verification Plan <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></h2>
 
 
 
@@ -43497,13 +43504,13 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Contract suite</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T11:36:36Z" title="2026-05-12T11:36:36Z" data-relative-to-snapshot="true">2026-05-12T11:36:36Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Complete Awaiting Standalone Proof</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> Full contract coverage passed on 2026-05-12T11:36:36.000Z after the selected-unit handoff PR-review output recovery fix. The runner regressions cover an external pr-review Codex process that writes a valid not-required result into its own unit artifact while the final last-message output is prose, and a PR-review process that writes a valid not-required result to the previous selected-unit handoff artifact while the final last-message output is prose. In both cases the runner recovers the validated artifact and records self-authored-inference-unit-result-recovered with the recovery source. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, final external pr-review normalization, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, final external continuation normalization, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p><p class="code-refs"><strong>Next step</strong> Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Full contract coverage passed on 2026-05-12T12:43:12.000Z after balance-scan verdict preservation was added to the runner. Runner regressions now cover final external pr-review validation, current self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, fixture artifact rejection, final external continuation normalization, and selected living-doc-balance-scan output that returns a registered blocked verdict with blocker evidence. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p><p class="code-refs"><strong>Next step</strong> Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.</p>
 
     <details class="details-block">
       <summary>Current gaps (1)</summary>
@@ -43517,19 +43524,19 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone lifecycle proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T11:36:36Z" title="2026-05-12T11:36:36Z" data-relative-to-snapshot="true">2026-05-12T11:36:36Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Awaiting Rerun After Issue 274 Fix</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Awaiting Rerun After Pr Review Gate Satisfied</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the initial-unit self-authored PR-review recovery at iteration 3, then blocked at issue #274 when iteration 6 wrote a valid not-required PR-review verdict to the previous selected-unit handoff artifact while the current initial-unit artifact normalized to pr-review-non-verdict-output. Contract suite and PR-policy E2E passed during the run. Issue #274 is now fixed in the runner contract path and covered by a regression; standalone proof cannot close until the PR-enabled lifecycle rerun proves the same recovery path in the full controller loop.</p><p class="code-refs"><strong>Next step</strong> Rerun the PR-enabled standalone lifecycle from a clean or scoped worktree, record the recovery behavior, and then run the disabled-mode lifecycle proof.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Standalone lifecycle ldhl-20260512T115308Z-living-doc-pr-review-policy-configuration proved commit-intent, PR-review not-required, PR-review approved, and repair-skill routing through iteration 5. Iteration 6 then exposed a generic balance-scan verdict preservation defect: raw balance-scan output correctly blocked on controller-owned standalone proof, but the runner stored the unit as status=finished and the lifecycle ended as process-defect. That runner defect is now fixed and covered by a regression. Standalone proof cannot close until the lifecycle reruns and records PR-enabled and PR-disabled closed paths from controller-owned artifacts.</p><p class="code-refs"><strong>Next step</strong> Rerun the PR-enabled lifecycle through the dashboard/controller and verify iteration 6 continues from the preserved balance-scan blocked verdict instead of crashing, then run the disabled-mode lifecycle proof.</p>
 
     <details class="details-block">
-      <summary>Current gaps (4)</summary>
+      <summary>Current gaps (5)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Standalone required-before-closure run artifact is not recorded yet.</span></p><p class="note-description"><span class="note-line">Standalone disabled run artifact is not recorded yet.</span></p><p class="note-description"><span class="note-line">Standalone closure-boundary PR-review routing proof is not recorded yet.</span></p><p class="note-description"><span class="note-line">Standalone selected-unit PR-review handoff recovery proof is not recorded yet.</span></p>
+      <p class="note-description"><span class="note-line">Standalone required-before-closure run artifact is not recorded as closed yet.</span></p><p class="note-description"><span class="note-line">Standalone disabled run artifact is not recorded yet.</span></p><p class="note-description"><span class="note-line">Standalone closure-boundary PR-review routing proof is not recorded yet.</span></p><p class="note-description"><span class="note-line">Standalone selected-unit PR-review handoff recovery proof still needs closed-run confirmation.</span></p><p class="note-description"><span class="note-line">Standalone balance-scan blocked verdict preservation still needs full lifecycle confirmation.</span></p>
     </div>
     </details>
     </article>
@@ -43557,19 +43564,19 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Gate outcome loop guard</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T11:36:36Z" title="2026-05-12T11:36:36Z" data-relative-to-snapshot="true">2026-05-12T11:36:36Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T12:43:12Z" title="2026-05-12T12:43:12Z" data-relative-to-snapshot="true">2026-05-12T12:43:12Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Standalone Proof Rerun</span></div>
       </header>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/272" class="ticket-link"><span class="ticket-badge badge badge-neutral">#272</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/273" class="ticket-link"><span class="ticket-badge badge badge-neutral">#273</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
 
-      <p class="code-refs"><strong>Current coverage</strong> Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output now normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner now recovers a valid self-authored PR-review result artifact when the final message is prose, preserving the inference unit verdict rather than downgrading it to a non-verdict blocker. It also recovers a valid non-fixture PR-review verdict written to the previous selected-unit handoff artifact, preserving that verdict when the final message is prose. Focused contract tests passed on 2026-05-12T11:36:36.000Z for final external pr-review validation, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, continuation validation, lifecycle controller ingestion, iteration no-repeat routing, and runner normalization coverage.</p><p class="code-refs"><strong>Next step</strong> Rerun the lifecycle to prove the selected-unit handoff recovery path in the full controller loop and confirm the gate no longer loops.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner recovers valid self-authored PR-review result artifacts and valid non-fixture selected-unit handoff PR-review verdicts when final chat output is prose. The runner also preserves raw living-doc-balance-scan output contracts with registered verdicts, so blocked balance-scan evidence remains blocked instead of failing validation as a process-level finished status. Focused and full contract tests passed on 2026-05-12T12:43:12.000Z.</p><p class="code-refs"><strong>Next step</strong> Rerun the lifecycle to prove PR-review recovery and balance-scan verdict preservation in the full controller loop.</p>
 
     <details class="details-block">
-      <summary>Current gaps (3)</summary>
+      <summary>Current gaps (4)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Standalone lifecycle proof has not yet rerun after the selected-unit handoff PR-review recovery implementation.</span></p><p class="note-description"><span class="note-line">Dashboard confirmation from a live controller-owned run still needs to be recorded.</span></p><p class="note-description"><span class="note-line">Standalone selected-unit PR-review handoff recovery proof still needs to be recorded.</span></p>
+      <p class="note-description"><span class="note-line">Standalone lifecycle proof has not yet rerun after balance-scan verdict preservation.</span></p><p class="note-description"><span class="note-line">Dashboard confirmation from a live controller-owned run still needs to be recorded.</span></p><p class="note-description"><span class="note-line">Standalone selected-unit PR-review handoff recovery proof still needs to be recorded.</span></p><p class="note-description"><span class="note-line">Standalone balance-scan blocked verdict preservation proof still needs to be recorded.</span></p>
     </div>
     </details>
     </article></div>
@@ -43620,7 +43627,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-02f8b517 (2026-05-12)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-19cb0064 (2026-05-12)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -44019,14 +44026,14 @@ ${tmplLine}
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Standalone runs prove enabled and disabled paths</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Blocked For Controller Owned Proof</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Awaiting Controller Owned Proof Rerun</span></div>
       <p class="board-card-note"><strong>Objective term</strong> proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/263" class="ticket-link"><span class="ticket-badge badge badge-neutral">#263</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Gate outcome state prevents repeated gate loops</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Standalone Proof Rerun</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Controller Owned Proof Rerun</span></div>
       <p class="board-card-note"><strong>Objective term</strong> The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/272" class="ticket-link"><span class="ticket-badge badge badge-neutral">#272</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/273" class="ticket-link"><span class="ticket-badge badge badge-neutral">#273</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
     </article>
@@ -44194,14 +44201,14 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Contract suite</h3>
       <div class="badge-row"><span class="badge badge-neutral">Complete Awaiting Standalone Proof</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Full contract coverage passed on 2026-05-12T11:36:36.000Z after the selected-unit handoff PR-review output recovery fix. The runner regressions cover an external pr-review Codex process that writes a valid not-required result into its own unit artifact while the final last-message output is prose, and a PR-review process that writes a valid not-required result to the previous selected-unit handoff artifact while the final last-message output is prose. In both cases the runner recovers the validated artifact and records self-authored-inference-unit-result-recovered with the recovery source. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, final external pr-review normalization, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, final external continuation normalization, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Full contract coverage passed on 2026-05-12T12:43:12.000Z after balance-scan verdict preservation was added to the runner. Runner regressions now cover final external pr-review validation, current self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, fixture artifact rejection, final external continuation normalization, and selected living-doc-balance-scan output that returns a registered blocked verdict with blocker evidence. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Standalone lifecycle proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Awaiting Rerun After Issue 274 Fix</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the initial-unit self-authored PR-review recovery at iteration 3, then blocked at issue #274 when iteration 6 wrote a valid not-required PR-review verdict to the previous selected-unit handoff artifact while the current initial-unit artifact normalized to pr-review-non-verdict-output. Contract suite and PR-policy E2E passed during the run. Issue #274 is now fixed in the runner contract path and covered by a regression; standalone proof cannot close until the PR-enabled lifecycle rerun proves the same recovery path in the full controller loop.</p>
+      <div class="badge-row"><span class="badge badge-neutral">Awaiting Rerun After Pr Review Gate Satisfied</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Standalone lifecycle ldhl-20260512T115308Z-living-doc-pr-review-policy-configuration proved commit-intent, PR-review not-required, PR-review approved, and repair-skill routing through iteration 5. Iteration 6 then exposed a generic balance-scan verdict preservation defect: raw balance-scan output correctly blocked on controller-owned standalone proof, but the runner stored the unit as status=finished and the lifecycle ended as process-defect. That runner defect is now fixed and covered by a regression. Standalone proof cannot close until the lifecycle reruns and records PR-enabled and PR-disabled closed paths from controller-owned artifacts.</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -44215,7 +44222,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Gate outcome loop guard</h3>
       <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Standalone Proof Rerun</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output now normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner now recovers a valid self-authored PR-review result artifact when the final message is prose, preserving the inference unit verdict rather than downgrading it to a non-verdict blocker. It also recovers a valid non-fixture PR-review verdict written to the previous selected-unit handoff artifact, preserving that verdict when the final message is prose. Focused contract tests passed on 2026-05-12T11:36:36.000Z for final external pr-review validation, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, continuation validation, lifecycle controller ingestion, iteration no-repeat routing, and runner normalization coverage.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner recovers valid self-authored PR-review result artifacts and valid non-fixture selected-unit handoff PR-review verdicts when final chat output is prose. The runner also preserves raw living-doc-balance-scan output contracts with registered verdicts, so blocked balance-scan evidence remains blocked instead of failing validation as a process-level finished status. Focused and full contract tests passed on 2026-05-12T12:43:12.000Z.</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/272" class="ticket-link"><span class="ticket-badge badge badge-neutral">#272</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/273" class="ticket-link"><span class="ticket-badge badge badge-neutral">#273</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
     </article>
       </div>
@@ -44260,14 +44267,14 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Contract suite</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Full contract coverage passed on 2026-05-12T11:36:36.000Z after the selected-unit handoff PR-review output recovery fix. The runner regressions cover an external pr-review Codex process that writes a valid not-required result into its own unit artifact while the final last-message output is prose, and a PR-review process that writes a valid not-required result to the previous selected-unit handoff artifact while the final last-message output is prose. In both cases the runner recovers the validated artifact and records self-authored-inference-unit-result-recovered with the recovery source. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, final external pr-review normalization, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, final external continuation normalization, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Full contract coverage passed on 2026-05-12T12:43:12.000Z after balance-scan verdict preservation was added to the runner. Runner regressions now cover final external pr-review validation, current self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, fixture artifact rejection, final external continuation normalization, and selected living-doc-balance-scan output that returns a registered blocked verdict with blocker evidence. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Standalone lifecycle proof</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the initial-unit self-authored PR-review recovery at iteration 3, then blocked at issue #274 when iteration 6 wrote a valid not-required PR-review verdict to the previous selected-unit handoff artifact while the current initial-unit artifact normalized to pr-review-non-verdict-output. Contract suite and PR-policy E2E passed during the run. Issue #274 is now fixed in the runner contract path and covered by a regression; standalone proof cannot close until the PR-enabled lifecycle rerun proves the same recovery path in the full controller loop.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Standalone lifecycle ldhl-20260512T115308Z-living-doc-pr-review-policy-configuration proved commit-intent, PR-review not-required, PR-review approved, and repair-skill routing through iteration 5. Iteration 6 then exposed a generic balance-scan verdict preservation defect: raw balance-scan output correctly blocked on controller-owned standalone proof, but the runner stored the unit as status=finished and the lifecycle ended as process-defect. That runner defect is now fixed and covered by a regression. Standalone proof cannot close until the lifecycle reruns and records PR-enabled and PR-disabled closed paths from controller-owned artifacts.</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -44281,7 +44288,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Gate outcome loop guard</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output now normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner now recovers a valid self-authored PR-review result artifact when the final message is prose, preserving the inference unit verdict rather than downgrading it to a non-verdict blocker. It also recovers a valid non-fixture PR-review verdict written to the previous selected-unit handoff artifact, preserving that verdict when the final message is prose. Focused contract tests passed on 2026-05-12T11:36:36.000Z for final external pr-review validation, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, continuation validation, lifecycle controller ingestion, iteration no-repeat routing, and runner normalization coverage.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner recovers valid self-authored PR-review result artifacts and valid non-fixture selected-unit handoff PR-review verdicts when final chat output is prose. The runner also preserves raw living-doc-balance-scan output contracts with registered verdicts, so blocked balance-scan evidence remains blocked instead of failing validation as a process-level finished status. Focused and full contract tests passed on 2026-05-12T12:43:12.000Z.</p>
       <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/267" class="ticket-link"><span class="ticket-badge badge badge-neutral">#267</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/266" class="ticket-link"><span class="ticket-badge badge badge-neutral">#266</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/272" class="ticket-link"><span class="ticket-badge badge badge-neutral">#272</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/273" class="ticket-link"><span class="ticket-badge badge badge-neutral">#273</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/274" class="ticket-link"><span class="ticket-badge badge badge-neutral">#274</span></a></div></div>
     </article>
       </div>
@@ -45435,8 +45442,8 @@ ${tmplLine}
       data-graph-home-x="804.0090976583323"
       data-graph-home-y="1591.004626279897"
       data-graph-size="12"
-      data-graph-label="standalone runs prove enabled and disabled paths status: blocked for controller owned proof $.sections[3].data[9]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[9]&quot;,&quot;id&quot;:&quot;criterion-standalone-proof-runs&quot;,&quot;title&quot;:&quot;Standalone runs prove enabled and disabled paths&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Blocked For Controller Owned Proof&quot;]}"
+      data-graph-label="standalone runs prove enabled and disabled paths status: awaiting controller owned proof rerun $.sections[3].data[9]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[9]&quot;,&quot;id&quot;:&quot;criterion-standalone-proof-runs&quot;,&quot;title&quot;:&quot;Standalone runs prove enabled and disabled paths&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Awaiting Controller Owned Proof Rerun&quot;]}"
       transform="translate(804.0090976583323, 1591.004626279897)">
       <title>Standalone runs prove enabled and disabled paths · $.sections[3].data[9]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45444,7 +45451,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Standalone runs</tspan><tspan x="0" dy="12">prove enabled and</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Blocked For Contr...</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Awaiting Controll...</text>
     </g>
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-263"
@@ -45473,8 +45480,8 @@ ${tmplLine}
       data-graph-home-x="674.4514546842302"
       data-graph-home-y="1607.8626615788626"
       data-graph-size="12"
-      data-graph-label="gate outcome state prevents repeated gate loops status: implemented awaiting standalone proof rerun $.sections[3].data[10]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[10]&quot;,&quot;id&quot;:&quot;criterion-gate-outcome-state-model&quot;,&quot;title&quot;:&quot;Gate outcome state prevents repeated gate loops&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Awaiting Standalone Proof Rerun&quot;]}"
+      data-graph-label="gate outcome state prevents repeated gate loops status: implemented awaiting controller owned proof rerun $.sections[3].data[10]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[10]&quot;,&quot;id&quot;:&quot;criterion-gate-outcome-state-model&quot;,&quot;title&quot;:&quot;Gate outcome state prevents repeated gate loops&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Implemented Awaiting Controller Owned Proof Rerun&quot;]}"
       transform="translate(674.4514546842302, 1607.8626615788626)">
       <title>Gate outcome state prevents repeated gate loops · $.sections[3].data[10]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -45910,8 +45917,8 @@ ${tmplLine}
       data-graph-home-x="290.0002122701917"
       data-graph-home-y="1188.8324374777576"
       data-graph-size="12"
-      data-graph-label="standalone lifecycle proof status: awaiting rerun after issue 274 fix $.sections[5].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-standalone-runs&quot;,&quot;title&quot;:&quot;Standalone lifecycle proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Awaiting Rerun After Issue 274 Fix&quot;]}"
+      data-graph-label="standalone lifecycle proof status: awaiting rerun after pr review gate satisfied $.sections[5].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-standalone-runs&quot;,&quot;title&quot;:&quot;Standalone lifecycle proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Awaiting Rerun After Pr Review Gate Satisfied&quot;]}"
       transform="translate(290.0002122701917, 1188.8324374777576)">
       <title>Standalone lifecycle proof · $.sections[5].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>

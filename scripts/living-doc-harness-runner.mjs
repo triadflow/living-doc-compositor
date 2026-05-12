@@ -653,6 +653,35 @@ function normalizeContinuationExternalOutputContract({ output, exitCode, paths, 
   };
 }
 
+function normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs }) {
+  const allowedStatuses = getInferenceUnitType('living-doc-balance-scan').outputVerdicts;
+  const base = {
+    ...(output && typeof output === 'object' ? output : {}),
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+  if (allowedStatuses.includes(base.status)) {
+    return {
+      ...base,
+      schema: 'living-doc-balance-scan-result/v1',
+      basis: arr(base.basis),
+      orderedSkills: arr(base.orderedSkills),
+    };
+  }
+  const reasonCode = base.reasonCode || base.blocker?.reasonCode || 'balance-scan-non-verdict-output';
+  return {
+    ...base,
+    schema: 'living-doc-balance-scan-result/v1',
+    status: exitCode === 0 ? 'blocked' : 'failed',
+    reasonCode,
+    basis: arr(base.basis).length
+      ? base.basis
+      : ['Balance-scan headless process exited without emitting ordered, no-op, blocked, or failed.'],
+    orderedSkills: arr(base.orderedSkills),
+  };
+}
+
 async function gitHead(cwd) {
   try {
     const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd });
@@ -799,6 +828,26 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       return normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs });
     }
     return normalizeContinuationExternalOutputContract({
+      output: preparedOutputContract({
+        unitTypeId,
+        runId,
+        docPath,
+        inputContract,
+        status,
+      }),
+      exitCode,
+      paths,
+      traceRefs,
+    });
+  }
+  if (unitTypeId === 'living-doc-balance-scan') {
+    const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
+      ? rawResult.outputContract
+      : rawResult;
+    if (output?.schema === 'living-doc-balance-scan-result/v1') {
+      return normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs });
+    }
+    return normalizeBalanceScanExternalOutputContract({
       output: preparedOutputContract({
         unitTypeId,
         runId,
@@ -1289,7 +1338,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       lastMessagePath,
     },
     mode: 'external-headless-codex',
-    status: ['commit-intent', 'pr-review', 'continuation-inference'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
+    status: ['commit-intent', 'pr-review', 'continuation-inference', 'living-doc-balance-scan'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
     basis: [
       `${initialUnit.unitId} headless Codex process exited with code ${exitCode}.`,
       'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',
