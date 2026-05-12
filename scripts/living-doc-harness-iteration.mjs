@@ -364,8 +364,8 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   }
 
   if (
-    ['closure-candidate', 'resumable'].includes(classification) && (commitGateMentioned || commitRequiredByEvidence)
-    || classification === 'repairable' && commitGateMentioned
+    ['closure-candidate', 'resumable', 'repairable'].includes(classification)
+    && commitRequiredByEvidence
   ) {
     return {
       unitId: 'commit-intent',
@@ -403,9 +403,9 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     prReviewRequiredByPolicy
     && !prReviewSatisfied
     && !prReviewBlocked
-    && prReviewGateEligibleAtClosureBoundary({ classification })
+    && !commitRequiredByEvidence
     && (
-      classification === 'closure-candidate'
+      prReviewGateEligibleAtClosureBoundary({ classification })
       || prReviewGateMentioned
     )
   ) {

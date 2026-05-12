@@ -733,19 +733,26 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T04:07:56.000Z",
+  "updated": "2026-05-12T06:12:40.000Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "closure-boundary-pr-review-routing-implemented-awaiting-controller-proof",
+    "currentPhase": "post-commit-pr-review-routing-fix-awaiting-standalone-proof",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Lifecycle controller must rerun the configured proof routes and standalone PR-enabled/PR-disabled lifecycle runs, proving that required-before-closure PR-review is only invoked at the closure boundary.",
+    "nextObjectiveAction": "Rerun the configured standalone PR-enabled lifecycle and confirm the controller advances from satisfied commit-intent evidence to the contract-bound pr-review unit instead of repeating commit-intent; then continue to the disabled-mode standalone proof.",
     "repairState": {
-      "status": "closure-boundary-routing-implemented",
+      "status": "post-commit-pr-review-routing-fix",
       "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T04:07:56.000Z",
+      "updated": "2026-05-12T06:12:40.000Z",
       "basis": [
+        "Controller routing fix completed on 2026-05-12T06:12:40.000Z after live lifecycle ldhl-20260512T055728Z-living-doc-pr-review-policy-configuration exposed issue #271: iteration 2 had commitEvidencePresent=true, sourceFilesChanged=false, prReviewRequired=true, and prReviewGate.status=missing, but post-review selection still chose commit-intent. The selector now chooses commit-intent only from hard evidence that commit evidence is missing; once that precondition is satisfied, a required missing PR-review gate can route to pr-review when the reviewer and hard facts identify the PR gate. Verification passed: node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
+        "Worker-safe proof refreshed on 2026-05-12T05:58:43.000Z with no additional source changes required. Passing checks in this worker process: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-closure-review.mjs, node --check scripts/living-doc-harness-inference-unit.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-contract.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned hardening completed on 2026-05-12T05:51:30.000Z: lifecycle evidence building now validates any plan-provided sideEffectEvidence.prReview against the referenced pr-review result and validation artifacts, normalizes the gate state from the actual output contract, and deletes unmatched or unvalidated PR-review side-effect evidence before requiredHardFacts/prReviewGate are computed. Evidence-sequence fixtures that need the satisfied path must now materialize an explicit prReviewOutputContract, and a regression proves fabricated approved PR-review metadata cannot close the lifecycle under required-before-closure. Focused worker-safe verification passed: node --check scripts/living-doc-harness-lifecycle.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. The first parallel Playwright attempt for harness-pr-review-policy-routing failed before executing because the shared web-server port was already in use; the same spec passed when rerun serially. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned hardening completed on 2026-05-12T05:42:14.000Z: required PR-review policy gates and closure-review approval now require a paired pr-review result path and validation path before sideEffectEvidence.prReview can satisfy, block, or request the PR gate as contract-bound evidence. This closes the remaining fabricated-evidence shape where an injected approved pr-review output-contract-looking result path without validation could satisfy required PR policy. Focused worker-safe verification passed: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-closure-review.mjs, and node tests/contract/living-doc-harness-inference-unit.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned hardening completed on 2026-05-12T05:36:30.000Z: PR-review side-effect ingestion now requires the paired pr-review validation artifact to have ok true before sideEffectEvidence.prReview can satisfy or block the policy gate. This preserves the contract-bound requirement by rejecting approved/not-required-looking PR-review result JSON when validation failed or is missing. Focused worker-owned verification passed without running controller-owned lifecycle/proof commands: node --check scripts/living-doc-harness-lifecycle.mjs and a direct sideEffectEvidenceFromRun validation-gate check. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned artifact propagation hardening completed on 2026-05-12T05:31:24.000Z: post-review selection, iteration proof, output-input, nextAction, and lifecycle iteration summaries now preserve prReviewPolicy, prReviewRequired, and prReviewGate state so routing artifacts expose the policy decision without reconstructing it from sibling evidence files. Focused worker-owned verification passed: node tests/contract/living-doc-harness-iteration.spec.mjs and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned hardening completed on 2026-05-12T05:25:06.000Z: closure-review input construction now strips sideEffectEvidence.prReview and PR-review inspection paths when prReviewPolicy is disabled, even if injected evidence reaches runClosureReviewUnit directly. Focused worker-owned verification passed: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-iteration.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed again on 2026-05-12T04:07:56.000Z in this worker process: node tests/contract/living-doc-harness-contract.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs. The first parallel Playwright attempt for harness-inference-unit-routing failed before executing because the parallel web server port was already in use; the same spec passed when rerun serially. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned verification passed on 2026-05-12T04:01:52.000Z after the closure-boundary PR-review routing fix: npm run test:contract. This proves the focused contract suite, including repairable required-before-closure missing PR evidence routing to worker/continuation, closure-candidate required-before-closure missing PR evidence routing to pr-review, and blocked PR-review no-repeat behavior. Controller-owned standalone lifecycle proof remains required before objective closure.",
         "Live harness run ldhl-20260512T032750Z-living-doc-pr-review-policy-configuration exposed a policy semantic drift: required-before-closure PR-review was invoked while the living doc was still repairable, objectiveReady=false, and acceptance criteria were incomplete. Issue #269 now scopes the correction: missing PR-review evidence may route to pr-review at closure-candidate/closed boundaries, but repairable/resumable work must continue objective work or repair instead of interrupting with PR-review.",
@@ -1048,14 +1055,14 @@
       "title": "Status Snapshot",
       "convergenceType": "status-snapshot",
       "rationale": "Shows the current stage and remaining proof gate.",
-      "updated": "2026-05-12T03:58:07.000Z",
+      "updated": "2026-05-12T05:42:14.000Z",
       "data": [
         {
           "id": "objective-shaped",
           "name": "Objective shaped",
           "status": "implemented-awaiting-controller-owned-standalone-proof",
-          "updated": "2026-05-12T03:58:07.000Z",
-          "summary": "The PR-review policy implementation now separates three concerns: policy availability, gate outcome state, and closure-boundary timing. Live lifecycle runs exposed that required-before-closure had been treated too broadly: missing PR-review evidence could interrupt repairable work. The current correction makes PR-review a closure-boundary gate for required-before-closure while preserving blocked gate evidence as non-repeatable controller state.",
+          "updated": "2026-05-12T05:42:14.000Z",
+          "summary": "The PR-review policy implementation now separates three concerns: policy availability, gate outcome state, and closure-boundary timing. Required PR-review evidence must now carry both a pr-review result artifact path and the paired validation artifact path before it can satisfy or shape the PR gate for closure. The remaining proof is controller-owned standalone lifecycle execution for the PR-enabled and PR-disabled paths.",
           "documentReady": true,
           "objectiveReady": false,
           "nextStep": "Rerun the PR-enabled and PR-disabled standalone lifecycle proof paths and record that required-before-closure invokes PR-review only when the lifecycle is closure-ready."
@@ -1093,20 +1100,25 @@
         },
         {
           "id": "decision-required-before-closure-is-a-closure-boundary-gate",
-          "name": "Required-before-closure is a closure-boundary gate",
+          "name": "Required-before-closure is a pre-closure gate",
           "status": "ground-truth",
-          "updated": "2026-05-12T03:58:07.000Z",
-          "decision": "required-before-closure makes PR-review mandatory before terminal closure, not during ordinary repairable or resumable objective work.",
+          "updated": "2026-05-12T06:12:40.000Z",
+          "decision": "required-before-closure makes PR-review mandatory before terminal closure; the controller may run the pr-review unit before closure review once earlier side-effect preconditions, especially commit evidence, are satisfied and reviewer evidence identifies the PR gate as missing.",
           "notes": [
-            "Missing PR-review evidence under required-before-closure may select pr-review when the reviewer classifies the lifecycle as closure-candidate or closed.",
-            "The same missing evidence must not select pr-review while the living doc remains repairable, resumable, objectiveReady=false, or acceptance criteria are still incomplete.",
-            "This keeps PR-review as a closure gate and prevents it from interrupting the objective execution loop before the work is ready to close."
+            "Missing PR-review evidence by itself is not enough to select pr-review; the controller first checks whether commit-intent is still required by hard evidence.",
+            "When commit evidence is present and sourceFilesChanged is false, a reviewer verdict such as pr-review-gate-missing can select the contract-bound pr-review unit even if the lifecycle classification is still repairable.",
+            "The pr-review unit can satisfy the policy gate before closure, but terminal closure remains blocked until acceptance criteria, objective readiness, closure review, and proof routes also agree."
           ],
           "ticketIds": [
             {
               "issueNumber": "269",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/269",
               "title": "Correct required-before-closure PR-review routing semantics"
+            },
+            {
+              "issueNumber": "271",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/271",
+              "title": "Harness repeats commit-intent instead of routing to PR review after commit evidence"
             }
           ]
         },
@@ -1260,11 +1272,11 @@
           "id": "criterion-required-before-closure",
           "name": "Required-before-closure blocks closure until PR evidence exists",
           "status": "implemented-awaiting-standalone-proof",
-          "updated": "2026-05-12T03:58:07.000Z",
+          "updated": "2026-05-12T06:12:40.000Z",
           "objectiveTerm": "When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result.",
-          "criterion": "In required-before-closure mode, a closure-candidate or closed reviewer verdict routes to pr-review before terminal closure when PR evidence is missing, while repairable or resumable verdicts continue objective work or repair instead of selecting pr-review only because PR evidence is absent.",
-          "proofRequired": "Post-review selection and lifecycle graph show pr-review selected at the closure boundary, not during repairable/resumable work; closure-review rejects missing PR evidence.",
-          "acceptanceTest": "A required-before-closure contract test proves repairable + missing PR evidence routes to worker/continuation, not pr-review; a closure-candidate + missing PR evidence test routes to pr-review; the same path with approved or not-required PR output can proceed to closure-review.",
+          "criterion": "In required-before-closure mode, the controller routes missing commit evidence to commit-intent first. After commit evidence is present and the PR gate is still missing, reviewer evidence can select the contract-bound pr-review unit before closure review, while terminal closure remains impossible until the PR gate and all objective proof gates are satisfied.",
+          "proofRequired": "Post-review selection and lifecycle graph show commit-intent selected only when hard facts say commit evidence is missing, then pr-review selected when commit evidence is satisfied and prReviewGate.status is missing; closure-review rejects missing PR evidence.",
+          "acceptanceTest": "A required-before-closure contract test proves repairable + missing PR evidence + satisfied commit evidence routes to pr-review; separate tests prove current-run source changes without commit evidence still route to commit-intent, blocked pr-review routes to continuation, and approved or not-required PR output can proceed to closure-review.",
           "ticketIds": [
             {
               "issueNumber": "257",
@@ -1275,6 +1287,11 @@
               "issueNumber": "269",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/269",
               "title": "Correct required-before-closure PR-review routing semantics"
+            },
+            {
+              "issueNumber": "271",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/271",
+              "title": "Harness repeats commit-intent instead of routing to PR review after commit evidence"
             }
           ]
         },
@@ -1468,7 +1485,7 @@
             {
               "title": "Mode Routing",
               "role": "policy-table-as-flow",
-              "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> Boundary{\"closure-candidate or closed?\"}\n  Boundary -->|no| Continue[\"Continue objective work / repair\"]\n  Boundary -->|yes and PR evidence missing| NeedPR[\"Select pr-review before closure\"]\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
+              "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> CommitGate{\"commit evidence missing?\"}\n  CommitGate -->|yes| CommitIntent[\"commit-intent contract\"]\n  CommitGate -->|no and PR gate missing| NeedPR[\"Select pr-review\"]\n  CommitIntent --> CommitGate\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes and PR gate missing| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
             }
           ]
         },
@@ -1533,9 +1550,9 @@
           "id": "verification-contract-suite",
           "name": "Contract suite",
           "status": "complete-awaiting-standalone-proof",
-          "updated": "2026-05-12T04:01:52.000Z",
-          "currentCoverage": "npm run test:contract passed on 2026-05-12T04:01:52.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the closure-boundary semantics where required-before-closure does not invoke pr-review for repairable work but does invoke it for closure-candidate work when PR evidence is missing.",
-          "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure does not invoke PR-review before closure readiness.",
+          "updated": "2026-05-12T06:12:40.000Z",
+          "currentCoverage": "npm run test:contract passed on 2026-05-12T06:12:40.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
+          "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.",
           "automation": [
             "npm run test:contract"
           ],
@@ -42927,7 +42944,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-12T04:09:35.064Z" title="2026-05-12T04:09:35.064Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-12T04:09:35.064Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-12T06:19:39.045Z" title="2026-05-12T06:19:39.045Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-12T06:19:39.045Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42973,7 +42990,7 @@ ${tmplLine}
 
 
     <section class="section" id="status" data-section-id="status">
-      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T03:58:07Z" title="2026-05-12T03:58:07Z" data-relative-to-snapshot="true">2026-05-12T03:58:07Z</time></span></h2>
+      <h2><svg class="section-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#475569"><rect x='4' y='14' width='3' height='6' rx='1' opacity='.4'/><rect x='10.5' y='9' width='3' height='11' rx='1' opacity='.65'/><rect x='17' y='5' width='3' height='15' rx='1'/></svg> Status Snapshot <span class="kind-badge kind-surface" title="Surface type — a projection of state from elsewhere">surface</span><span style="font-size:12px;font-weight:500;color:var(--muted);margin-left:auto"><time datetime="2026-05-12T05:42:14Z" title="2026-05-12T05:42:14Z" data-relative-to-snapshot="true">2026-05-12T05:42:14Z</time></span></h2>
 
 
 
@@ -42985,7 +43002,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Objective shaped</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T03:58:07Z" title="2026-05-12T03:58:07Z" data-relative-to-snapshot="true">2026-05-12T03:58:07Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T05:42:14Z" title="2026-05-12T05:42:14Z" data-relative-to-snapshot="true">2026-05-12T05:42:14Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -43040,15 +43057,15 @@ ${tmplLine}
     <article class="flow-card" id="decision-required-before-closure-is-a-closure-boundary-gate" data-section-id="policy-decisions" data-card-key="decision-required-before-closure-is-a-closure-boundary-gate">
       <header class="flow-card-header">
         <div>
-          <h3>Required-before-closure is a closure-boundary gate</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T03:58:07Z" title="2026-05-12T03:58:07Z" data-relative-to-snapshot="true">2026-05-12T03:58:07Z</time></span></div>
+          <h3>Required-before-closure is a pre-closure gate</h3>
+          <div class="meta-row"><span><time datetime="2026-05-12T06:12:40Z" title="2026-05-12T06:12:40Z" data-relative-to-snapshot="true">2026-05-12T06:12:40Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
       </header>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/271" class="ticket-link"><span class="ticket-badge badge badge-neutral">#271</span></a></div></div>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">Missing PR-review evidence under required-before-closure may select pr-review when the reviewer classifies the lifecycle as closure-candidate or closed.</span></p><p class="note-description"><span class="note-line">The same missing evidence must not select pr-review while the living doc remains repairable, resumable, objectiveReady=false, or acceptance criteria are still incomplete.</span></p><p class="note-description"><span class="note-line">This keeps PR-review as a closure gate and prevents it from interrupting the objective execution loop before the work is ready to close.</span></p>
+      <p class="note-description"><span class="note-line">Missing PR-review evidence by itself is not enough to select pr-review; the controller first checks whether commit-intent is still required by hard evidence.</span></p><p class="note-description"><span class="note-line">When commit evidence is present and sourceFilesChanged is false, a reviewer verdict such as pr-review-gate-missing can select the contract-bound pr-review unit even if the lifecycle classification is still repairable.</span></p><p class="note-description"><span class="note-line">The pr-review unit can satisfy the policy gate before closure, but terminal closure remains blocked until acceptance criteria, objective readiness, closure review, and proof routes also agree.</span></p>
     </div>
 
 
@@ -43189,13 +43206,13 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Required-before-closure blocks closure until PR evidence exists</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T03:58:07Z" title="2026-05-12T03:58:07Z" data-relative-to-snapshot="true">2026-05-12T03:58:07Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T06:12:40Z" title="2026-05-12T06:12:40Z" data-relative-to-snapshot="true">2026-05-12T06:12:40Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Standalone Proof</span></div>
       </header>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/257" class="ticket-link"><span class="ticket-badge badge badge-neutral">#257</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/257" class="ticket-link"><span class="ticket-badge badge badge-neutral">#257</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/271" class="ticket-link"><span class="ticket-badge badge badge-neutral">#271</span></a></div></div>
 
-      <p class="code-refs"><strong>Objective term</strong> When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result.</p><p class="code-refs"><strong>Criterion</strong> In required-before-closure mode, a closure-candidate or closed reviewer verdict routes to pr-review before terminal closure when PR evidence is missing, while repairable or resumable verdicts continue objective work or repair instead of selecting pr-review only because PR evidence is absent.</p><p class="code-refs"><strong>Proof required</strong> Post-review selection and lifecycle graph show pr-review selected at the closure boundary, not during repairable/resumable work; closure-review rejects missing PR evidence.</p><p class="code-refs"><strong>Acceptance test</strong> A required-before-closure contract test proves repairable + missing PR evidence routes to worker/continuation, not pr-review; a closure-candidate + missing PR evidence test routes to pr-review; the same path with approved or not-required PR output can proceed to closure-review.</p>
+      <p class="code-refs"><strong>Objective term</strong> When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result.</p><p class="code-refs"><strong>Criterion</strong> In required-before-closure mode, the controller routes missing commit evidence to commit-intent first. After commit evidence is present and the PR gate is still missing, reviewer evidence can select the contract-bound pr-review unit before closure review, while terminal closure remains impossible until the PR gate and all objective proof gates are satisfied.</p><p class="code-refs"><strong>Proof required</strong> Post-review selection and lifecycle graph show commit-intent selected only when hard facts say commit evidence is missing, then pr-review selected when commit evidence is satisfied and prReviewGate.status is missing; closure-review rejects missing PR evidence.</p><p class="code-refs"><strong>Acceptance test</strong> A required-before-closure contract test proves repairable + missing PR evidence + satisfied commit evidence routes to pr-review; separate tests prove current-run source changes without commit evidence still route to commit-intent, blocked pr-review routes to continuation, and approved or not-required PR output can proceed to closure-review.</p>
 
     </article>
     <article class="flow-card" id="criterion-required-when-source-changes" data-section-id="acceptance-criteria" data-card-key="criterion-required-when-source-changes">
@@ -43354,18 +43371,19 @@ ${tmplLine}
         <path d="M 0 0 L 10 4 L 0 8 z" class="mermaid-arrowhead"/>
       </marker>
     </defs>
-    <g class="mermaid-edge" data-edge-index="0"><path d="M 118 76 C 118 105, 630 105, 630 134" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="1"><path d="M 118 76 C 118 105, 118 105, 118 134" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="2"><path d="M 118 76 C 118 105, 374 105, 374 134" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="3"><path d="M 630 186 C 630 215, 630 215, 630 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="4"><path d="M 118 186 C 118 215, 118 215, 118 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="5"><path d="M 118 304 C 118 329, 374 329, 374 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="246" y="323" text-anchor="middle">no</text></g><g class="mermaid-edge" data-edge-index="6"><path d="M 118 304 C 118 329, 630 329, 630 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="374" y="323" text-anchor="middle">yes and PR evidence missing</text></g><g class="mermaid-edge" data-edge-index="7"><path d="M 374 186 C 374 215, 374 215, 374 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="8"><path d="M 374 304 C 374 329, 630 329, 630 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="502" y="323" text-anchor="middle">yes</text></g><g class="mermaid-edge" data-edge-index="9"><path d="M 374 304 C 374 329, 886 329, 886 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="630" y="323" text-anchor="middle">no</text></g><g class="mermaid-edge" data-edge-index="10"><path d="M 630 296 C 630 325, 118 325, 118 354" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="11"><path d="M 630 414 C 630 439, 118 439, 118 464" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="12"><path d="M 118 516 C 118 435, 118 435, 118 354" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="13"><path d="M 886 406 C 886 380, 118 380, 118 354" marker-end="url(#arrowhead)"/></g>
-    <g class="mermaid-node"><rect x="24" y="24" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="54" text-anchor="middle"><tspan x="118" dy="0">prReviewPolicy.mode</tspan></text></g><g class="mermaid-node"><rect x="536" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="630" y="164" text-anchor="middle"><tspan x="630" dy="0">disabled</tspan></text></g><g class="mermaid-node"><rect x="24" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="164" text-anchor="middle"><tspan x="118" dy="0">required-before-closure</tspan></text></g><g class="mermaid-node"><rect x="280" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="374" y="164" text-anchor="middle"><tspan x="374" dy="0">required-when-source-changes</tspan></text></g><g class="mermaid-node"><rect x="536" y="244" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="630" y="274" text-anchor="middle"><tspan x="630" dy="0">Never select pr-review</tspan></text></g><g class="mermaid-node"><rect x="24" y="244" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="118" y="270" text-anchor="middle"><tspan x="118" dy="0">closure-candidate or</tspan><tspan x="118" dy="16">closed?</tspan></text></g><g class="mermaid-node"><rect x="280" y="354" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="374" y="380" text-anchor="middle"><tspan x="374" dy="0">Continue objective work</tspan><tspan x="374" dy="16">/ repair</tspan></text></g><g class="mermaid-node"><rect x="536" y="354" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="630" y="380" text-anchor="middle"><tspan x="630" dy="0">Select pr-review before</tspan><tspan x="630" dy="16">closure</tspan></text></g><g class="mermaid-node"><rect x="280" y="244" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="374" y="270" text-anchor="middle"><tspan x="374" dy="0">source/doc-relevant</tspan><tspan x="374" dy="16">changes?</tspan></text></g><g class="mermaid-node"><rect x="792" y="354" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="886" y="384" text-anchor="middle"><tspan x="886" dy="0">Skip pr-review</tspan></text></g><g class="mermaid-node"><rect x="24" y="354" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="118" y="380" text-anchor="middle"><tspan x="118" dy="0">Normal closure-review</tspan><tspan x="118" dy="16">gates</tspan></text></g><g class="mermaid-node"><rect x="24" y="464" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="494" text-anchor="middle"><tspan x="118" dy="0">pr-review contract</tspan></text></g>
+    <g class="mermaid-edge" data-edge-index="0"><path d="M 118 76 C 118 105, 630 105, 630 134" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="1"><path d="M 118 76 C 118 105, 118 105, 118 134" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="2"><path d="M 118 76 C 118 105, 374 105, 374 134" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="3"><path d="M 630 186 C 630 215, 630 215, 630 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="4"><path d="M 118 186 C 118 215, 118 215, 118 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="5"><path d="M 118 296 C 118 325, 374 325, 374 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="246" y="319" text-anchor="middle">yes</text></g><g class="mermaid-edge" data-edge-index="6"><path d="M 118 296 C 118 325, 630 325, 630 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="374" y="319" text-anchor="middle">no and PR gate missing</text></g><g class="mermaid-edge" data-edge-index="7"><path d="M 374 406 C 374 325, 118 325, 118 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="8"><path d="M 374 186 C 374 215, 374 215, 374 244" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="9"><path d="M 374 304 C 374 329, 630 329, 630 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="502" y="323" text-anchor="middle">yes and PR gate missing</text></g><g class="mermaid-edge" data-edge-index="10"><path d="M 374 304 C 374 329, 886 329, 886 354" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="630" y="323" text-anchor="middle">no</text></g><g class="mermaid-edge" data-edge-index="11"><path d="M 630 296 C 630 325, 118 325, 118 354" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="12"><path d="M 630 406 C 630 435, 118 435, 118 464" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="13"><path d="M 118 516 C 118 435, 118 435, 118 354" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="14"><path d="M 886 406 C 886 380, 118 380, 118 354" marker-end="url(#arrowhead)"/></g>
+    <g class="mermaid-node"><rect x="24" y="24" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="54" text-anchor="middle"><tspan x="118" dy="0">prReviewPolicy.mode</tspan></text></g><g class="mermaid-node"><rect x="536" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="630" y="164" text-anchor="middle"><tspan x="630" dy="0">disabled</tspan></text></g><g class="mermaid-node"><rect x="24" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="164" text-anchor="middle"><tspan x="118" dy="0">required-before-closure</tspan></text></g><g class="mermaid-node"><rect x="280" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="374" y="164" text-anchor="middle"><tspan x="374" dy="0">required-when-source-changes</tspan></text></g><g class="mermaid-node"><rect x="536" y="244" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="630" y="274" text-anchor="middle"><tspan x="630" dy="0">Never select pr-review</tspan></text></g><g class="mermaid-node"><rect x="24" y="244" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="274" text-anchor="middle"><tspan x="118" dy="0">commit evidence missing?</tspan></text></g><g class="mermaid-node"><rect x="280" y="354" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="374" y="384" text-anchor="middle"><tspan x="374" dy="0">commit-intent contract</tspan></text></g><g class="mermaid-node"><rect x="536" y="354" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="630" y="384" text-anchor="middle"><tspan x="630" dy="0">Select pr-review</tspan></text></g><g class="mermaid-node"><rect x="280" y="244" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="374" y="270" text-anchor="middle"><tspan x="374" dy="0">source/doc-relevant</tspan><tspan x="374" dy="16">changes?</tspan></text></g><g class="mermaid-node"><rect x="792" y="354" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="886" y="384" text-anchor="middle"><tspan x="886" dy="0">Skip pr-review</tspan></text></g><g class="mermaid-node"><rect x="24" y="354" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="118" y="380" text-anchor="middle"><tspan x="118" dy="0">Normal closure-review</tspan><tspan x="118" dy="16">gates</tspan></text></g><g class="mermaid-node"><rect x="24" y="464" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="494" text-anchor="middle"><tspan x="118" dy="0">pr-review contract</tspan></text></g>
   </svg></div><details class="mermaid-source"><summary>Mermaid source</summary><pre><code>flowchart TD
   Mode[&quot;prReviewPolicy.mode&quot;] --&gt; Disabled[&quot;disabled&quot;]
   Mode --&gt; Always[&quot;required-before-closure&quot;]
   Mode --&gt; Changed[&quot;required-when-source-changes&quot;]
   Disabled --&gt; NoPR[&quot;Never select pr-review&quot;]
-  Always --&gt; Boundary{&quot;closure-candidate or closed?&quot;}
-  Boundary --&gt;|no| Continue[&quot;Continue objective work / repair&quot;]
-  Boundary --&gt;|yes and PR evidence missing| NeedPR[&quot;Select pr-review before closure&quot;]
+  Always --&gt; CommitGate{&quot;commit evidence missing?&quot;}
+  CommitGate --&gt;|yes| CommitIntent[&quot;commit-intent contract&quot;]
+  CommitGate --&gt;|no and PR gate missing| NeedPR[&quot;Select pr-review&quot;]
+  CommitIntent --&gt; CommitGate
   Changed --&gt; Facts{&quot;source/doc-relevant changes?&quot;}
-  Facts --&gt;|yes| NeedPR
+  Facts --&gt;|yes and PR gate missing| NeedPR
   Facts --&gt;|no| SkipPR[&quot;Skip pr-review&quot;]
   NoPR --&gt; Closure[&quot;Normal closure-review gates&quot;]
   NeedPR --&gt; PRUnit[&quot;pr-review contract&quot;]
@@ -43424,13 +43442,13 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Contract suite</h3>
-          <div class="meta-row"><span><time datetime="2026-05-12T04:01:52Z" title="2026-05-12T04:01:52Z" data-relative-to-snapshot="true">2026-05-12T04:01:52Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-12T06:12:40Z" title="2026-05-12T06:12:40Z" data-relative-to-snapshot="true">2026-05-12T06:12:40Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Complete Awaiting Standalone Proof</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> npm run test:contract passed on 2026-05-12T04:01:52.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the closure-boundary semantics where required-before-closure does not invoke pr-review for repairable work but does invoke it for closure-candidate work when PR evidence is missing.</p><p class="code-refs"><strong>Next step</strong> Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure does not invoke PR-review before closure readiness.</p>
+      <p class="code-refs"><strong>Current coverage</strong> npm run test:contract passed on 2026-05-12T06:12:40.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p><p class="code-refs"><strong>Next step</strong> Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.</p>
 
     <details class="details-block">
       <summary>Current gaps (1)</summary>
@@ -43547,7 +43565,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-0e634e8 (2026-05-12)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-29fbb34 (2026-05-12)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -43596,10 +43614,10 @@ ${tmplLine}
     </article>
     <article class="board-card" data-section-id="policy-decisions">
       <div class="board-card-kicker">Policy Decisions · Decision Record</div>
-      <h3>Required-before-closure is a closure-boundary gate</h3>
+      <h3>Required-before-closure is a pre-closure gate</h3>
       <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
 
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/271" class="ticket-link"><span class="ticket-badge badge badge-neutral">#271</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="policy-decisions">
       <div class="board-card-kicker">Policy Decisions · Decision Record</div>
@@ -43692,10 +43710,10 @@ ${tmplLine}
     </article>
     <article class="board-card" data-section-id="policy-decisions">
       <div class="board-card-kicker">Policy Decisions · Decision Record</div>
-      <h3>Required-before-closure is a closure-boundary gate</h3>
+      <h3>Required-before-closure is a pre-closure gate</h3>
       <div class="badge-row"><span class="badge badge-positive">Ground Truth</span></div>
 
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/271" class="ticket-link"><span class="ticket-badge badge badge-neutral">#271</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="policy-decisions">
       <div class="board-card-kicker">Policy Decisions · Decision Record</div>
@@ -43906,7 +43924,7 @@ ${tmplLine}
       <h3>Required-before-closure blocks closure until PR evidence exists</h3>
       <div class="badge-row"><span class="badge badge-neutral">Implemented Awaiting Standalone Proof</span></div>
       <p class="board-card-note"><strong>Objective term</strong> When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result.</p>
-      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/257" class="ticket-link"><span class="ticket-badge badge badge-neutral">#257</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a></div></div>
+      <div class="ticket-row"><strong>Tickets</strong><div class="ticket-badges"><a href="https://github.com/triadflow/living-doc-compositor/issues/257" class="ticket-link"><span class="ticket-badge badge badge-neutral">#257</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/269" class="ticket-link"><span class="ticket-badge badge badge-neutral">#269</span></a><a href="https://github.com/triadflow/living-doc-compositor/issues/271" class="ticket-link"><span class="ticket-badge badge badge-neutral">#271</span></a></div></div>
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
@@ -44121,7 +44139,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Contract suite</h3>
       <div class="badge-row"><span class="badge badge-neutral">Complete Awaiting Standalone Proof</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> npm run test:contract passed on 2026-05-12T04:01:52.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the closure-boundary semantics where required-before-closure does not invoke pr-review for repairable work but does invoke it for closure-candidate work when PR evidence is missing.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> npm run test:contract passed on 2026-05-12T06:12:40.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -44187,7 +44205,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Contract suite</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> npm run test:contract passed on 2026-05-12T04:01:52.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the closure-boundary semantics where required-before-closure does not invoke pr-review for repairable work but does invoke it for closure-candidate work when PR evidence is missing.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> npm run test:contract passed on 2026-05-12T06:12:40.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -44292,7 +44310,7 @@ ${tmplLine}
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="card" style="--toggle-color: #64748b; border-color: #64748b; background: #64748b;">
             <span class="shape-icon" aria-hidden="true"></span>Cards (29)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="source" style="--toggle-color: #f59e0b; border-color: #f59e0b; background: #f59e0b;">
-            <span class="shape-icon" aria-hidden="true"></span>Refs (26)
+            <span class="shape-icon" aria-hidden="true"></span>Refs (27)
           </button>
         </div>
         <div class="toolbar-section toolbar-controls">
@@ -44344,8 +44362,11 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1313.3878300755493 678.1826095598524 L 1544.0281174036181 494.25311801152606"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-policy-decisions-decision-required-before-closure-is-a-closure-boundary-gate" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-269" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1571.3922192899993 472.43097494647037 L 1611.2656248958688 440.632995051675"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1592.1263902050514" y="455.89602540117676">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1564.1533624525177 467.2997806428623 L 1585.3637074223993 406.50316339529036"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1575.1827418368562" y="435.68553967412487">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-policy-decisions-decision-required-before-closure-is-a-closure-boundary-gate" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-271" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1574.0536360532108 477.3225969857252 L 1698.4794250828077 435.6233620928651"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1638.7550463486011" y="455.6389948414379">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-policy-decisions" data-graph-edge-to="graph-card-policy-decisions-decision-inference-judges-quality" data-graph-edge-label="card">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1318.0168165519417 689.1639557315727 L 1518.637104171581 664.0242044558397"><title>card</title></path>
 
@@ -44395,11 +44416,14 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1167.935271435434 1352.6630892216685 L 1405.2745527243528 1410.944366307342"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-required-before-closure" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-257" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1437.6065302178254 1423.4341315458119 L 1586.8944948502574 1509.0340719431738"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1515.23627182669" y="1467.9461005524402">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1439.0798138335301 1419.9778356189831 L 1618.1663021312836 1472.4952377489083"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1532.204787748362" y="1447.2868847265443">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-required-before-closure" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-269" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1426.9214522499954 1399.7976761352875 L 1621.1619865893517 446.6912646700211"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="1527.9265301064606" y="904.182342173349">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1426.30277724664 1399.6842095089505 L 1588.2261259171235 407.23009735653585"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1510.5029185552914" y="883.6080711896949">ticketIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-acceptance-criteria-criterion-required-before-closure" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-271" data-graph-edge-label="ticketIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1428.2566744562957 1400.1301749988895 L 1709.7848684930086 446.5257000853421"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="1574.6513353553864" y="904.2558480438449">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-required-when-source-changes" data-graph-edge-label="card">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1163.4687107864288 1361.50326780696 L 1357.692250394939 1523.4068130027822"><title>card</title></path>
 
@@ -44521,8 +44545,8 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 521.3499210421032 1066.0006511306235 L 306.7815967099435 1179.9226037932685"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-verification-plan-verification-standalone-runs" data-graph-edge-to="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-269" data-graph-edge-label="ticketIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 303.90915295128997 1180.9241273466557 L 1609.7785106241583 438.4362479343723"><title>ticketIds</title></path>
-    <text class="json-graph-edge-label" x="982.9612189411814" y="794.8304300522684">ticketIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 303.6370858457582 1180.4637052509495 L 1576.4743790604925 399.34372080709187"><title>ticketIds</title></path>
+    <text class="json-graph-edge-label" x="965.5124783174201" y="774.2813133401435">ticketIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-dashboard" data-graph-edge-label="card">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 518.7826856392504 1055.411487825061 L 218.4777967098227 1051.6913288045055"><title>card</title></path>
 
@@ -44765,33 +44789,52 @@ ${tmplLine}
       data-graph-home-x="1558.8829155705107"
       data-graph-home-y="482.40681177621013"
       data-graph-size="12"
-      data-graph-label="required-before-closure is a closure-boundary gate status: ground truth $.sections[1].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;decision-required-before-closure-is-a-closure-boundary-gate&quot;,&quot;title&quot;:&quot;Required-before-closure is a closure-boundary gate&quot;,&quot;section&quot;:&quot;Policy Decisions&quot;,&quot;statuses&quot;:[&quot;Status: Ground Truth&quot;]}"
+      data-graph-label="required-before-closure is a pre-closure gate status: ground truth $.sections[1].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;decision-required-before-closure-is-a-closure-boundary-gate&quot;,&quot;title&quot;:&quot;Required-before-closure is a pre-closure gate&quot;,&quot;section&quot;:&quot;Policy Decisions&quot;,&quot;statuses&quot;:[&quot;Status: Ground Truth&quot;]}"
       transform="translate(1558.8829155705107, 482.40681177621013)">
-      <title>Required-before-closure is a closure-boundary gate · $.sections[1].data[2]</title>
+      <title>Required-before-closure is a pre-closure gate · $.sections[1].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
-        <tspan x="0" dy="0">Required-before-closure</tspan><tspan x="0" dy="12">is a</tspan>
+        <tspan x="0" dy="0">Required-before-closure</tspan><tspan x="0" dy="12">is a pre-closure</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Ground Truth</text>
     </g>
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-269"
       data-graph-type="source"
-      data-graph-x="1624.5567600978252"
-      data-graph-y="430.03366842007654"
-      data-graph-home-x="1624.5567600978252"
-      data-graph-home-y="430.03366842007654"
+      data-graph-x="1590.963557234532"
+      data-graph-y="390.45194281610827"
+      data-graph-home-x="1590.963557234532"
+      data-graph-home-y="390.45194281610827"
       data-graph-size="10"
       data-graph-label="269 tickets $.sections[1].data[2].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[2].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;269&quot;}"
-      transform="translate(1624.5567600978252, 430.03366842007654)">
+      transform="translate(1590.963557234532, 390.45194281610827)">
       <title>269 · $.sections[1].data[2].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
       <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
         <tspan x="18" dy="0">269</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-271"
+      data-graph-type="source"
+      data-graph-x="1714.5983155956765"
+      data-graph-y="430.22138387797486"
+      data-graph-home-x="1714.5983155956765"
+      data-graph-home-y="430.22138387797486"
+      data-graph-size="10"
+      data-graph-label="271 tickets $.sections[1].data[2].ticketids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[1].data[2].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;271&quot;}"
+      transform="translate(1714.5983155956765, 430.22138387797486)">
+      <title>271 · $.sections[1].data[2].ticketIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">271</tspan>
       </text>
       <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Tickets</text>
     </g>
@@ -45102,14 +45145,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-ticket-https-github-com-triadflow-living-doc-compositor-issues-257"
       data-graph-type="source"
-      data-graph-x="1601.6421636995506"
-      data-graph-y="1517.4902095669115"
-      data-graph-home-x="1601.6421636995506"
-      data-graph-home-y="1517.4902095669115"
+      data-graph-x="1634.479334822263"
+      data-graph-y="1477.2790609503904"
+      data-graph-home-x="1634.479334822263"
+      data-graph-home-y="1477.2790609503904"
       data-graph-size="10"
       data-graph-label="257 tickets $.sections[3].data[3].ticketids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[3].data[3].ticketIds&quot;,&quot;field&quot;:&quot;ticketIds&quot;,&quot;entityType&quot;:&quot;ticket&quot;,&quot;label&quot;:&quot;257&quot;}"
-      transform="translate(1601.6421636995506, 1517.4902095669115)">
+      transform="translate(1634.479334822263, 1477.2790609503904)">
       <title>257 · $.sections[3].data[3].ticketIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -45852,7 +45895,7 @@ ${tmplLine}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="graph-info" data-graph-info>68 nodes · 78 edges · 100%</div>
+          <div class="graph-info" data-graph-info>69 nodes · 80 edges · 100%</div>
         </div>
         <aside class="json-graph-inspector" aria-live="polite">
           <span class="json-graph-inspector-kicker">Selected node</span>

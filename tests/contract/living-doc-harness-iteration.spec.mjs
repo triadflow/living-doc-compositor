@@ -306,9 +306,12 @@ try {
     },
   });
   const repairablePrGateSelection = JSON.parse(await readFile(repairablePrGate.postReviewSelectionPath, 'utf8'));
-  assert.equal(repairablePrGateSelection.nextUnit.unitId, 'worker');
-  assert.equal(repairablePrGateSelection.nextUnit.reasonCode, 'reviewer-authorized-continuation');
-  assert.notEqual(repairablePrGateSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(repairablePrGateSelection.prReviewPolicy.mode, 'required-before-closure');
+  assert.equal(repairablePrGateSelection.prReviewRequired, true);
+  assert.equal(repairablePrGateSelection.prReviewGate.status, 'missing');
+  assert.equal(repairablePrGateSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(repairablePrGateSelection.nextUnit.reasonCode, 'pr-review-policy-gate-missing');
+  assert.match(repairablePrGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
 
   const closureCandidatePrGateRun = await createHarnessRun({
     docPath,
@@ -785,7 +788,7 @@ try {
     now: '2026-05-07T10:21:20.000Z',
   });
   const commitPendingBeforeClosureEvidencePath = path.join(tmp, 'commit-pending-before-closure-evidence.json');
-  await writeIterationEvidenceTemplate({
+  const commitPendingBeforeClosureTemplate = await writeIterationEvidenceTemplate({
     runDir: commitPendingBeforeClosureRun.runDir,
     outPath: commitPendingBeforeClosureEvidencePath,
     tracePaths: [tracePath],
@@ -796,6 +799,8 @@ try {
     finalMessageSummary: 'Worker stopped with source and test proof but current-run commit evidence is still pending.',
     now: '2026-05-07T10:21:21.000Z',
   });
+  commitPendingBeforeClosureTemplate.evidence.sourceFilesChanged = true;
+  await writeFile(commitPendingBeforeClosureEvidencePath, `${JSON.stringify(commitPendingBeforeClosureTemplate.evidence, null, 2)}\n`, 'utf8');
   const commitPendingBeforeClosure = await finalizeHarnessIteration({
     runDir: commitPendingBeforeClosureRun.runDir,
     evidencePath: commitPendingBeforeClosureEvidencePath,
@@ -904,7 +909,7 @@ try {
     now: '2026-05-07T10:21:23.000Z',
   });
   const closureCandidateCommitGateEvidencePath = path.join(tmp, 'closure-candidate-commit-gate-evidence.json');
-  await writeIterationEvidenceTemplate({
+  const closureCandidateCommitGateTemplate = await writeIterationEvidenceTemplate({
     runDir: closureCandidateCommitGateRun.runDir,
     outPath: closureCandidateCommitGateEvidencePath,
     tracePaths: [tracePath],
@@ -916,6 +921,8 @@ try {
     finalMessageSummary: 'Worker verified source and tests; remaining work is controller-owned commit-intent and closure gates.',
     now: '2026-05-07T10:21:24.000Z',
   });
+  closureCandidateCommitGateTemplate.evidence.sourceFilesChanged = true;
+  await writeFile(closureCandidateCommitGateEvidencePath, `${JSON.stringify(closureCandidateCommitGateTemplate.evidence, null, 2)}\n`, 'utf8');
   const closureCandidateCommitGate = await finalizeHarnessIteration({
     runDir: closureCandidateCommitGateRun.runDir,
     evidencePath: closureCandidateCommitGateEvidencePath,

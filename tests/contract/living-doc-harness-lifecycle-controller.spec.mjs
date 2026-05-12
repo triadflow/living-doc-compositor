@@ -477,6 +477,7 @@ try {
         unprovenAcceptanceCriteria: ['criterion-side-effect-contracts', 'criterion-closure-gates'],
         acceptanceCriteriaSatisfied: 'pending',
         closureAllowed: false,
+        sourceFilesChanged: true,
         finalMessageSummary: 'Worker stopped with source and test proof but commit evidence is pending.',
         traceMessage: 'Iteration one produced proof and mentioned commit evidence before closure review.',
         reviewerVerdict: reviewerVerdict('resumable', {
@@ -531,6 +532,7 @@ try {
         unprovenAcceptanceCriteria: ['criterion-side-effect-contracts', 'criterion-closure-gates'],
         acceptanceCriteriaSatisfied: 'pending',
         closureAllowed: false,
+        sourceFilesChanged: true,
         filesChanged: ['docs/living-doc-inference-unit-type-system.json'],
         finalMessageSummary: 'Worker verified source and tests but says commit-intent and closure gates are controller-owned.',
         traceMessage: 'Iteration one produced worker-side proof and deferred to controller-owned commit gates.',

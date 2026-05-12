@@ -8,19 +8,20 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T05:58:43.000Z",
+  "updated": "2026-05-12T06:12:40.000Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "worker-safe-proof-refreshed-awaiting-controller-standalone-proof",
+    "currentPhase": "post-commit-pr-review-routing-fix-awaiting-standalone-proof",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Lifecycle controller must run the configured standalone PR-enabled and PR-disabled lifecycle proof routes; this worker cannot run controller-owned lifecycle, reviewer, closure-review, finalizer, dashboard, or proof-route commands.",
+    "nextObjectiveAction": "Rerun the configured standalone PR-enabled lifecycle and confirm the controller advances from satisfied commit-intent evidence to the contract-bound pr-review unit instead of repeating commit-intent; then continue to the disabled-mode standalone proof.",
     "repairState": {
-      "status": "worker-safe-proof-refreshed",
+      "status": "post-commit-pr-review-routing-fix",
       "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T05:58:43.000Z",
+      "updated": "2026-05-12T06:12:40.000Z",
       "basis": [
+        "Controller routing fix completed on 2026-05-12T06:12:40.000Z after live lifecycle ldhl-20260512T055728Z-living-doc-pr-review-policy-configuration exposed issue #271: iteration 2 had commitEvidencePresent=true, sourceFilesChanged=false, prReviewRequired=true, and prReviewGate.status=missing, but post-review selection still chose commit-intent. The selector now chooses commit-intent only from hard evidence that commit evidence is missing; once that precondition is satisfied, a required missing PR-review gate can route to pr-review when the reviewer and hard facts identify the PR gate. Verification passed: node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
         "Worker-safe proof refreshed on 2026-05-12T05:58:43.000Z with no additional source changes required. Passing checks in this worker process: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-closure-review.mjs, node --check scripts/living-doc-harness-inference-unit.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-contract.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned hardening completed on 2026-05-12T05:51:30.000Z: lifecycle evidence building now validates any plan-provided sideEffectEvidence.prReview against the referenced pr-review result and validation artifacts, normalizes the gate state from the actual output contract, and deletes unmatched or unvalidated PR-review side-effect evidence before requiredHardFacts/prReviewGate are computed. Evidence-sequence fixtures that need the satisfied path must now materialize an explicit prReviewOutputContract, and a regression proves fabricated approved PR-review metadata cannot close the lifecycle under required-before-closure. Focused worker-safe verification passed: node --check scripts/living-doc-harness-lifecycle.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. The first parallel Playwright attempt for harness-pr-review-policy-routing failed before executing because the shared web-server port was already in use; the same spec passed when rerun serially. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-owned hardening completed on 2026-05-12T05:42:14.000Z: required PR-review policy gates and closure-review approval now require a paired pr-review result path and validation path before sideEffectEvidence.prReview can satisfy, block, or request the PR gate as contract-bound evidence. This closes the remaining fabricated-evidence shape where an injected approved pr-review output-contract-looking result path without validation could satisfy required PR policy. Focused worker-safe verification passed: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-closure-review.mjs, and node tests/contract/living-doc-harness-inference-unit.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
@@ -374,20 +375,25 @@
         },
         {
           "id": "decision-required-before-closure-is-a-closure-boundary-gate",
-          "name": "Required-before-closure is a closure-boundary gate",
+          "name": "Required-before-closure is a pre-closure gate",
           "status": "ground-truth",
-          "updated": "2026-05-12T03:58:07.000Z",
-          "decision": "required-before-closure makes PR-review mandatory before terminal closure, not during ordinary repairable or resumable objective work.",
+          "updated": "2026-05-12T06:12:40.000Z",
+          "decision": "required-before-closure makes PR-review mandatory before terminal closure; the controller may run the pr-review unit before closure review once earlier side-effect preconditions, especially commit evidence, are satisfied and reviewer evidence identifies the PR gate as missing.",
           "notes": [
-            "Missing PR-review evidence under required-before-closure may select pr-review when the reviewer classifies the lifecycle as closure-candidate or closed.",
-            "The same missing evidence must not select pr-review while the living doc remains repairable, resumable, objectiveReady=false, or acceptance criteria are still incomplete.",
-            "This keeps PR-review as a closure gate and prevents it from interrupting the objective execution loop before the work is ready to close."
+            "Missing PR-review evidence by itself is not enough to select pr-review; the controller first checks whether commit-intent is still required by hard evidence.",
+            "When commit evidence is present and sourceFilesChanged is false, a reviewer verdict such as pr-review-gate-missing can select the contract-bound pr-review unit even if the lifecycle classification is still repairable.",
+            "The pr-review unit can satisfy the policy gate before closure, but terminal closure remains blocked until acceptance criteria, objective readiness, closure review, and proof routes also agree."
           ],
           "ticketIds": [
             {
               "issueNumber": "269",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/269",
               "title": "Correct required-before-closure PR-review routing semantics"
+            },
+            {
+              "issueNumber": "271",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/271",
+              "title": "Harness repeats commit-intent instead of routing to PR review after commit evidence"
             }
           ]
         },
@@ -541,11 +547,11 @@
           "id": "criterion-required-before-closure",
           "name": "Required-before-closure blocks closure until PR evidence exists",
           "status": "implemented-awaiting-standalone-proof",
-          "updated": "2026-05-12T03:58:07.000Z",
+          "updated": "2026-05-12T06:12:40.000Z",
           "objectiveTerm": "When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result.",
-          "criterion": "In required-before-closure mode, a closure-candidate or closed reviewer verdict routes to pr-review before terminal closure when PR evidence is missing, while repairable or resumable verdicts continue objective work or repair instead of selecting pr-review only because PR evidence is absent.",
-          "proofRequired": "Post-review selection and lifecycle graph show pr-review selected at the closure boundary, not during repairable/resumable work; closure-review rejects missing PR evidence.",
-          "acceptanceTest": "A required-before-closure contract test proves repairable + missing PR evidence routes to worker/continuation, not pr-review; a closure-candidate + missing PR evidence test routes to pr-review; the same path with approved or not-required PR output can proceed to closure-review.",
+          "criterion": "In required-before-closure mode, the controller routes missing commit evidence to commit-intent first. After commit evidence is present and the PR gate is still missing, reviewer evidence can select the contract-bound pr-review unit before closure review, while terminal closure remains impossible until the PR gate and all objective proof gates are satisfied.",
+          "proofRequired": "Post-review selection and lifecycle graph show commit-intent selected only when hard facts say commit evidence is missing, then pr-review selected when commit evidence is satisfied and prReviewGate.status is missing; closure-review rejects missing PR evidence.",
+          "acceptanceTest": "A required-before-closure contract test proves repairable + missing PR evidence + satisfied commit evidence routes to pr-review; separate tests prove current-run source changes without commit evidence still route to commit-intent, blocked pr-review routes to continuation, and approved or not-required PR output can proceed to closure-review.",
           "ticketIds": [
             {
               "issueNumber": "257",
@@ -556,6 +562,11 @@
               "issueNumber": "269",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/269",
               "title": "Correct required-before-closure PR-review routing semantics"
+            },
+            {
+              "issueNumber": "271",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/271",
+              "title": "Harness repeats commit-intent instead of routing to PR review after commit evidence"
             }
           ]
         },
@@ -749,7 +760,7 @@
             {
               "title": "Mode Routing",
               "role": "policy-table-as-flow",
-              "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> Boundary{\"closure-candidate or closed?\"}\n  Boundary -->|no| Continue[\"Continue objective work / repair\"]\n  Boundary -->|yes and PR evidence missing| NeedPR[\"Select pr-review before closure\"]\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
+              "text": "flowchart TD\n  Mode[\"prReviewPolicy.mode\"] --> Disabled[\"disabled\"]\n  Mode --> Always[\"required-before-closure\"]\n  Mode --> Changed[\"required-when-source-changes\"]\n  Disabled --> NoPR[\"Never select pr-review\"]\n  Always --> CommitGate{\"commit evidence missing?\"}\n  CommitGate -->|yes| CommitIntent[\"commit-intent contract\"]\n  CommitGate -->|no and PR gate missing| NeedPR[\"Select pr-review\"]\n  CommitIntent --> CommitGate\n  Changed --> Facts{\"source/doc-relevant changes?\"}\n  Facts -->|yes and PR gate missing| NeedPR\n  Facts -->|no| SkipPR[\"Skip pr-review\"]\n  NoPR --> Closure[\"Normal closure-review gates\"]\n  NeedPR --> PRUnit[\"pr-review contract\"]\n  PRUnit --> Closure\n  SkipPR --> Closure"
             }
           ]
         },
@@ -814,9 +825,9 @@
           "id": "verification-contract-suite",
           "name": "Contract suite",
           "status": "complete-awaiting-standalone-proof",
-          "updated": "2026-05-12T04:01:52.000Z",
-          "currentCoverage": "npm run test:contract passed on 2026-05-12T04:01:52.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the closure-boundary semantics where required-before-closure does not invoke pr-review for repairable work but does invoke it for closure-candidate work when PR evidence is missing.",
-          "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure does not invoke PR-review before closure readiness.",
+          "updated": "2026-05-12T06:12:40.000Z",
+          "currentCoverage": "npm run test:contract passed on 2026-05-12T06:12:40.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
+          "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.",
           "automation": [
             "npm run test:contract"
           ],
