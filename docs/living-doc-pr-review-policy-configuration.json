@@ -12,15 +12,16 @@
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "selected-unit-pr-review-output-recovery-hardened",
+    "currentPhase": "same-doc-standalone-proof-route-guard-hardened",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Rerun standalone lifecycle proof after the issue #274 selected-unit handoff artifact recovery fix, then record the PR-enabled and PR-disabled proof artifacts.",
+    "nextObjectiveAction": "Rerun standalone lifecycle proof after the same-doc proof-route recursion guard fix, then record the PR-enabled and PR-disabled proof artifacts.",
     "repairState": {
-      "status": "selected-unit-pr-review-output-recovery-hardened",
+      "status": "same-doc-standalone-proof-route-guard-hardened",
       "nearestHonestStage": "implemented-awaiting-standalone-proof-rerun",
-      "updated": "2026-05-12T11:46:40.000Z",
+      "updated": "2026-05-12T12:08:00.000Z",
       "basis": [
+        "Worker-owned proof-route guard fix completed on 2026-05-12T12:08:00.000Z: controller-owned proof routes now block same-doc lifecycle commands only when the nested command also enables --execute-proof-routes, which is the recursive case. Finite same-doc lifecycle proof routes without nested proof-route execution are allowed, and this doc's standalone lifecycle proof commands were corrected to omit --execute-proof-routes so the controller can produce the required PR-enabled and PR-disabled standalone run evidence without self-recursing.",
         "Worker-owned hardening completed on 2026-05-12T11:46:40.000Z: current-run self-authored inference-unit result recovery now rejects fixture-mode artifacts, matching the existing selected-unit handoff recovery rule. The runner regression covers a PR-review unit whose current initial-unit result artifact is mutated to a fixture-looking not-required verdict while final chat output is prose; the runner rejects that artifact, preserves the required PR gate as blocked with reasonCode=pr-review-non-verdict-output, and does not emit self-authored-inference-unit-result-recovered. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. Standalone lifecycle proof still must rerun under the controller-owned proof routes.",
         "Worker-owned fix for issue #274 completed on 2026-05-12T11:36:36.000Z: the external runner now validates recovery candidates from both the current initial-unit artifact and the previous selected-unit handoff artifact. A selected-unit handoff recovery is accepted only when it is non-fixture, matches the current unitId, carries the registered output schema and verdict, and passes validateInferenceUnitResult. The regression covers a PR-review unit that writes a valid not-required verdict to the previous selected-unit result path while final chat output is prose; the current runner preserves the not-required verdict and records self-authored-inference-unit-result-recovered with source=selected-unit-handoff-artifact. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
         "Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the current initial-unit self-authored recovery path at iteration 3, then exposed issue #274 at iteration 6: PR-review inference wrote a valid not-required verdict to the previous selected-unit handoff artifact (.living-doc-runs/ldh-20260512T094401Z-doc-living-doc-pr-review-policy-configuration/inference-units/iteration-5/05-pr-review/result.json), while the current initial-unit artifact (.living-doc-runs/ldh-20260512T094402Z-doc-living-doc-pr-review-policy-configuration/initial-inference-units/iteration-6/05-pr-review/result.json) was normalized to blocked with reasonCode=pr-review-non-verdict-output. The lifecycle was stopped after issue #274 was created; that exact selected-unit handoff recovery path is now covered by the runner regression, but objective closure remains blocked until standalone lifecycle proof reruns.",
@@ -189,7 +190,7 @@
       {
         "id": "standalone-lifecycle-required-pr",
         "kind": "harness-run",
-        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy required-before-closure",
+        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --pr-review-policy required-before-closure",
         "required": true,
         "timeoutMs": 600000,
         "acceptanceCriteria": [
@@ -200,7 +201,7 @@
       {
         "id": "standalone-lifecycle-disabled-pr",
         "kind": "harness-run",
-        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy disabled",
+        "command": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --pr-review-policy disabled",
         "required": true,
         "timeoutMs": 600000,
         "acceptanceCriteria": [

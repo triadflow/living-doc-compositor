@@ -68,17 +68,22 @@ function lifecycleRunDocPathFromCommand(command) {
   return docToken;
 }
 
+function lifecycleCommandExecutesProofRoutes(command) {
+  return /(?:^|\s)--execute-proof-routes(?:\s|$)/.test(String(command || ''));
+}
+
 function recursiveLifecycleProofRouteGuard(route, { cwd, docPath } = {}) {
   const lifecycleDocPath = lifecycleRunDocPathFromCommand(route?.command);
   if (!lifecycleDocPath || !docPath) return { blocked: false };
   const targetDocPath = path.resolve(cwd, lifecycleDocPath);
   const currentDocPath = path.resolve(cwd, docPath);
   if (targetDocPath !== currentDocPath) return { blocked: false };
+  if (!lifecycleCommandExecutesProofRoutes(route?.command)) return { blocked: false };
   return {
     blocked: true,
     reasonCode: 'recursive-lifecycle-proof-route',
     failureClass: 'recursive-lifecycle-proof-route',
-    message: 'Blocked proof route before execution because it would start the lifecycle harness on the same living doc.',
+    message: 'Blocked proof route before execution because it would recursively execute proof routes for the same living doc.',
     lifecycleDocPath,
     docPath,
   };

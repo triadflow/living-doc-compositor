@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -67,28 +67,33 @@ try {
   assert.equal(blockedRecursiveLifecycle.controllerGuard.blocked, true);
   assert.match(await readFile(path.join(runDir, blockedRecursiveLifecycle.stderrPath), 'utf8'), /Blocked proof route before execution/);
 
-  const blockedAbsoluteRecursiveLifecycle = await runProofRoute({
+  const fakeLifecycleScript = path.join(tmp, 'fake-living-doc-harness-lifecycle.mjs');
+  await writeFile(fakeLifecycleScript, "console.log('finite-lifecycle-proof-ok');\n", 'utf8');
+
+  const allowedFiniteLifecycleProof = await runProofRoute({
     runDir,
     iteration: 1,
     route: {
-      id: 'absolute-recursive-lifecycle',
+      id: 'finite-lifecycle-proof',
       kind: 'command',
-      command: `${process.execPath} ${path.resolve(process.cwd(), 'scripts/living-doc-harness-lifecycle.mjs')} run tests/fixtures/minimal-doc.json --execute`,
+      command: `${process.execPath} ${fakeLifecycleScript} run tests/fixtures/minimal-doc.json --execute`,
     },
     cwd: process.cwd(),
     docPath: 'tests/fixtures/minimal-doc.json',
     now: '2026-05-10T07:23:00.000Z',
   });
 
-  assert.equal(blockedAbsoluteRecursiveLifecycle.status, 'blocked');
-  assert.equal(blockedAbsoluteRecursiveLifecycle.reasonCode, 'recursive-lifecycle-proof-route');
+  assert.equal(allowedFiniteLifecycleProof.status, 'passed');
+  assert.equal(allowedFiniteLifecycleProof.reasonCode, null);
+  assert.equal(allowedFiniteLifecycleProof.controllerGuard, null);
+  assert.equal(await readFile(path.join(runDir, allowedFiniteLifecycleProof.stdoutPath), 'utf8'), 'finite-lifecycle-proof-ok\n');
 
   const events = await readFile(path.join(runDir, 'events.jsonl'), 'utf8');
   assert.match(events, /proof-route-result-written/);
   assert.match(events, /fixture-command/);
   assert.match(events, /fixture-failure/);
   assert.match(events, /recursive-lifecycle/);
-  assert.match(events, /absolute-recursive-lifecycle/);
+  assert.match(events, /finite-lifecycle-proof/);
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }
