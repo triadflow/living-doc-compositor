@@ -215,6 +215,15 @@ export async function collectRunEvidence(runDir) {
   const uniqueTraceRefs = [...new Map(traceRefs.filter(Boolean).map((ref) => [ref.traceHash || ref.summaryPath, ref])).values()];
   const gates = proofGates({ contract, state, terminal: latestTerminal, handover: latestHandover, traceRefs: uniqueTraceRefs, skillInvocations, blockers });
   const recommendation = deriveRecommendation({ state, terminal: latestTerminal, handover: latestHandover });
+  const prReviewGate = latestProof?.requiredHardFacts?.prReviewGate || latestProof?.prReviewGate || {
+    required: latestProof?.prReviewRequired === true || latestProof?.requiredHardFacts?.prReviewRequired === true,
+    evidencePresent: latestProof?.requiredHardFacts?.prReviewEvidencePresent === true,
+    status: (contract.runConfig?.prReviewPolicy || latestProof?.prReviewPolicy)?.mode === 'disabled'
+      ? 'disabled'
+      : (latestProof?.prReviewRequired === true || latestProof?.requiredHardFacts?.prReviewRequired === true)
+        ? latestProof?.requiredHardFacts?.prReviewEvidencePresent === true ? 'satisfied' : 'missing'
+        : 'not-required',
+  };
 
   return {
     schema: 'living-doc-harness-evidence-facts/v1',
@@ -244,6 +253,7 @@ export async function collectRunEvidence(runDir) {
     prReviewPolicy: contract.runConfig?.prReviewPolicy || latestProof?.prReviewPolicy || null,
     prReviewRequired: latestProof?.prReviewRequired === true || latestProof?.requiredHardFacts?.prReviewRequired === true,
     prReviewEvidencePresent: latestProof?.requiredHardFacts?.prReviewEvidencePresent === true,
+    prReviewGate,
     recommendation,
   };
 }
@@ -271,13 +281,14 @@ export async function writeEvidenceBundle({
     proofGates: facts.proofGates,
     prReviewPolicy: facts.prReviewPolicy,
     prReviewGate: {
-      required: facts.prReviewRequired === true,
-      evidencePresent: facts.prReviewEvidencePresent === true,
-      state: facts.prReviewPolicy?.mode === 'disabled'
+      ...facts.prReviewGate,
+      required: facts.prReviewGate?.required === true || facts.prReviewRequired === true,
+      evidencePresent: facts.prReviewGate?.evidencePresent === true || facts.prReviewEvidencePresent === true,
+      state: facts.prReviewGate?.status || facts.prReviewGate?.state || (facts.prReviewPolicy?.mode === 'disabled'
         ? 'disabled'
         : facts.prReviewRequired === true
-          ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'blocking'
-          : 'not-required',
+          ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'missing'
+          : 'not-required'),
     },
     reviewerVerdict: facts.latestReviewerVerdict ? {
       path: facts.latestReviewerVerdictPath,

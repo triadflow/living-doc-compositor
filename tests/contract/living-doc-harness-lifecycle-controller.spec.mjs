@@ -279,6 +279,48 @@ try {
   assert.deepEqual(commitEvidence.commit.changedFiles, ['docs/example.json']);
   assert.deepEqual(commitEvidence.commit.committedFiles, ['docs/example.json', 'docs/example.html']);
 
+  const prReviewEvidenceRunDir = path.join(tmp, 'pr-review-evidence-ingest-run');
+  await mkdir(path.join(prReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review'), { recursive: true });
+  await writeFile(path.join(prReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'result.json'), `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'pr-review',
+    role: 'pr-review',
+    outputContract: {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status: 'blocked',
+      basis: ['PR-review could not prove an approved review result from the available artifacts.'],
+      sideEffect: {
+        type: 'pr-review',
+        executed: false,
+        reasonCode: 'pr-review-policy-gate-missing',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(prReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'validation.json'), `${JSON.stringify({
+    ok: true,
+    schema: 'living-doc-harness-inference-unit-validation/v1',
+  }, null, 2)}\n`, 'utf8');
+  const prReviewEvidence = await sideEffectEvidenceFromRun({
+    runDir: prReviewEvidenceRunDir,
+    run: {
+      contract: {
+        artifacts: {
+          initialInferenceUnit: {
+            unitId: 'pr-review',
+            result: 'initial-inference-units/iteration-3/05-pr-review/result.json',
+            validation: 'initial-inference-units/iteration-3/05-pr-review/validation.json',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(prReviewEvidence.prReview.status, 'blocked');
+  assert.equal(prReviewEvidence.prReview.blocked, true);
+  assert.equal(prReviewEvidence.prReview.source, 'pr-review-output-contract');
+  assert.equal(prReviewEvidence.prReview.resultPath, 'initial-inference-units/iteration-3/05-pr-review/result.json');
+  assert.equal(prReviewEvidence.prReview.validationPath, 'initial-inference-units/iteration-3/05-pr-review/validation.json');
+  assert.equal(prReviewEvidence.prReview.reasonCode, 'pr-review-policy-gate-missing');
+
   const noisyGitFixture = path.join(tmp, 'noisy-git-fixture');
   await mkdir(path.join(noisyGitFixture, 'scripts'), { recursive: true });
   await mkdir(path.join(noisyGitFixture, 'docs'), { recursive: true });

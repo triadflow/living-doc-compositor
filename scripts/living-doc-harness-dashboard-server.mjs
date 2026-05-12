@@ -1181,13 +1181,14 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         terminalKind: iterationRecord.terminalKind || null,
         prReviewPolicy: facts.prReviewPolicy || contract.runConfig?.prReviewPolicy || lifecycle.runConfig?.prReviewPolicy || null,
         prReviewGate: {
-          required: facts.prReviewRequired === true,
-          evidencePresent: facts.prReviewEvidencePresent === true,
-          state: facts.prReviewPolicy?.mode === 'disabled'
+          ...(facts.prReviewGate || {}),
+          required: facts.prReviewGate?.required === true || facts.prReviewRequired === true,
+          evidencePresent: facts.prReviewGate?.evidencePresent === true || facts.prReviewEvidencePresent === true,
+          state: facts.prReviewGate?.status || facts.prReviewGate?.state || (facts.prReviewPolicy?.mode === 'disabled'
             ? 'disabled'
             : facts.prReviewRequired === true
-              ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'blocking'
-              : 'not-required',
+              ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'missing'
+              : 'not-required'),
         },
         toolProfile: summarizeToolProfile(contract.process?.toolProfile),
       },

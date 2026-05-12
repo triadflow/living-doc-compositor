@@ -226,7 +226,37 @@ function commitScopeFromWorktree({ before = null, after = null, explicitAllowedF
   };
 }
 
+function prReviewGateFromEvidence({ sideEffectEvidence, prReviewRequired, prReviewPolicy }) {
+  const prReview = sideEffectEvidence?.prReview || null;
+  if (prReviewRequired !== true) {
+    return {
+      required: false,
+      status: prReviewPolicy?.mode === 'disabled' ? 'disabled' : 'not-required',
+      evidencePresent: false,
+    };
+  }
+  if (prReview?.source === 'pr-review-output-contract' && prReview.resultPath) {
+    const satisfied = prReview.approved === true || prReview.notRequired === true;
+    const blocked = prReview.blocked === true || ['blocked', 'failed'].includes(prReview.status);
+    return {
+      required: true,
+      status: satisfied ? 'satisfied' : blocked ? 'blocked' : 'requested',
+      evidencePresent: satisfied,
+      resultPath: prReview.resultPath,
+      validationPath: prReview.validationPath || null,
+      reasonCode: prReview.reasonCode || null,
+      basis: arr(prReview.basis),
+    };
+  }
+  return {
+    required: true,
+    status: 'missing',
+    evidencePresent: false,
+  };
+}
+
 function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence, commitScope = null, prReviewPolicy, prReviewRequired }) {
+  const prReviewGate = prReviewGateFromEvidence({ sideEffectEvidence, prReviewRequired, prReviewPolicy });
   return {
     schema: 'living-doc-harness-required-hard-facts/v1',
     sourceFilesChanged,
@@ -244,11 +274,8 @@ function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesCh
     commitEvidencePresent: Boolean(sideEffectEvidence?.commit?.sha || sideEffectEvidence?.commit?.exemption?.approved === true || sideEffectEvidence?.commit?.notRequired === true),
     prReviewPolicy,
     prReviewRequired: prReviewRequired === true,
-    prReviewEvidencePresent: Boolean(
-      sideEffectEvidence?.prReview?.source === 'pr-review-output-contract'
-      && sideEffectEvidence?.prReview?.resultPath
-      && (sideEffectEvidence?.prReview?.approved === true || sideEffectEvidence?.prReview?.notRequired === true)
-    ),
+    prReviewEvidencePresent: prReviewGate.evidencePresent === true,
+    prReviewGate,
   };
 }
 
@@ -291,11 +318,15 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
     const prResult = await readJson(path.resolve(runDir, prReviewResultRef), null);
     const output = prResult?.outputContract || prResult;
     const sideEffect = output?.sideEffect || {};
-    if (output?.schema === 'living-doc-harness-pr-review-result/v1' && ['approved', 'not-required'].includes(output.status)) {
+    if (output?.schema === 'living-doc-harness-pr-review-result/v1' && ['approved', 'not-required', 'blocked', 'failed'].includes(output.status)) {
       evidence.prReview = {
         status: output.status,
         approved: output.status === 'approved',
         notRequired: output.status === 'not-required',
+        blocked: output.status === 'blocked',
+        failed: output.status === 'failed',
+        reasonCode: sideEffect.reasonCode || output.reasonCode || null,
+        basis: arr(output.basis),
         url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || null,
         source: 'pr-review-output-contract',
         resultPath: path.relative(runDir, path.resolve(runDir, prReviewResultRef)),
@@ -632,10 +663,7 @@ async function buildEvidenceFromPlan({
       },
       sideEffectState: sideEffectEvidence || null,
       prReviewPolicy: normalizedPrReviewPolicy,
-      prReviewGate: {
-        required: prReviewRequired,
-        evidencePresent: requiredHardFacts.prReviewEvidencePresent,
-      },
+      prReviewGate: requiredHardFacts.prReviewGate,
       commitScope,
       controllerState,
     },
@@ -691,6 +719,7 @@ async function buildEvidenceFromPlan({
     sourceFilesChanged,
     prReviewPolicy: normalizedPrReviewPolicy,
     prReviewRequired,
+    prReviewGate: requiredHardFacts.prReviewGate,
     commitScope,
     ...(enforceControllerWorktreeEvidence && controllerState.changedDuringLifecycle ? {
       controllerSourceRestartRequired: {

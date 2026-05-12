@@ -85,10 +85,43 @@ function proofGatesAfterBundle(evidence) {
   };
 }
 
+function prReviewGateFromIterationEvidence(evidence, prReviewPolicy = null) {
+  const sideEffects = evidence?.sideEffectEvidence || {};
+  const normalizedPolicy = normalizePrReviewPolicy(prReviewPolicy || evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+  const required = prReviewRequiredForEvidence({ policy: normalizedPolicy, evidence });
+  const prReview = sideEffects.prReview || {};
+  if (!required) {
+    return {
+      required: false,
+      status: normalizedPolicy.mode === 'disabled' ? 'disabled' : 'not-required',
+      evidencePresent: false,
+    };
+  }
+  if (prReview.source === 'pr-review-output-contract' && prReview.resultPath) {
+    const satisfied = prReview.approved === true || prReview.notRequired === true;
+    const blocked = prReview.blocked === true || ['blocked', 'failed'].includes(prReview.status);
+    return {
+      required: true,
+      status: satisfied ? 'satisfied' : blocked ? 'blocked' : 'requested',
+      evidencePresent: satisfied,
+      resultPath: prReview.resultPath,
+      validationPath: prReview.validationPath || null,
+      reasonCode: prReview.reasonCode || null,
+      basis: arr(prReview.basis),
+    };
+  }
+  return {
+    required: true,
+    status: 'missing',
+    evidencePresent: false,
+  };
+}
+
 function requiredHardFactsFromIterationEvidence(evidence) {
   const sideEffects = evidence?.sideEffectEvidence || {};
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
+  const prReviewGate = prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
   return {
     schema: 'living-doc-harness-required-hard-facts/v1',
     sourceFilesChanged: evidence?.sourceFilesChanged === true,
@@ -106,11 +139,8 @@ function requiredHardFactsFromIterationEvidence(evidence) {
     commitEvidencePresent: Boolean(sideEffects.commit?.sha || sideEffects.commit?.exemption?.approved === true || sideEffects.commit?.notRequired === true),
     prReviewPolicy,
     prReviewRequired,
-    prReviewEvidencePresent: Boolean(
-      sideEffects.prReview?.source === 'pr-review-output-contract'
-      && sideEffects.prReview?.resultPath
-      && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true)
-    ),
+    prReviewEvidencePresent: prReviewGate.evidencePresent === true,
+    prReviewGate,
   };
 }
 
@@ -276,11 +306,9 @@ function evidenceRequiresCommitIntent(evidence) {
 }
 
 function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
-  const sideEffects = evidence?.sideEffectEvidence || {};
-  const prReviewEvidenceFromUnit = sideEffects.prReview?.source === 'pr-review-output-contract'
-    && sideEffects.prReview?.resultPath;
-  if (!prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence })) return true;
-  return Boolean(prReviewEvidenceFromUnit && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true));
+  const gate = prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
+  if (gate.required !== true) return true;
+  return gate.status === 'satisfied';
 }
 
 function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
@@ -292,7 +320,9 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   const commitRequiredByEvidence = evidenceRequiresCommitIntent(evidence);
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequiredByPolicy = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
+  const prReviewGate = evidence?.prReviewGate || evidence?.requiredHardFacts?.prReviewGate || prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
   const prReviewSatisfied = evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy);
+  const prReviewBlocked = prReviewGate.required === true && prReviewGate.status === 'blocked';
   const prReviewGateMentioned = reasonCode.includes('pr-review')
     || /pr[- ]?review[^\n.]{0,120}(gate|missing|required|policy|evidence)/.test(text)
     || /(gate|missing|required|policy|evidence)[^\n.]{0,120}pr[- ]?review/.test(text);
@@ -307,6 +337,8 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
     reviewer?.artifact?.inferenceUnitResultPath || null,
     reviewer?.artifact?.inferenceUnitValidationPath || null,
+    prReviewGate.resultPath || null,
+    prReviewGate.validationPath || null,
   ].filter(Boolean);
 
   if (['closure-candidate', 'resumable'].includes(classification)) {
@@ -343,6 +375,27 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   if (
     prReviewRequiredByPolicy
     && !prReviewSatisfied
+    && prReviewBlocked
+    && prReviewGateMentioned
+  ) {
+    return {
+      unitId: 'continuation-inference',
+      role: 'continuation',
+      reasonCode: prReviewGate.reasonCode || reasonCode || 'pr-review-gate-blocked',
+      prReviewPolicy,
+      prReviewGate,
+      reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+      livingDocPath: evidence?.livingDocPath || null,
+      requiredInputPaths,
+      expectedOutputSchema: 'living-doc-continuation-result/v1',
+      status: 'selected',
+    };
+  }
+
+  if (
+    prReviewRequiredByPolicy
+    && !prReviewSatisfied
+    && !prReviewBlocked
     && (
       ['closure-candidate', 'resumable'].includes(classification)
       || classification === 'repairable' && prReviewGateMentioned
@@ -452,12 +505,9 @@ function buildPostReviewSelection({
   if (classification === 'closed') {
     const sideEffects = evidence?.sideEffectEvidence || {};
     const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
-    const prRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
-    const prReviewEvidenceFromUnit = sideEffects.prReview?.source === 'pr-review-output-contract'
-      && sideEffects.prReview?.resultPath;
-    const prSatisfied = prRequired
-      ? Boolean(prReviewEvidenceFromUnit && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true))
-      : true;
+    const prReviewGate = prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
+    const prRequired = prReviewGate.required === true;
+    const prSatisfied = evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy);
 
     if (evidenceRequiresCommitIntent(evidence)) {
       selected.nextUnit = {
@@ -471,6 +521,26 @@ function buildPostReviewSelection({
       return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
     }
     if (!prSatisfied) {
+      if (prReviewGate.status === 'blocked') {
+        selected.nextUnit = {
+          unitId: 'continuation-inference',
+          role: 'continuation',
+          reasonCode: prReviewGate.reasonCode || 'pr-review-gate-blocked',
+          prReviewPolicy,
+          prReviewGate,
+          reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+          livingDocPath: evidence?.livingDocPath || null,
+          requiredInputPaths: [
+            evidencePath ? path.relative(runDir, evidencePath) : null,
+            reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+            runRef(runDir, prReviewGate.resultPath),
+            runRef(runDir, prReviewGate.validationPath),
+          ].filter(Boolean),
+          expectedOutputSchema: 'living-doc-continuation-result/v1',
+          status: 'selected',
+        };
+        return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
+      }
       selected.nextUnit = {
         unitId: 'pr-review',
         role: 'pr-review',

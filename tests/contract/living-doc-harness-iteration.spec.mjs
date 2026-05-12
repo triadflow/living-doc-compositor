@@ -311,6 +311,72 @@ try {
   assert.notEqual(repairablePrGateSelection.nextUnit.unitId, 'worker');
   assert.match(repairablePrGateSelection.nextUnit.resultPath, /inference-units\/iteration-1\/05-pr-review\/result\.json$/);
 
+  const blockedPrGateRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'blocked-pr-gate-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:08.900Z',
+  });
+  const blockedPrGateEvidencePath = path.join(tmp, 'blocked-pr-gate-evidence.json');
+  const blockedPrGateTemplate = await writeIterationEvidenceTemplate({
+    runDir: blockedPrGateRun.runDir,
+    outPath: blockedPrGateEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'repairable',
+    acceptanceCriteriaSatisfied: 'fail',
+    closureAllowed: false,
+    now: '2026-05-07T10:21:08.950Z',
+  });
+  blockedPrGateTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'required-before-closure',
+  };
+  blockedPrGateTemplate.evidence.sideEffectEvidence = {
+    commit: { sha: 'abc1234', required: true },
+    prReview: {
+      status: 'blocked',
+      blocked: true,
+      source: 'pr-review-output-contract',
+      resultPath: 'inference-units/iteration-1/05-pr-review/result.json',
+      validationPath: 'inference-units/iteration-1/05-pr-review/validation.json',
+      reasonCode: 'pr-review-policy-gate-missing',
+      basis: ['PR-review could not produce an approved gate result from the available evidence.'],
+    },
+  };
+  await writeFile(blockedPrGateEvidencePath, `${JSON.stringify(blockedPrGateTemplate.evidence, null, 2)}\n`, 'utf8');
+  const blockedPrGate = await finalizeHarnessIteration({
+    runDir: blockedPrGateRun.runDir,
+    evidencePath: blockedPrGateEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:09.000Z',
+    evidenceDir: path.join(tmp, 'blocked-pr-gate-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'blocked-pr-gate-dashboard.html'),
+    reviewerVerdict: {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'repairable',
+        reasonCode: 'pr-review-policy-gate-missing',
+        confidence: 'high',
+        closureAllowed: false,
+        basis: ['Controller hard facts require PR review before closure, but the PR-review unit returned blocked.'],
+      },
+      nextIteration: {
+        allowed: true,
+        mode: 'continuation',
+        instruction: 'Resolve the blocked pr-review gate and continue controller proof.',
+      },
+    },
+  });
+  const blockedPrGateSelection = JSON.parse(await readFile(blockedPrGate.postReviewSelectionPath, 'utf8'));
+  assert.equal(blockedPrGateSelection.nextUnit.unitId, 'continuation-inference');
+  assert.notEqual(blockedPrGateSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(blockedPrGateSelection.nextUnit.prReviewGate.status, 'blocked');
+  assert.equal(blockedPrGateSelection.nextUnit.prReviewGate.evidencePresent, false);
+  assert.ok(blockedPrGateSelection.nextUnit.requiredInputPaths.includes('inference-units/iteration-1/05-pr-review/result.json'));
+
   const prUrlOnlyRun = await createHarnessRun({
     docPath,
     runsDir: path.join(tmp, 'pr-url-only-runs'),
