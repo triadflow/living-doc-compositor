@@ -544,6 +544,37 @@ function preparedOutputContract({ unitTypeId, runId, docPath, inputContract, sta
   };
 }
 
+function normalizePrReviewExternalOutputContract({ output, exitCode, paths, traceRefs }) {
+  const allowedStatuses = getInferenceUnitType('pr-review').outputVerdicts;
+  const base = {
+    ...(output && typeof output === 'object' ? output : {}),
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+  if (allowedStatuses.includes(base.status)) return base;
+  const previousReasonCode = base?.sideEffect?.reasonCode || base.reasonCode || null;
+  const reasonCode = previousReasonCode === 'unit-not-finalized'
+    ? 'pr-review-non-verdict-output'
+    : previousReasonCode || 'pr-review-non-verdict-output';
+  return {
+    ...base,
+    schema: 'living-doc-harness-pr-review-result/v1',
+    status: 'blocked',
+    reasonCode,
+    basis: arr(base.basis).length
+      ? base.basis
+      : ['PR-review headless process exited without emitting an approved, not-required, blocked, or failed verdict.'],
+    approvedActions: arr(base.approvedActions),
+    sideEffect: {
+      ...(base.sideEffect && typeof base.sideEffect === 'object' ? base.sideEffect : {}),
+      type: base.sideEffect?.type || 'github-pr-review',
+      executed: base.sideEffect?.executed === true,
+      reasonCode,
+    },
+  };
+}
+
 async function gitHead(cwd) {
   try {
     const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd });
@@ -667,13 +698,20 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       ? rawResult.outputContract
       : rawResult;
     if (output?.schema === 'living-doc-harness-pr-review-result/v1') {
-      return {
-        ...output,
-        exitCode,
-        ...paths,
-        nativeTraceRefs: traceRefs,
-      };
+      return normalizePrReviewExternalOutputContract({ output, exitCode, paths, traceRefs });
     }
+    return normalizePrReviewExternalOutputContract({
+      output: preparedOutputContract({
+        unitTypeId,
+        runId,
+        docPath,
+        inputContract,
+        status,
+      }),
+      exitCode,
+      paths,
+      traceRefs,
+    });
   }
   return {
     ...preparedOutputContract({
@@ -1118,7 +1156,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       lastMessagePath,
     },
     mode: 'external-headless-codex',
-    status: initialUnit.unitId === 'commit-intent' ? finalOutputContract.status : finalContract.status,
+    status: ['commit-intent', 'pr-review'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
     basis: [
       `${initialUnit.unitId} headless Codex process exited with code ${exitCode}.`,
       'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',

@@ -8,19 +8,20 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T06:52:30.000Z",
+  "updated": "2026-05-12T06:55:00.000Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "worker-safe-verification-refreshed-awaiting-controller-standalone-proof",
+    "currentPhase": "non-verdict-pr-review-contract-guard-implemented-awaiting-standalone-proof",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Rerun the configured standalone PR-enabled lifecycle and confirm the controller advances from satisfied commit-intent evidence to the contract-bound pr-review unit instead of repeating commit-intent; then continue to the disabled-mode standalone proof.",
+    "nextObjectiveAction": "Rerun the configured standalone PR-enabled lifecycle and confirm the controller treats non-verdict pr-review output as blocked gate evidence instead of repeating pr-review; then continue to the disabled-mode standalone proof.",
     "repairState": {
-      "status": "worker-safe-verification-refreshed",
+      "status": "non-verdict-pr-review-contract-guard-implemented",
       "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T06:52:30.000Z",
+      "updated": "2026-05-12T06:55:00.000Z",
       "basis": [
+        "Worker-owned fix for issue #272 completed on 2026-05-12T06:55:00.000Z: final external pr-review snapshots and generic contract-bound pr-review units now require an approved, not-required, blocked, or failed verdict; historical/non-verdict pr-review output such as status=finished is preserved as blocked pr-review gate evidence with reasonCode=pr-review-non-verdict-output instead of disappearing into a missing gate. Focused verification passed: node --check scripts/living-doc-harness-inference-unit.mjs, node --check scripts/living-doc-harness-runner.mjs, node --check scripts/living-doc-harness-lifecycle.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. Standalone lifecycle proof still must rerun.",
         "Worker-safe verification refreshed on 2026-05-12T06:52:30.000Z with no additional source-code gap found. Passing checks in this worker process: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-inference-unit-types.mjs, node --check scripts/living-doc-harness-closure-review.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, and node tests/contract/living-doc-harness-contract.spec.mjs. The worker confirmed the remaining unproven criterion is criterion-standalone-proof-runs, which requires controller-owned standalone lifecycle commands that this worker is explicitly forbidden to run.",
         "Controller routing fix completed on 2026-05-12T06:12:40.000Z after live lifecycle ldhl-20260512T055728Z-living-doc-pr-review-policy-configuration exposed issue #271: iteration 2 had commitEvidencePresent=true, sourceFilesChanged=false, prReviewRequired=true, and prReviewGate.status=missing, but post-review selection still chose commit-intent. The selector now chooses commit-intent only from hard evidence that commit evidence is missing; once that precondition is satisfied, a required missing PR-review gate can route to pr-review when the reviewer and hard facts identify the PR gate. Verification passed: node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
         "Worker-safe proof refreshed on 2026-05-12T05:58:43.000Z with no additional source changes required. Passing checks in this worker process: node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node --check scripts/living-doc-harness-closure-review.mjs, node --check scripts/living-doc-harness-inference-unit.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-contract.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
@@ -677,11 +678,11 @@
           "id": "criterion-gate-outcome-state-model",
           "name": "Gate outcome state prevents repeated gate loops",
           "status": "implemented-awaiting-standalone-proof",
-          "updated": "2026-05-12T03:24:52.000Z",
+          "updated": "2026-05-12T06:55:00.000Z",
           "objectiveTerm": "The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.",
-          "criterion": "The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state.",
-          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence.",
-          "acceptanceTest": "A lifecycle with a blocked pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; dashboard graph shows the blocked gate and result artifact.",
+          "criterion": "The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state. A pr-review artifact with the right schema but a non-verdict status, such as finished, is blocked gate evidence rather than missing PR-review evidence.",
+          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output.",
+          "acceptanceTest": "A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; dashboard graph shows the blocked gate and result artifact.",
           "ticketIds": [
             {
               "issueNumber": "267",
@@ -692,6 +693,11 @@
               "issueNumber": "266",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
               "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            },
+            {
+              "issueNumber": "272",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/272",
+              "title": "Process defect: non-verdict PR-review output is treated as missing gate and repeats PR-review"
             }
           ]
         }
@@ -826,8 +832,8 @@
           "id": "verification-contract-suite",
           "name": "Contract suite",
           "status": "complete-awaiting-standalone-proof",
-          "updated": "2026-05-12T06:12:40.000Z",
-          "currentCoverage": "npm run test:contract passed on 2026-05-12T06:12:40.000Z. Focused contract tests now cover policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
+          "updated": "2026-05-12T06:55:00.000Z",
+          "currentCoverage": "Focused checks passed on 2026-05-12T06:55:00.000Z for the issue #272 non-verdict PR-review guard: node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked and non-verdict pr-review output routes to continuation-inference instead of another pr-review, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
           "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.",
           "automation": [
             "npm run test:contract"
@@ -878,16 +884,17 @@
           "id": "verification-gate-outcome-loop-guard",
           "name": "Gate outcome loop guard",
           "status": "implemented-awaiting-standalone-proof",
-          "updated": "2026-05-12T03:24:52.000Z",
-          "currentCoverage": "Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and post-review selection routes a blocked pr-review gate to continuation-inference instead of repeating pr-review. Focused contract tests passed for iteration routing, lifecycle controller ingestion, and dashboard artifact graph exposure.",
-          "nextStep": "Rerun the PR-enabled standalone lifecycle from this living doc and confirm that the blocked pr-review case no longer launches repeated pr-review units for the same gate state.",
+          "updated": "2026-05-12T06:55:00.000Z",
+          "currentCoverage": "Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Focused contract tests passed for final external pr-review validation, lifecycle controller ingestion, iteration no-repeat routing, and dashboard routing coverage.",
+          "nextStep": "Rerun the PR-enabled standalone lifecycle from this living doc and confirm that the blocked or non-verdict pr-review case no longer launches repeated pr-review units for the same gate state.",
           "automation": [
             "node tests/contract/living-doc-harness-iteration.spec.mjs",
             "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
-            "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs tests/e2e/harness-inference-unit-routing.spec.mjs"
+            "node tests/contract/living-doc-harness-inference-unit.spec.mjs",
+            "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs"
           ],
           "gaps": [
-            "Standalone lifecycle proof has not yet rerun after the gate outcome implementation.",
+            "Standalone lifecycle proof has not yet rerun after the non-verdict pr-review guard implementation.",
             "Dashboard confirmation from a live controller-owned run still needs to be recorded."
           ],
           "ticketIds": [
@@ -900,6 +907,11 @@
               "issueNumber": "266",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
               "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            },
+            {
+              "issueNumber": "272",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/272",
+              "title": "Process defect: non-verdict PR-review output is treated as missing gate and repeats PR-review"
             }
           ]
         }

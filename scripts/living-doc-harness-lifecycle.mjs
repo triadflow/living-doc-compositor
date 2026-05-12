@@ -73,28 +73,50 @@ async function validationArtifactOk(runDir, validationRef) {
   return validation?.ok === true;
 }
 
+function prReviewEvidenceFromOutput({ runDir, output, resultPath, validationPath, fallbackReasonCode = null }) {
+  const sideEffect = output?.sideEffect || {};
+  if (output?.schema !== 'living-doc-harness-pr-review-result/v1') return null;
+  const allowedStatuses = ['approved', 'not-required', 'blocked', 'failed'];
+  const statusAllowed = allowedStatuses.includes(output.status);
+  const status = statusAllowed ? output.status : 'blocked';
+  const reasonCode = statusAllowed
+    ? sideEffect.reasonCode || output.reasonCode || fallbackReasonCode || null
+    : 'pr-review-non-verdict-output';
+  return {
+    status,
+    approved: status === 'approved',
+    notRequired: status === 'not-required',
+    blocked: status === 'blocked',
+    failed: status === 'failed',
+    invalidOriginalStatus: statusAllowed ? null : output.status || null,
+    reasonCode,
+    basis: arr(output.basis).length
+      ? arr(output.basis)
+      : statusAllowed
+        ? []
+        : ['PR-review artifact used the right schema but did not emit an approved, not-required, blocked, or failed verdict.'],
+    url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || null,
+    source: 'pr-review-output-contract',
+    resultPath: path.relative(runDir, path.resolve(runDir, resultPath)),
+    validationPath: validationPath ? path.relative(runDir, path.resolve(runDir, validationPath)) : null,
+  };
+}
+
 async function prReviewEvidenceFromContractArtifacts({ runDir, prReview }) {
   if (prReview?.source !== 'pr-review-output-contract' || !prReview.resultPath || !prReview.validationPath) return null;
   const validationOk = await validationArtifactOk(runDir, prReview.validationPath);
   if (!validationOk) return null;
   const result = await readJson(path.resolve(runDir, prReview.resultPath), null);
   const output = result?.outputContract || result;
-  const sideEffect = output?.sideEffect || {};
-  if (output?.schema !== 'living-doc-harness-pr-review-result/v1') return null;
-  if (!['approved', 'not-required', 'blocked', 'failed'].includes(output.status)) return null;
-  return {
-    status: output.status,
-    approved: output.status === 'approved',
-    notRequired: output.status === 'not-required',
-    blocked: output.status === 'blocked',
-    failed: output.status === 'failed',
-    reasonCode: sideEffect.reasonCode || output.reasonCode || prReview.reasonCode || null,
-    basis: arr(output.basis),
-    url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || prReview.url || null,
-    source: 'pr-review-output-contract',
-    resultPath: path.relative(runDir, path.resolve(runDir, prReview.resultPath)),
-    validationPath: path.relative(runDir, path.resolve(runDir, prReview.validationPath)),
-  };
+  const evidence = prReviewEvidenceFromOutput({
+    runDir,
+    output,
+    resultPath: prReview.resultPath,
+    validationPath: prReview.validationPath,
+    fallbackReasonCode: prReview.reasonCode,
+  });
+  if (evidence && !evidence.url && prReview.url) evidence.url = prReview.url;
+  return evidence;
 }
 
 async function writePlanPrReviewFixture({ run, runDir, plan }) {
@@ -505,22 +527,15 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
   if (prReviewResultRef) {
     const prResult = await readJson(path.resolve(runDir, prReviewResultRef), null);
     const output = prResult?.outputContract || prResult;
-    const sideEffect = output?.sideEffect || {};
     const validationOk = await validationArtifactOk(runDir, prReviewValidationRef);
-    if (validationOk && output?.schema === 'living-doc-harness-pr-review-result/v1' && ['approved', 'not-required', 'blocked', 'failed'].includes(output.status)) {
-      evidence.prReview = {
-        status: output.status,
-        approved: output.status === 'approved',
-        notRequired: output.status === 'not-required',
-        blocked: output.status === 'blocked',
-        failed: output.status === 'failed',
-        reasonCode: sideEffect.reasonCode || output.reasonCode || null,
-        basis: arr(output.basis),
-        url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || null,
-        source: 'pr-review-output-contract',
-        resultPath: path.relative(runDir, path.resolve(runDir, prReviewResultRef)),
-        validationPath: prReviewValidationRef ? path.relative(runDir, path.resolve(runDir, prReviewValidationRef)) : null,
-      };
+    if (validationOk) {
+      const prEvidence = prReviewEvidenceFromOutput({
+        runDir,
+        output,
+        resultPath: prReviewResultRef,
+        validationPath: prReviewValidationRef,
+      });
+      if (prEvidence) evidence.prReview = prEvidence;
     }
   }
   return Object.keys(evidence).length ? evidence : null;

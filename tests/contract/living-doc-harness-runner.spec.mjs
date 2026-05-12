@@ -139,6 +139,133 @@ exit 0
   assert.match(traceDiscovery.codexHomeHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(traceDiscovery).includes(fakeCodexHome), false);
 
+  const previousPrRunDir = path.join(tmp, 'previous-pr-review-run');
+  await mkdir(path.join(previousPrRunDir, 'artifacts'), { recursive: true });
+  await mkdir(path.join(previousPrRunDir, 'reviewer-inference'), { recursive: true });
+  await mkdir(path.join(previousPrRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(previousPrRunDir, 'reviewer-inference', 'iteration-1-verdict.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'repairable',
+      reasonCode: 'pr-review-policy-gate-missing',
+      closureAllowed: false,
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(previousPrRunDir, 'artifacts', 'iteration-1-controller-evidence-snapshot.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    hardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: false,
+      commitEvidencePresent: true,
+      prReviewRequired: true,
+      prReviewGate: { required: true, status: 'missing', evidencePresent: false },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(previousPrRunDir, 'artifacts', 'iteration-1-evidence.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-iteration-evidence/v1',
+    controllerEvidenceSnapshotPath: 'artifacts/iteration-1-controller-evidence-snapshot.json',
+    requiredHardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: false,
+      commitEvidencePresent: true,
+      prReviewRequired: true,
+      prReviewGate: { required: true, status: 'missing', evidencePresent: false },
+    },
+    prReviewPolicy: {
+      schema: 'living-doc-harness-pr-review-policy/v1',
+      mode: 'required-before-closure',
+    },
+    sideEffectEvidence: {
+      commit: {
+        required: true,
+        sha: '1234567890abcdef1234567890abcdef12345678',
+        source: 'commit-intent-output-contract',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  const previousPrOutputInputPath = path.join(previousPrRunDir, 'output-input', 'iteration-1.json');
+  await writeFile(previousPrOutputInputPath, `${JSON.stringify({
+    schema: 'living-doc-harness-output-input/v1',
+    previousOutput: {
+      evidencePath: 'artifacts/iteration-1-evidence.json',
+      reviewerVerdictPath: 'reviewer-inference/iteration-1-verdict.json',
+      classification: 'repairable',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const fakePrReviewCodex = path.join(tmp, 'fake-pr-review-codex');
+  const fakePrReviewCodexHome = path.join(tmp, 'fake-pr-review-codex-home');
+  await writeFile(fakePrReviewCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-pr-review-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"pr-review-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"pr-review non-verdict fixture"}]}}
+EOF
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-harness-pr-review-result/v1",
+  "status": "finished",
+  "approvedActions": [],
+  "sideEffect": {
+    "type": "github-pr-review",
+    "executed": false,
+    "reasonCode": "unit-not-finalized"
+  }
+}
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakePrReviewCodex, 0o755);
+  await mkdir(fakePrReviewCodexHome, { recursive: true });
+  const prReviewRun = await createHarnessRun({
+    docPath: 'tests/fixtures/minimal-doc.json',
+    runsDir: path.join(tmp, 'pr-review-runs'),
+    execute: true,
+    cwd: process.cwd(),
+    now: '2026-05-07T06:31:20.000Z',
+    codexBin: fakePrReviewCodex,
+    codexHome: fakePrReviewCodexHome,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'previous-pr-review-run',
+      previousIteration: 1,
+      instruction: 'Run the required PR-review gate.',
+      outputInputPath: previousPrOutputInputPath,
+      selectedUnitType: 'pr-review',
+      nextUnit: {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'pr-review-policy-gate-missing',
+      },
+    },
+  });
+  const prReviewUnit = JSON.parse(await readFile(path.join(
+    prReviewRun.runDir,
+    prReviewRun.contract.artifacts.prReviewInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(prReviewUnit.mode, 'external-headless-codex');
+  assert.equal(prReviewUnit.status, 'blocked');
+  assert.equal(prReviewUnit.outputContract.status, 'blocked');
+  assert.equal(prReviewUnit.outputContract.reasonCode, 'pr-review-non-verdict-output');
+  assert.equal(prReviewUnit.outputContract.sideEffect.reasonCode, 'pr-review-non-verdict-output');
+  const prReviewValidation = JSON.parse(await readFile(path.join(
+    prReviewRun.runDir,
+    prReviewRun.contract.artifacts.prReviewInferenceUnit.validation,
+  ), 'utf8'));
+  assert.equal(prReviewValidation.ok, true);
+
   const fakeBoundaryCodex = path.join(tmp, 'fake-boundary-codex');
   const fakeBoundaryCodexHome = path.join(tmp, 'fake-boundary-codex-home');
   await writeFile(fakeBoundaryCodex, `#!/bin/sh

@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   runContractBoundInferenceUnit,
   validateInferenceUnitInputContract,
+  validateInferenceUnitResult,
   writeContractBoundInferenceUnitSnapshot,
 } from '../../scripts/living-doc-harness-inference-unit.mjs';
 
@@ -89,6 +90,40 @@ try {
   assert.equal(workerWithoutRunConfig.ok, false);
   assert.ok(workerWithoutRunConfig.violations.some((violation) => violation.path === '$.runConfig'));
 
+  const invalidPrReviewFinalStatus = validateInferenceUnitResult({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'pr-review',
+    role: 'pr-review',
+    mode: 'external-headless-codex',
+    status: 'finished',
+    basis: ['Fixture captures the old non-verdict PR-review shape.'],
+    unitType: {
+      unitTypeId: 'pr-review',
+      inputContractSchema: 'living-doc-harness-pr-review-input/v1',
+      outputContractSchema: 'living-doc-harness-pr-review-result/v1',
+      allowedNextUnitTypes: [],
+      deterministicSideEffects: [],
+      dashboard: {},
+      closureImplications: {},
+    },
+    promptPath: 'prompt.md',
+    inputContractPath: 'input-contract.json',
+    codexEventsPath: 'codex-events.jsonl',
+    lastMessagePath: 'last-message.txt',
+    outputContract: {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status: 'finished',
+      sideEffect: {
+        type: 'github-pr-review',
+        executed: false,
+        reasonCode: 'unit-not-finalized',
+      },
+    },
+  });
+  assert.equal(invalidPrReviewFinalStatus.ok, false);
+  assert.ok(invalidPrReviewFinalStatus.violations.some((violation) => violation.path === '$.status'));
+  assert.ok(invalidPrReviewFinalStatus.violations.some((violation) => violation.path === '$.outputContract.status'));
+
   const postFlightWithoutLifecycleResult = validateInferenceUnitInputContract({
     unitTypeId: 'post-flight-summary',
     inputContract: {
@@ -141,6 +176,53 @@ try {
     }),
     /invalid worker input contract snapshot/,
   );
+
+  const nonVerdictPrReviewRun = await runContractBoundInferenceUnit({
+    runDir: path.join(tmp, 'non-verdict-pr-review-run'),
+    unitId: 'pr-review',
+    role: 'pr-review',
+    prompt: 'Return the historical bad PR-review shape.',
+    inputContract: {
+      schema: 'living-doc-harness-pr-review-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      livingDocPath: 'doc.json',
+      reviewerVerdictPath: inspectedPath,
+      reviewTarget: 'local-review-target',
+      evidenceSnapshotPath: inspectedPath,
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+        prReviewRequired: true,
+      },
+      prReviewPolicy: {
+        schema: 'living-doc-harness-pr-review-policy/v1',
+        mode: 'required-before-closure',
+      },
+      prReviewRequired: true,
+      requiredInspectionPaths: [inspectedPath],
+    },
+    fixtureResult: {
+      status: 'finished',
+      basis: ['This is the old non-verdict PR-review output.'],
+      outputContract: {
+        schema: 'living-doc-harness-pr-review-result/v1',
+        status: 'finished',
+        approvedActions: [],
+        sideEffect: {
+          type: 'github-pr-review',
+          executed: false,
+          reasonCode: 'unit-not-finalized',
+        },
+      },
+    },
+    execute: false,
+    now: '2026-05-08T07:39:45.000Z',
+  });
+  assert.equal(nonVerdictPrReviewRun.validation.ok, true);
+  assert.equal(nonVerdictPrReviewRun.result.status, 'blocked');
+  assert.equal(nonVerdictPrReviewRun.result.outputContract.status, 'blocked');
+  assert.equal(nonVerdictPrReviewRun.result.outputContract.reasonCode, 'pr-review-non-verdict-output');
+  assert.equal(nonVerdictPrReviewRun.result.outputContract.sideEffect.reasonCode, 'pr-review-non-verdict-output');
 
   const fakeCodex = path.join(tmp, 'fake-codex.mjs');
   await writeFile(fakeCodex, `#!/usr/bin/env node

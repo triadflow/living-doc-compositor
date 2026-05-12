@@ -22,6 +22,14 @@ function arr(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function modeAllowsLifecycleStatus(mode) {
+  return [
+    'prepared',
+    'snapshot',
+    'external-headless-codex-starting',
+  ].includes(mode);
+}
+
 function slug(value) {
   return String(value || 'unit')
     .toLowerCase()
@@ -196,17 +204,17 @@ export function validateInferenceUnitResult(result) {
   try {
     const type = getInferenceUnitType(result?.unitType?.unitTypeId || result?.unitId);
     const statusAllowed = type.outputVerdicts.includes(result?.status)
-      || (lifecycleStatuses.has(result?.status) && [
-        'prepared',
-        'snapshot',
-        'external-headless-codex-starting',
-        'external-headless-codex',
-      ].includes(result?.mode));
+      || (lifecycleStatuses.has(result?.status) && modeAllowsLifecycleStatus(result?.mode));
     if (!statusAllowed) {
       violations.push({ path: '$.status', message: `status must be one of registered output verdicts: ${type.outputVerdicts.join(', ')}` });
     }
     if (result?.outputContract?.schema !== type.outputContract.schema) {
       violations.push({ path: '$.outputContract.schema', message: `outputContract schema must be ${type.outputContract.schema}` });
+    }
+    if (result?.outputContract?.status != null
+      && !type.outputVerdicts.includes(result.outputContract.status)
+      && !modeAllowsLifecycleStatus(result?.mode)) {
+      violations.push({ path: '$.outputContract.status', message: `outputContract status must be one of registered output verdicts: ${type.outputVerdicts.join(', ')}` });
     }
     for (const field of arr(type.outputContract.requiredFields)) {
       if (result?.outputContract?.[field] == null) {
@@ -253,7 +261,32 @@ function statusFromRawResult(rawResult) {
   return 'no-op';
 }
 
-function normalizeOutputContract({ rawResult, unitTypeId, inputContract }) {
+function normalizePrReviewOutputContract({ output, mode }) {
+  if (modeAllowsLifecycleStatus(mode)) return output;
+  const allowedStatuses = getInferenceUnitType('pr-review').outputVerdicts;
+  if (allowedStatuses.includes(output?.status)) return output;
+  const previousReasonCode = output?.sideEffect?.reasonCode || output?.reasonCode || null;
+  const reasonCode = previousReasonCode === 'unit-not-finalized'
+    ? 'pr-review-non-verdict-output'
+    : previousReasonCode || 'pr-review-non-verdict-output';
+  return {
+    ...output,
+    status: 'blocked',
+    reasonCode,
+    basis: arr(output?.basis).length
+      ? output.basis
+      : ['PR-review unit completed without emitting an approved, not-required, blocked, or failed verdict.'],
+    approvedActions: arr(output?.approvedActions),
+    sideEffect: {
+      ...(output?.sideEffect && typeof output.sideEffect === 'object' ? output.sideEffect : {}),
+      type: output?.sideEffect?.type || 'github-pr-review',
+      executed: output?.sideEffect?.executed === true,
+      reasonCode,
+    },
+  };
+}
+
+function normalizeOutputContract({ rawResult, unitTypeId, inputContract, mode }) {
   const type = getInferenceUnitType(unitTypeId);
   const output = {
     ...(rawResult?.outputContract && typeof rawResult.outputContract === 'object'
@@ -282,6 +315,10 @@ function normalizeOutputContract({ rawResult, unitTypeId, inputContract }) {
         changedFiles: output.changedFiles,
       };
     }
+  }
+
+  if (unitTypeId === 'pr-review') {
+    return normalizePrReviewOutputContract({ output, mode });
   }
 
   return output;
@@ -399,6 +436,10 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     });
   }
 
+  const outputContractResult = normalizeOutputContract({ rawResult, unitTypeId, inputContract, mode });
+  const resultStatus = unitType.outputVerdicts.includes(outputContractResult?.status)
+    ? outputContractResult.status
+    : statusFromRawResult(rawResult);
   const result = {
     schema: 'living-doc-contract-bound-inference-result/v1',
     unitId,
@@ -413,9 +454,9 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     codexEventsPath: path.relative(runDir, codexEventsPath),
     lastMessagePath: path.relative(runDir, lastMessagePath),
     stderrPath: path.relative(runDir, stderrPath),
-    status: statusFromRawResult(rawResult),
+    status: resultStatus,
     basis: arr(rawResult.basis).length ? rawResult.basis : ['Inference unit completed without a detailed basis.'],
-    outputContract: normalizeOutputContract({ rawResult, unitTypeId, inputContract }),
+    outputContract: outputContractResult,
     toolProfile: {
       name: resolvedToolProfile.name,
       isolation: resolvedToolProfile.isolation,

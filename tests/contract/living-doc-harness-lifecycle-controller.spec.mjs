@@ -321,6 +321,49 @@ try {
   assert.equal(prReviewEvidence.prReview.validationPath, 'initial-inference-units/iteration-3/05-pr-review/validation.json');
   assert.equal(prReviewEvidence.prReview.reasonCode, 'pr-review-policy-gate-missing');
 
+  const nonVerdictPrReviewEvidenceRunDir = path.join(tmp, 'non-verdict-pr-review-evidence-ingest-run');
+  await mkdir(path.join(nonVerdictPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review'), { recursive: true });
+  await writeFile(path.join(nonVerdictPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'result.json'), `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'pr-review',
+    role: 'pr-review',
+    mode: 'external-headless-codex',
+    status: 'finished',
+    outputContract: {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status: 'finished',
+      approvedActions: [],
+      sideEffect: {
+        type: 'github-pr-review',
+        executed: false,
+        reasonCode: 'unit-not-finalized',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(nonVerdictPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'validation.json'), `${JSON.stringify({
+    ok: true,
+    schema: 'living-doc-harness-inference-unit-validation/v1',
+  }, null, 2)}\n`, 'utf8');
+  const nonVerdictPrReviewEvidence = await sideEffectEvidenceFromRun({
+    runDir: nonVerdictPrReviewEvidenceRunDir,
+    run: {
+      contract: {
+        artifacts: {
+          initialInferenceUnit: {
+            unitId: 'pr-review',
+            result: 'initial-inference-units/iteration-3/05-pr-review/result.json',
+            validation: 'initial-inference-units/iteration-3/05-pr-review/validation.json',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(nonVerdictPrReviewEvidence.prReview.status, 'blocked');
+  assert.equal(nonVerdictPrReviewEvidence.prReview.blocked, true);
+  assert.equal(nonVerdictPrReviewEvidence.prReview.reasonCode, 'pr-review-non-verdict-output');
+  assert.equal(nonVerdictPrReviewEvidence.prReview.invalidOriginalStatus, 'finished');
+  assert.equal(nonVerdictPrReviewEvidence.prReview.source, 'pr-review-output-contract');
+
   const invalidPrReviewEvidenceRunDir = path.join(tmp, 'invalid-pr-review-evidence-ingest-run');
   await mkdir(path.join(invalidPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review'), { recursive: true });
   await writeFile(path.join(invalidPrReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'result.json'), `${JSON.stringify({
