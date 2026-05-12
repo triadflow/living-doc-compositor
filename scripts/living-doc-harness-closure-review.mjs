@@ -122,17 +122,24 @@ export async function runClosureReviewUnit({
   if (!evidence) throw new Error('evidence is required');
   if (!verdict) throw new Error('verdict is required');
 
+  const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+  const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
+  const sideEffectEvidence = evidence.sideEffectEvidence
+    ? {
+      ...evidence.sideEffectEvidence,
+      ...(prReviewPolicy.mode === 'disabled' ? { prReview: undefined } : {}),
+    }
+    : null;
+  if (sideEffectEvidence && sideEffectEvidence.prReview === undefined) delete sideEffectEvidence.prReview;
   const requiredInspectionPaths = [
     evidencePath,
     reviewer?.artifactPath,
     reviewer?.artifact?.inferenceUnitResultPath ? path.resolve(runDir, reviewer.artifact.inferenceUnitResultPath) : null,
     reviewer?.artifact?.inferenceUnitValidationPath ? path.resolve(runDir, reviewer.artifact.inferenceUnitValidationPath) : null,
-    ...runRefInspectionPaths(runDir, evidence?.sideEffectEvidence?.prReview?.resultPath),
-    ...runRefInspectionPaths(runDir, evidence?.sideEffectEvidence?.prReview?.validationPath),
+    ...runRefInspectionPaths(runDir, sideEffectEvidence?.prReview?.resultPath),
+    ...runRefInspectionPaths(runDir, sideEffectEvidence?.prReview?.validationPath),
   ].filter(Boolean);
   const approved = closureApprovedFromEvidence({ evidence, verdict });
-  const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
-  const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
   const input = {
     schema: 'living-doc-harness-closure-review-input/v1',
     runId: evidence.runId,
@@ -148,7 +155,7 @@ export async function runClosureReviewUnit({
     reviewerInferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
     objectiveState: evidence.objectiveState,
     proofGates: evidence.proofGates,
-    sideEffectEvidence: evidence.sideEffectEvidence || null,
+    sideEffectEvidence,
     workerEvidence: evidence.workerEvidence,
     stopVerdict: verdict.stopVerdict,
     nextIteration: verdict.nextIteration,

@@ -474,6 +474,56 @@ try {
   const prUrlOnlySelection = JSON.parse(await readFile(prUrlOnly.postReviewSelectionPath, 'utf8'));
   assert.equal(prUrlOnlySelection.nextUnit.unitId, 'pr-review');
 
+  const disabledPrClosureRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'disabled-pr-closure-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:10.000Z',
+  });
+  const disabledPrClosureEvidencePath = path.join(tmp, 'disabled-pr-closure-evidence.json');
+  const disabledPrClosureTemplate = await writeIterationEvidenceTemplate({
+    runDir: disabledPrClosureRun.runDir,
+    outPath: disabledPrClosureEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'closed',
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    now: '2026-05-07T10:21:10.050Z',
+  });
+  disabledPrClosureTemplate.evidence.prReviewPolicy = {
+    schema: 'living-doc-harness-pr-review-policy/v1',
+    mode: 'disabled',
+  };
+  disabledPrClosureTemplate.evidence.sideEffectEvidence = {
+    commit: { sha: 'abc1234', required: false },
+    prReview: {
+      status: 'approved',
+      approved: true,
+      source: 'pr-review-output-contract',
+      resultPath: 'inference-units/iteration-1/05-pr-review/result.json',
+      validationPath: 'inference-units/iteration-1/05-pr-review/validation.json',
+    },
+  };
+  await writeFile(disabledPrClosureEvidencePath, `${JSON.stringify(disabledPrClosureTemplate.evidence, null, 2)}\n`, 'utf8');
+  const disabledPrClosure = await finalizeHarnessIteration({
+    runDir: disabledPrClosureRun.runDir,
+    evidencePath: disabledPrClosureEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:10.100Z',
+    evidenceDir: path.join(tmp, 'disabled-pr-closure-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'disabled-pr-closure-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  });
+  const disabledPrClosureReviewResult = JSON.parse(await readFile(disabledPrClosure.closureReviewResultPath, 'utf8'));
+  const disabledPrClosureReviewInput = JSON.parse(await readFile(path.join(disabledPrClosureRun.runDir, disabledPrClosureReviewResult.inputContractPath), 'utf8'));
+  assert.equal(disabledPrClosureReviewInput.prReviewPolicy.mode, 'disabled');
+  assert.equal(disabledPrClosureReviewInput.prReviewRequired, false);
+  assert.equal(disabledPrClosureReviewInput.sideEffectEvidence.prReview, undefined);
+  assert.equal(disabledPrClosureReviewInput.requiredInspectionPaths.some((entry) => entry.includes('05-pr-review')), false);
+
   const noSourceChangePrMentionRun = await createHarnessRun({
     docPath,
     runsDir: path.join(tmp, 'no-source-change-pr-mention-runs'),
