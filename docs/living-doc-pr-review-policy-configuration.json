@@ -8,19 +8,25 @@
   "version": "draft",
   "canonicalOrigin": "docs/living-doc-pr-review-policy-configuration.json",
   "sourceCoverage": "Created from the May 11, 2026 session decision that PR-review behavior must be configured when starting the lifecycle controller, with three explicit modes: disabled, required-before-closure, and required-when-source-changes. GitHub epic #253 and implementation tickets #254-#263 were created from the acceptance criteria before implementation starts.",
-  "updated": "2026-05-12T07:41:29.000Z",
+  "updated": "2026-05-12T11:46:40.000Z",
   "objective": "Implement lifecycle-start policy configuration for the standalone living-doc harness so a run can explicitly choose whether PR review is disabled, always required before closure, or required only when controller evidence shows source/doc-relevant changes. The controller must carry that policy through run config, worker/reviewer contracts, evidence, routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results. When PR review is required by policy, the lifecycle cannot close until a contract-bound pr-review inference unit has inspected the relevant evidence and produced an approved or not-required result. When PR review is disabled, the controller must not invoke pr-review and must not fabricate PR-review evidence for closure.",
   "successCondition": "A standalone harness run can be started in each PR review policy mode, proves distinct behavior for disabled, required-before-closure, and required-when-source-changes, preserves the selected policy in lifecycle artifacts and inference-unit contracts, routes to pr-review only when policy requires it, blocks closure when required PR evidence is missing, allows closure when required PR evidence is satisfied, displays the policy state in the dashboard, and proves both PR-enabled and PR-disabled paths through contract tests and standalone lifecycle runs.",
   "runState": {
-    "currentPhase": "continuation-non-verdict-guard-implemented-awaiting-standalone-proof",
+    "currentPhase": "selected-unit-pr-review-output-recovery-hardened",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Rerun the configured standalone PR-enabled lifecycle and confirm the controller treats non-verdict pr-review output as blocked gate evidence, routes into continuation-inference without crashing on a non-verdict continuation result, and does not repeat pr-review; then continue to the disabled-mode standalone proof.",
+    "nextObjectiveAction": "Rerun standalone lifecycle proof after the issue #274 selected-unit handoff artifact recovery fix, then record the PR-enabled and PR-disabled proof artifacts.",
     "repairState": {
-      "status": "continuation-non-verdict-guard-implemented",
-      "nearestHonestStage": "implemented-awaiting-controller-owned-standalone-proof",
-      "updated": "2026-05-12T07:41:29.000Z",
+      "status": "selected-unit-pr-review-output-recovery-hardened",
+      "nearestHonestStage": "implemented-awaiting-standalone-proof-rerun",
+      "updated": "2026-05-12T11:46:40.000Z",
       "basis": [
+        "Worker-owned hardening completed on 2026-05-12T11:46:40.000Z: current-run self-authored inference-unit result recovery now rejects fixture-mode artifacts, matching the existing selected-unit handoff recovery rule. The runner regression covers a PR-review unit whose current initial-unit result artifact is mutated to a fixture-looking not-required verdict while final chat output is prose; the runner rejects that artifact, preserves the required PR gate as blocked with reasonCode=pr-review-non-verdict-output, and does not emit self-authored-inference-unit-result-recovered. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. Standalone lifecycle proof still must rerun under the controller-owned proof routes.",
+        "Worker-owned fix for issue #274 completed on 2026-05-12T11:36:36.000Z: the external runner now validates recovery candidates from both the current initial-unit artifact and the previous selected-unit handoff artifact. A selected-unit handoff recovery is accepted only when it is non-fixture, matches the current unitId, carries the registered output schema and verdict, and passes validateInferenceUnitResult. The regression covers a PR-review unit that writes a valid not-required verdict to the previous selected-unit result path while final chat output is prose; the current runner preserves the not-required verdict and records self-authored-inference-unit-result-recovered with source=selected-unit-handoff-artifact. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
+        "Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the current initial-unit self-authored recovery path at iteration 3, then exposed issue #274 at iteration 6: PR-review inference wrote a valid not-required verdict to the previous selected-unit handoff artifact (.living-doc-runs/ldh-20260512T094401Z-doc-living-doc-pr-review-policy-configuration/inference-units/iteration-5/05-pr-review/result.json), while the current initial-unit artifact (.living-doc-runs/ldh-20260512T094402Z-doc-living-doc-pr-review-policy-configuration/initial-inference-units/iteration-6/05-pr-review/result.json) was normalized to blocked with reasonCode=pr-review-non-verdict-output. The lifecycle was stopped after issue #274 was created; that exact selected-unit handoff recovery path is now covered by the runner regression, but objective closure remains blocked until standalone lifecycle proof reruns.",
+        "Worker-safe verification refreshed on 2026-05-12T10:00:30.000Z after the previous handover still listed stale pending criteria. Passing checks in this worker process: node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. The only remaining unproven criterion is criterion-standalone-proof-runs, which requires controller-owned standalone lifecycle commands that this worker is explicitly forbidden to run.",
+        "Worker-safe verification refreshed on 2026-05-12T09:46:25.000Z after self-authored PR-review output recovery. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
+        "Worker-owned fix completed on 2026-05-12T09:41:14.000Z: the external runner now recovers a valid self-authored contract-bound inference-unit result from the unit result artifact when the final last-message output is prose or otherwise lacks a registered verdict. This fixes the live PR-review failure observed in lifecycle ldhl-20260512T075040Z-living-doc-pr-review-policy-configuration, where the pr-review unit reasoned to not-required and wrote its own result artifact, but the final prose message caused the runner to overwrite the verdict as blocked with reasonCode=pr-review-non-verdict-output. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
         "Worker-owned fix for issue #273 completed on 2026-05-12T07:41:29.000Z: final external continuation-inference snapshots and generic contract-bound continuation units now require continuation-required, blocked, or ready. Historical/non-verdict continuation output such as status=finished is preserved as a blocked continuation result with reasonCode=continuation-non-verdict-output instead of crashing lifecycle validation. Passing checks in this worker process: node --check scripts/living-doc-harness-runner.mjs, node --check scripts/living-doc-harness-inference-unit.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract. Standalone lifecycle proof still must rerun.",
         "Continuation worker verification refreshed on 2026-05-12T07:14:43.000Z against the previous iteration's blocked PR-review gate. The prior run artifact .living-doc-runs/ldh-20260512T070030Z-doc-living-doc-pr-review-policy-configuration/initial-inference-units/iteration-3/05-pr-review/result.json now contains a valid living-doc-harness-pr-review-result/v1 outputContract with status=blocked, sideEffect.reasonCode=pr-review-non-verdict-output, and validation ok true. Passing checks in this worker process: node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
         "Worker-safe verification refreshed on 2026-05-12T07:02:42.000Z with no additional source-code defect found. Passing checks in this worker process: node --check scripts/living-doc-harness-inference-unit.mjs, node --check scripts/living-doc-harness-runner.mjs, node --check scripts/living-doc-harness-lifecycle.mjs, node --check scripts/living-doc-harness-iteration.mjs, node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-contract.spec.mjs, npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs, and npm run test:contract. This worker did not run finalizer, reviewer, evidence-dashboard, lifecycle-control, proof-route, or controller-owned standalone lifecycle proof commands, so criterion-standalone-proof-runs remains controller-owned and unproven.",
@@ -680,12 +686,12 @@
         {
           "id": "criterion-gate-outcome-state-model",
           "name": "Gate outcome state prevents repeated gate loops",
-          "status": "implemented-awaiting-standalone-proof",
-          "updated": "2026-05-12T06:55:00.000Z",
+          "status": "implemented-awaiting-standalone-proof-rerun",
+          "updated": "2026-05-12T11:36:36.000Z",
           "objectiveTerm": "The controller must carry policy through routing, side-effect gates, closure review, dashboard artifacts, and lifecycle results.",
           "criterion": "The controller represents each policy/side-effect gate as missing, requested, satisfied, or blocked, and does not select the same gate unit again for a blocked gate unless new evidence changes the gate state. A pr-review artifact with the right schema but a non-verdict status, such as finished, is blocked gate evidence rather than missing PR-review evidence; a continuation-inference artifact with a process-level finished status is likewise normalized to a registered continuation verdict instead of crashing the lifecycle.",
-          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output. Continuation-inference output contracts preserve non-verdict continuation exits as blocked results with reasonCode=continuation-non-verdict-output.",
-          "acceptanceTest": "A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; a non-verdict continuation result validates as blocked rather than a lifecycle-controller exception; dashboard graph shows the blocked gate and result artifact.",
+          "proofRequired": "Controller evidence, post-review selection, output-input contracts, and dashboard graph metadata expose prReviewGate.status and preserve blocked pr-review result paths as evidence, including non-verdict pr-review artifacts normalized to reasonCode=pr-review-non-verdict-output. Continuation-inference output contracts preserve non-verdict continuation exits as blocked results with reasonCode=continuation-non-verdict-output. External runners now recover valid self-authored PR-review result artifacts when the final last-message text is prose, so a real not-required or approved verdict is not downgraded to blocked only because the final chat message did not emit JSON. External runners also recover valid non-fixture PR-review verdicts written to the selected-unit handoff artifact from the previous run, provided the artifact matches the current unitId, carries the registered output schema and verdict, and passes validateInferenceUnitResult. Standalone lifecycle proof still must rerun to prove this recovery in the full controller loop.",
+          "acceptanceTest": "A lifecycle with a blocked or non-verdict pr-review output contract routes to continuation-inference or an explicit blocked state, not another pr-review unit; a non-verdict continuation result validates as blocked rather than a lifecycle-controller exception; dashboard graph shows the blocked gate and result artifact. The runner regression now covers a PR-review unit writing a valid not-required verdict to the previous selected-unit result path while final chat output is prose; the current lifecycle result preserves the verdict instead of repeating the same gate. Full standalone lifecycle proof must rerun to close this criterion.",
           "ticketIds": [
             {
               "issueNumber": "267",
@@ -706,6 +712,11 @@
               "issueNumber": "273",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/273",
               "title": "Continuation inference final snapshot uses non-verdict status and crashes lifecycle"
+            },
+            {
+              "issueNumber": "274",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/274",
+              "title": "Harness pr-review recovery ignores valid verdict written to selected-unit handoff artifact"
             }
           ]
         }
@@ -782,12 +793,12 @@
         {
           "id": "map-gate-outcome-state-machine",
           "name": "Gate outcome state machine",
-          "status": "newly-scoped",
-          "updated": "2026-05-12T02:53:36.032Z",
+          "status": "implemented-awaiting-standalone-proof-rerun",
+          "updated": "2026-05-12T11:36:36.000Z",
           "claim": "A controller-owned gate is not binary. Missing, requested, satisfied, and blocked are distinct states with different next-unit routing obligations.",
           "semanticRole": "Control invariant",
           "validationQuestion": "Can the lifecycle prove that a blocked pr-review output becomes blocked gate evidence and cannot immediately select pr-review again without new evidence?",
-          "driftRisk": "The map is stale if blocked PR-review output is treated as absent evidence or if the controller repeats the same gate unit for the same blocked state.",
+          "driftRisk": "The map is stale if blocked PR-review output is treated as absent evidence or if the controller repeats the same gate unit for the same blocked state. Issue #274 showed an additional drift shape: the inference unit can write the correct verdict to the previous selected-unit handoff artifact while the current initial-unit artifact remains blocked, making the graph show a missing gate even though valid evidence exists nearby. The runner now recovers that validated selected-unit handoff verdict; the remaining risk is proving the same path inside a full standalone lifecycle rerun.",
           "sectionIds": [
             "policy-decisions",
             "acceptance-criteria",
@@ -812,6 +823,11 @@
               "issueNumber": "266",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/266",
               "title": "Process defect: blocked PR-review unit loops instead of producing a terminal blocker or satisfying evidence"
+            },
+            {
+              "issueNumber": "274",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/274",
+              "title": "Harness pr-review recovery ignores valid verdict written to selected-unit handoff artifact"
             }
           ],
           "diagrams": [
@@ -840,8 +856,8 @@
           "id": "verification-contract-suite",
           "name": "Contract suite",
           "status": "complete-awaiting-standalone-proof",
-          "updated": "2026-05-12T07:41:29.000Z",
-          "currentCoverage": "Full contract coverage passed on 2026-05-12T07:41:29.000Z after the issue #273 continuation non-verdict guard. Focused checks also passed for non-verdict PR-review and continuation normalization: node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, and node tests/contract/living-doc-harness-iteration.spec.mjs. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of the satisfying PR-review output contract path, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, the gate outcome loop guard where blocked and non-verdict pr-review output routes to continuation-inference instead of another pr-review, final external pr-review normalization, final external continuation normalization, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
+          "updated": "2026-05-12T11:36:36.000Z",
+          "currentCoverage": "Full contract coverage passed on 2026-05-12T11:36:36.000Z after the selected-unit handoff PR-review output recovery fix. The runner regressions cover an external pr-review Codex process that writes a valid not-required result into its own unit artifact while the final last-message output is prose, and a PR-review process that writes a valid not-required result to the previous selected-unit handoff artifact while the final last-message output is prose. In both cases the runner recovers the validated artifact and records self-authored-inference-unit-result-recovered with the recovery source. The broader contract coverage includes policy validation, separated allowed-unit semantics, iteration PR gates, lifecycle controller routing, policy propagation, closure blocking/satisfaction, dashboard graph metadata, source-change-gated PR routing in both directions, URL-only or result-path-only PR metadata rejection, closure-review inspection of satisfying PR-review output contract paths, invalid policy mode rejection, dashboard lifecycle-start API propagation, lifecycle result path references for runs created outside the repo, blocked and non-verdict pr-review no-repeat routing, final external pr-review normalization, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, final external continuation normalization, and the post-commit policy path where satisfied commit evidence plus missing required PR evidence selects pr-review instead of repeating commit-intent.",
           "nextStep": "Record the controller-owned standalone lifecycle proof routes, including proof that required-before-closure advances from commit-intent evidence to pr-review and that disabled mode never invokes pr-review.",
           "automation": [
             "npm run test:contract"
@@ -853,10 +869,10 @@
         {
           "id": "verification-standalone-runs",
           "name": "Standalone lifecycle proof",
-          "status": "blocked-for-controller-owned-proof",
-          "updated": "2026-05-12T03:58:07.000Z",
-          "currentCoverage": "Implementation and focused fixture runs prove routing behavior, including closure-boundary PR-review routing, but controller-owned standalone proof still has to validate the behavior in a full lifecycle.",
-          "nextStep": "The lifecycle controller must run this living doc through the harness and record both PR-enabled and PR-disabled lifecycle results. The PR-enabled run must prove PR-review is not invoked while the doc remains repairable/resumable and is invoked only when closure is otherwise available.",
+          "status": "awaiting-rerun-after-issue-274-fix",
+          "updated": "2026-05-12T11:36:36.000Z",
+          "currentCoverage": "Standalone lifecycle ldhl-20260512T094356Z-living-doc-pr-review-policy-configuration proved the initial-unit self-authored PR-review recovery at iteration 3, then blocked at issue #274 when iteration 6 wrote a valid not-required PR-review verdict to the previous selected-unit handoff artifact while the current initial-unit artifact normalized to pr-review-non-verdict-output. Contract suite and PR-policy E2E passed during the run. Issue #274 is now fixed in the runner contract path and covered by a regression; standalone proof cannot close until the PR-enabled lifecycle rerun proves the same recovery path in the full controller loop.",
+          "nextStep": "Rerun the PR-enabled standalone lifecycle from a clean or scoped worktree, record the recovery behavior, and then run the disabled-mode lifecycle proof.",
           "automation": [
             "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy required-before-closure",
             "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-pr-review-policy-configuration.json --execute --execute-reviewer --execute-closure-review --execute-proof-routes --pr-review-policy disabled"
@@ -864,13 +880,19 @@
           "gaps": [
             "Standalone required-before-closure run artifact is not recorded yet.",
             "Standalone disabled run artifact is not recorded yet.",
-            "Standalone closure-boundary PR-review routing proof is not recorded yet."
+            "Standalone closure-boundary PR-review routing proof is not recorded yet.",
+            "Standalone selected-unit PR-review handoff recovery proof is not recorded yet."
           ],
           "ticketIds": [
             {
               "issueNumber": "269",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/269",
               "title": "Correct required-before-closure PR-review routing semantics"
+            },
+            {
+              "issueNumber": "274",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/274",
+              "title": "Harness pr-review recovery ignores valid verdict written to selected-unit handoff artifact"
             }
           ]
         },
@@ -891,10 +913,10 @@
         {
           "id": "verification-gate-outcome-loop-guard",
           "name": "Gate outcome loop guard",
-          "status": "implemented-awaiting-standalone-proof",
-          "updated": "2026-05-12T07:41:29.000Z",
-          "currentCoverage": "Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. The previous iteration's PR-review artifact at .living-doc-runs/ldh-20260512T070030Z-doc-living-doc-pr-review-policy-configuration/initial-inference-units/iteration-3/05-pr-review/result.json contains a valid blocked pr-review outputContract with reasonCode=pr-review-non-verdict-output and validation ok true. Continuation-inference final output now normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. Focused contract tests passed on 2026-05-12T07:41:29.000Z for final external pr-review validation, continuation validation, lifecycle controller ingestion, iteration no-repeat routing, and runner normalization coverage.",
-          "nextStep": "Rerun the PR-enabled standalone lifecycle from this living doc and confirm that the blocked or non-verdict pr-review case no longer launches repeated pr-review units for the same gate state and that continuation-inference no longer crashes lifecycle validation.",
+          "status": "implemented-awaiting-standalone-proof-rerun",
+          "updated": "2026-05-12T11:36:36.000Z",
+          "currentCoverage": "Controller evidence now carries prReviewGate.status, sideEffectEvidenceFromRun preserves blocked pr-review output contracts with resultPath, validationPath, reasonCode, status, and basis, and non-verdict pr-review outputs with status=finished are converted into blocked gate evidence with reasonCode=pr-review-non-verdict-output. Continuation-inference final output now normalizes process-level finished into a blocked continuation result with reasonCode=continuation-non-verdict-output. The runner now recovers a valid self-authored PR-review result artifact when the final message is prose, preserving the inference unit verdict rather than downgrading it to a non-verdict blocker. It also recovers a valid non-fixture PR-review verdict written to the previous selected-unit handoff artifact, preserving that verdict when the final message is prose. Focused contract tests passed on 2026-05-12T11:36:36.000Z for final external pr-review validation, self-authored PR-review output recovery, selected-unit handoff PR-review output recovery, continuation validation, lifecycle controller ingestion, iteration no-repeat routing, and runner normalization coverage.",
+          "nextStep": "Rerun the lifecycle to prove the selected-unit handoff recovery path in the full controller loop and confirm the gate no longer loops.",
           "automation": [
             "node tests/contract/living-doc-harness-iteration.spec.mjs",
             "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
@@ -903,8 +925,9 @@
             "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs"
           ],
           "gaps": [
-            "Standalone lifecycle proof has not yet rerun after the continuation non-verdict guard implementation.",
-            "Dashboard confirmation from a live controller-owned run still needs to be recorded."
+            "Standalone lifecycle proof has not yet rerun after the selected-unit handoff PR-review recovery implementation.",
+            "Dashboard confirmation from a live controller-owned run still needs to be recorded.",
+            "Standalone selected-unit PR-review handoff recovery proof still needs to be recorded."
           ],
           "ticketIds": [
             {
@@ -926,6 +949,11 @@
               "issueNumber": "273",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/273",
               "title": "Continuation inference final snapshot uses non-verdict status and crashes lifecycle"
+            },
+            {
+              "issueNumber": "274",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/274",
+              "title": "Harness pr-review recovery ignores valid verdict written to selected-unit handoff artifact"
             }
           ]
         }

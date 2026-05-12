@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { createHarnessRun } from '../../scripts/living-doc-harness-runner.mjs';
+import { writeContractBoundInferenceUnitSnapshot } from '../../scripts/living-doc-harness-inference-unit.mjs';
 
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-runner-'));
 
@@ -265,6 +266,365 @@ exit 0
     prReviewRun.contract.artifacts.prReviewInferenceUnit.validation,
   ), 'utf8'));
   assert.equal(prReviewValidation.ok, true);
+
+  const fakeSelfAuthoredPrReviewCodex = path.join(tmp, 'fake-self-authored-pr-review-codex');
+  const fakeSelfAuthoredPrReviewCodexHome = path.join(tmp, 'fake-self-authored-pr-review-codex-home');
+  await writeFile(fakeSelfAuthoredPrReviewCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+RUN_DIR="$(dirname "$(dirname "$OUT")")"
+RESULT="$RUN_DIR/initial-inference-units/iteration-2/05-pr-review/result.json"
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-pr-review-self-authored.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"pr-review-self-authored","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"self-authored pr-review verdict fixture"}]}}
+EOF
+node - "$RESULT" <<'NODE'
+const fs = require('fs');
+const resultPath = process.argv[2];
+const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+result.mode = 'external-headless-codex';
+result.status = 'not-required';
+result.basis = [
+  'The PR-review unit inspected its contract and found no reviewable PR target.'
+];
+result.outputContract = {
+  schema: 'living-doc-harness-pr-review-result/v1',
+  status: 'not-required',
+  reasonCode: 'no-reviewable-pr-target',
+  approvedActions: [],
+  sideEffect: {
+    type: 'github-pr-review',
+    executed: false,
+    reasonCode: 'no-reviewable-pr-target'
+  },
+  basis: result.basis
+};
+fs.writeFileSync(resultPath, JSON.stringify(result, null, 2) + '\\n');
+NODE
+cat > "$OUT" <<'EOF'
+Completed the contract-bound PR-review unit and wrote the verdict to its unit artifact.
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeSelfAuthoredPrReviewCodex, 0o755);
+  await mkdir(fakeSelfAuthoredPrReviewCodexHome, { recursive: true });
+  const selfAuthoredPrReviewRun = await createHarnessRun({
+    docPath: 'tests/fixtures/minimal-doc.json',
+    runsDir: path.join(tmp, 'self-authored-pr-review-runs'),
+    execute: true,
+    cwd: process.cwd(),
+    now: '2026-05-07T06:31:21.000Z',
+    codexBin: fakeSelfAuthoredPrReviewCodex,
+    codexHome: fakeSelfAuthoredPrReviewCodexHome,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'previous-pr-review-run',
+      previousIteration: 1,
+      instruction: 'Run the required PR-review gate.',
+      outputInputPath: previousPrOutputInputPath,
+      selectedUnitType: 'pr-review',
+      nextUnit: {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'pr-review-policy-gate-missing',
+      },
+    },
+  });
+  const selfAuthoredPrReviewUnit = JSON.parse(await readFile(path.join(
+    selfAuthoredPrReviewRun.runDir,
+    selfAuthoredPrReviewRun.contract.artifacts.prReviewInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(selfAuthoredPrReviewUnit.mode, 'external-headless-codex');
+  assert.equal(selfAuthoredPrReviewUnit.status, 'not-required');
+  assert.equal(selfAuthoredPrReviewUnit.outputContract.status, 'not-required');
+  assert.equal(selfAuthoredPrReviewUnit.outputContract.reasonCode, 'no-reviewable-pr-target');
+  const selfAuthoredEvents = await readFile(path.join(selfAuthoredPrReviewRun.runDir, 'events.jsonl'), 'utf8');
+  assert.match(selfAuthoredEvents, /self-authored-inference-unit-result-recovered/);
+
+  const fakeFixturePrReviewCodex = path.join(tmp, 'fake-fixture-pr-review-codex');
+  const fakeFixturePrReviewCodexHome = path.join(tmp, 'fake-fixture-pr-review-codex-home');
+  await writeFile(fakeFixturePrReviewCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+RUN_DIR="$(dirname "$(dirname "$OUT")")"
+RESULT="$RUN_DIR/initial-inference-units/iteration-2/05-pr-review/result.json"
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-pr-review-fixture-artifact.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"pr-review-fixture-artifact","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"fixture artifact should not be recovered"}]}}
+EOF
+node - "$RESULT" <<'NODE'
+const fs = require('fs');
+const resultPath = process.argv[2];
+const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+result.mode = 'fixture';
+result.status = 'not-required';
+result.basis = ['This fixture-looking result must not satisfy a live PR-review gate.'];
+result.outputContract = {
+  schema: 'living-doc-harness-pr-review-result/v1',
+  status: 'not-required',
+  reasonCode: 'fixture-not-required',
+  approvedActions: [],
+  sideEffect: {
+    type: 'github-pr-review',
+    executed: false,
+    reasonCode: 'fixture-not-required'
+  },
+  basis: result.basis
+};
+fs.writeFileSync(resultPath, JSON.stringify(result, null, 2) + '\\n');
+NODE
+cat > "$OUT" <<'EOF'
+Completed the PR-review unit without a machine-readable verdict.
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeFixturePrReviewCodex, 0o755);
+  await mkdir(fakeFixturePrReviewCodexHome, { recursive: true });
+  const fixturePrReviewRun = await createHarnessRun({
+    docPath: 'tests/fixtures/minimal-doc.json',
+    runsDir: path.join(tmp, 'fixture-pr-review-runs'),
+    execute: true,
+    cwd: process.cwd(),
+    now: '2026-05-07T06:31:21.700Z',
+    codexBin: fakeFixturePrReviewCodex,
+    codexHome: fakeFixturePrReviewCodexHome,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'previous-pr-review-run',
+      previousIteration: 1,
+      instruction: 'Run the required PR-review gate.',
+      outputInputPath: previousPrOutputInputPath,
+      selectedUnitType: 'pr-review',
+      nextUnit: {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'pr-review-policy-gate-missing',
+      },
+    },
+  });
+  const fixturePrReviewUnit = JSON.parse(await readFile(path.join(
+    fixturePrReviewRun.runDir,
+    fixturePrReviewRun.contract.artifacts.prReviewInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(fixturePrReviewUnit.status, 'blocked');
+  assert.equal(fixturePrReviewUnit.outputContract.status, 'blocked');
+  assert.equal(fixturePrReviewUnit.outputContract.reasonCode, 'pr-review-non-verdict-output');
+  const fixtureEvents = await readFile(path.join(fixturePrReviewRun.runDir, 'events.jsonl'), 'utf8');
+  assert.doesNotMatch(fixtureEvents, /self-authored-inference-unit-result-recovered/);
+
+  const selectedHandoffRunsDir = path.join(tmp, 'selected-handoff-pr-review-runs');
+  const selectedHandoffPreviousRunDir = path.join(selectedHandoffRunsDir, 'selected-handoff-previous-run');
+  await mkdir(path.join(selectedHandoffPreviousRunDir, 'artifacts'), { recursive: true });
+  await mkdir(path.join(selectedHandoffPreviousRunDir, 'reviewer-inference'), { recursive: true });
+  await mkdir(path.join(selectedHandoffPreviousRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(selectedHandoffPreviousRunDir, 'reviewer-inference', 'iteration-1-verdict.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: 'repairable',
+      reasonCode: 'pr-review-policy-gate-missing',
+      closureAllowed: false,
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(selectedHandoffPreviousRunDir, 'artifacts', 'iteration-1-controller-evidence-snapshot.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    hardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: false,
+      commitEvidencePresent: true,
+      prReviewRequired: true,
+      prReviewGate: { required: true, status: 'missing', evidencePresent: false },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(selectedHandoffPreviousRunDir, 'artifacts', 'iteration-1-evidence.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-iteration-evidence/v1',
+    controllerEvidenceSnapshotPath: 'artifacts/iteration-1-controller-evidence-snapshot.json',
+    requiredHardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: false,
+      commitEvidencePresent: true,
+      prReviewRequired: true,
+      prReviewGate: { required: true, status: 'missing', evidencePresent: false },
+    },
+    sideEffectEvidence: {
+      commit: {
+        required: true,
+        sha: '1234567890abcdef1234567890abcdef12345678',
+        source: 'commit-intent-output-contract',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  const selectedHandoffOutputInputPath = path.join(selectedHandoffPreviousRunDir, 'output-input', 'iteration-1.json');
+  await writeFile(selectedHandoffOutputInputPath, `${JSON.stringify({
+    schema: 'living-doc-harness-output-input/v1',
+    previousOutput: {
+      evidencePath: 'artifacts/iteration-1-evidence.json',
+      reviewerVerdictPath: 'reviewer-inference/iteration-1-verdict.json',
+      classification: 'repairable',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const selectedHandoffSnapshot = await writeContractBoundInferenceUnitSnapshot({
+    runDir: selectedHandoffPreviousRunDir,
+    rootDir: 'inference-units',
+    iteration: 1,
+    sequence: 5,
+    unitId: 'pr-review',
+    role: 'pr-review',
+    unitTypeId: 'pr-review',
+    prompt: 'Evaluate the PR-review gate before closure.',
+    inputContract: {
+      schema: 'living-doc-harness-pr-review-input/v1',
+      runId: 'selected-handoff-previous-run',
+      iteration: 1,
+      livingDocPath: 'tests/fixtures/minimal-doc.json',
+      reviewerVerdictPath: 'reviewer-inference/iteration-1-verdict.json',
+      reviewTarget: 'configured-pr-review-target',
+      evidenceSnapshotPath: 'artifacts/iteration-1-controller-evidence-snapshot.json',
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+        sourceFilesChanged: false,
+        commitEvidencePresent: true,
+        prReviewRequired: true,
+        prReviewGate: { required: true, status: 'missing', evidencePresent: false },
+      },
+      prReviewPolicy: {
+        schema: 'living-doc-harness-pr-review-policy/v1',
+        mode: 'required-before-closure',
+      },
+      prReviewRequired: true,
+      changedFiles: [],
+      commitEvidence: {
+        required: true,
+        sha: '1234567890abcdef1234567890abcdef12345678',
+        source: 'commit-intent-output-contract',
+      },
+      requiredInspectionPaths: ['tests/fixtures/minimal-doc.json'],
+    },
+    mode: 'fixture',
+    status: 'blocked',
+    basis: ['Fixture placeholder before the selected unit runs.'],
+    outputContract: {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status: 'blocked',
+      approvedActions: [],
+      sideEffect: {
+        type: 'github-pr-review',
+        executed: false,
+        reasonCode: 'pr-review-policy-gate-missing',
+      },
+    },
+    now: '2026-05-07T06:31:21.500Z',
+    cwd: process.cwd(),
+  });
+  const selectedHandoffResultPath = selectedHandoffSnapshot.resultPath;
+  const selectedHandoffResultRel = path.relative(selectedHandoffPreviousRunDir, selectedHandoffResultPath);
+  const fakeSelectedHandoffPrReviewCodex = path.join(tmp, 'fake-selected-handoff-pr-review-codex');
+  const fakeSelectedHandoffPrReviewCodexHome = path.join(tmp, 'fake-selected-handoff-pr-review-codex-home');
+  await writeFile(fakeSelectedHandoffPrReviewCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+SELECTED_RESULT="${selectedHandoffResultPath}"
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-pr-review-selected-handoff.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"pr-review-selected-handoff","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"selected handoff artifact verdict fixture"}]}}
+EOF
+node - "$SELECTED_RESULT" <<'NODE'
+const fs = require('fs');
+const resultPath = process.argv[2];
+const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+result.mode = 'external-headless-codex';
+result.status = 'not-required';
+result.basis = [
+  'The PR-review unit inspected the selected handoff contract and found no reviewable PR target.'
+];
+result.outputContract = {
+  schema: 'living-doc-harness-pr-review-result/v1',
+  status: 'not-required',
+  reasonCode: 'no-reviewable-pr-target',
+  approvedActions: [],
+  sideEffect: {
+    type: 'github-pr-review',
+    executed: false,
+    reasonCode: 'no-reviewable-pr-target'
+  },
+  basis: result.basis
+};
+fs.writeFileSync(resultPath, JSON.stringify(result, null, 2) + '\\n');
+NODE
+cat > "$OUT" <<'EOF'
+Completed the PR-review unit and wrote the verdict to the selected-unit handoff artifact.
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeSelectedHandoffPrReviewCodex, 0o755);
+  await mkdir(fakeSelectedHandoffPrReviewCodexHome, { recursive: true });
+  const selectedHandoffPrReviewRun = await createHarnessRun({
+    docPath: 'tests/fixtures/minimal-doc.json',
+    runsDir: selectedHandoffRunsDir,
+    execute: true,
+    cwd: process.cwd(),
+    now: '2026-05-07T06:31:22.000Z',
+    codexBin: fakeSelectedHandoffPrReviewCodex,
+    codexHome: fakeSelectedHandoffPrReviewCodexHome,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'selected-handoff-previous-run',
+      previousIteration: 1,
+      instruction: 'Run the required PR-review gate.',
+      outputInputPath: selectedHandoffOutputInputPath,
+      selectedUnitType: 'pr-review',
+      nextUnit: {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'pr-review-policy-gate-missing',
+        resultPath: selectedHandoffResultRel,
+      },
+    },
+  });
+  const selectedHandoffPrReviewUnit = JSON.parse(await readFile(path.join(
+    selectedHandoffPrReviewRun.runDir,
+    selectedHandoffPrReviewRun.contract.artifacts.prReviewInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(selectedHandoffPrReviewUnit.status, 'not-required');
+  assert.equal(selectedHandoffPrReviewUnit.outputContract.status, 'not-required');
+  assert.equal(selectedHandoffPrReviewUnit.outputContract.reasonCode, 'no-reviewable-pr-target');
+  const selectedHandoffEvents = await readFile(path.join(selectedHandoffPrReviewRun.runDir, 'events.jsonl'), 'utf8');
+  assert.match(selectedHandoffEvents, /selected-unit-handoff-artifact/);
 
   const previousContinuationRunDir = path.join(tmp, 'previous-continuation-run');
   await mkdir(path.join(previousContinuationRunDir, 'artifacts'), { recursive: true });

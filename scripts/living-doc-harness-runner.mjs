@@ -12,7 +12,10 @@ import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
-import { writeContractBoundInferenceUnitSnapshot } from './living-doc-harness-inference-unit.mjs';
+import {
+  validateInferenceUnitResult,
+  writeContractBoundInferenceUnitSnapshot,
+} from './living-doc-harness-inference-unit.mjs';
 import { resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
 import {
   DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
@@ -58,6 +61,59 @@ function extractJson(text) {
     }
     return null;
   }
+}
+
+function outputHasRegisteredVerdict({ rawResult, unitTypeId }) {
+  if (!rawResult || typeof rawResult !== 'object') return false;
+  const type = getInferenceUnitType(unitTypeId);
+  const output = rawResult.outputContract && typeof rawResult.outputContract === 'object'
+    ? rawResult.outputContract
+    : rawResult;
+  return output?.schema === type.outputContract.schema && type.outputVerdicts.includes(output?.status);
+}
+
+async function readValidatedUnitResultAtPath({ resultPath, unitTypeId, allowFixture = true }) {
+  if (!resultPath) return null;
+  let result;
+  try {
+    result = JSON.parse(await readFile(resultPath, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (result?.unitId !== unitTypeId) return null;
+  if (!allowFixture && result?.mode === 'fixture') return null;
+  if (!outputHasRegisteredVerdict({ rawResult: result, unitTypeId })) return null;
+  const validation = validateInferenceUnitResult(result);
+  if (!validation.ok) return null;
+  return {
+    result,
+    resultPath,
+    validation,
+  };
+}
+
+async function readSelfAuthoredUnitResult({ runDir, artifact, unitTypeId }) {
+  if (!artifact?.result) return null;
+  return readValidatedUnitResultAtPath({
+    resultPath: path.join(runDir, artifact.result),
+    unitTypeId,
+    allowFixture: false,
+  });
+}
+
+async function readSelectedUnitHandoffResult({ cwd, runsDir, lifecycleInput, unitTypeId }) {
+  const resultPath = lifecycleInput?.nextUnit?.resultPath;
+  const previousRunId = lifecycleInput?.previousRunId;
+  if (!resultPath || !previousRunId) return null;
+  const previousRunDir = path.resolve(cwd, runsDir, previousRunId);
+  const absoluteResultPath = path.resolve(previousRunDir, resultPath);
+  const relativeFromPreviousRun = path.relative(previousRunDir, absoluteResultPath);
+  if (relativeFromPreviousRun.startsWith('..') || path.isAbsolute(relativeFromPreviousRun)) return null;
+  return readValidatedUnitResultAtPath({
+    resultPath: absoluteResultPath,
+    unitTypeId,
+    allowFixture: false,
+  });
 }
 
 function sha256(text) {
@@ -1166,7 +1222,42 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     stderrPath: path.relative(runDir, codexStderrPath),
   };
   const rawLastMessage = await readFile(lastMessagePath, 'utf8').catch(() => '');
-  const rawUnitResult = extractJson(rawLastMessage);
+  const rawLastMessageResult = extractJson(rawLastMessage);
+  const selfAuthoredUnitResult = await readSelfAuthoredUnitResult({
+    runDir,
+    artifact: initialUnitArtifact,
+    unitTypeId: initialUnit.unitId,
+  });
+  const selectedUnitHandoffResult = await readSelectedUnitHandoffResult({
+    cwd,
+    runsDir,
+    lifecycleInput,
+    unitTypeId: initialUnit.unitId,
+  });
+  const rawUnitResult = outputHasRegisteredVerdict({
+    rawResult: rawLastMessageResult,
+    unitTypeId: initialUnit.unitId,
+  })
+    ? rawLastMessageResult
+    : selfAuthoredUnitResult?.result || selectedUnitHandoffResult?.result || rawLastMessageResult;
+  const recoveredUnitResult = rawUnitResult === selfAuthoredUnitResult?.result
+    ? { ...selfAuthoredUnitResult, source: 'current-initial-unit-artifact' }
+    : rawUnitResult === selectedUnitHandoffResult?.result
+      ? { ...selectedUnitHandoffResult, source: 'selected-unit-handoff-artifact' }
+      : null;
+  if (recoveredUnitResult) {
+    await appendJsonl(path.join(runDir, 'events.jsonl'), {
+      event: 'self-authored-inference-unit-result-recovered',
+      at: finishedAt,
+      runId,
+      unitId: initialUnit.unitId,
+      source: recoveredUnitResult.source,
+      resultPath: path.relative(runDir, recoveredUnitResult.resultPath),
+      reasonCode: rawLastMessageResult
+        ? 'last-message-output-did-not-carry-registered-verdict'
+        : 'last-message-output-was-not-json',
+    });
+  }
   const finalOutputContract = externalOutputContract({
     unitTypeId: initialUnit.unitId,
     runId,
