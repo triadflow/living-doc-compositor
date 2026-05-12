@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Internal Overview: Living Doc Lifecycle Harness</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #17202a;
+    --muted: #65758b;
+    --line: #d8e0ea;
+    --blue: #1d4ed8;
+    --green: #0f766e;
+    --amber: #a16207;
+    --red: #b91c1c;
+    --violet: #6d28d9;
+    --code: #111827;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 28px;
+  }
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  h1, h2, h3 {
+    margin: 0;
+    letter-spacing: 0;
+  }
+  h1 {
+    font-size: 30px;
+    line-height: 1.15;
+  }
+  h2 {
+    font-size: 19px;
+    margin-bottom: 10px;
+  }
+  h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  p { margin: 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .92em;
+  }
+  .subtitle {
+    max-width: 860px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fbfcfe;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  section {
+    margin-bottom: 18px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+    gap: 18px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .callout {
+    border-left: 4px solid var(--blue);
+    background: #eef5ff;
+  }
+  .warning {
+    border-left: 4px solid var(--amber);
+    background: #fff8eb;
+  }
+  .source-table,
+  .unit-table,
+  .state-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    padding: 10px;
+    vertical-align: top;
+    text-align: left;
+  }
+  th {
+    background: #eef3f8;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #334155;
+  }
+  tr:last-child td { border-bottom: 0; }
+  th:last-child, td:last-child { border-right: 0; }
+  .mermaid-block {
+    margin-top: 12px;
+  }
+  .mermaid-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  pre {
+    margin: 0;
+    padding: 14px;
+    border: 1px solid #263244;
+    border-radius: 8px;
+    background: var(--code);
+    color: #edf2f7;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .notes {
+    display: grid;
+    gap: 10px;
+  }
+  .note {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fbfcfe;
+  }
+  .note strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+  ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  li + li { margin-top: 5px; }
+  .small {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 900px) {
+    main { padding: 14px; }
+    header { padding: 20px; }
+    h1 { font-size: 24px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Internal Overview: Living Doc Lifecycle Harness</h1>
+      <p class="subtitle">A source-grounded map of the standalone lifecycle harness as a control system around model runs. This page is internal system documentation, not a magazine article.</p>
+      <div class="meta">
+        <span class="pill">Created 2026-05-12</span>
+        <span class="pill">Evidence: code, tests, living docs, run artifacts, dashboard</span>
+        <span class="pill">Out of scope: magazine glossary as system evidence</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="grid-2">
+      <div class="panel callout">
+        <h2>System Claim</h2>
+        <p>The lifecycle harness is the controller-owned loop that runs model work against a living doc, finalizes each iteration from artifacts, selects the next unit, and permits terminal closure only through objective proof or explicit user stop.</p>
+      </div>
+      <div class="panel warning">
+        <h2>Evidence Boundary</h2>
+        <p>The magazine glossary may help writers find prior vocabulary, but it is not evidence for runtime behavior. Runtime claims on this page must ground in harness scripts, contract tests, living-doc JSON, run artifacts, or dashboard graph behavior.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Source Surfaces</h2>
+      <table class="source-table">
+        <thead>
+          <tr><th>Surface</th><th>Role in the system</th><th>Evidence it can support</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>scripts/living-doc-harness-lifecycle.mjs</code></td>
+            <td>Lifecycle orchestrator. Creates/continues lifecycle runs, writes output-input handoffs, selects next actions, runs post-flight after closure.</td>
+            <td>Loop-level sequencing, allowed next action, closed/user-stopped stop posture, controller-owned restart handling.</td>
+          </tr>
+          <tr>
+            <td><code>scripts/living-doc-harness-iteration.mjs</code></td>
+            <td>Iteration finalizer. Builds evidence, reviewer verdicts, post-review selections, side-effect gates, closure review, terminal state, proof and dashboard artifacts.</td>
+            <td>How one worker result becomes a routed next unit or terminal state.</td>
+          </tr>
+          <tr>
+            <td><code>scripts/living-doc-harness-inference-unit-types.mjs</code></td>
+            <td>Registry of allowed unit types, input/output contract fields, allowed next unit types, required evidence, dashboard roles.</td>
+            <td>Which unit types exist and what the controller may invoke.</td>
+          </tr>
+          <tr>
+            <td><code>scripts/living-doc-harness-terminal-state.mjs</code></td>
+            <td>Terminal-state writer and validator. Maps reviewer classifications into durable terminal records and continuation permission.</td>
+            <td>Which verdicts close, stop, resume, or require continuation.</td>
+          </tr>
+          <tr>
+            <td><code>scripts/living-doc-harness-dashboard-server.mjs</code></td>
+            <td>Dashboard API and UI graph surface. Builds lifecycle graph nodes/edges and renders inspector details.</td>
+            <td>Operator-visible graph, contract handoff edges, commitIntent surfaces, active unit state.</td>
+          </tr>
+          <tr>
+            <td><code>tests/contract/living-doc-harness-lifecycle-controller.spec.mjs</code></td>
+            <td>Controller behavior proof for lifecycle routing, continuation, closure review, post-flight, restart, and PR/commit gates.</td>
+            <td>Regression evidence for core control rules.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Top-Level Control Flow</h2>
+      <p class="small">Mermaid source. This page intentionally does not load external JavaScript; paste the block into any Mermaid renderer if visual rendering is needed.</p>
+      <div class="mermaid-block">
+        <div class="mermaid-label"><span>Diagram 1</span><span>Lifecycle orchestration</span></div>
+        <pre><code>flowchart TD
+  Doc["Living doc JSON\nobjective + success condition + state"] --> Life["runHarnessLifecycle\nscripts/living-doc-harness-lifecycle.mjs"]
+  Life --> Worker["Worker inference unit\ninitial or continuation work"]
+  Worker --> RunArtifacts["Run artifacts\nlogs, changed files, evidence template"]
+  RunArtifacts --> Finalizer["finalizeHarnessIteration\nscripts/living-doc-harness-iteration.mjs"]
+  Finalizer --> Reviewer["Reviewer inference\nstop verdict + nextIteration"]
+  Reviewer --> Selection["Post-review selection\ncontroller-owned next unit"]
+  Selection --> Closure["Closure review\nwhen closure is candidate"]
+  Selection --> Repair["Balance scan / repair skill chain\nwhen state is repairable"]
+  Selection --> Continue["Continuation inference\nwhen blocker or gate requires continuation"]
+  Selection --> Terminal["writeTerminalState\nclosed / user-stopped / repair-resumed / continuation-required"]
+  Repair --> RunArtifacts
+  Continue --> Worker
+  Closure --> Terminal
+  Terminal --> Dashboard["Evidence bundle + lifecycle dashboard"]
+  Terminal --> NextInput["output-input handoff\nnext unit contract or no next action"]
+  NextInput --> Life</code></pre>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel">
+        <h2>Unit Registry</h2>
+        <p>The registry is the controller's unit vocabulary. It declares what each unit accepts, what evidence it must inspect, what verdicts it may emit, and which next unit types it may request.</p>
+      </div>
+      <div class="panel">
+        <h2>Core Rule</h2>
+        <p>Worker output is evidence, not authority. Reviewer output is a routed verdict, not always terminal authority. Closure requires the controller's proof path, and non-closure must become a next contract rather than disappear into chat.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Inference Unit Type Map</h2>
+      <table class="unit-table">
+        <thead>
+          <tr><th>Unit type</th><th>Input contract</th><th>Important outputs</th><th>Allowed next examples</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>worker</code></td>
+            <td><code>living-doc-worker-inference-input/v1</code></td>
+            <td>Work evidence, changed files, native trace refs, run state.</td>
+            <td><code>reviewer-inference</code></td>
+          </tr>
+          <tr>
+            <td><code>reviewer-inference</code></td>
+            <td><code>living-doc-harness-reviewer-input/v1</code></td>
+            <td><code>living-doc-harness-stop-verdict/v1</code>, <code>nextIteration</code>.</td>
+            <td><code>closure-review</code>, <code>commit-intent</code>, <code>pr-review</code>, <code>living-doc-balance-scan</code>, <code>repair-skill</code>, <code>continuation-inference</code>, <code>worker</code>.</td>
+          </tr>
+          <tr>
+            <td><code>closure-review</code></td>
+            <td><code>living-doc-harness-closure-review-input/v1</code></td>
+            <td>Approved/blocked decision, terminalAllowed, basis.</td>
+            <td><code>post-flight-summary</code> or <code>continuation-inference</code>.</td>
+          </tr>
+          <tr>
+            <td><code>living-doc-balance-scan</code></td>
+            <td><code>living-doc-repair-skill-chain-input/v1</code></td>
+            <td>Ordered repair skills or blocked/no-op status.</td>
+            <td><code>repair-skill</code>, <code>continuation-inference</code>, <code>worker</code>.</td>
+          </tr>
+          <tr>
+            <td><code>repair-skill</code></td>
+            <td><code>living-doc-repair-skill-chain-input/v1</code></td>
+            <td>Changed files, status, <code>commitIntent</code>.</td>
+            <td><code>repair-skill</code>, <code>commit-intent</code>, <code>worker</code>, <code>continuation-inference</code>.</td>
+          </tr>
+          <tr>
+            <td><code>continuation-inference</code></td>
+            <td>Registered continuation contract surface.</td>
+            <td>Continuation work result or reroute evidence.</td>
+            <td>Used when non-closure needs another unit rather than terminal stop.</td>
+          </tr>
+          <tr>
+            <td><code>post-flight-summary</code></td>
+            <td><code>living-doc-harness-post-flight-summary-input/v1</code></td>
+            <td>Summary of an already closed lifecycle.</td>
+            <td>None. It summarizes closure; it does not create closure.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Allowed Next Unit Graph</h2>
+      <div class="mermaid-block">
+        <div class="mermaid-label"><span>Diagram 2</span><span>Registry-level routing vocabulary</span></div>
+        <pre><code>flowchart LR
+  Worker["worker"] --> Reviewer["reviewer-inference"]
+  Reviewer --> ClosureReview["closure-review"]
+  Reviewer --> CommitIntent["commit-intent"]
+  Reviewer --> PRReview["pr-review"]
+  Reviewer --> BalanceScan["living-doc-balance-scan"]
+  Reviewer --> RepairSkill["repair-skill"]
+  Reviewer --> Continuation["continuation-inference"]
+  Reviewer --> Worker
+  BalanceScan --> RepairSkill
+  BalanceScan --> Continuation
+  BalanceScan --> Worker
+  RepairSkill --> RepairSkill
+  RepairSkill --> CommitIntent
+  RepairSkill --> Worker
+  RepairSkill --> Continuation
+  ClosureReview --> PostFlight["post-flight-summary"]
+  ClosureReview --> Continuation
+  CommitIntent --> PRReview
+  CommitIntent --> ClosureReview
+  CommitIntent --> Worker
+  CommitIntent --> Continuation</code></pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Terminal State Semantics</h2>
+      <table class="state-table">
+        <thead>
+          <tr><th>Reviewer classification</th><th>Terminal kind</th><th>Loop may continue</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>closed</code></td><td><code>closed</code></td><td>No</td><td>Objective closure is allowed by the proof path.</td></tr>
+          <tr><td><code>user-stopped</code></td><td><code>user-stopped</code></td><td>No</td><td>User explicitly stopped the lifecycle.</td></tr>
+          <tr><td><code>true-block</code></td><td><code>continuation-required</code></td><td>Yes</td><td>A blocker exists, but it is carried as continuation evidence rather than silent terminal success.</td></tr>
+          <tr><td><code>pivot</code></td><td><code>continuation-required</code></td><td>Yes</td><td>The valid work direction changed; this requires explicit next handling.</td></tr>
+          <tr><td><code>deferred</code></td><td><code>continuation-required</code></td><td>Yes</td><td>Completion depends on a later condition and must remain visible.</td></tr>
+          <tr><td><code>budget-exhausted</code></td><td><code>continuation-required</code></td><td>Yes</td><td>Budget end is continuation evidence, not objective closure.</td></tr>
+          <tr><td><code>repairable</code></td><td><code>repair-resumed</code></td><td>Yes</td><td>Repair path should run or has been selected.</td></tr>
+          <tr><td><code>resumable</code></td><td><code>repair-resumed</code></td><td>Yes</td><td>Work can resume from a handoff.</td></tr>
+          <tr><td><code>closure-candidate</code></td><td><code>repair-resumed</code></td><td>Yes</td><td>Closure is possible but still needs controller-owned gates such as closure review.</td></tr>
+        </tbody>
+      </table>
+      <div class="mermaid-block">
+        <div class="mermaid-label"><span>Diagram 3</span><span>Terminal-state transition model</span></div>
+        <pre><code>stateDiagram-v2
+  [*] --> ReviewerVerdict
+  ReviewerVerdict --> Closed: closed
+  ReviewerVerdict --> UserStopped: user-stopped
+  ReviewerVerdict --> ContinuationRequired: true-block / pivot / deferred / budget-exhausted
+  ReviewerVerdict --> RepairResumed: repairable / resumable / closure-candidate
+  RepairResumed --> NextContract: loopMayContinue=true
+  ContinuationRequired --> NextContract: loopMayContinue=true
+  NextContract --> WorkerOrContinuation
+  Closed --> [*]
+  UserStopped --> [*]</code></pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Iteration Finalization Sequence</h2>
+      <div class="mermaid-block">
+        <div class="mermaid-label"><span>Diagram 4</span><span>One iteration after worker exit</span></div>
+        <pre><code>sequenceDiagram
+  participant L as runHarnessLifecycle
+  participant F as finalizeHarnessIteration
+  participant E as Evidence Snapshot
+  participant R as Reviewer Inference
+  participant S as Post-review Selection
+  participant C as Closure Review
+  participant T as Terminal State
+  participant D as Dashboard/Evidence Bundle
+
+  L->>F: finalize iteration with runDir + evidencePath
+  F->>E: ensure controller evidence snapshot
+  F->>R: run or load reviewer verdict
+  R-->>F: stopVerdict + nextIteration
+  F->>S: select controller-owned next unit
+  alt closure candidate or reviewer closed
+    S->>C: run closure-review input contract
+    C-->>S: approved or blocked
+  end
+  F->>T: write durable terminal state
+  F->>D: render proof/evidence/dashboard surfaces
+  F-->>L: nextAction + nextInput + terminalKind</code></pre>
+      </div>
+    </section>
+
+    <section class="grid-3">
+      <div class="panel">
+        <h2>Data That Must Stay Durable</h2>
+        <ul>
+          <li>Living doc path, objective, success condition, current state.</li>
+          <li>Required inspection paths and run configuration.</li>
+          <li>Worker evidence, native trace references, changed files.</li>
+          <li>Reviewer verdict, reason codes, proof gates.</li>
+          <li>Terminal record, output-input handoff, next selected unit.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Dashboard Responsibilities</h2>
+        <ul>
+          <li>Build graph nodes with <code>graphNode</code>.</li>
+          <li>Build handoff edges with <code>graphEdge</code>.</li>
+          <li>Expose active inference unit state.</li>
+          <li>Render node/edge inspector details.</li>
+          <li>Expose commitIntent on repair nodes and changed-doc edges.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Non-Goals</h2>
+        <ul>
+          <li>Do not treat a blog glossary as runtime evidence.</li>
+          <li>Do not let worker confidence persist closure alone.</li>
+          <li>Do not treat blocker issue creation as success.</li>
+          <li>Do not let post-flight summary create closure.</li>
+          <li>Do not hide continuation behind a terminal-looking state.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Current Open Questions For The System</h2>
+      <div class="notes">
+        <div class="note">
+          <strong>Which contracts need schema-level examples?</strong>
+          <p>Several contracts are named in the registry. The overview should eventually link each unit type to a minimal valid input and output artifact.</p>
+        </div>
+        <div class="note">
+          <strong>Which dashboard edges are authoritative?</strong>
+          <p>The graph currently represents lifecycle handoffs, repair chains, living-doc changes, and side-effect evidence. The next documentation pass should enumerate edge ids and their contract payloads from fixtures.</p>
+        </div>
+        <div class="note">
+          <strong>Where should live run artifacts be summarized?</strong>
+          <p>Local <code>.living-doc-runs/</code> artifacts are not stable public evidence. A sanitized evidence index should say which run examples are safe to reference internally.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

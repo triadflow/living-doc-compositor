@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>A living doc is the substrate, not the report &middot; Living Doc Compositor</title>
-<meta name="description" content="A short field note on why every inference unit in the living-doc harness has to operate over the living doc itself: objective, stage, acceptance criteria, proof, and governance." />
+<meta name="description" content="A technical field note on the handoff bottleneck between model runs, and why the living doc has to carry the state that tells the next run whether to continue, repair, review, or stop." />
 <link rel="stylesheet" href="styles.css" />
 <style>
   .source-card {
@@ -21,33 +21,6 @@
   }
   .source-card code {
     overflow-wrap: anywhere;
-  }
-  .terms-box {
-    margin: 2em -18px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    padding: 18px 20px;
-  }
-  .terms-box h2 {
-    margin-top: 0;
-    font-size: 16px;
-  }
-  .terms-box dl {
-    margin: 0;
-    display: grid;
-    gap: 10px;
-  }
-  .terms-box dt {
-    font-weight: 750;
-    font-size: 13px;
-    color: var(--text);
-  }
-  .terms-box dd {
-    margin: 2px 0 0;
-    color: var(--muted);
-    font-size: 13.5px;
-    line-height: 1.5;
   }
   .contrast-lines {
     margin: 1.7em -18px;
@@ -85,7 +58,6 @@
       margin-left: 0;
       margin-right: 0;
     }
-    .terms-box,
     .contrast-lines {
       margin-left: 0;
       margin-right: 0;
@@ -138,7 +110,7 @@
     <h1>A living doc is the substrate, not the report.</h1>
 
     <p class="dek">
-      The system can keep moving because every inference unit operates over the same living doc: objective, stage, acceptance criteria, proof, and governance.
+      The hard part is not getting one model run to produce work. It is giving the next run enough state to know whether to continue, repair, review, or stop.
     </p>
 
     <div class="byline-row">
@@ -152,7 +124,7 @@
       <div class="meta">
         <span><span class="label">Drafted</span><span class="v">May 10, 2026</span></span>
         <span class="pipe"></span>
-        <span><span class="label">Read</span><span class="v">6 min</span></span>
+        <span><span class="label">Read</span><span class="v">8 min</span></span>
         <span class="pipe"></span>
         <span><span class="label">Status</span><span class="v"><span class="dot"></span>Draft</span></span>
       </div>
@@ -164,127 +136,98 @@
   <div class="article">
     <div class="prose">
 
-      <p class="lede">A living doc is not just a summary of work after it happens. It is the shared working surface that each model run reads, changes, checks, and hands off to the next run.</p>
+      <p class="lede">The weak point was not the model run. It was the moment after the run, when somebody still had to decide what the next run should believe.</p>
 
-      <p>In this project, the living doc carries the objective, current state, acceptance criteria, proof, issues, and governance for a piece of work while that work is still moving. A Codex session can read it, change source files, update the document, render the HTML, and leave the next session with more than chat history.</p>
+      <p>A worker could produce useful code, update the structured document that carries the objective, render the HTML, and leave behind tests. A reviewer could still say the objective was not proven. A blocker issue could be real evidence and still not be a valid stop condition. The system needed to preserve those distinctions without relying on the supervising chat to remember them.</p>
 
-      <p>But there was still a leak in the lifecycle: the handoff.</p>
+      <p>That is the handoff bottleneck. Once work crosses from one bounded model run to the next, the question stops being "did anything useful happen?" and becomes "what state is the next unit allowed to act on?" If the answer lives in a transcript, the next unit is reconstructing. If the answer lives in a report, the lifecycle has already made its control decision without it.</p>
 
-      <p>When a session stopped, I was still the one deciding what happened next. I read the last message. I checked whether the proof was real or only closure-shaped: it looked finished, but did not actually prove the objective. I decided whether the next move should be another worker run, a repair skill, a balance scan, a blocker issue, or a closure review. Then I typed the next instruction.</p>
+      <p>The living doc becomes substrate when it is the operated state of that handoff: objective, stage, acceptance criteria, proof, issue state, relationship maps, and rendered surface. It is not just read after the run. It is the thing each unit reads, changes, checks, and passes forward.</p>
 
-      <p>That is fine for exploration. It is not enough for the system we are trying to build.</p>
-
-      <p>I use "substrate" to mean the shared surface that work happens on, not a report produced after the work is finished.</p>
-
-      <p>The standalone lifecycle harness moves the handoff into the system. Here, harness means the process around the model call. It starts a bounded model run, captures raw logs and artifacts, asks another run to review what happened, and writes the next input contract.</p>
-
-      <p>In this project, each bounded model run is an inference unit. A unit has a role: worker, reviewer, balance scan, repair skill, closure review, or post-flight summary. For that to work, every unit needs to operate over the same conserved state. The living doc is that conserved state.</p>
-
-      <div class="terms-box" aria-label="Terms used in this note">
-        <h2>Terms used in this note</h2>
-        <dl>
-          <div>
-            <dt>Living doc</dt>
-            <dd>The working document that carries objective, state, proof, acceptance criteria, issues, and governance.</dd>
-          </div>
-          <div>
-            <dt>Inference unit</dt>
-            <dd>One bounded model run with a specific role, such as worker, reviewer, repair, or closure review.</dd>
-          </div>
-          <div>
-            <dt>Controller</dt>
-            <dd>The small deterministic process that validates contracts and decides which unit runs next.</dd>
-          </div>
-          <div>
-            <dt>Contract</dt>
-            <dd>The handoff record that tells the next unit what happened, where the evidence lives, and what must be decided next.</dd>
-          </div>
-          <div>
-            <dt>Closure</dt>
-            <dd>The state where the objective is actually proven, not merely attempted or plausibly progressed.</dd>
-          </div>
-        </dl>
-      </div>
-
-      <p>Earlier notes in this series describe the surrounding machinery: shared terms, testable claims, repair paths, and acceptance criteria. This note focuses on the next problem: what happens when the model run stops.</p>
-
-      <p>The controller around the inference units has a small rule. If the objective is proven, it may close. If the user explicitly stops it, it may stop. Everything else becomes the next contract-bound inference unit. A repairable state is not closure. A blocker issue is not closure. A failed proof path is not closure. A runtime limitation is not closure.</p>
-
-      <h2>The concrete case</h2>
+      <h2>The concrete run</h2>
 
       <div class="source-card">
-        <p>The current example is a dashboard run about <code>commitIntent</code> evidence. In plain terms, the goal was to show when a repair unit changed the living doc, prove that the dashboard data came from artifacts, and prove that the lifecycle loop stopped only when the objective was closed or the user explicitly stopped it.</p>
-        <p>The run is captured in <code>docs/living-doc-harness-commit-intent-dashboard.json</code>.</p>
+        <strong>Evidence spine</strong>
+        <p>The run is <code>docs/living-doc-harness-commit-intent-dashboard.json</code>. Its objective was to make repair-unit <code>commitIntent</code> visible in the dashboard and prove a lifecycle invariant: only objective closure or an explicit user stop may halt the loop.</p>
+        <p>The same concepts are registered in <code>docs/blog-glossary.html</code> as <code>inference-time harness</code>, <code>living doc / portable artifact</code>, <code>contract-bound inference unit</code>, and <code>contract handoff</code>. The implementation surfaces are in <code>scripts/living-doc-harness-iteration.mjs</code>, <code>scripts/living-doc-harness-dashboard-server.mjs</code>, and the dashboard/lifecycle contract tests.</p>
       </div>
 
-      <h2>The leak was the handoff</h2>
+      <p>The first version of this run exposed a real failure mode. The harness created issue #217 and stopped at a <code>true-block</code> state after a worker-runtime limitation. That was useful evidence. It was not success. The living doc later recorded the defect explicitly: issue creation, failed tests, missing proof paths, runtime limits, and repairable states are continuation inputs for the next inference unit, not terminal states.</p>
 
-      <p>Before the harness, the living doc could preserve the work, but the transition still depended on a human reading the situation correctly.</p>
+      <p>That distinction is what makes the article's title precise. A report would say that the run encountered a blocker and record the issue. A substrate keeps enough state alive for the controller to route the next inference unit without treating the blocker as closure.</p>
 
-      <p>The commitIntent run made that visible. The first worker iteration had real progress: dashboard graph code, inspector behavior, artifact-derived commitIntent evidence, and tests. It also had unresolved acceptance criteria. Reviewer inference classified the state as repairable, not closed. That distinction had to survive into the next move.</p>
+      <h2>What changes</h2>
 
-      <p>For example, a worker can produce useful code and still leave one acceptance criterion unproven. In that case, the system should not close the objective. It should preserve the evidence, mark the state as repairable, and route the next unit.</p>
+      <p>The standalone lifecycle harness wraps model calls in contracts. A worker is one contract-bound inference unit. A reviewer is another. Balance scan, repair skill, closure review, and post-flight summary are also units. Each unit receives a bounded prompt plus artifact paths, then emits artifacts and a verdict.</p>
 
-      <p>The document had to say that a blocker issue was evidence, not success. It had to keep <code>objectiveReady</code>, <code>currentPhase</code>, the acceptance criteria, and the proof ladder aligned while the lifecycle controller prepared the next input contract. It had to preserve the difference between "work happened" and "the living-doc objective is proven."</p>
+      <p>The important capability is not that the units have names. It is that the units can disagree with each other while staying inside one conserved state. A worker can say "I changed these files." A reviewer can say "the objective is still not proven." A repair unit can say "I changed the living doc and rendered HTML, but I am only allowed to emit commit intent." The controller can route from those claims because they are written into contracts and artifacts, not implied by chat.</p>
 
-      <p>If that state lives only in the supervising conversation, the next inference unit reasons from residue. If it appears only in a post-flight report, the repair loop has already made its decisions without it. The substrate has to exist before the next contract is written.</p>
+      <div class="contrast-lines">
+        <p>A report explains what happened.</p>
+        <p>A substrate decides what may happen next.</p>
+      </div>
+
+      <p>This gives the lifecycle four concrete capabilities.</p>
+
+      <p>First, it can resume work without pretending the previous run closed. In <code>scripts/living-doc-harness-iteration.mjs</code>, non-closure verdicts are normalized into continuation. The contract tests assert that <code>true-block</code> and closure-review denial write <code>terminalAction</code> as <code>null</code> and start a following inference iteration.</p>
+
+      <p>Second, it can keep proof attached to the objective. The commitIntent living doc keeps acceptance criteria, proof required, acceptance tests, and repair evidence together. A dashboard change is not enough. The proof has to show that graph and inspector data come from lifecycle/repair-chain artifacts.</p>
+
+      <p>Third, it can make side effects inspectable. The dashboard graph exposes <code>commitIntent.required</code>, reason, message, body, and changed files. The graph contract test checks the <code>repair-unit-to-living-doc-1-2</code> edge and verifies that <code>commitIntent.source</code> is <code>repair-chain-result</code>, not a hard-coded display fixture.</p>
+
+      <p>Fourth, it can keep the controller small. The controller does not need to become the semantic owner of the objective. It needs to validate contracts, enforce stop rules, and route the next unit from evidence.</p>
 
       <h2>Read the run graph</h2>
 
-      <p>Read the graph as a lifecycle trace, not as a static architecture diagram. Each card is either a model run or a lifecycle object. Each arrow is a handoff.</p>
+      <p>The lifecycle graph answers a control question: what evidence caused the next unit to run?</p>
 
-      <p>The dashboard graph is not a picture drawn after the work. It is a projection of lifecycle artifacts. The labels on the arrows are the control decisions that moved the run forward.</p>
+      <p>Each card is either a lifecycle object or a bounded model run. Each arrow is a contract handoff. The living doc appears as its own card because it is the object being operated on, not a screenshot of work already completed.</p>
 
       <figure class="article-figure">
         <img src="assets/blog/harness-lifecycle-flow-wide-crop.png" alt="Dashboard lifecycle graph with controller, living doc, worker, reviewer, repair, and terminal decision cards connected by contract arrows." loading="lazy" />
         <figcaption>The lifecycle graph for the commitIntent dashboard run. The first worker/reviewer path did not close. It moved through repair. The second worker/reviewer path reached closure review and then terminal closure.</figcaption>
       </figure>
 
-      <p>That graph makes the handoff concrete. The controller starts a worker. The worker leaves artifacts. The reviewer reads the worker evidence and returns a verdict. In the first pass, that verdict was <code>repairable</code>, so the next arrow is not "close." It is <code>diagnose repair order</code>.</p>
+      <p>In the first pass, reviewer inference did not grant closure. That sends the lifecycle into repair rather than terminal success. The balance scan diagnoses the repair order. The repair unit changes the living doc and rendered HTML. The repair-chain result records what changed and what commit intent should exist. Only then does the later worker iteration run against the repaired substrate.</p>
 
-      <p>That decision invokes the balance scan. The balance scan selects a repair path. The repair unit changes the living doc and rendered HTML, then the repair-chain result tells the controller whether the run can resume. Only after that does the second worker iteration run against the repaired substrate.</p>
+      <p>The graph is useful because it forces the handoff to be visible. It shows the state transition from worker evidence to reviewer verdict to repair path to new worker input. The reader can inspect whether the system is routing from artifacts or merely narrating a plausible path.</p>
 
-      <p>The living doc appears as its own card because it is not just input text. It is the operated object. Worker and repair units can change it. Review and closure units can judge it. The controller can route from it. The run is not held together by the memory of this chat; it is held together by contracts that keep returning to that document.</p>
+      <h2>The arrow carries the contract</h2>
 
-      <h2>The arrow is the contract</h2>
-
-      <p>This is the small but important shift. In the dashboard, the arrow is clickable because the arrow is carrying evidence. It is not merely a visual connector between two boxes.</p>
+      <p>The clearest proof is not the node. It is the arrow.</p>
 
       <figure class="article-figure">
         <img src="assets/blog/harness-lifecycle-contract-detail-crop.png" alt="Dashboard inspector showing the changed living doc contract arrow with commit intent evidence." loading="lazy" />
-        <figcaption>The selected <code>changed living doc</code> arrow exposes the contract: gate, effect, type, status, and commitIntent evidence. The controller can validate the handoff without pretending to understand the whole objective.</figcaption>
+        <figcaption>The selected <code>changed living doc</code> arrow exposes gate, effect, status, artifact paths, and commitIntent evidence. The handoff is data the controller and operator can inspect.</figcaption>
       </figure>
 
-      <p>In this run, the selected arrow says that the catalytic repair changed the living doc and regenerated the rendered HTML. It also records commit intent: a commit was required, where that requirement came from, why the repair unit was not allowed to commit directly, and which files were changed.</p>
+      <p>In the dashboard server, the changed-living-doc edge is created when a repair unit changed the operated living doc or its rendered HTML. The edge contract carries changed files, commit policy, result paths, validation paths, and <code>commitIntent</code>. If the repair-chain result says a commit is required, the edge can expose the proposed message and body. If no commit is required, the node can expose that state instead of hiding the field.</p>
 
-      <p>That matters because it separates intelligence from control. The repair unit uses model reasoning to decide what needs to change. The contract records what the unit claims happened. The controller checks the contract and decides where the lifecycle goes next. The controller does not need to understand the whole objective semantically; it only needs enough evidence to route safely.</p>
+      <p>That is the difference between a diagram and a control surface. A diagram can show "repair happened." A contract handoff says which artifact made that claim, what changed, what gate was satisfied, and what the controller may trust next.</p>
 
-      <h2>Why this is substrate</h2>
+      <h2>The controller rule</h2>
 
-      <p>Substrate is the right word because the living doc is the surface every unit can re-enter. A report is read after the work. A substrate is used during the work. The worker reads the objective and changes the system. The reviewer reads the raw JSONL log and the document state. The balance scan reads imbalance. A repair skill changes the doc, proof, issue state, or relationship surface. The closure review checks whether the objective and acceptance criteria are actually conserved.</p>
+      <p>The controller's rule is intentionally narrow. If the objective is proven, the lifecycle may close. If the user explicitly stops it, the lifecycle may stop. Everything else becomes continuation input.</p>
 
-      <div class="contrast-lines">
-        <p>A report explains a completed path.</p>
-        <p>A substrate helps choose the next path.</p>
-      </div>
+      <p>The code had to learn that rule the hard way. The earlier run treated a blocker as terminal enough to create a defect trail. The repaired controller path now keeps non-closure states alive as handoffs. The living doc records this as an acceptance criterion: the controller must not expose or enforce max-iteration exhaustion, blocker classification, issue creation, failed tests, missing proof paths, runtime limitations, or repairable states as terminal.</p>
 
-      <p>Those units are specialized, but the specialization does not make them separate mini-projects. They are all operating over the same living doc. That is what lets the lifecycle continue after a model run stops. The next unit does not inherit a mood. It receives a contract, artifact paths, and the document state it must work against.</p>
+      <p>That is why the living doc has to be substrate rather than report. The stop rule depends on the current objective, acceptance criteria, proof ladder, source state, and user-stop evidence. Those are not decorative fields. They are the control inputs that prevent useful progress from masquerading as completion.</p>
 
-      <p>This also explains why the controller must remain small. It starts units, validates contracts, and enforces stop rules. It may close only when objective closure is proven. It may stop when the user explicitly stops it. Everything else becomes another contract-bound inference unit.</p>
+      <h2>What this unlocks</h2>
 
-      <h2>The next abstraction</h2>
+      <p>Once the living doc is the operated substrate, model runs can become typed units instead of one-off prompts. A worker has one contract. A reviewer has another. A balance scan has another. A repair skill has another. A closure review has another. Their outputs can disagree, but the disagreement lands in the same document state.</p>
 
-      <p>Once the living doc is treated as substrate, the next question is not "what should the prompt say?" It is "what kind of unit is allowed to run over this substrate, and what must it prove before the controller trusts it?"</p>
+      <p>That makes the next abstraction visible: an inference-unit type registry. The useful question is no longer only "what should the prompt say?" It is "what input contract does this unit accept, what artifacts must it inspect, what verdicts may it emit, and which next unit types may it request?"</p>
 
-      <p>The current system still names too much through prompts. Worker, reviewer, balance scan, repair, closure review, and post-flight summary are already behaving like inference-unit types. The next step is to register those types explicitly: what input contract they accept, what artifacts they must read, what verdicts they may emit, and which next unit types they are allowed to request.</p>
+      <p>The registry should not replace the living doc. It should make the lifecycle honest about the units that operate over it. The stable primitive is simpler: a contract-bound inference unit runs over a living doc, emits artifacts and a verdict, and gives the controller enough evidence to route the next unit.</p>
 
-      <p>That registry should not replace the living doc. It should make the harness more honest about the units that operate on it. The stable primitive becomes simple: a contract-bound inference unit runs over a living doc, emits artifacts and a verdict, and hands the controller enough evidence to route the next unit.</p>
+      <h2>Limits</h2>
 
-      <h2>The boundary</h2>
+      <p>A substrate does not make bad objectives good. A weak acceptance criterion can still pass too easily. A relationship map can still imply behavior that no artifact supports. A proof ladder can still overclaim. A controller can still be too shallow if its contracts do not capture the right evidence.</p>
 
-      <p>A living doc does not reason by itself. A weak objective is still weak. A relationship map can still imply behavior that the artifacts do not support. A proof ladder can still overclaim. The harness does not make those problems disappear.</p>
+      <p>What changes is where those failures appear. They become visible as rejected closure, repairable state, missing proof, stale relationship map, or continuation contract. The failure is no longer hidden in the supervising conversation.</p>
 
-      <p>What it changes is where those problems surface. They become input for another inference unit instead of becoming silent drift in the supervising conversation. That is the real distinction between a report and a substrate. A report explains what happened after the run. A substrate is what the run keeps using until the objective is genuinely closed.</p>
+      <p>That is the operational meaning of the title. A report is written after the system has already decided what happened. A substrate is the shared state that lets the system decide, carefully, what is allowed to happen next.</p>
 
     </div>
 

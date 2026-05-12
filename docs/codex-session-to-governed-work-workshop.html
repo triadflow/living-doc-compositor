@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Workshop: Living Docs For Serious Codex Work</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #17202a;
+    --muted: #607086;
+    --line: #d8e0ea;
+    --blue: #1d4ed8;
+    --green: #0f766e;
+    --amber: #a16207;
+    --violet: #6d28d9;
+    --code: #111827;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 30px;
+  }
+  .wrap, main {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  main { padding: 24px; }
+  h1, h2, h3 { margin: 0; letter-spacing: 0; }
+  h1 { font-size: 32px; line-height: 1.12; }
+  h2 { font-size: 20px; margin-bottom: 10px; }
+  h3 { font-size: 15px; margin-bottom: 6px; }
+  p { margin: 0; }
+  .subtitle {
+    max-width: 850px;
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 16px;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fbfcfe;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  section { margin-bottom: 18px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .flow-card {
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--blue);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fbfcfe;
+    min-height: 128px;
+  }
+  .flow-card strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+  .flow-card span {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .module {
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr) minmax(280px, .42fr);
+    gap: 14px;
+    align-items: start;
+    border-left: 4px solid var(--blue);
+  }
+  .num {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: #eaf2ff;
+    color: var(--blue);
+    font-weight: 800;
+    font-size: 18px;
+  }
+  .why {
+    border: 1px solid #f2c879;
+    background: #fff8eb;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .why strong {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--amber);
+  }
+  ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+  }
+  li + li { margin-top: 4px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .92em;
+  }
+  pre {
+    margin: 10px 0 0;
+    padding: 14px;
+    border: 1px solid #263244;
+    border-radius: 8px;
+    background: var(--code);
+    color: #edf2f7;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .template {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .template-header {
+    padding: 10px 12px;
+    background: #eef3f8;
+    border-bottom: 1px solid var(--line);
+    font-weight: 750;
+  }
+  .template-body {
+    padding: 12px;
+    background: #fbfcfe;
+  }
+  .callout {
+    border-left: 4px solid var(--green);
+    background: #ecfdf5;
+  }
+  .small {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 980px) {
+    .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2, .grid-3, .module { grid-template-columns: 1fr; }
+    .num { width: 44px; height: 44px; border-radius: 12px; }
+  }
+  @media (max-width: 640px) {
+    header { padding: 22px; }
+    main { padding: 14px; }
+    h1 { font-size: 26px; }
+    .flow { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Living Docs For Serious Codex Work</h1>
+      <p class="subtitle">A workshop for people who already know how to use Codex. The point is not better prompting. The point is understanding how Living Docs make multi-session Codex work durable enough to continue, inspect, repair, and close.</p>
+      <div class="meta">
+        <span class="pill">Audience: experienced Codex users</span>
+        <span class="pill">Format: 3-4 hours</span>
+        <span class="pill">Focus: Living Docs + lifecycle</span>
+        <span class="pill">Output: one usable living-doc work surface</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="grid-2">
+      <div class="panel callout">
+        <h2>Workshop Objective</h2>
+        <p>Participants understand the Living Doc system: why it helps serious Codex work, how it turns isolated sessions into durable shared state, and how the lifecycle layer extends that state into a repeatable continue/review/repair/close loop.</p>
+      </div>
+      <div class="panel">
+        <h2>Starting Assumption</h2>
+        <p>Participants already know Codex can inspect, edit, test, refactor, and explain. The workshop starts where single-session competence stops: continuity, evidence, coordination, handoff, and closure.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Learning Arc</h2>
+      <div class="flow">
+        <div class="flow-card"><strong>1. Session limit</strong><span>Codex can do work, but the work does not live safely in the session.</span></div>
+        <div class="flow-card"><strong>2. Living doc</strong><span>The work surface carries objective, state, proof, issues, and next action.</span></div>
+        <div class="flow-card"><strong>3. Operating roles</strong><span>Worker, reviewer, repair, continuation, and closure become distinct uses of Codex.</span></div>
+        <div class="flow-card"><strong>4. Lifecycle</strong><span>The work moves through visible states until it is proven closed or deliberately stopped.</span></div>
+        <div class="flow-card"><strong>5. Harness</strong><span>The harness is automation around a pattern participants can already reason about.</span></div>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">1</div>
+      <div>
+        <h2>The Limit Of Session Competence</h2>
+        <p>Codex can already do meaningful work inside a session. The problem is what happens after the session: what remains true, what remains false, what evidence exists, and what the next session is allowed to trust.</p>
+        <ul>
+          <li>The same task gets re-explained.</li>
+          <li>Evidence and final claims drift apart.</li>
+          <li>Follow-up work becomes archaeology.</li>
+          <li>Closure depends on reading the last answer correctly.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Why this matters</strong>
+        <p>The workshop is not about making Codex smarter. It is about making the work durable enough that Codex can re-enter it later.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">2</div>
+      <div>
+        <h2>The Living Doc As Work Surface</h2>
+        <p>A living doc is the durable work surface. It is not a final report. It is the place where the objective, acceptance criteria, current state, evidence, blockers, relationship maps, and next action stay visible while the work is still moving.</p>
+        <ul>
+          <li><strong>Objective:</strong> what must become true.</li>
+          <li><strong>Acceptance criteria:</strong> what can pass or fail.</li>
+          <li><strong>State:</strong> what is active, repaired, blocked, or ready for review.</li>
+          <li><strong>Evidence:</strong> tests, diffs, screenshots, logs, source paths, decisions.</li>
+          <li><strong>Next action:</strong> the next valid move.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Participant shift</strong>
+        <p>Before: the session is where the work lives. After: the living doc is where the work lives, and sessions operate on it.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">3</div>
+      <div>
+        <h2>Objective-Bound Work</h2>
+        <p>Living Docs make objectives literal. Codex work is judged against the objective and acceptance criteria, not against the confidence of the final answer.</p>
+        <ul>
+          <li>Acceptance criteria can fail.</li>
+          <li>Evidence attaches to claims.</li>
+          <li>Open issues remain visible.</li>
+          <li>Progress and closure are separated.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Discussion</strong>
+        <p>Show a piece of Codex work that made progress but should not have closed. Ask what the living doc would need to preserve.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">4</div>
+      <div>
+        <h2>Handoff As A First-Class Object</h2>
+        <p>A handoff is not "continue from here." It is a record of what changed, what is proven, what remains false, what must be inspected, and what the next session is allowed to do.</p>
+        <ul>
+          <li>It prevents the next session from reconstructing state from chat.</li>
+          <li>It makes uncertainty explicit.</li>
+          <li>It lets review and repair start from evidence.</li>
+          <li>It keeps the human from being the hidden state machine.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Exercise</strong>
+        <p>Take a real Codex task and write the handoff that a fresh session would need to act without re-asking the human.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">5</div>
+      <div>
+        <h2>Roles Over Sessions</h2>
+        <p>The same Codex model can act in different roles. The living doc keeps those roles separate so the worker is not the only judge of its own work.</p>
+        <ul>
+          <li><strong>Worker:</strong> changes source or investigates.</li>
+          <li><strong>Reviewer:</strong> judges the objective against evidence.</li>
+          <li><strong>Repair:</strong> fixes gaps, drift, weak proof, or stale maps.</li>
+          <li><strong>Continuation:</strong> resumes from a known state.</li>
+          <li><strong>Closure review:</strong> decides whether done really means done.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Exercise</strong>
+        <p>For one task, assign the next Codex session a role. Decide what the living doc must give that role.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">6</div>
+      <div>
+        <h2>The Lifecycle</h2>
+        <p>Once the living doc is the unit, work can move through states instead of collapsing into "done" or "not done."</p>
+        <ul>
+          <li><code>active</code>: work is underway.</li>
+          <li><code>review-needed</code>: work exists, proof has not been judged.</li>
+          <li><code>repairable</code>: useful progress, but gaps remain.</li>
+          <li><code>blocked</code>: outside state is needed.</li>
+          <li><code>resumable</code>: stopped, but next action is clear.</li>
+          <li><code>closure-candidate</code>: evidence looks close, but closure still needs review.</li>
+          <li><code>closed</code>: objective proven.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Key point</strong>
+        <p>The lifecycle is not bureaucracy. It makes the next valid move visible.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">7</div>
+      <div>
+        <h2>Reading A Living Doc</h2>
+        <p>Participants learn to inspect a living doc as a working surface, not as prose.</p>
+        <ul>
+          <li>Find the objective and success condition.</li>
+          <li>Read acceptance criteria as failure surfaces.</li>
+          <li>Check evidence against claims.</li>
+          <li>Look for blockers, stale maps, weak proof, and unresolved decisions.</li>
+          <li>Identify the next valid Codex role.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Exercise</strong>
+        <p>Read one existing living doc and classify it: active, review-needed, repairable, blocked, resumable, closure-candidate, or closed.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">8</div>
+      <div>
+        <h2>Operating A Living Doc With Codex</h2>
+        <p>This is the practical loop participants should leave able to run manually.</p>
+        <ul>
+          <li>Start Codex from the living doc, not from memory.</li>
+          <li>Ask Codex to act in one role.</li>
+          <li>Require evidence and state updates.</li>
+          <li>Run a separate review pass when needed.</li>
+          <li>Use the result to continue, repair, block, or close.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Exercise</strong>
+        <p>Run a short worker/reviewer pair against a living-doc task. Compare the result to a normal Codex session.</p>
+      </div>
+    </section>
+
+    <section class="panel module">
+      <div class="num">9</div>
+      <div>
+        <h2>The Harness As The Next Layer</h2>
+        <p>The lifecycle harness automates the pattern participants have just learned manually. It starts bounded runs, captures artifacts, runs reviewer inference, routes repair, and prevents false closure.</p>
+        <ul>
+          <li>The deterministic layer controls contracts, artifacts, routing, and terminal state.</li>
+          <li>Inference units do the reasoning inside those contracts.</li>
+          <li>The dashboard shows the operator what happened and why.</li>
+          <li>The harness is understandable because the living-doc pattern came first.</li>
+        </ul>
+      </div>
+      <div class="why">
+        <strong>Boundary</strong>
+        <p>Participants do not need to operate the full harness to understand the system. They need to understand the pattern the harness automates.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Participant Output</h2>
+      <div class="grid-3">
+        <div class="template">
+          <div class="template-header">A living-doc work surface</div>
+          <div class="template-body">
+            <p>One task represented as objective, acceptance criteria, state, evidence, blockers, and next action.</p>
+          </div>
+        </div>
+        <div class="template">
+          <div class="template-header">A role-based Codex plan</div>
+          <div class="template-body">
+            <p>Which Codex session is worker, reviewer, repair, continuation, or closure review.</p>
+          </div>
+        </div>
+        <div class="template">
+          <div class="template-header">A lifecycle decision</div>
+          <div class="template-body">
+            <p>A justified call: continue, review, repair, block, resume, closure-candidate, or closed.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Useful Operating Prompts</h2>
+      <div class="grid-2">
+        <div class="template">
+          <div class="template-header">Worker over a living doc</div>
+          <div class="template-body">
+            <pre><code>Read the living doc as the work surface. Act only on the stated objective and acceptance criteria. Make the smallest useful change, attach evidence, and update the doc state and next action.</code></pre>
+          </div>
+        </div>
+        <div class="template">
+          <div class="template-header">Reviewer over a living doc</div>
+          <div class="template-body">
+            <pre><code>Do not edit source files. Review the living doc, changed files, and evidence. Classify the state as closed, closure-candidate, repairable, blocked, resumable, or review-needed. Name the proof and gaps.</code></pre>
+          </div>
+        </div>
+        <div class="template">
+          <div class="template-header">Repair over a living doc</div>
+          <div class="template-body">
+            <pre><code>Fix only the gaps named by review. Preserve the objective. Update the living doc with changed state, evidence, and any remaining failure surface.</code></pre>
+          </div>
+        </div>
+        <div class="template">
+          <div class="template-header">Closure review</div>
+          <div class="template-body">
+            <pre><code>Judge whether every accountable term in the objective and acceptance criteria is proven by evidence. If not, classify the state and name the next valid role.</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel callout">
+      <h2>Closing Message</h2>
+      <p>Codex already knows how to work. Living Docs make the work durable enough to continue, inspect, repair, and close. The lifecycle harness is the automated form of that pattern.</p>
+    </section>
+  </main>
+</body>
+</html>
