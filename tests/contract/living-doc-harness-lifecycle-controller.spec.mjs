@@ -1445,6 +1445,85 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.match(requiredPrDashboard, /PR review policy:/);
   assert.match(requiredPrDashboard, /required-before-closure/);
 
+  const carriedPrPolicySequencePath = path.join(tmp, 'carried-pr-policy-sequence.json');
+  await writeFile(carriedPrPolicySequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: true,
+        sideEffectEvidence: { commit: { sha: 'abc1234', required: true } },
+        traceMessage: 'Policy-required PR review is missing before closure.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+      {
+        stageAfter: 'bounded-proof-routes-ready-for-controller-rerun',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: ['criterion-controller-rerun'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: false,
+        sideEffectEvidence: {
+          prReview: {
+            status: 'approved',
+            approved: true,
+            source: 'pr-review-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/05-pr-review/result.json',
+            validationPath: 'initial-inference-units/iteration-2/05-pr-review/validation.json',
+          },
+        },
+        prReviewOutputContract: {
+          schema: 'living-doc-harness-pr-review-result/v1',
+          status: 'approved',
+          basis: ['Fixture PR-review unit approved the required policy gate before controller rerun.'],
+          sideEffect: {
+            type: 'github-pr-review',
+            executed: false,
+            reasonCode: 'fixture-pr-review-approved',
+          },
+        },
+        traceMessage: 'PR review is approved but controller acceptance reconciliation is still pending.',
+        reviewerVerdict: reviewerVerdict('resumable', {
+          reasonCode: 'acceptance-pending-controller-rerun',
+          closureAllowed: false,
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: false,
+        traceMessage: 'Controller rerun carries earlier PR-review evidence into closure evaluation.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const carriedPrLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'carried-pr-runs'),
+    evidenceDir: path.join(tmp, 'carried-pr-evidence'),
+    dashboardPath: path.join(tmp, 'carried-pr-dashboard.html'),
+    evidenceSequencePath: carriedPrPolicySequencePath,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    now: '2026-05-07T13:06:15.000Z',
+  });
+  assert.equal(carriedPrLifecycle.finalState.kind, 'closed');
+  const carriedPrThirdEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    carriedPrLifecycle.iterations[2].runDir,
+    'artifacts',
+    'iteration-3-evidence.json',
+  ), 'utf8'));
+  assert.equal(carriedPrThirdEvidence.requiredHardFacts.prReviewRequired, true);
+  assert.equal(carriedPrThirdEvidence.requiredHardFacts.prReviewEvidencePresent, true);
+  assert.equal(carriedPrThirdEvidence.requiredHardFacts.prReviewGate.status, 'satisfied');
+  assert.match(carriedPrThirdEvidence.sideEffectEvidence.prReview.resultPath, /ldh-.*iteration-2.*05-pr-review\/result\.json|initial-inference-units\/iteration-2\/05-pr-review\/result\.json/);
+
   const disabledPrLifecycle = await runHarnessLifecycle({
     docPath,
     runsDir: path.join(tmp, 'disabled-pr-runs'),

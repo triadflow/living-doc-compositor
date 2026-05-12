@@ -102,6 +102,41 @@ function prReviewEvidenceFromOutput({ runDir, output, resultPath, validationPath
   };
 }
 
+function rebaseEvidenceArtifactRef({ fromDir, toDir, ref }) {
+  if (!ref) return null;
+  const absolute = path.isAbsolute(ref) ? ref : path.resolve(fromDir, ref);
+  return path.relative(toDir, absolute);
+}
+
+function carriedSideEffectEvidenceFromLifecycleInput({ lifecycleInput, cwd, runDir }) {
+  const carried = lifecycleInput?.sideEffectEvidence;
+  if (!carried || typeof carried !== 'object') return null;
+  const baseDir = lifecycleInput.sideEffectEvidenceBaseDir
+    ? path.resolve(cwd, lifecycleInput.sideEffectEvidenceBaseDir)
+    : lifecycleInput.previousRunDir
+      ? path.resolve(cwd, lifecycleInput.previousRunDir)
+      : null;
+  if (!baseDir) return carried;
+  return {
+    ...carried,
+    ...(carried.prReview ? {
+      prReview: {
+        ...carried.prReview,
+        resultPath: rebaseEvidenceArtifactRef({
+          fromDir: baseDir,
+          toDir: runDir,
+          ref: carried.prReview.resultPath,
+        }),
+        validationPath: rebaseEvidenceArtifactRef({
+          fromDir: baseDir,
+          toDir: runDir,
+          ref: carried.prReview.validationPath,
+        }),
+      },
+    } : {}),
+  };
+}
+
 async function prReviewEvidenceFromContractArtifacts({ runDir, prReview }) {
   if (prReview?.source !== 'pr-review-output-contract' || !prReview.resultPath || !prReview.validationPath) return null;
   const validationOk = await validationArtifactOk(runDir, prReview.validationPath);
@@ -663,6 +698,7 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
   return {
     mode,
     previousRunId: finalization.runId,
+    previousRunDir: finalization.runDir ? path.relative(process.cwd(), finalization.runDir) : null,
     previousIteration: finalization.iteration,
     instruction: finalization.nextIteration?.instruction || 'Continue from the previous non-closure state until the living-doc objective is reached.',
     handoverPath: finalization.handoverPath ? path.relative(process.cwd(), finalization.handoverPath) : null,
@@ -671,6 +707,8 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
     selectedUnitType: nextUnit?.unitId || null,
     selectedUnitRole: nextUnit?.role || nextUnit?.unitId || null,
     nextUnit,
+    sideEffectEvidence: finalization.sideEffectEvidence || null,
+    sideEffectEvidenceBaseDir: finalization.runDir ? path.relative(process.cwd(), finalization.runDir) : null,
   };
 }
 
@@ -774,6 +812,7 @@ async function buildEvidenceFromPlan({
   now,
   proofRouteBundle = null,
   prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
+  lifecycleInput = null,
 }) {
   const normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
   const sourceState = await deriveSourceStateEvidence({ docPath, cwd });
@@ -813,6 +852,11 @@ async function buildEvidenceFromPlan({
 
   await writePlanPrReviewFixture({ run, runDir, plan });
   const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
+  const carriedSideEffectEvidence = carriedSideEffectEvidenceFromLifecycleInput({
+    lifecycleInput,
+    cwd,
+    runDir,
+  });
   const detectedCommitSideEffectEvidence = enforceControllerWorktreeEvidence
     ? await scopedCommitEvidenceFromHeadChange({
       cwd,
@@ -837,9 +881,10 @@ async function buildEvidenceFromPlan({
       },
     }
     : undefined;
-  const sideEffectEvidence = (plan.sideEffectEvidence || runSideEffectEvidence || detectedCommitSideEffectEvidence)
+  const sideEffectEvidence = (plan.sideEffectEvidence || runSideEffectEvidence || detectedCommitSideEffectEvidence || carriedSideEffectEvidence)
     ? {
       ...(fallbackSideEffectEvidence || {}),
+      ...(carriedSideEffectEvidence || {}),
       ...(detectedCommitSideEffectEvidence || {}),
       ...(runSideEffectEvidence || {}),
       ...(plan.sideEffectEvidence || {}),
@@ -1268,6 +1313,7 @@ export async function runHarnessLifecycle({
         now: addMs(iterationNow, 250),
         proofRouteBundle,
         prReviewPolicy: normalizedPrReviewPolicy,
+        lifecycleInput,
       });
       lastEvidence = evidence;
       if (evidence.controllerSourceRestartRequired) {

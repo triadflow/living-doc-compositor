@@ -1257,6 +1257,7 @@ export async function finalizeHarnessIteration({
     prReviewPolicy: postReviewSelectionArtifact.prReviewPolicy || null,
     prReviewRequired: postReviewSelectionArtifact.prReviewRequired === true,
     prReviewGate: postReviewSelectionArtifact.prReviewGate || null,
+    sideEffectEvidence: finalEvidence.sideEffectEvidence || null,
   };
 }
 
