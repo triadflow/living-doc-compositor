@@ -226,6 +226,131 @@ function commitScopeFromWorktree({ before = null, after = null, explicitAllowedF
   };
 }
 
+async function gitHead({ cwd = process.cwd(), gitWorktreeCwd = cwd } = {}) {
+  const gitCwd = path.resolve(cwd, gitWorktreeCwd);
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: gitCwd,
+      maxBuffer: 1024 * 1024,
+    });
+    const sha = stdout.trim();
+    return sha || null;
+  } catch {
+    return null;
+  }
+}
+
+async function gitCommitRangeDetails({ cwd = process.cwd(), gitWorktreeCwd = cwd, beforeHead, afterHead } = {}) {
+  if (!beforeHead || !afterHead || beforeHead === afterHead) return null;
+  const gitCwd = path.resolve(cwd, gitWorktreeCwd);
+  try {
+    const [{ stdout: filesStdout }, { stdout: lastCommitStdout }, { stdout: commitCountStdout }] = await Promise.all([
+      execFileAsync('git', ['diff', '--name-only', '--no-renames', beforeHead, afterHead], {
+        cwd: gitCwd,
+        maxBuffer: 1024 * 1024 * 8,
+      }),
+      execFileAsync('git', ['show', '-s', '--format=%H%x00%s%x00%aI', afterHead], {
+        cwd: gitCwd,
+        maxBuffer: 1024 * 1024,
+      }),
+      execFileAsync('git', ['rev-list', '--count', `${beforeHead}..${afterHead}`], {
+        cwd: gitCwd,
+        maxBuffer: 1024 * 1024,
+      }),
+    ]);
+    const [sha, subject, committedAt] = lastCommitStdout.trim().split('\0');
+    const committedFiles = unique(filesStdout
+      .split(/\r?\n/)
+      .map((filePath) => filePath.trim())
+      .filter(Boolean)
+      .map((filePath) => relativizeGitPath({ gitWorktreeCwd: gitCwd, cwd, filePath })));
+    return {
+      beforeHead,
+      afterHead,
+      sha: sha || afterHead,
+      message: subject || null,
+      committedAt: committedAt || null,
+      commitCount: Number(commitCountStdout.trim()) || 0,
+      committedFiles,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function scopedCommitEvidenceFromHeadChange({
+  cwd,
+  gitWorktreeCwd = cwd,
+  beforeHead = null,
+  commitScope = null,
+  filesChanged = [],
+} = {}) {
+  const afterHead = await gitHead({ cwd, gitWorktreeCwd });
+  const range = await gitCommitRangeDetails({ cwd, gitWorktreeCwd, beforeHead, afterHead });
+  if (!range || !range.committedFiles.length) return null;
+
+  const normalizeCommitPath = (filePath) => {
+    if (!filePath) return null;
+    const normalized = path.isAbsolute(filePath) ? path.relative(cwd, filePath) : filePath;
+    return normalized || '.';
+  };
+  const requiredChangedFiles = unique([
+    ...arr(commitScope?.allowedCommitFiles),
+    ...arr(filesChanged),
+  ].map(normalizeCommitPath).filter(Boolean));
+  const allowedFiles = requiredChangedFiles.length ? requiredChangedFiles : arr(commitScope?.currentRunChangedFiles);
+  const allowedSet = new Set(allowedFiles);
+  const forbiddenSet = new Set(arr(commitScope?.forbiddenCommitFiles));
+  const committedSet = new Set(range.committedFiles);
+  const missingRequiredFiles = allowedFiles.filter((filePath) => !committedSet.has(filePath));
+  const extraCommittedFiles = range.committedFiles.filter((filePath) => !allowedSet.has(filePath));
+  const forbiddenCommittedFiles = range.committedFiles.filter((filePath) => forbiddenSet.has(filePath));
+  const scoped = allowedFiles.length > 0
+    && missingRequiredFiles.length === 0
+    && extraCommittedFiles.length === 0
+    && forbiddenCommittedFiles.length === 0;
+
+  const base = {
+    required: true,
+    source: 'controller-detected-worker-commit',
+    inspectedRange: {
+      beforeHead: range.beforeHead,
+      afterHead: range.afterHead,
+      commitCount: range.commitCount,
+    },
+    changedFiles: allowedFiles,
+    currentRunChangedFiles: arr(commitScope?.currentRunChangedFiles),
+    preExistingDirtyFiles: arr(commitScope?.preExistingDirtyFiles),
+    allowedCommitFiles: allowedFiles,
+    forbiddenCommitFiles: arr(commitScope?.forbiddenCommitFiles),
+    committedFiles: range.committedFiles,
+    missingRequiredFiles,
+    extraCommittedFiles,
+    forbiddenCommittedFiles,
+    scoped,
+  };
+
+  if (!scoped) {
+    return {
+      commit: {
+        ...base,
+        blocked: true,
+        reasonCode: 'controller-detected-worker-commit-outside-scope',
+      },
+    };
+  }
+
+  return {
+    commit: {
+      ...base,
+      sha: range.sha,
+      message: range.message,
+      committedAt: range.committedAt,
+      reasonCode: 'controller-detected-scoped-worker-commit',
+    },
+  };
+}
+
 function prReviewGateFromEvidence({ sideEffectEvidence, prReviewRequired, prReviewPolicy }) {
   const prReview = sideEffectEvidence?.prReview || null;
   if (prReviewRequired !== true) {
@@ -556,6 +681,7 @@ async function buildEvidenceFromPlan({
   gitWorktreeCwd = cwd,
   enforceControllerWorktreeEvidence = false,
   preRunGitWorktree = null,
+  preRunGitHead = null,
   controllerStartFileHashes = null,
   now,
   proofRouteBundle = null,
@@ -598,6 +724,15 @@ async function buildEvidenceFromPlan({
   }
 
   const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
+  const detectedCommitSideEffectEvidence = enforceControllerWorktreeEvidence
+    ? await scopedCommitEvidenceFromHeadChange({
+      cwd,
+      gitWorktreeCwd,
+      beforeHead: preRunGitHead,
+      commitScope,
+      filesChanged,
+    })
+    : null;
   const fallbackSideEffectEvidence = sourceFilesChanged
     ? {
       commit: {
@@ -613,9 +748,10 @@ async function buildEvidenceFromPlan({
       },
     }
     : undefined;
-  const sideEffectEvidence = (plan.sideEffectEvidence || runSideEffectEvidence)
+  const sideEffectEvidence = (plan.sideEffectEvidence || runSideEffectEvidence || detectedCommitSideEffectEvidence)
     ? {
       ...(fallbackSideEffectEvidence || {}),
+      ...(detectedCommitSideEffectEvidence || {}),
       ...(runSideEffectEvidence || {}),
       ...(plan.sideEffectEvidence || {}),
     }
@@ -987,6 +1123,9 @@ export async function runHarnessLifecycle({
       const preRunGitWorktree = enforceControllerWorktreeEvidence
         ? await deriveGitWorktreeEvidence({ cwd, gitWorktreeCwd })
         : null;
+      const preRunGitHead = enforceControllerWorktreeEvidence
+        ? await gitHead({ cwd, gitWorktreeCwd })
+        : null;
       const run = await createHarnessRun({
         docPath,
         runsDir: absoluteRunsDir,
@@ -1024,6 +1163,7 @@ export async function runHarnessLifecycle({
         gitWorktreeCwd,
         enforceControllerWorktreeEvidence,
         preRunGitWorktree,
+        preRunGitHead,
         controllerStartFileHashes,
         now: addMs(iterationNow, 250),
         proofRouteBundle,

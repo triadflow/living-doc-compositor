@@ -1004,6 +1004,79 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
   assert.equal(sourceClosureSelection.nextUnit.unitId, 'commit-intent');
   assert.match(sourceClosureSelection.nextUnit.resultPath, /inference-units\/iteration-2\/04-commit-intent\/result\.json$/);
 
+  const scopedCommitRepo = path.join(tmp, 'scoped-worker-commit-repo');
+  await mkdir(path.join(scopedCommitRepo, 'docs'), { recursive: true });
+  const scopedCommitDocPath = 'docs/scoped-worker-commit-doc.json';
+  const scopedCommitHtmlPath = 'docs/scoped-worker-commit-doc.html';
+  const absoluteScopedCommitDocPath = path.join(scopedCommitRepo, scopedCommitDocPath);
+  const absoluteScopedCommitHtmlPath = path.join(scopedCommitRepo, scopedCommitHtmlPath);
+  const scopedCommitCodexPath = path.join(tmp, 'fake-scoped-commit-codex.mjs');
+  spawnSync('git', ['init'], { cwd: scopedCommitRepo, stdio: 'ignore' });
+  await writeFile(absoluteScopedCommitDocPath, `${JSON.stringify(sourceClosureDoc(scopedCommitDocPath), null, 2)}\n`, 'utf8');
+  await writeFile(absoluteScopedCommitHtmlPath, '<!doctype html><title>initial</title>\n', 'utf8');
+  spawnSync('git', ['add', scopedCommitDocPath, scopedCommitHtmlPath], { cwd: scopedCommitRepo, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'initial'], { cwd: scopedCommitRepo, stdio: 'ignore' });
+  await writeFile(scopedCommitCodexPath, `#!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const repo = ${JSON.stringify(scopedCommitRepo)};
+const docPath = ${JSON.stringify(absoluteScopedCommitDocPath)};
+const htmlPath = ${JSON.stringify(absoluteScopedCommitHtmlPath)};
+const outputPath = process.argv[process.argv.indexOf('-o') + 1];
+const doc = JSON.parse(readFileSync(docPath, 'utf8'));
+doc.runState.currentPhase = 'worker-committed-source-change';
+doc.runState.objectiveReady = false;
+doc.runState.nextObjectiveAction = 'review committed worker output';
+doc.sections[0].data[0].status = 'completed';
+doc.sections[0].data[0].updated = '2026-05-07T13:24:00.000Z';
+doc.updated = '2026-05-07T13:24:00.000Z';
+writeFileSync(docPath, JSON.stringify(doc, null, 2) + '\\n');
+writeFileSync(htmlPath, '<!doctype html><title>worker committed source change</title>\\n');
+spawnSync('git', ['add', ${JSON.stringify(scopedCommitDocPath)}, ${JSON.stringify(scopedCommitHtmlPath)}], { cwd: repo, stdio: 'ignore' });
+spawnSync('git', ['-c', 'user.name=Worker', '-c', 'user.email=worker@example.com', 'commit', '-m', 'worker scoped living doc update'], { cwd: repo, stdio: 'ignore' });
+writeFileSync(outputPath, 'worker committed scoped living doc update');
+console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'worker committed scoped living doc update' } }));
+`, 'utf8');
+  await chmod(scopedCommitCodexPath, 0o755);
+
+  const scopedCommitLifecycle = await runHarnessLifecycle({
+    docPath: absoluteScopedCommitDocPath,
+    cwd: scopedCommitRepo,
+    runsDir: path.join(tmp, 'scoped-worker-commit-runs'),
+    evidenceDir: path.join(tmp, 'scoped-worker-commit-evidence'),
+    dashboardPath: path.join(tmp, 'scoped-worker-commit-dashboard.html'),
+    execute: true,
+    codexBin: scopedCommitCodexPath,
+    codexHome: path.join(scopedCommitRepo, '.codex-home'),
+    executeReviewer: false,
+    reviewerVerdictSequence: [
+      reviewerVerdict('user-stopped', {
+        reasonCode: 'operator-stop-after-commit-reconciliation',
+        mode: 'user-stop',
+      }),
+    ],
+    now: '2026-05-07T13:23:00.000Z',
+  });
+  assert.equal(scopedCommitLifecycle.iterationCount, 1);
+  const scopedCommitEvidence = JSON.parse(await readFile(path.resolve(
+    scopedCommitRepo,
+    scopedCommitLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(scopedCommitEvidence.requiredHardFacts.sourceFilesChanged, true);
+  assert.equal(scopedCommitEvidence.requiredHardFacts.commitEvidencePresent, true);
+  assert.equal(scopedCommitEvidence.sideEffectEvidence.commit.source, 'controller-detected-worker-commit');
+  assert.equal(scopedCommitEvidence.sideEffectEvidence.commit.reasonCode, 'controller-detected-scoped-worker-commit');
+  assert.match(scopedCommitEvidence.sideEffectEvidence.commit.sha, /^[0-9a-f]{40}$/);
+  assert.deepEqual([...scopedCommitEvidence.sideEffectEvidence.commit.committedFiles].sort(), [
+    scopedCommitHtmlPath,
+    scopedCommitDocPath,
+  ].sort());
+  assert.deepEqual(scopedCommitEvidence.sideEffectEvidence.commit.extraCommittedFiles, []);
+  assert.deepEqual(scopedCommitEvidence.sideEffectEvidence.commit.forbiddenCommittedFiles, []);
+
   const inferredCommitSequencePath = path.join(tmp, 'inferred-commit-sequence.json');
   await writeFile(inferredCommitSequencePath, `${JSON.stringify({
     iterations: [
