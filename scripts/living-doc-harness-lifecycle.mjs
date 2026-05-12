@@ -73,6 +73,60 @@ async function validationArtifactOk(runDir, validationRef) {
   return validation?.ok === true;
 }
 
+async function prReviewEvidenceFromContractArtifacts({ runDir, prReview }) {
+  if (prReview?.source !== 'pr-review-output-contract' || !prReview.resultPath || !prReview.validationPath) return null;
+  const validationOk = await validationArtifactOk(runDir, prReview.validationPath);
+  if (!validationOk) return null;
+  const result = await readJson(path.resolve(runDir, prReview.resultPath), null);
+  const output = result?.outputContract || result;
+  const sideEffect = output?.sideEffect || {};
+  if (output?.schema !== 'living-doc-harness-pr-review-result/v1') return null;
+  if (!['approved', 'not-required', 'blocked', 'failed'].includes(output.status)) return null;
+  return {
+    status: output.status,
+    approved: output.status === 'approved',
+    notRequired: output.status === 'not-required',
+    blocked: output.status === 'blocked',
+    failed: output.status === 'failed',
+    reasonCode: sideEffect.reasonCode || output.reasonCode || prReview.reasonCode || null,
+    basis: arr(output.basis),
+    url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || prReview.url || null,
+    source: 'pr-review-output-contract',
+    resultPath: path.relative(runDir, path.resolve(runDir, prReview.resultPath)),
+    validationPath: path.relative(runDir, path.resolve(runDir, prReview.validationPath)),
+  };
+}
+
+async function writePlanPrReviewFixture({ run, runDir, plan }) {
+  const fixture = plan?.prReviewOutputContract || plan?.prReviewFixtureResult || null;
+  if (!fixture) return;
+  const initialUnit = run?.contract?.artifacts?.initialInferenceUnit || null;
+  const prReview = plan?.sideEffectEvidence?.prReview || {};
+  const resultRef = prReview.resultPath || (initialUnit?.unitId === 'pr-review' ? initialUnit.result : null);
+  const validationRef = prReview.validationPath || (initialUnit?.unitId === 'pr-review' ? initialUnit.validation : null);
+  if (!resultRef || !validationRef) {
+    throw new Error('prReviewOutputContract fixtures require resultPath and validationPath PR-review artifact refs');
+  }
+  const outputContract = fixture.outputContract && typeof fixture.outputContract === 'object'
+    ? fixture.outputContract
+    : fixture;
+  if (outputContract?.schema !== 'living-doc-harness-pr-review-result/v1') {
+    throw new Error('prReviewOutputContract fixture must use schema living-doc-harness-pr-review-result/v1');
+  }
+  await writeJson(path.resolve(runDir, resultRef), {
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'pr-review',
+    role: 'pr-review',
+    outputContract,
+  });
+  await writeJson(path.resolve(runDir, validationRef), {
+    schema: 'living-doc-harness-inference-unit-validation/v1',
+    ok: true,
+    unitId: 'pr-review',
+    outputSchema: 'living-doc-harness-pr-review-result/v1',
+  });
+}
+
 async function writeJson(filePath, value) {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
@@ -742,6 +796,7 @@ async function buildEvidenceFromPlan({
     }));
   }
 
+  await writePlanPrReviewFixture({ run, runDir, plan });
   const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
   const detectedCommitSideEffectEvidence = enforceControllerWorktreeEvidence
     ? await scopedCommitEvidenceFromHeadChange({
@@ -777,6 +832,17 @@ async function buildEvidenceFromPlan({
     : fallbackSideEffectEvidence;
   if (normalizedPrReviewPolicy.mode === 'disabled' && sideEffectEvidence?.prReview) {
     delete sideEffectEvidence.prReview;
+  }
+  if (sideEffectEvidence?.prReview) {
+    const contractPrReview = await prReviewEvidenceFromContractArtifacts({
+      runDir,
+      prReview: sideEffectEvidence.prReview,
+    });
+    if (contractPrReview) {
+      sideEffectEvidence.prReview = contractPrReview;
+    } else {
+      delete sideEffectEvidence.prReview;
+    }
   }
   const prReviewRequired = prReviewRequiredForEvidence({
     policy: normalizedPrReviewPolicy,

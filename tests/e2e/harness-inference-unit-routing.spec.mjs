@@ -180,6 +180,18 @@ test('lifecycle routes through registered inference unit contracts', async () =>
             approved: true,
             source: 'pr-review-output-contract',
             resultPath: 'initial-inference-units/iteration-2/05-pr-review/result.json',
+            validationPath: 'initial-inference-units/iteration-2/05-pr-review/validation.json',
+            url: 'https://github.example/pr/1',
+          },
+        },
+        prReviewOutputContract: {
+          schema: 'living-doc-harness-pr-review-result/v1',
+          status: 'approved',
+          basis: ['Fixture PR-review unit approved the required policy gate.'],
+          sideEffect: {
+            type: 'github-pr-review',
+            executed: false,
+            reasonCode: 'fixture-pr-review-approved',
             url: 'https://github.example/pr/1',
           },
         },

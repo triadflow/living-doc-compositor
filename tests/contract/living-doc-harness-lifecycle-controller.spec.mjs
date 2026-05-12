@@ -1283,6 +1283,18 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
             approved: true,
             source: 'pr-review-output-contract',
             resultPath: 'initial-inference-units/iteration-2/05-pr-review/result.json',
+            validationPath: 'initial-inference-units/iteration-2/05-pr-review/validation.json',
+            url: 'https://github.example/pr/42',
+          },
+        },
+        prReviewOutputContract: {
+          schema: 'living-doc-harness-pr-review-result/v1',
+          status: 'approved',
+          basis: ['Fixture PR-review unit approved the required policy gate.'],
+          sideEffect: {
+            type: 'github-pr-review',
+            executed: false,
+            reasonCode: 'fixture-pr-review-approved',
             url: 'https://github.example/pr/42',
           },
         },
@@ -1307,6 +1319,64 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   const requiredPrFirstContract = JSON.parse(await readFile(path.resolve(process.cwd(), requiredPrLifecycle.iterations[0].runDir, 'contract.json'), 'utf8'));
   assert.equal(requiredPrFirstContract.runConfig.prReviewPolicy.mode, 'required-before-closure');
   const requiredPrFirstReviewerInput = JSON.parse(await readFile(path.resolve(process.cwd(), requiredPrLifecycle.iterations[0].runDir, 'reviewer-inference', 'iteration-1-input.json'), 'utf8'));
+
+  const fabricatedPrPolicySequencePath = path.join(tmp, 'fabricated-pr-policy-sequence.json');
+  await writeFile(fabricatedPrPolicySequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: true,
+        sideEffectEvidence: {
+          commit: { sha: 'abc1234', required: true },
+          prReview: {
+            status: 'approved',
+            approved: true,
+            source: 'pr-review-output-contract',
+            resultPath: 'initial-inference-units/iteration-1/05-pr-review/result.json',
+            validationPath: 'initial-inference-units/iteration-1/05-pr-review/validation.json',
+            url: 'https://github.example/pr/fabricated',
+          },
+        },
+        traceMessage: 'Fabricated PR-review side-effect evidence must not satisfy policy.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+      {
+        stageAfter: 'operator-stopped-after-fabricated-pr-rejection',
+        unresolvedObjectiveTerms: ['fabricated PR-review evidence rejected'],
+        unprovenAcceptanceCriteria: ['criterion-closure-enforcement'],
+        acceptanceCriteriaSatisfied: 'fail',
+        closureAllowed: false,
+        traceMessage: 'Stop after proving fabricated PR-review evidence did not close.',
+        reviewerVerdict: reviewerVerdict('user-stopped', {
+          reasonCode: 'operator-stop',
+          mode: 'user-stop',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const fabricatedPrLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'fabricated-pr-runs'),
+    evidenceDir: path.join(tmp, 'fabricated-pr-evidence'),
+    dashboardPath: path.join(tmp, 'fabricated-pr-dashboard.html'),
+    evidenceSequencePath: fabricatedPrPolicySequencePath,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    now: '2026-05-07T13:06:30.000Z',
+  });
+  assert.equal(fabricatedPrLifecycle.iterations[0].terminalKind, 'continuation-required');
+  assert.equal(fabricatedPrLifecycle.iterations[0].nextAction.selectedUnitType, 'pr-review');
+  const fabricatedPrEvidence = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    fabricatedPrLifecycle.iterations[0].runDir,
+    'artifacts',
+    'iteration-1-evidence.json',
+  ), 'utf8'));
+  assert.equal(fabricatedPrEvidence.sideEffectEvidence.prReview, undefined);
+  assert.equal(fabricatedPrEvidence.prReviewGate.status, 'missing');
   assert.equal(requiredPrFirstReviewerInput.prReviewPolicy.mode, 'required-before-closure');
   assert.equal(requiredPrFirstReviewerInput.prReviewRequired, true);
   assert.equal(requiredPrFirstReviewerInput.runConfig.prReviewPolicy.mode, 'required-before-closure');
