@@ -72,6 +72,10 @@ function lifecycleCommandExecutesProofRoutes(command) {
   return /(?:^|\s)--execute-proof-routes(?:\s|$)/.test(String(command || ''));
 }
 
+function lifecycleCommandUsesEvidenceSequence(command) {
+  return /(?:^|\s)--evidence-sequence(?:\s|=)/.test(String(command || ''));
+}
+
 function recursiveLifecycleProofRouteGuard(route, { cwd, docPath } = {}) {
   const lifecycleDocPath = lifecycleRunDocPathFromCommand(route?.command);
   if (!lifecycleDocPath || !docPath) return { blocked: false };
@@ -84,6 +88,23 @@ function recursiveLifecycleProofRouteGuard(route, { cwd, docPath } = {}) {
     reasonCode: 'recursive-lifecycle-proof-route',
     failureClass: 'recursive-lifecycle-proof-route',
     message: 'Blocked proof route before execution because it would recursively execute proof routes for the same living doc.',
+    lifecycleDocPath,
+    docPath,
+  };
+}
+
+function unboundedSameDocLifecycleProofRouteGuard(route, { cwd, docPath } = {}) {
+  const lifecycleDocPath = lifecycleRunDocPathFromCommand(route?.command);
+  if (!lifecycleDocPath || !docPath) return { blocked: false };
+  const targetDocPath = path.resolve(cwd, lifecycleDocPath);
+  const currentDocPath = path.resolve(cwd, docPath);
+  if (targetDocPath !== currentDocPath) return { blocked: false };
+  if (lifecycleCommandUsesEvidenceSequence(route?.command)) return { blocked: false };
+  return {
+    blocked: true,
+    reasonCode: 'same-doc-lifecycle-proof-route-unbounded',
+    failureClass: 'same-doc-lifecycle-proof-route-unbounded',
+    message: 'Blocked proof route before execution because same-doc lifecycle proof routes must be bounded by an explicit evidence sequence.',
     lifecycleDocPath,
     docPath,
   };
@@ -213,15 +234,17 @@ export async function runProofRoute({
   const resultPath = path.join(routeDir, 'result.json');
   const environment = await probeProofEnvironment(normalized.kind);
   const recursionGuard = recursiveLifecycleProofRouteGuard(normalized, { cwd, docPath });
+  const sameDocGuard = recursionGuard.blocked ? { blocked: false } : unboundedSameDocLifecycleProofRouteGuard(normalized, { cwd, docPath });
+  const controllerGuard = recursionGuard.blocked ? recursionGuard : sameDocGuard.blocked ? sameDocGuard : null;
   let commandResult = null;
   let status = 'blocked';
   let failureClass = environment.checks.find((check) => check.ok === false)?.failureClass || null;
 
-  if (recursionGuard.blocked) {
+  if (controllerGuard) {
     status = 'blocked';
-    failureClass = recursionGuard.failureClass;
+    failureClass = controllerGuard.failureClass;
     await writeFile(stdoutPath, '', 'utf8');
-    await writeFile(stderrPath, `${recursionGuard.message}\n`, 'utf8');
+    await writeFile(stderrPath, `${controllerGuard.message}\n`, 'utf8');
   } else if (environment.ok && normalized.command) {
     commandResult = await runCommand(normalized.command, {
       cwd,
@@ -247,9 +270,9 @@ export async function runProofRoute({
     command: normalized.command,
     acceptanceCriteria: normalized.acceptanceCriteria,
     environment,
-    controllerGuard: recursionGuard.blocked ? recursionGuard : null,
+    controllerGuard,
     failureClass,
-    reasonCode: recursionGuard.reasonCode || failureClass || null,
+    reasonCode: controllerGuard?.reasonCode || failureClass || null,
     stdoutPath: path.relative(runDir, stdoutPath),
     stderrPath: path.relative(runDir, stderrPath),
     commandResult,
@@ -265,7 +288,7 @@ export async function runProofRoute({
     proofRoute: normalized.kind,
     status,
     failureClass,
-    reasonCode: recursionGuard.reasonCode || failureClass || null,
+    reasonCode: controllerGuard?.reasonCode || failureClass || null,
     resultPath: path.relative(runDir, resultPath),
   });
   return {

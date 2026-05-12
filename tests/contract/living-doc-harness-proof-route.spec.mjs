@@ -67,6 +67,26 @@ try {
   assert.equal(blockedRecursiveLifecycle.controllerGuard.blocked, true);
   assert.match(await readFile(path.join(runDir, blockedRecursiveLifecycle.stderrPath), 'utf8'), /Blocked proof route before execution/);
 
+  const blockedUnboundedSameDocLifecycle = await runProofRoute({
+    runDir,
+    iteration: 1,
+    route: {
+      id: 'unbounded-same-doc-lifecycle',
+      kind: 'command',
+      command: `${process.execPath} scripts/living-doc-harness-lifecycle.mjs run tests/fixtures/minimal-doc.json --execute`,
+    },
+    cwd: process.cwd(),
+    docPath: 'tests/fixtures/minimal-doc.json',
+    now: '2026-05-10T07:22:30.000Z',
+  });
+
+  assert.equal(blockedUnboundedSameDocLifecycle.status, 'blocked');
+  assert.equal(blockedUnboundedSameDocLifecycle.failureClass, 'same-doc-lifecycle-proof-route-unbounded');
+  assert.equal(blockedUnboundedSameDocLifecycle.reasonCode, 'same-doc-lifecycle-proof-route-unbounded');
+  assert.equal(blockedUnboundedSameDocLifecycle.commandResult, null);
+  assert.equal(blockedUnboundedSameDocLifecycle.controllerGuard.blocked, true);
+  assert.match(await readFile(path.join(runDir, blockedUnboundedSameDocLifecycle.stderrPath), 'utf8'), /same-doc lifecycle proof routes must be bounded/);
+
   const fakeLifecycleScript = path.join(tmp, 'fake-living-doc-harness-lifecycle.mjs');
   await writeFile(fakeLifecycleScript, "console.log('finite-lifecycle-proof-ok');\n", 'utf8');
 
@@ -76,7 +96,7 @@ try {
     route: {
       id: 'finite-lifecycle-proof',
       kind: 'command',
-      command: `${process.execPath} ${fakeLifecycleScript} run tests/fixtures/minimal-doc.json --execute`,
+      command: `${process.execPath} ${fakeLifecycleScript} run tests/fixtures/minimal-doc.json --execute --evidence-sequence tests/fixtures/minimal-sequence.json`,
     },
     cwd: process.cwd(),
     docPath: 'tests/fixtures/minimal-doc.json',
@@ -93,6 +113,7 @@ try {
   assert.match(events, /fixture-command/);
   assert.match(events, /fixture-failure/);
   assert.match(events, /recursive-lifecycle/);
+  assert.match(events, /unbounded-same-doc-lifecycle/);
   assert.match(events, /finite-lifecycle-proof/);
 } finally {
   await rm(tmp, { recursive: true, force: true });
