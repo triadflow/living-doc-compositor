@@ -502,6 +502,7 @@ function prReviewGateFromEvidence({ sideEffectEvidence, prReviewRequired, prRevi
 
 function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesChanged, closureAllowed, sideEffectEvidence, commitScope = null, prReviewPolicy, prReviewRequired }) {
   const prReviewGate = prReviewGateFromEvidence({ sideEffectEvidence, prReviewRequired, prReviewPolicy });
+  const commitGate = commitGateFromEvidence({ sideEffectEvidence, sourceFilesChanged });
   return {
     schema: 'living-doc-harness-required-hard-facts/v1',
     sourceFilesChanged,
@@ -517,10 +518,50 @@ function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesCh
     renderedHtmlExists: sourceState?.renderedHtmlExists === true,
     closureAllowed,
     commitEvidencePresent: Boolean(sideEffectEvidence?.commit?.sha || sideEffectEvidence?.commit?.exemption?.approved === true || sideEffectEvidence?.commit?.notRequired === true),
+    commitGate,
     prReviewPolicy,
     prReviewRequired: prReviewRequired === true,
     prReviewEvidencePresent: prReviewGate.evidencePresent === true,
     prReviewGate,
+  };
+}
+
+function commitGateFromEvidence({ sideEffectEvidence, sourceFilesChanged }) {
+  const commit = sideEffectEvidence?.commit || {};
+  const blocked = commit.blocked === true || ['blocked', 'failed'].includes(commit.status);
+  if (blocked) {
+    return {
+      required: true,
+      status: 'blocked',
+      evidencePresent: false,
+      resultPath: commit.resultPath || null,
+      validationPath: commit.validationPath || null,
+      reasonCode: commit.reasonCode || 'commit-intent-gate-blocked',
+      basis: arr(commit.basis),
+    };
+  }
+  if (commit.sha || commit.exemption?.approved === true || commit.notRequired === true) {
+    return {
+      required: sourceFilesChanged === true || commit.required === true,
+      status: 'satisfied',
+      evidencePresent: true,
+      resultPath: commit.resultPath || null,
+      validationPath: commit.validationPath || null,
+      reasonCode: commit.reasonCode || null,
+      basis: arr(commit.basis),
+    };
+  }
+  if (sourceFilesChanged === true || commit.required === true) {
+    return {
+      required: true,
+      status: 'missing',
+      evidencePresent: false,
+    };
+  }
+  return {
+    required: false,
+    status: 'not-required',
+    evidencePresent: false,
   };
 }
 
@@ -529,7 +570,11 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
   const initialUnitResultRef = initialUnit?.unitId === 'commit-intent'
     ? run.contract.artifacts.initialInferenceUnit.result
     : null;
+  const initialUnitValidationRef = initialUnit?.unitId === 'commit-intent'
+    ? run.contract.artifacts.initialInferenceUnit.validation
+    : null;
   const commitResultRef = run?.contract?.artifacts?.commitIntentInferenceUnit?.result || initialUnitResultRef;
+  const commitValidationRef = run?.contract?.artifacts?.commitIntentInferenceUnit?.validation || initialUnitValidationRef;
   const initialPrReviewResultRef = initialUnit?.unitId === 'pr-review'
     ? run.contract.artifacts.initialInferenceUnit.result
     : null;
@@ -556,6 +601,24 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
         committedFiles: arr(sideEffect.committedFiles),
         source: 'commit-intent-output-contract',
         resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
+      };
+    } else if (output?.schema === 'living-doc-harness-commit-intent-result/v1'
+      && ['blocked', 'failed'].includes(output.status)) {
+      evidence.commit = {
+        required: arr(sideEffect.requiredChangedFiles).length > 0 || arr(output.changedFiles).length > 0 || output.status === 'blocked',
+        status: output.status || 'blocked',
+        blocked: output.status === 'blocked' || output.status === 'failed',
+        reasonCode: sideEffect.reasonCode || output.reasonCode || 'commit-intent-gate-blocked',
+        message: output.message || null,
+        basis: arr(output.basis),
+        changedFiles: arr(output.changedFiles).length ? arr(output.changedFiles) : arr(sideEffect.requiredChangedFiles),
+        currentRunChangedFiles: arr(sideEffect.currentRunChangedFiles),
+        preExistingDirtyFiles: arr(sideEffect.preExistingDirtyFiles),
+        allowedCommitFiles: arr(sideEffect.allowedCommitFiles),
+        forbiddenCommitFiles: arr(sideEffect.forbiddenCommitFiles),
+        source: 'commit-intent-output-contract',
+        resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
+        validationPath: commitValidationRef ? path.relative(runDir, path.resolve(runDir, commitValidationRef)) : null,
       };
     }
   }

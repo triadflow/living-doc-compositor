@@ -126,6 +126,7 @@ function requiredHardFactsFromIterationEvidence(evidence) {
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
   const prReviewGate = prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
+  const commitGate = commitGateFromIterationEvidence(evidence);
   return {
     schema: 'living-doc-harness-required-hard-facts/v1',
     sourceFilesChanged: evidence?.sourceFilesChanged === true,
@@ -141,6 +142,7 @@ function requiredHardFactsFromIterationEvidence(evidence) {
     renderedHtmlExists: evidence?.sourceState?.renderedHtmlExists === true,
     closureAllowed: evidence?.proofGates?.closureAllowed === true,
     commitEvidencePresent: Boolean(sideEffects.commit?.sha || sideEffects.commit?.exemption?.approved === true || sideEffects.commit?.notRequired === true),
+    commitGate,
     prReviewPolicy,
     prReviewRequired,
     prReviewEvidencePresent: prReviewGate.evidencePresent === true,
@@ -168,6 +170,51 @@ async function ensureControllerEvidenceSnapshot({ runDir, evidence, iteration, n
     ...evidence,
     controllerEvidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || path.relative(runDir, snapshotPath),
     requiredHardFacts,
+  };
+}
+
+function commitGateFromIterationEvidence(evidence) {
+  const sideEffects = evidence?.sideEffectEvidence || {};
+  const commit = sideEffects.commit || {};
+  const hardFacts = evidence?.requiredHardFacts || {};
+  const sourceChanged = evidence?.sourceFilesChanged === true
+    || hardFacts.sourceFilesChanged === true
+    || commit.required === true;
+  const blocked = commit.blocked === true || ['blocked', 'failed'].includes(commit.status);
+  if (blocked) {
+    return {
+      required: true,
+      status: 'blocked',
+      evidencePresent: false,
+      resultPath: commit.resultPath || null,
+      validationPath: commit.validationPath || null,
+      reasonCode: commit.reasonCode || 'commit-intent-gate-blocked',
+      basis: arr(commit.basis),
+    };
+  }
+  const satisfied = Boolean(commit.sha || commit.exemption?.approved === true || commit.notRequired === true || hardFacts.commitEvidencePresent === true);
+  if (satisfied) {
+    return {
+      required: sourceChanged,
+      status: 'satisfied',
+      evidencePresent: true,
+      resultPath: commit.resultPath || null,
+      validationPath: commit.validationPath || null,
+      reasonCode: commit.reasonCode || null,
+      basis: arr(commit.basis),
+    };
+  }
+  if (sourceChanged) {
+    return {
+      required: true,
+      status: 'missing',
+      evidencePresent: false,
+    };
+  }
+  return {
+    required: false,
+    status: 'not-required',
+    evidencePresent: false,
   };
 }
 
@@ -321,7 +368,9 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   const reasonCode = String(verdict?.stopVerdict?.reasonCode || '').toLowerCase();
   const basisText = arr(verdict?.stopVerdict?.basis).join(' ').toLowerCase();
   const text = [instruction, reasonCode, basisText].join(' ');
-  const commitRequiredByEvidence = evidenceRequiresCommitIntent(evidence);
+  const commitGate = evidence?.commitGate || evidence?.requiredHardFacts?.commitGate || commitGateFromIterationEvidence(evidence);
+  const commitBlocked = commitGate.required === true && commitGate.status === 'blocked';
+  const commitRequiredByEvidence = evidenceRequiresCommitIntent(evidence) && commitBlocked !== true;
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequiredByPolicy = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
   const prReviewGate = evidence?.prReviewGate || evidence?.requiredHardFacts?.prReviewGate || prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
@@ -351,6 +400,8 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
     reviewer?.artifact?.inferenceUnitResultPath || null,
     reviewer?.artifact?.inferenceUnitValidationPath || null,
+    commitGate.resultPath || null,
+    commitGate.validationPath || null,
     prReviewGate.resultPath || null,
     prReviewGate.validationPath || null,
   ].filter(Boolean);
@@ -358,6 +409,8 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   const route = selectLifecycleRoute({
     classification,
     reasonCode,
+    commitBlocked,
+    commitGate,
     commitRequired: commitRequiredByEvidence,
     commitPreconditionMentioned,
     prReviewRequired: prReviewRequiredByPolicy,
@@ -388,6 +441,7 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   if (route.unitId === 'pr-review' || route.unitId === 'continuation-inference') {
     nextUnit.prReviewPolicy = prReviewPolicy;
     nextUnit.prReviewGate = prReviewGate;
+    nextUnit.commitGate = commitGate;
     nextUnit.reviewerVerdictPath = reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null;
     nextUnit.livingDocPath = evidence?.livingDocPath || null;
   }

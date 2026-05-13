@@ -1,5 +1,15 @@
 export const LIFECYCLE_ROUTING_POLICY_RULES = [
   {
+    id: 'blocked-commit-intent-gate-needs-continuation',
+    unitId: 'continuation-inference',
+    role: 'continuation',
+    reasonCode: ({ commitGate, reasonCode }) => commitGate?.reasonCode || reasonCode || 'commit-intent-gate-blocked',
+    when: ({ classification, commitBlocked }) => (
+      ['closure-candidate', 'resumable', 'repairable', 'closed'].includes(classification)
+      && commitBlocked === true
+    ),
+  },
+  {
     id: 'source-side-effect-before-review',
     unitId: 'commit-intent',
     role: 'commit-intent',

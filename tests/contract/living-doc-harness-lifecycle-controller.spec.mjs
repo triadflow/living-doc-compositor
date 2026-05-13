@@ -279,6 +279,52 @@ try {
   assert.deepEqual(commitEvidence.commit.changedFiles, ['docs/example.json']);
   assert.deepEqual(commitEvidence.commit.committedFiles, ['docs/example.json', 'docs/example.html']);
 
+  const blockedCommitEvidenceRunDir = path.join(tmp, 'blocked-commit-evidence-ingest-run');
+  await mkdir(path.join(blockedCommitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent'), { recursive: true });
+  await writeFile(path.join(blockedCommitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent', 'result.json'), `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'commit-intent',
+    role: 'commit-intent',
+    outputContract: {
+      schema: 'living-doc-harness-commit-intent-result/v1',
+      approved: false,
+      status: 'blocked',
+      changedFiles: ['docs/example.json'],
+      basis: ['Commit scope forbids all dirty files.'],
+      sideEffect: {
+        type: 'git-commit',
+        executed: false,
+        reasonCode: 'git-head-unchanged',
+        requiredChangedFiles: ['docs/example.json'],
+        forbiddenCommitFiles: ['docs/example.json'],
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(blockedCommitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent', 'validation.json'), `${JSON.stringify({
+    ok: true,
+    schema: 'living-doc-harness-inference-unit-validation/v1',
+  }, null, 2)}\n`, 'utf8');
+  const blockedCommitEvidence = await sideEffectEvidenceFromRun({
+    runDir: blockedCommitEvidenceRunDir,
+    run: {
+      contract: {
+        artifacts: {
+          initialInferenceUnit: {
+            unitId: 'commit-intent',
+            result: 'initial-inference-units/iteration-2/04-commit-intent/result.json',
+            validation: 'initial-inference-units/iteration-2/04-commit-intent/validation.json',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(blockedCommitEvidence.commit.status, 'blocked');
+  assert.equal(blockedCommitEvidence.commit.blocked, true);
+  assert.equal(blockedCommitEvidence.commit.source, 'commit-intent-output-contract');
+  assert.equal(blockedCommitEvidence.commit.resultPath, 'initial-inference-units/iteration-2/04-commit-intent/result.json');
+  assert.equal(blockedCommitEvidence.commit.validationPath, 'initial-inference-units/iteration-2/04-commit-intent/validation.json');
+  assert.equal(blockedCommitEvidence.commit.reasonCode, 'git-head-unchanged');
+
   const prReviewEvidenceRunDir = path.join(tmp, 'pr-review-evidence-ingest-run');
   await mkdir(path.join(prReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review'), { recursive: true });
   await writeFile(path.join(prReviewEvidenceRunDir, 'initial-inference-units', 'iteration-3', '05-pr-review', 'result.json'), `${JSON.stringify({
@@ -1352,6 +1398,68 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.equal(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'pr-review');
   assert.equal(repairablePrGateOutputInput.postReviewSelection.nextUnit.policyRuleId, 'required-pr-review-after-commit');
   assert.notEqual(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+
+  const blockedCommitGateSequencePath = path.join(tmp, 'blocked-commit-gate-sequence.json');
+  await writeFile(blockedCommitGateSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'commit-intent-blocked',
+        unresolvedObjectiveTerms: ['commit gate is blocked and cannot be repeated blindly'],
+        unprovenAcceptanceCriteria: ['criterion-side-effect-contracts'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: true,
+        sideEffectEvidence: {
+          commit: {
+            required: true,
+            status: 'blocked',
+            blocked: true,
+            source: 'commit-intent-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/04-commit-intent/result.json',
+            validationPath: 'initial-inference-units/iteration-2/04-commit-intent/validation.json',
+            reasonCode: 'git-head-unchanged',
+            changedFiles: ['docs/example.json'],
+          },
+        },
+        traceMessage: 'Commit-intent already returned blocked; the controller must not select commit-intent again.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'acceptance-and-pr-review-gates-missing',
+          mode: 'repair',
+          instruction: 'Continue toward proof, but do not repeat the blocked commit-intent gate without a changed contract basis.',
+        }),
+      },
+      {
+        stageAfter: 'operator-stopped-after-blocked-commit-routing-proof',
+        unresolvedObjectiveTerms: ['blocked commit routing proof complete'],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        traceMessage: 'Stop after proving blocked commit-intent does not reselect commit-intent.',
+        reviewerVerdict: reviewerVerdict('user-stopped', {
+          reasonCode: 'operator-stop',
+          mode: 'user-stop',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const blockedCommitGateLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'blocked-commit-gate-runs'),
+    evidenceDir: path.join(tmp, 'blocked-commit-gate-evidence'),
+    dashboardPath: path.join(tmp, 'blocked-commit-gate-dashboard.html'),
+    evidenceSequencePath: blockedCommitGateSequencePath,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    now: '2026-05-07T13:05:45.000Z',
+  });
+  assert.equal(blockedCommitGateLifecycle.iterations[0].classification, 'repairable');
+  assert.equal(blockedCommitGateLifecycle.iterations[0].nextAction.selectedUnitType, 'continuation-inference');
+  const blockedCommitGateOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), blockedCommitGateLifecycle.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.policyRuleId, 'blocked-commit-intent-gate-needs-continuation');
+  assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.commitGate.status, 'blocked');
+  assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.commitGate.reasonCode, 'git-head-unchanged');
+  assert.notEqual(blockedCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'commit-intent');
 
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({
