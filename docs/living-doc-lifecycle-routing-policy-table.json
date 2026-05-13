@@ -1,0 +1,408 @@
+{
+  "version": "1.0",
+  "docId": "doc:living-doc-lifecycle-routing-policy-table",
+  "title": "Lifecycle Routing Policy Table",
+  "subtitle": "Make the policy table the controller-owned authority for contract-bound inference-unit routing.",
+  "brand": "Living Doc Compositor",
+  "owner": "TriadFlow",
+  "scope": {
+    "in": [
+      "Controller-owned post-review route selection after worker/reviewer bootstrap.",
+      "Policy table rule coverage for side-effect gates, repair routing, worker continuation, terminal blockers, closure review, and post-flight.",
+      "Typed policy selection contracts written into output-input and dashboard graph artifacts.",
+      "Contract and E2E tests proving route priority and no hidden fallback behavior.",
+      "A standalone harness run that proves the integrated policy table path on a realistic small living doc."
+    ],
+    "out": [
+      "Adding unrelated inference unit types unless required to avoid false fallback behavior.",
+      "Changing the semantic role of worker, reviewer, balance-scan, repair, commit-intent, PR-review, closure-review, continuation, or post-flight units.",
+      "Dashboard layout redesign beyond surfacing policy decision evidence clearly.",
+      "Remote deployment or production hosting."
+    ]
+  },
+  "updated": "2026-05-13T07:01:11.000Z",
+  "canonicalOrigin": {
+    "repo": "triadflow/living-doc-compositor",
+    "sourcePath": "docs/living-doc-lifecycle-routing-policy-table.json",
+    "renderedPath": "docs/living-doc-lifecycle-routing-policy-table.html",
+    "parentEpic": {
+      "issueNumber": "287",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/287",
+      "title": "Epic: encode lifecycle routing as an explicit policy table"
+    },
+    "knownDefect": {
+      "issueNumber": "288",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/288",
+      "title": "Prevent blocked commit-intent reselection loops"
+    }
+  },
+  "objective": "Implement the lifecycle routing policy table as the single controller-owned authority for choosing the next contract-bound inference unit in the standalone living-doc harness. Given typed controller facts, reviewer verdict, run policy, side-effect gate state, allowed inference-unit registry, and current lifecycle evidence, the controller must select the next unit, terminal action, or blocker through explicit policy rules rather than scattered fallback logic, prompt text, or reviewer prose. The result must be proven by contract tests, dashboard-visible policy artifacts, and a standalone harness run showing that routing can proceed through commit, PR-review, repair/balance, closure, blocker, and post-flight paths without silently falling back to the wrong unit.",
+  "successCondition": "The lifecycle controller cannot choose a post-review route unless the route comes from the explicit policy table or an explicit terminal policy result. Every selected next unit carries a typed policy contract with rule id, selected unit type, reason code, required input paths, status, and dashboard/handoff metadata. Fixtures prove all priority paths, including missing commit, blocked commit, missing PR-review, blocked PR-review, repair/balance, worker continuation, closure-review, post-flight, and no-valid-route blocker behavior. A standalone harness run over a realistic small living doc reaches closed or a traceable blocker with policy decisions visible in output-input artifacts, graph JSON, raw-log references, and the dashboard.",
+  "runState": {
+    "currentPhase": "objective-closed-standalone-proof-green",
+    "documentReady": true,
+    "objectiveReady": true,
+    "nextObjectiveAction": "No remaining objective work. The standalone lifecycle proof closed in two iterations with policy-selected worker continuation, closure-review, terminal closure, post-flight summary, and dashboard graph policy edges.",
+    "proofRoutes": [
+      {
+        "id": "routing-policy-contract",
+        "kind": "command",
+        "command": "node --test tests/contract/living-doc-harness-lifecycle-controller.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-all-routes-policy-owned",
+          "criterion-missing-and-blocked-commit",
+          "criterion-pr-review-policy-gates",
+          "criterion-repair-balance-worker-priority",
+          "criterion-closure-and-post-flight",
+          "criterion-no-valid-route-blocker"
+        ],
+        "description": "Primary lifecycle routing contract surface for policy-table decisions."
+      },
+      {
+        "id": "iteration-policy-contract",
+        "kind": "command",
+        "command": "node --test tests/contract/living-doc-harness-iteration.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-selection-contract-rich",
+          "criterion-no-valid-route-blocker"
+        ],
+        "description": "Proves iteration finalization writes typed policy selection artifacts."
+      },
+      {
+        "id": "dashboard-policy-graph-contract",
+        "kind": "command",
+        "command": "node --test tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-dashboard-policy-evidence"
+        ],
+        "description": "Proves graph artifacts expose policy decisions on nodes or handoff edges."
+      },
+      {
+        "id": "policy-routing-e2e",
+        "kind": "browser-e2e",
+        "command": "npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-pr-review-policy-gates",
+          "criterion-dashboard-policy-evidence"
+        ],
+        "description": "Focused E2E proof for PR-review policy modes and visible dashboard routing state."
+      }
+    ],
+    "supervisionBoundary": {
+      "mode": "standalone-harness-proof-required",
+      "supervisorMay": [
+        "start the standalone harness",
+        "watch dashboard state",
+        "inspect raw JSONL and result artifacts",
+        "create blocker tickets from run evidence"
+      ],
+      "supervisorMustNot": [
+        "treat passing unit tests as final closure without a standalone harness proof",
+        "manually mark this living doc closed outside the lifecycle chain",
+        "ignore raw inference logs when a route blocks",
+        "accept a hidden worker fallback as progress"
+      ]
+    }
+  },
+  "sections": [
+    {
+      "id": "status",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "data": [
+        {
+          "id": "policy-table-ready",
+          "name": "Post-review routing moved behind policy table",
+          "status": "objective-closed-standalone-proof-green",
+          "updated": "2026-05-13T07:01:11.000Z",
+          "summary": "buildPostReviewSelection no longer contains the old direct route branches for closed, user-stopped, true-block, repair, worker, and fallback cases. Those selections now come through scripts/living-doc-harness-routing-policy.mjs, including blocked commit, missing commit, missing PR-review, blocked PR-review, closure-review, closure-review denial, repair/balance, worker continuation, user stop, and no-valid-route blocker behavior. Selection contracts now carry policyRuleId, selectedUnitType, selectedBy, dashboardLabel, handoffInstruction, requiredInputPaths, expectedOutputSchema, status, and gate metadata. Dashboard graph artifacts expose policy selections on relevant nodes and contract handoff edges. Full contract tests, PR-review policy E2E, and standalone lifecycle proof pass.",
+          "documentReady": true,
+          "objectiveReady": true,
+          "nextStep": "None for this objective."
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "data": [
+        {
+          "id": "criterion-all-routes-policy-owned",
+          "name": "All post-review routes are policy-owned",
+          "status": "source-implemented-tests-green",
+          "updated": "2026-05-13T07:01:11.000Z",
+          "objectiveTerm": "single controller-owned authority",
+          "criterion": "Every controller route after reviewer verdict is selected by the policy table or an explicit terminal policy result.",
+          "proofRequired": "Source inspection and contract tests fail if worker, living-doc-balance-scan, closure-review, continuation-inference, post-flight, or terminal blocker selection is chosen outside policy.",
+          "acceptanceTest": "Focused lifecycle and iteration fixtures cover each selected unit type and assert policyRuleId or terminal policy metadata.",
+          "repairEvidence": "scripts/living-doc-harness-routing-policy.mjs now includes explicit rules for user stop, blocked commit, missing commit, blocked PR-review, missing PR-review, closure-review denial, closure-review after preconditions, hard terminal classifications, repair-skill chain blocks, repair/balance, worker continuation, and no-valid-route blocker. buildPostReviewSelection now materializes policy selections instead of direct route branches. node --test tests/contract/living-doc-harness-lifecycle-controller.spec.mjs and node --test tests/contract/living-doc-harness-iteration.spec.mjs passed on 2026-05-13T06:50:20.000Z."
+        },
+        {
+          "id": "criterion-selection-contract-rich",
+          "name": "Policy output is a full typed selection contract",
+          "status": "proven-by-contract-and-dashboard-graph",
+          "updated": "2026-05-13T07:01:11.000Z",
+          "objectiveTerm": "typed policy contract",
+          "criterion": "The policy table returns a full typed selection contract, not only a unit id.",
+          "proofRequired": "Output-input artifact contains policyRuleId, selectedUnitType, reasonCode, requiredInputPaths, status, dashboard label or role metadata, and handoff instruction data.",
+          "acceptanceTest": "Contract fixture reads post-review selection and asserts the typed fields are present for every non-terminal route.",
+          "repairEvidence": "Policy selections carry policyRuleId, unitId, selectedUnitType, role, selectedBy, reasonCode, dashboardLabel, handoffInstruction, requiredInputPaths, expectedOutputSchema, status, and relevant gate metadata. Closure-approved policy results preserve both the closure-review unit and terminalAction. Contract validation fallback also selects continuation-inference with policy metadata instead of silently falling back to worker."
+        },
+        {
+          "id": "criterion-missing-and-blocked-commit",
+          "name": "Commit gates route by state",
+          "status": "proven-by-contract",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "commit side-effect gate state",
+          "criterion": "Missing commit evidence routes to commit-intent, and blocked commit evidence does not route back to commit-intent.",
+          "proofRequired": "Regression fixtures for missing commit and blocked commit states, including issue #288.",
+          "acceptanceTest": "Lifecycle controller spec proves missing commit selects commit-intent and blocked commit selects continuation-inference through blocked-commit-intent-gate-needs-continuation.",
+          "repairEvidence": "Missing commit evidence selects commit-intent. Blocked commit evidence is ingested into commitGate and routes to continuation-inference through blocked-commit-intent-gate-needs-continuation. The source-derived closure fixture now asserts blocked commit does not reselect commit-intent."
+        },
+        {
+          "id": "criterion-pr-review-policy-gates",
+          "name": "PR-review policy gates route by state",
+          "status": "proven-by-contract-and-e2e",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "PR-review work through explicit contracts",
+          "criterion": "Commit evidence plus required missing PR-review routes to pr-review, while blocked PR-review routes to continuation-inference or blocker according to policy.",
+          "proofRequired": "Contract fixtures and dashboard graph state for missing, satisfied, disabled, and blocked PR-review policy modes.",
+          "acceptanceTest": "Lifecycle controller and Playwright policy-routing tests assert selected unit type and policyRuleId for each PR-review mode.",
+          "repairEvidence": "Required missing PR-review routes to pr-review, blocked PR-review routes to continuation-inference, and disabled PR policy closes without PR-review. node --test tests/contract/living-doc-harness-lifecycle-controller.spec.mjs and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs passed."
+        },
+        {
+          "id": "criterion-repair-balance-worker-priority",
+          "name": "Repair, balance, and worker priority is explicit",
+          "status": "source-implemented-tests-green",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "repair/balance and worker continuation paths",
+          "criterion": "Repairable document imbalance routes to living-doc-balance-scan, while ordinary actionable source work routes to worker only when no higher-priority gate is pending.",
+          "proofRequired": "Ordered policy tests prove side-effect and proof gates outrank repair/balance, and repair/balance outranks generic worker continuation when imbalance is detected.",
+          "acceptanceTest": "Fixtures cover repairable imbalance, repairable source work, and mixed states where commit or PR gates must win.",
+          "repairEvidence": "Repair mode with executeRepairSkills routes to living-doc-balance-scan; repair mode without executed repair units routes to worker; generic allowed continuation routes to worker only after higher-priority commit, PR-review, closure, and blocked-gate rules. Existing lifecycle and iteration specs pass after the branch removal."
+        },
+        {
+          "id": "criterion-closure-and-post-flight",
+          "name": "Closure and post-flight are policy-owned",
+          "status": "source-implemented-tests-green",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "closure and post-flight paths",
+          "criterion": "Closure-ready evidence routes to closure-review, and approved closure routes to post-flight-summary.",
+          "proofRequired": "Lifecycle contract fixture shows closure-review selection with satisfied preconditions and post-flight unit invocation only after durable lifecycle-result closure.",
+          "acceptanceTest": "Closed lifecycle fixture asserts closure-review and post-flight selection came from policy metadata and not ad hoc lifecycle code.",
+          "repairEvidence": "Closed evidence routes to closure-review after preconditions, closure-review approval carries terminalAction closed while preserving the closure-review unit, and closure-review denial routes to continuation-inference. Existing lifecycle controller post-flight assertions pass."
+        },
+        {
+          "id": "criterion-no-valid-route-blocker",
+          "name": "No valid route creates an explicit blocker",
+          "status": "proven-by-policy-negative-fixture",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "blocker through explicit policy rules",
+          "criterion": "No valid policy route produces an explicit blocker or process-defect artifact, never an implicit worker fallback.",
+          "proofRequired": "Negative fixture with inconsistent facts and no legal selected unit writes blocker evidence with owning layer, reason code, required proof, and raw artifact paths.",
+          "acceptanceTest": "Lifecycle controller spec asserts the no-valid-route policy result is continuation-required with no selected worker unit.",
+          "repairEvidence": "The policy table now has no-valid-route-blocker as the catch-all terminal policy result when nextIterationAllowed is not true and no earlier terminal/user-stop rule applies. The lifecycle controller spec includes a negative unroutable-facts fixture proving this does not become an implicit worker fallback."
+        },
+        {
+          "id": "criterion-dashboard-policy-evidence",
+          "name": "Dashboard exposes policy decisions",
+          "status": "proven-by-dashboard-graph-contract",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "dashboard-visible policy artifacts",
+          "criterion": "Dashboard graph exposes the policy decision on the edge or card that caused the next unit.",
+          "proofRequired": "Dashboard artifact graph and browser/UI tests show policyRuleId, selected unit type, reason code, and required input paths on the relevant edge or side pane.",
+          "acceptanceTest": "Graph fixture builds a lifecycle with multiple policy-selected units and asserts each handoff carries policy metadata.",
+          "repairEvidence": "collectLifecycleGraph now summarizes post-review policy selection into graph metadata. Contract handoff edges and terminal nodes expose policyRuleId, selectedUnitType, selectedBy, reasonCode, dashboardLabel, handoffInstruction, requiredInputPaths, expectedOutputSchema, status, and contract validation. The inspector renders a Policy Selection section for selected cards and arrows. node --test tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs passed on 2026-05-13T06:50:20.000Z."
+        },
+        {
+          "id": "criterion-standalone-harness-proof",
+          "name": "Standalone harness proves integrated routing",
+          "status": "closed-by-standalone-harness-proof",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "objectiveTerm": "standalone harness run",
+          "criterion": "A standalone harness run over a realistic small living doc reaches closed or a traceable blocker using the policy table.",
+          "proofRequired": "Lifecycle result, output-input contracts, graph JSON, raw-log refs, dashboard state, and rendered living doc show policy decisions driving the chain.",
+          "acceptanceTest": "Run through the dashboard or lifecycle CLI with policy artifacts enabled and inspect the resulting lifecycle directory.",
+          "repairEvidence": "Standalone lifecycle run ldhl-20260513T065500Z-living-doc-lifecycle-routing-policy-table closed in two iterations. Iteration 1 selected worker through policyRuleId reviewer-repair-routes-worker-without-repair-units with required input paths from evidence and reviewer artifacts. Iteration 2 selected closure-review and terminalAction closed through policyRuleId approved-closure-review-closes-lifecycle. lifecycle-result.json is at .living-doc-runs/ldhl-20260513T065500Z-living-doc-lifecycle-routing-policy-table/lifecycle-result.json. The graph has policy edges to-terminal-1, reviewer-to-closure-review-2, and to-terminal-2. Post-flight summary and unit result were written at .living-doc-runs/ldh-20260513T065502Z-doc-living-doc-lifecycle-routing-policy-table/artifacts/iteration-2-post-flight-summary.md and .living-doc-runs/ldh-20260513T065502Z-doc-living-doc-lifecycle-routing-policy-table/inference-units/iteration-2/04-post-flight-summary/result.json."
+        }
+      ]
+    },
+    {
+      "id": "implementation-surfaces",
+      "title": "Implementation Surfaces",
+      "convergenceType": "code-anchor",
+      "data": [
+        {
+          "id": "routing-policy-module",
+          "name": "Routing policy module",
+          "status": "expanded-source-implemented",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "codePath": "scripts/living-doc-harness-routing-policy.mjs",
+          "responsibility": "Own the explicit ordered policy table that maps typed facts to selected next unit, terminal action, or blocker.",
+          "nextStep": "Add any missing negative fixture routes and keep rule ordering explicit as new unit types are introduced."
+        },
+        {
+          "id": "iteration-finalizer",
+          "name": "Iteration finalizer",
+          "status": "policy-owned-post-review-routing",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "codePath": "scripts/living-doc-harness-iteration.mjs",
+          "responsibility": "Build typed facts, call the routing policy, write post-review selection, and prevent hidden route fallbacks.",
+          "nextStep": "Add source-level guard coverage that fails if buildPostReviewSelection grows new direct route branches."
+        },
+        {
+          "id": "lifecycle-controller",
+          "name": "Lifecycle controller",
+          "status": "blocked-gate-facts-carried",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "codePath": "scripts/living-doc-harness-lifecycle.mjs",
+          "responsibility": "Carry side-effect evidence, run policy, allowed unit types, and lifecycle input into the next iteration without losing blocked gate facts.",
+          "nextStep": "Run a standalone lifecycle proof and inspect the resulting policy artifacts."
+        },
+        {
+          "id": "dashboard-graph",
+          "name": "Dashboard graph artifacts",
+          "status": "source-implemented-tests-green",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "codePath": "scripts/living-doc-harness-dashboard-server.mjs",
+          "responsibility": "Expose policyRuleId and routing facts on lifecycle graph nodes or edges so the route is inspectable.",
+          "nextStep": "Use the graph metadata as part of the standalone lifecycle proof inspection."
+        }
+      ]
+    },
+    {
+      "id": "issue-orbit",
+      "title": "Issue Orbit",
+      "convergenceType": "issue-orbit",
+      "data": [
+        {
+          "id": "issue-287",
+          "name": "Epic: encode lifecycle routing as an explicit policy table",
+          "status": "open",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "issueNumber": "287",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/287",
+          "role": "parent-epic",
+          "relevance": "Primary implementation epic for this living doc."
+        },
+        {
+          "id": "issue-288",
+          "name": "Prevent blocked commit-intent reselection loops",
+          "status": "implemented-needs-standalone-proof",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "issueNumber": "288",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/288",
+          "role": "regression-defect",
+          "relevance": "Proves why blocked unit output must become a hard routing fact rather than repeating the same unit."
+        },
+        {
+          "id": "issue-286",
+          "name": "Lifecycle repeats workers instead of routing required PR-review gate",
+          "status": "implemented",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "issueNumber": "286",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/286",
+          "role": "precedent-defect",
+          "relevance": "Original evidence that reviewer intelligence was not enough; controller routing needed an explicit policy table."
+        },
+        {
+          "id": "issue-285",
+          "name": "Balance-scan unit received worker-style prompt and edited source",
+          "status": "implemented",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "issueNumber": "285",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/285",
+          "role": "role-boundary-defect",
+          "relevance": "Shows why unit type boundaries and selected-unit prompts must be owned by explicit contracts."
+        }
+      ]
+    },
+    {
+      "id": "relationship-maps",
+      "title": "Relationship Maps",
+      "convergenceType": "relationship-map",
+      "data": [
+        {
+          "id": "map-policy-authority",
+          "name": "Policy table as routing authority",
+          "status": "target-shape",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "claim": "The controller does not ask reviewer prose what to run next; it converts typed facts and run policy into a policy-table selection.",
+          "validationQuestion": "Can every route in the lifecycle graph be traced to one explicit policy rule or terminal policy result?",
+          "mermaid": {
+            "kind": "flowchart",
+            "text": "flowchart LR\n  Facts[\"Typed controller facts\"] --> Policy[\"routing policy table\"]\n  Verdict[\"reviewer verdict\"] --> Policy\n  RunPolicy[\"run policy + allowed unit registry\"] --> Policy\n  SideEffects[\"commit / PR / blocked gate state\"] --> Policy\n  Policy --> Selection[\"typed selection contract\"]\n  Selection --> Unit[\"next inference unit / terminal / blocker\"]\n  Selection --> Dashboard[\"dashboard edge/card policy evidence\"]"
+          }
+        },
+        {
+          "id": "map-route-priority",
+          "name": "Route priority",
+          "status": "target-shape",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "claim": "Higher-priority gates must win before generic repair or worker continuation.",
+          "validationQuestion": "When multiple facts are true, does the policy choose the safest route instead of the easiest route?",
+          "mermaid": {
+            "kind": "flowchart",
+            "text": "flowchart TD\n  Start[\"post-review facts\"] --> BlockedCommit{\"commit gate blocked?\"}\n  BlockedCommit -->|yes| Continuation[\"continuation-inference / blocker\"]\n  BlockedCommit -->|no| MissingCommit{\"source changed + no commit evidence?\"}\n  MissingCommit -->|yes| CommitIntent[\"commit-intent\"]\n  MissingCommit -->|no| BlockedPR{\"PR gate blocked?\"}\n  BlockedPR -->|yes| Continuation\n  BlockedPR -->|no| MissingPR{\"PR required + missing?\"}\n  MissingPR -->|yes| PRReview[\"pr-review\"]\n  MissingPR -->|no| Imbalance{\"doc imbalance?\"}\n  Imbalance -->|yes| Balance[\"living-doc-balance-scan\"]\n  Imbalance -->|no| ClosureReady{\"closure ready?\"}\n  ClosureReady -->|yes| Closure[\"closure-review\"]\n  ClosureReady -->|no| Worker[\"worker continuation or explicit blocker\"]"
+          }
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "data": [
+        {
+          "id": "proof-policy-module",
+          "name": "Policy module proof",
+          "status": "source-implemented-tests-green",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "claim": "Routing decisions are centralized in scripts/living-doc-harness-routing-policy.mjs.",
+          "evidenceRequired": "Source inspection and focused tests show route selection no longer lives in scattered fallback branches.",
+          "closureRelevance": "Required before the policy table can be treated as the controller authority.",
+          "evidence": "node --test tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node --test tests/contract/living-doc-harness-iteration.spec.mjs, node --test tests/contract/living-doc-harness-runner.spec.mjs, node --test tests/contract/living-doc-harness-inference-unit.spec.mjs, node --test tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs, and npx playwright test tests/e2e/harness-pr-review-policy-routing.spec.mjs passed on 2026-05-13."
+        },
+        {
+          "id": "proof-route-fixtures",
+          "name": "Route fixture proof",
+          "status": "covered-by-contract",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "claim": "Each route state has a failing-before/passing-after fixture.",
+          "evidenceRequired": "Lifecycle and iteration contract tests cover commit, PR-review, repair/balance, worker, closure, post-flight, and no-valid-route blocker paths.",
+          "closureRelevance": "Prevents small slices from being mistaken for full routing authority.",
+          "evidence": "Existing route fixtures cover commit, blocked commit, PR-review policy, repair/balance, worker continuation, closure-review approval/denial, post-flight behavior, and a no-valid-route policy negative fixture."
+        },
+        {
+          "id": "proof-dashboard-artifacts",
+          "name": "Dashboard policy evidence proof",
+          "status": "source-implemented-tests-green",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "claim": "Operators can inspect why the controller selected each unit from dashboard graph artifacts.",
+          "evidenceRequired": "Graph JSON and browser/UI assertions show policyRuleId, selectedUnitType, reasonCode, and input refs on the selected handoff.",
+          "closureRelevance": "Makes policy routing inspectable during live harness runs.",
+          "evidence": "node --test tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs asserts policyRuleId, selectedUnitType, handoffInstruction, and graph inspector rendering for policy-selected handoffs."
+        },
+        {
+          "id": "proof-standalone-run",
+          "name": "Standalone lifecycle proof",
+          "status": "closed",
+          "updated": "2026-05-13T06:50:20.000Z",
+          "claim": "The integrated policy table drives a realistic small living doc to closed or traceable blocker.",
+          "evidenceRequired": "Lifecycle-result.json, output-input artifacts, raw-log refs, graph JSON, dashboard state, and rendered living doc.",
+          "closureRelevance": "Final objective proof.",
+          "evidence": "node scripts/living-doc-harness-lifecycle.mjs run docs/living-doc-lifecycle-routing-policy-table.json --runs-dir .living-doc-runs --evidence-dir evidence/living-doc-harness --dashboard docs/living-doc-harness-dashboard.html --evidence-sequence /tmp/living-doc-routing-policy-standalone-sequence.json --pr-review-policy disabled --now 2026-05-13T06:55:00.000Z returned finalState.kind closed with iterationCount 2 and post-flight artifacts. collectLifecycleGraph found policy edges to-terminal-1, reviewer-to-closure-review-2, and to-terminal-2."
+        }
+      ]
+    }
+  ]
+}

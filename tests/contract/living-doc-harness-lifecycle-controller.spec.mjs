@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { deriveGitWorktreeEvidence, runHarnessLifecycle, sideEffectEvidenceFromRun } from '../../scripts/living-doc-harness-lifecycle.mjs';
+import { selectLifecycleRoute } from '../../scripts/living-doc-harness-routing-policy.mjs';
 
 function minimalDoc(docPath) {
   return {
@@ -98,6 +99,15 @@ function reviewerVerdict(classification, {
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-lifecycle-controller-'));
 
 try {
+  const noValidRoute = selectLifecycleRoute({
+    classification: 'unroutable-fixture',
+    reasonCode: 'fixture-no-valid-route',
+    nextIterationAllowed: false,
+  });
+  assert.equal(noValidRoute.policyRuleId, 'no-valid-route-blocker');
+  assert.equal(noValidRoute.terminalActionKind, 'continuation-required');
+  assert.equal(noValidRoute.unitId, undefined);
+
   const gitFixture = path.join(tmp, 'git-fixture');
   await mkdir(gitFixture, { recursive: true });
   spawnSync('git', ['init'], { cwd: gitFixture, stdio: 'ignore' });
@@ -1129,8 +1139,10 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
   assert.match(sourceClosure.iterations[1].reviewerVerdictPath, /reviewer-inference\/iteration-2-verdict\.json$/);
   assert.equal(sourceClosure.iterations[1].closureReviewResultPath, null);
   const sourceClosureSelection = JSON.parse(await readFile(path.resolve(process.cwd(), sourceClosure.iterations[1].postReviewSelectionPath), 'utf8'));
-  assert.equal(sourceClosureSelection.nextUnit.unitId, 'commit-intent');
-  assert.match(sourceClosureSelection.nextUnit.resultPath, /inference-units\/iteration-2\/04-commit-intent\/result\.json$/);
+  assert.equal(sourceClosureSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(sourceClosureSelection.nextUnit.policyRuleId, 'blocked-commit-intent-gate-needs-continuation');
+  assert.equal(sourceClosureSelection.nextUnit.commitGate.status, 'blocked');
+  assert.match(sourceClosureSelection.nextUnit.commitGate.resultPath, /initial-inference-units\/iteration-2\/04-commit-intent\/result\.json$/);
 
   const scopedCommitRepo = path.join(tmp, 'scoped-worker-commit-repo');
   await mkdir(path.join(scopedCommitRepo, 'docs'), { recursive: true });

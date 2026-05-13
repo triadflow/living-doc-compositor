@@ -644,6 +644,28 @@ function graphEdge(id, from, to, fields = {}) {
   };
 }
 
+function summarizePolicySelection(selection) {
+  const nextUnit = selection?.nextUnit || null;
+  const terminalAction = selection?.terminalAction || null;
+  const source = nextUnit || terminalAction;
+  if (!source) return null;
+  return {
+    schema: 'living-doc-harness-dashboard-policy-selection/v1',
+    policyRuleId: source.policyRuleId || null,
+    selectedUnitType: nextUnit?.selectedUnitType || nextUnit?.unitId || null,
+    selectedUnitRole: nextUnit?.role || nextUnit?.unitId || null,
+    terminalActionKind: terminalAction?.kind || null,
+    selectedBy: source.selectedBy || 'routing-policy',
+    reasonCode: source.reasonCode || selection.reasonCode || null,
+    dashboardLabel: source.dashboardLabel || nextUnit?.unitId || terminalAction?.kind || null,
+    handoffInstruction: source.handoffInstruction || null,
+    requiredInputPaths: arr(nextUnit?.requiredInputPaths),
+    expectedOutputSchema: nextUnit?.expectedOutputSchema || null,
+    status: source.status || selection.contractValidation?.reasonCode || null,
+    contractValidation: selection.contractValidation || null,
+  };
+}
+
 function roleBoundaryViolationFromResult(result) {
   const output = result?.outputContract && typeof result.outputContract === 'object'
     ? result.outputContract
@@ -885,6 +907,9 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
     const workerUnit = contract?.artifacts?.initialInferenceUnit || contract?.artifacts?.workerInferenceUnit || {};
     const workerId = `iteration-${iteration}-${initialUnitType}`;
+    const activePostReviewSelectionPath = path.join(runDir, 'artifacts', `iteration-${iteration}-post-review-selection.json`);
+    const activePostReviewSelection = await readJson(activePostReviewSelectionPath, null);
+    const policySelection = summarizePolicySelection(activePostReviewSelection);
     const workerResultPath = resolveInferenceUnitResultPath({ cwd, runDir, iteration, unitId: initialUnitType, unit: workerUnit });
     const workerResult = workerResultPath ? await readJson(workerResultPath, null) : null;
     const workerResultStatus = terminalInferenceStatusFromResult(workerResult);
@@ -927,6 +952,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
         toolProfile: summarizeToolProfile(contract?.process?.toolProfile),
         pid: contract?.process?.pid ?? null,
         exitCode: contract?.process?.exitCode ?? null,
+        policySelection,
       },
     }));
     addEdge(graphEdge(`lifecycle-to-${initialUnitType}-${iteration}`, lifecycleNodeId, workerId, {
@@ -1080,6 +1106,9 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
           resultPath: unit.paths.resultPath,
           validationPath: unit.paths.validationPath,
           codexEventsPath: unit.paths.codexEventsPath,
+          ...(role === 'balance-scan' && policySelection?.selectedUnitType === 'living-doc-balance-scan'
+            ? { policySelection }
+            : {}),
         },
         gate: role === 'balance-scan' ? 'balance-scan-required' : 'ordered-repair-unit-required',
         lifecycleEffect: role === 'balance-scan' ? 'ordered-skill-list' : 'repair-skill-result',
@@ -1209,6 +1238,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const facts = await collectRunEvidence(runDir).catch(() => ({}));
     const outputInputPath = resolveArtifactRef({ cwd, baseDir: runDir, ref: iterationRecord.outputInputPath });
     const outputInput = await readJson(outputInputPath, null);
+    const policySelection = summarizePolicySelection(outputInput?.postReviewSelection);
     const terminalStatus = terminalStatusForIteration({ lifecycle, iterationRecord, outputInput, runId });
     const initialUnitType = contract?.runConfig?.initialUnitType || contract?.artifacts?.initialInferenceUnit?.unitId || 'worker';
     const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
@@ -1257,6 +1287,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
               ? facts.prReviewEvidencePresent === true ? 'satisfied' : 'missing'
               : 'not-required'),
         },
+        policySelection,
         toolProfile: summarizeToolProfile(contract.process?.toolProfile),
       },
     }));
@@ -1386,6 +1417,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           resultPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: closureReview.inferenceUnitResultPath })),
           validationPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: closureReview.inferenceUnitValidationPath })),
           proofPath: relativeTo(cwd, iterationProofPath),
+          ...(policySelection?.selectedUnitType === 'closure-review' ? { policySelection } : {}),
         },
         gate: 'closure-review-required',
         lifecycleEffect: closureReview.terminalAllowed ? 'terminal-closure-allowed' : 'terminal-closure-blocked',
@@ -1435,6 +1467,9 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           resultPath: unit.paths.resultPath,
           validationPath: unit.paths.validationPath,
           codexEventsPath: unit.paths.codexEventsPath,
+          ...(role === 'balance-scan' && policySelection?.selectedUnitType === 'living-doc-balance-scan'
+            ? { policySelection }
+            : {}),
         },
         gate: role === 'balance-scan' ? 'balance-scan-required' : 'ordered-repair-unit-required',
         lifecycleEffect: role === 'balance-scan' ? 'ordered-skill-list' : 'repair-skill-result',
@@ -1505,6 +1540,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         meta: {
           nextAction: iterationRecord.nextAction || outputInput?.nextAction || null,
           finalState: lifecycle.finalState || null,
+          policySelection,
         },
       }));
       addEdge(graphEdge(`to-terminal-${iteration}`, previousNodeId, terminalId, {
@@ -1513,6 +1549,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         contract: {
           outputInputPath: relativeTo(cwd, outputInputPath),
           terminalPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: outputInput?.previousOutput?.terminalPath })),
+          policySelection,
         },
         gate: 'terminal-state-gate',
         lifecycleEffect: iterationRecord.nextAction?.action || outputInput?.nextAction?.action || null,
@@ -2872,6 +2909,24 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       '</section>';
     }
 
+    function renderPolicySelectionSection(selection) {
+      if (!selection) {
+        return '<section class="inspector-section"><h3>Policy Selection</h3><p class="muted">No routing-policy selection recorded.</p></section>';
+      }
+      return '<section class="inspector-section"><h3>Policy Selection</h3>' +
+        inspectorFields([
+          ['Rule', selection.policyRuleId || 'none'],
+          ['Selected unit', selection.selectedUnitType || selection.terminalActionKind || 'none'],
+          ['Selected by', selection.selectedBy || 'routing-policy'],
+          ['Reason', selection.reasonCode || 'none'],
+          ['Label', selection.dashboardLabel || 'none'],
+          ['Status', selection.status || 'unknown'],
+        ]) +
+        '<h3>Handoff</h3><p class="muted">' + esc(selection.handoffInstruction || 'No handoff instruction recorded.') + '</p>' +
+        '<h3>Required Inputs</h3>' + listItems(selection.requiredInputPaths || [], (item) => '<code>' + esc(item) + '</code>') +
+      '</section>';
+    }
+
     function renderEventStreamSection() {
       const rows = state.streamEvents.slice(0, 18).map((event) => {
         const target = event.payload?.nodeId || event.payload?.edgeId || event.payload?.event || event.payload?.kind || event.payload?.resultId || '';
@@ -2900,6 +2955,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       if (edge) {
         const contractRows = Object.entries(edge.contract || {}).filter(([, value]) => value !== null && value !== undefined && value !== '');
         const commitIntent = edge.contract?.commitIntent || null;
+        const policySelection = edge.contract?.policySelection || null;
         target.innerHTML = '<div class="inspector-header">' +
           '<div class="inspector-kicker">Contract arrow</div>' +
           '<div class="inspector-title-row"><div class="inspector-title">' + esc(edge.label || edge.type || 'Contract handoff') + '</div><span class="graph-status ' + esc(graphStatusClass(edge.status)) + '">' + esc(edge.status || 'unknown') + '</span></div>' +
@@ -2912,6 +2968,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
             ['Type', edge.type || 'contract-handoff'],
             ['Status', edge.status || 'unknown'],
           ]) +
+          renderPolicySelectionSection(policySelection) +
           renderCommitIntentSection(commitIntent) +
           '<section class="inspector-section"><h3>Contract Evidence</h3>' + inspectorList(contractRows, 'No contract evidence paths recorded.') + '</section>' +
           renderEventStreamSection() +
@@ -2921,6 +2978,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       if (node) {
         const pathRows = Object.entries(node.artifactPaths || {}).filter(([, value]) => value);
         const metaRows = Object.entries(node.meta || {}).filter(([, value]) => value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && !value.length));
+        const policySelection = node.meta?.policySelection || null;
         const hasTail = Boolean(node.artifactPaths?.codexEventsPath || node.artifactPaths?.stderrPath || node.artifactPaths?.lastMessagePath || node.artifactPaths?.resultPath || node.artifactPaths?.validationPath);
         const tailBox = hasTail ? '<button id="graphTailButton" class="inspector-action">Refresh selected unit log</button><pre id="graphTailBox">' + esc(renderTailSectionsForNode(node)) + '</pre>' : '';
         target.innerHTML = '<div class="inspector-header">' +
@@ -2936,6 +2994,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
             ['Log', node.meta?.hasCodexEvents ?? Boolean(node.artifactPaths?.codexEventsPath)],
           ]) +
           (graphRole(node) === 'repair-skill' ? renderCommitIntentSection(node.meta?.commitIntent || null) : '') +
+          renderPolicySelectionSection(policySelection) +
           '<section class="inspector-section"><h3>Artifact Paths</h3>' + inspectorList(pathRows, 'No artifact paths recorded.') + '</section>' +
           '<section class="inspector-section"><h3>Metadata</h3>' + inspectorList(metaRows, 'No metadata recorded.') + '</section>' +
           tailBox +

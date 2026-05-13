@@ -362,7 +362,15 @@ function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
   return gate.status === 'satisfied';
 }
 
-function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
+function controllerOwnedSelectionFromVerdict(verdict, {
+  evidencePath,
+  evidence,
+  reviewer,
+  runDir,
+  closureReview,
+  repairRun,
+  executeRepairSkills = false,
+} = {}) {
   const classification = String(verdict?.stopVerdict?.classification || '').toLowerCase();
   const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
   const reasonCode = String(verdict?.stopVerdict?.reasonCode || '').toLowerCase();
@@ -390,6 +398,9 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     'controller-owned-closure-review-required',
     'closure-review-required',
   ].includes(reasonCode);
+  const nextIterationAllowed = verdict?.nextIteration?.allowed === true;
+  const nextIterationMode = verdict?.nextIteration?.mode || null;
+  const repairRunBlocked = ['blocked', 'failed'].includes(repairRun?.chain?.status);
   const preconditionPending = reasonCode.includes('commit-evidence')
     || /(produce|producing|fresh|missing|pending)[^\n.]{0,80}commit[- ]?(intent|evidence|sha)/.test(text)
     || /commit[- ]?(intent|evidence|sha)[^\n.]{0,80}(pending|missing|required before|before closure)/.test(text)
@@ -421,20 +432,63 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     closureReviewMentioned,
     explicitControllerClosure,
     preconditionPending,
+    nextIterationAllowed,
+    nextIterationMode,
+    executeRepairSkills,
+    repairRunBlocked,
+    closureReview,
+    closureReviewApproved: closureReview?.review?.terminalAllowed === true,
+    closureReviewDenied: classification === 'closed' && closureReview && closureReview.review?.terminalAllowed !== true,
   });
   if (!route) return null;
 
+  const routeDashboardLabel = {
+    'commit-intent': 'commit intent gate',
+    'pr-review': 'PR review gate',
+    'closure-review': 'closure review',
+    'continuation-inference': 'continuation inference',
+    'living-doc-balance-scan': 'balance scan',
+    worker: 'worker continuation',
+  }[route.unitId] || route.terminalActionKind || route.policyRuleId;
+  const routeHandoffInstruction = {
+    'commit-intent': 'Run the commit-intent inference unit and return scoped commit evidence before PR review or closure review.',
+    'pr-review': 'Run the PR-review inference unit and return read-only PR gate evidence before terminal closure review.',
+    'closure-review': 'Run closure review against the controller evidence and return the terminal closure verdict.',
+    'continuation-inference': 'Run continuation inference to resolve or reroute the controller-owned blocker.',
+    'living-doc-balance-scan': 'Run the balance scan and return an ordered repair or continuation recommendation.',
+    worker: 'Run the next worker iteration for the remaining living-doc objective work.',
+  }[route.unitId] || 'Apply the terminal lifecycle action selected by the routing policy.';
+
+  if (route.terminalActionKind && !route.unitId) {
+    return {
+      terminalAction: {
+        kind: route.terminalActionKind,
+        reasonCode: route.reasonCode,
+        selectedBy: route.selectedBy || 'routing-policy',
+        policyRuleId: route.policyRuleId,
+        dashboardLabel: routeDashboardLabel,
+        handoffInstruction: routeHandoffInstruction,
+      },
+    };
+  }
+
   const nextUnit = {
     unitId: route.unitId,
+    selectedUnitType: route.unitId,
     role: route.role,
     reasonCode: route.reasonCode,
     policyRuleId: route.policyRuleId,
+    selectedBy: route.selectedBy || 'routing-policy',
+    dashboardLabel: routeDashboardLabel,
+    handoffInstruction: routeHandoffInstruction,
     requiredInputPaths,
     expectedOutputSchema: {
       'commit-intent': 'living-doc-harness-commit-intent-result/v1',
       'pr-review': 'living-doc-harness-pr-review-result/v1',
       'closure-review': 'living-doc-harness-closure-review/v1',
       'continuation-inference': 'living-doc-continuation-result/v1',
+      'living-doc-balance-scan': 'living-doc-balance-scan-result/v1',
+      worker: 'living-doc-worker-output/v1',
     }[route.unitId],
     status: 'selected',
   };
@@ -445,12 +499,28 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     nextUnit.reviewerVerdictPath = reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null;
     nextUnit.livingDocPath = evidence?.livingDocPath || null;
   }
+  if (route.unitId === 'living-doc-balance-scan') {
+    nextUnit.resultPath = repairRun?.chainPath ? path.relative(runDir, repairRun.chainPath) : null;
+    nextUnit.status = repairRun?.chain?.status || 'selected';
+  }
   if (route.unitId === 'closure-review') {
     nextUnit.resultPath = closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null;
     nextUnit.validationPath = closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null;
     nextUnit.status = closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected';
   }
-  return nextUnit;
+  return {
+    nextUnit,
+    ...(route.terminalActionKind ? {
+      terminalAction: {
+        kind: route.terminalActionKind,
+        reasonCode: route.reasonCode,
+        selectedBy: route.selectedBy || 'routing-policy',
+        policyRuleId: route.policyRuleId,
+        dashboardLabel: routeDashboardLabel,
+        handoffInstruction: routeHandoffInstruction,
+      },
+    } : {}),
+  };
 }
 
 function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes }) {
@@ -471,8 +541,13 @@ function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer,
   if (validation.ok) return selected;
   selected.nextUnit = {
     unitId: 'continuation-inference',
+    selectedUnitType: 'continuation-inference',
     role: 'continuation',
     reasonCode: validation.reasonCode,
+    policyRuleId: 'contract-validation-failed',
+    selectedBy: 'contract-validation',
+    dashboardLabel: 'continuation inference',
+    handoffInstruction: 'Run continuation inference to resolve the invalid controller selection contract.',
     requiredInputPaths: [
       evidencePath ? path.relative(runDir, evidencePath) : null,
       reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
@@ -523,192 +598,46 @@ function buildPostReviewSelection({
     ],
   };
 
-  if (classification === 'closed') {
-    const sideEffects = evidence?.sideEffectEvidence || {};
-    const prSatisfied = evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy);
-
-    if (evidenceRequiresCommitIntent(evidence)) {
-      selected.nextUnit = {
-        unitId: 'commit-intent',
-        role: 'commit-intent',
-        reasonCode: 'source-changes-require-commit-evidence',
-        requiredInputPaths: [evidencePath ? path.relative(runDir, evidencePath) : null, reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null].filter(Boolean),
-        expectedOutputSchema: 'living-doc-harness-commit-intent-result/v1',
-        status: 'selected',
-      };
-      return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-    }
-    if (!prSatisfied) {
-      if (prReviewGate.status === 'blocked') {
-        selected.nextUnit = {
-          unitId: 'continuation-inference',
-          role: 'continuation',
-          reasonCode: prReviewGate.reasonCode || 'pr-review-gate-blocked',
-          prReviewPolicy,
-          prReviewGate,
-          reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-          livingDocPath: evidence?.livingDocPath || null,
-          requiredInputPaths: [
-            evidencePath ? path.relative(runDir, evidencePath) : null,
-            reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-            runRef(runDir, prReviewGate.resultPath),
-            runRef(runDir, prReviewGate.validationPath),
-          ].filter(Boolean),
-          expectedOutputSchema: 'living-doc-continuation-result/v1',
-          status: 'selected',
-        };
-        return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-      }
-      selected.nextUnit = {
-        unitId: 'pr-review',
-        role: 'pr-review',
-        reasonCode: 'pr-review-required-by-run-policy',
-        prReviewPolicy,
-        reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-        livingDocPath: evidence?.livingDocPath || null,
-        requiredInputPaths: [evidencePath ? path.relative(runDir, evidencePath) : null, reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null].filter(Boolean),
-        expectedOutputSchema: 'living-doc-harness-pr-review-result/v1',
-        status: 'selected',
-      };
-      return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-    }
-    selected.nextUnit = {
-      unitId: 'closure-review',
-      role: 'closure-review',
-      reasonCode: 'reviewer-closed-requires-final-closure-review',
-      requiredInputPaths: [
-        evidencePath ? path.relative(runDir, evidencePath) : null,
-        reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-        reviewer?.artifact?.inferenceUnitResultPath || null,
-        reviewer?.artifact?.inferenceUnitValidationPath || null,
-        runRef(runDir, sideEffects.prReview?.resultPath),
-        runRef(runDir, sideEffects.prReview?.validationPath),
-      ].filter(Boolean),
-      expectedOutputSchema: 'living-doc-harness-closure-review/v1',
-      resultPath: closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
-      validationPath: closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null,
-      status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
-    };
-    if (closureReview) {
-      if (closureReview.review.terminalAllowed) {
-        selected.terminalAction = {
-          kind: 'closed',
-          reasonCode: closureReview.review.reasonCode,
-          selectedBy: 'closure-review',
-        };
-      } else {
-        selected.nextUnit = {
-          unitId: 'continuation-inference',
-          role: 'continuation',
-          reasonCode: 'closure-review-denied',
-          requiredInputPaths: [
-            evidencePath ? path.relative(runDir, evidencePath) : null,
-            reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-            closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
-            closureReview?.unit?.codexEventsPath ? path.relative(runDir, closureReview.unit.codexEventsPath) : null,
-          ].filter(Boolean),
-          expectedOutputSchema: 'living-doc-continuation-result/v1',
-          status: 'selected',
-        };
-      }
-    }
+  const policySelection = controllerOwnedSelectionFromVerdict(verdict, {
+    evidencePath,
+    evidence,
+    reviewer,
+    runDir,
+    closureReview,
+    repairRun,
+    executeRepairSkills,
+  });
+  if (policySelection?.nextUnit) {
+    selected.nextUnit = policySelection.nextUnit;
+    if (policySelection.terminalAction) selected.terminalAction = policySelection.terminalAction;
     return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
-
-  if (classification === 'user-stopped') {
-    selected.terminalAction = {
-      kind: 'user-stopped',
-      reasonCode: verdict?.stopVerdict?.reasonCode || 'user-stopped',
-      selectedBy: 'user-stop',
-    };
-    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-  }
-
-  if (['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification)) {
-    selected.nextUnit = {
-      unitId: 'continuation-inference',
-      role: 'continuation',
-      reasonCode: verdict?.stopVerdict?.reasonCode || classification,
-      requiredInputPaths: [
-        evidencePath ? path.relative(runDir, evidencePath) : null,
-        reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-        reviewer?.artifact?.inferenceUnitResultPath || null,
-        reviewer?.artifact?.codexEventsPath || null,
-      ].filter(Boolean),
-      expectedOutputSchema: 'living-doc-continuation-result/v1',
-      status: 'selected',
-    };
-    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-  }
-
-  const controllerOwnedNextUnit = verdict?.nextIteration?.allowed !== false
-    ? controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview })
-    : null;
-  if (controllerOwnedNextUnit) {
-    selected.nextUnit = controllerOwnedNextUnit;
-    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-  }
-
-  if (verdict?.nextIteration?.allowed !== false && verdict?.nextIteration?.mode === 'repair') {
-    selected.nextUnit = executeRepairSkills
-      ? {
-        unitId: 'living-doc-balance-scan',
-        role: 'balance-scan',
-        reasonCode: 'reviewer-selected-repair',
-        requiredInputPaths: [
-          reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-          evidencePath ? path.relative(runDir, evidencePath) : null,
-        ].filter(Boolean),
-        expectedOutputSchema: 'living-doc-balance-scan-result/v1',
-        resultPath: repairRun?.chainPath ? path.relative(runDir, repairRun.chainPath) : null,
-        status: repairRun?.chain?.status || 'selected',
-      }
-      : {
-        unitId: 'worker',
-        role: 'worker',
-        reasonCode: 'repair-resumed-without-executed-repair-units',
-        expectedOutputSchema: 'living-doc-worker-output/v1',
-        status: 'selected',
-      };
-    if (repairRun && ['blocked', 'failed'].includes(repairRun.chain?.status)) {
-      selected.nextUnit = {
-        unitId: 'continuation-inference',
-        role: 'continuation',
-        reasonCode: 'repair-skill-chain-blocked',
-        requiredInputPaths: [
-          evidencePath ? path.relative(runDir, evidencePath) : null,
-          reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-          repairRun?.chainPath ? path.relative(runDir, repairRun.chainPath) : null,
-        ].filter(Boolean),
-        expectedOutputSchema: 'living-doc-continuation-result/v1',
-        status: 'selected',
-      };
-    }
-    return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
-  }
-
-  if (verdict?.nextIteration?.allowed !== false) {
-    selected.nextUnit = {
-      unitId: 'worker',
-      role: 'worker',
-      reasonCode: 'reviewer-authorized-continuation',
-      expectedOutputSchema: 'living-doc-worker-output/v1',
-      status: 'selected',
-    };
+  if (policySelection?.terminalAction) {
+    selected.terminalAction = policySelection.terminalAction;
     return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
   }
 
   selected.terminalAction = {
-    kind: terminalKindFromVerdict(effectiveVerdict || verdict),
-    reasonCode: (effectiveVerdict || verdict)?.stopVerdict?.reasonCode || 'no-valid-next-unit',
-    selectedBy: 'reviewer-verdict',
+    kind: 'continuation-required',
+    reasonCode: 'no-valid-policy-route',
+    selectedBy: 'routing-policy',
+    policyRuleId: 'no-valid-route-blocker',
   };
   return finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes });
 }
 
 function sideEffectGateBlockedVerdict(verdict, selection) {
-  const unitId = selection?.nextUnit?.unitId;
-  if (!['closed', 'closure-candidate'].includes(verdict?.stopVerdict?.classification) || !['commit-intent', 'pr-review'].includes(unitId)) return null;
+  const selectedUnitId = selection?.nextUnit?.unitId;
+  const blockedCommitGate = selection?.nextUnit?.commitGate?.status === 'blocked';
+  const blockedPrReviewGate = selection?.nextUnit?.prReviewGate?.status === 'blocked';
+  const unitId = ['commit-intent', 'pr-review'].includes(selectedUnitId)
+    ? selectedUnitId
+    : blockedCommitGate
+      ? 'commit-intent'
+      : blockedPrReviewGate
+        ? 'pr-review'
+        : null;
+  if (!['closed', 'closure-candidate'].includes(verdict?.stopVerdict?.classification) || !unitId) return null;
   const reasonCode = selection.nextUnit.reasonCode || `${unitId}-required-before-closure`;
   return {
     schema: 'living-doc-harness-stop-verdict/v1',

@@ -229,6 +229,31 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
       reviewerVerdictPath: 'reviewer-inference/iteration-1-verdict.json',
       terminalPath: 'terminal/iteration-1-continuation-required.json',
     },
+    postReviewSelection: {
+      schema: 'living-doc-harness-post-review-selection/v1',
+      classification: 'repairable',
+      reasonCode: 'graph-fixture-repairable',
+      nextUnit: {
+        unitId: 'living-doc-balance-scan',
+        selectedUnitType: 'living-doc-balance-scan',
+        role: 'balance-scan',
+        policyRuleId: 'reviewer-repair-routes-balance-scan',
+        selectedBy: 'routing-policy',
+        reasonCode: 'reviewer-selected-repair',
+        dashboardLabel: 'balance scan',
+        handoffInstruction: 'Run the balance scan and return an ordered repair or continuation recommendation.',
+        requiredInputPaths: [
+          'artifacts/iteration-1-evidence.json',
+          'reviewer-inference/iteration-1-verdict.json',
+        ],
+        expectedOutputSchema: 'living-doc-balance-scan-result/v1',
+        status: 'selected',
+      },
+      contractValidation: {
+        ok: true,
+        reasonCode: 'allowed',
+      },
+    },
     nextAction: {
       action: 'start-next-worker-iteration',
       allowed: true,

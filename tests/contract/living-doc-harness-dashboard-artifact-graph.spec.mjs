@@ -41,6 +41,15 @@ try {
   assert.equal(readinessNode.meta.commitIntent.reason, 'No files changed during readiness in the repair-chain fixture.');
   assert.deepEqual(readinessNode.meta.commitIntent.changedFiles, []);
 
+  const policyEdge = graph.edges.find((edge) => edge.id === 'to-terminal-1');
+  assert.ok(policyEdge, 'terminal policy edge must exist');
+  assert.equal(policyEdge.contract.policySelection.policyRuleId, 'reviewer-repair-routes-balance-scan');
+  assert.equal(policyEdge.contract.policySelection.selectedUnitType, 'living-doc-balance-scan');
+  assert.match(policyEdge.contract.policySelection.handoffInstruction, /balance scan/);
+
+  const terminalNode = graph.nodes.find((node) => node.id === 'iteration-1-terminal');
+  assert.equal(terminalNode.meta.policySelection.policyRuleId, 'reviewer-repair-routes-balance-scan');
+
   closableTmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-dashboard-closable-'));
   const closableRunsDir = path.join(closableTmp, 'runs');
   const closableRun = await createHarnessRun({
@@ -116,6 +125,8 @@ try {
   assert.match(html, /Body/);
   assert.match(html, /Changed Files/);
   assert.match(html, /not required/);
+  assert.match(html, /Policy Selection/);
+  assert.match(html, /Required Inputs/);
 
   console.log('living-doc harness dashboard artifact graph contract spec: all assertions passed');
 } finally {
