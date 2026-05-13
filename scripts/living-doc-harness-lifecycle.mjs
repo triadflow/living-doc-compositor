@@ -695,12 +695,16 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
     ? 'continuation'
     : finalization.nextIteration?.mode || 'continuation';
   const nextUnit = finalization.postReviewSelection?.nextUnit || null;
+  const instruction = instructionForSelectedUnit({
+    fallback: finalization.nextIteration?.instruction,
+    nextUnit,
+  });
   return {
     mode,
     previousRunId: finalization.runId,
     previousRunDir: finalization.runDir ? path.relative(process.cwd(), finalization.runDir) : null,
     previousIteration: finalization.iteration,
-    instruction: finalization.nextIteration?.instruction || 'Continue from the previous non-closure state until the living-doc objective is reached.',
+    instruction,
     handoverPath: finalization.handoverPath ? path.relative(process.cwd(), finalization.handoverPath) : null,
     repairSkillResultPath: finalization.repairSkillResultPath ? path.relative(process.cwd(), finalization.repairSkillResultPath) : null,
     outputInputPath: path.relative(process.cwd(), outputInputPath),
@@ -710,6 +714,29 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
     sideEffectEvidence: finalization.sideEffectEvidence || null,
     sideEffectEvidenceBaseDir: finalization.runDir ? path.relative(process.cwd(), finalization.runDir) : null,
   };
+}
+
+function instructionForSelectedUnit({ fallback, nextUnit }) {
+  const unitId = nextUnit?.unitId || null;
+  if (unitId === 'commit-intent') {
+    return 'Run the selected commit-intent unit and return scoped commit evidence before any PR-review or closure review.';
+  }
+  if (unitId === 'pr-review') {
+    return 'Run the selected PR-review unit and return read-only PR gate evidence before any terminal closure review.';
+  }
+  if (unitId === 'closure-review') {
+    return 'Run the selected closure-review unit against the controller evidence and return the terminal closure verdict.';
+  }
+  if (unitId === 'living-doc-balance-scan') {
+    return 'Run the selected scan-only living-doc balance scan and return an ordered repair or continuation recommendation.';
+  }
+  if (unitId === 'continuation-inference') {
+    return 'Run the selected continuation inference unit to resolve the controller-owned blocker or reroute the lifecycle.';
+  }
+  if (unitId === 'worker') {
+    return 'Run the selected worker unit for the remaining source or living-doc objective work named by the controller evidence.';
+  }
+  return fallback || 'Continue from the previous non-closure state until the living-doc objective is reached.';
 }
 
 function lifecycleMayStop(finalization) {
@@ -735,7 +762,10 @@ function nextActionFromFinalization(finalization) {
   return {
     action: unitId === 'worker' ? 'start-next-worker-iteration' : `continue-with-${unitId}`,
     allowed: true,
-    reason: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
+    reason: instructionForSelectedUnit({
+      fallback: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
+      nextUnit,
+    }),
     selectedUnitType: unitId,
     selectedUnitRole: nextUnit?.role || unitId,
     prReviewPolicy: finalization.prReviewPolicy || finalization.postReviewSelection?.prReviewPolicy || null,

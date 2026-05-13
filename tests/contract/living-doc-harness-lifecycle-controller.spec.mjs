@@ -836,7 +836,7 @@ try {
   assert.equal(trueBlockBatchOutputInput.nextAction.selectedUnitType, 'continuation-inference');
   assert.equal(trueBlockBatchOutputInput.terminalAction, null);
   assert.equal(trueBlockBatchOutputInput.nextInput.mode, 'continuation');
-  assert.match(trueBlockBatchOutputInput.nextAction.reason, /unresolved objective state/);
+  assert.match(trueBlockBatchOutputInput.nextAction.reason, /selected continuation inference unit/);
 
   const deniedClosureSequencePath = path.join(tmp, 'denied-closure-sequence.json');
   const fakeClosureReviewPath = path.join(tmp, 'fake-closure-review.mjs');
@@ -1314,11 +1314,11 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
         sideEffectEvidence: {
           commit: { sha: 'abc1234', required: true },
         },
-        traceMessage: 'Commit evidence exists, PR-review is still missing, but the objective is not a closure candidate.',
+        traceMessage: 'Commit evidence exists and PR-review is the next missing controller-owned gate.',
         reviewerVerdict: reviewerVerdict('repairable', {
           reasonCode: 'pr-review-policy-gate-missing',
           mode: 'continuation',
-          instruction: 'PR-review is required before closure, but continue source work because the objective is still repairable.',
+          instruction: 'Run the required PR-review gate before another worker continuation.',
         }),
       },
       {
@@ -1345,12 +1345,13 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
     now: '2026-05-07T13:05:30.000Z',
   });
   assert.equal(repairablePrGateLifecycle.iterations[0].classification, 'repairable');
-  assert.equal(repairablePrGateLifecycle.iterations[0].nextAction.selectedUnitType, 'worker');
+  assert.equal(repairablePrGateLifecycle.iterations[0].nextAction.selectedUnitType, 'pr-review');
   const repairablePrGateOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), repairablePrGateLifecycle.iterations[0].outputInputPath), 'utf8'));
   assert.equal(repairablePrGateOutputInput.postReviewSelection.prReviewRequired, true);
   assert.equal(repairablePrGateOutputInput.postReviewSelection.prReviewGate.status, 'missing');
-  assert.equal(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
-  assert.notEqual(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'pr-review');
+  assert.equal(repairablePrGateOutputInput.postReviewSelection.nextUnit.policyRuleId, 'required-pr-review-after-commit');
+  assert.notEqual(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
 
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({

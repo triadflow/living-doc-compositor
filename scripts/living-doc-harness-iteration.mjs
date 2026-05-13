@@ -19,6 +19,7 @@ import { writeTerminalState } from './living-doc-harness-terminal-state.mjs';
 import { renderDashboard, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
 import { attachTraceSummaryToRun } from './living-doc-harness-trace-reader.mjs';
 import { validateHarnessContract } from './validate-living-doc-harness-contract.mjs';
+import { selectLifecycleRoute } from './living-doc-harness-routing-policy.mjs';
 import {
   DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   DEFAULT_PR_REVIEW_POLICY,
@@ -314,10 +315,6 @@ function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
   return gate.status === 'satisfied';
 }
 
-function prReviewGateEligibleAtClosureBoundary({ classification }) {
-  return ['closed', 'closure-candidate'].includes(classification);
-}
-
 function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, reviewer, runDir, closureReview } = {}) {
   const classification = String(verdict?.stopVerdict?.classification || '').toLowerCase();
   const instruction = String(verdict?.nextIteration?.instruction || '').toLowerCase();
@@ -339,86 +336,6 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
   const commitGateMentioned = reasonCode.includes('commit') || commitPreconditionMentioned;
   const closureReviewMentioned = reasonCode.includes('closure-review')
     || /closure[- ]?review/.test(text);
-  const requiredInputPaths = [
-    evidencePath ? path.relative(runDir, evidencePath) : null,
-    reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-    reviewer?.artifact?.inferenceUnitResultPath || null,
-    reviewer?.artifact?.inferenceUnitValidationPath || null,
-    prReviewGate.resultPath || null,
-    prReviewGate.validationPath || null,
-  ].filter(Boolean);
-
-  if (['closure-candidate', 'resumable'].includes(classification)) {
-    if (closureReviewMentioned && !commitRequiredByEvidence && !commitPreconditionMentioned && !prReviewRequiredByPolicy) {
-      return {
-        unitId: 'closure-review',
-        role: 'closure-review',
-        reasonCode: reasonCode || 'closure-candidate-requests-closure-review',
-        requiredInputPaths,
-        expectedOutputSchema: 'living-doc-harness-closure-review/v1',
-        resultPath: closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
-        validationPath: closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null,
-        status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
-      };
-    }
-  }
-
-  if (
-    ['closure-candidate', 'resumable', 'repairable'].includes(classification)
-    && commitRequiredByEvidence
-  ) {
-    return {
-      unitId: 'commit-intent',
-      role: 'commit-intent',
-      reasonCode: commitRequiredByEvidence
-        ? `${classification}-source-changes-require-commit-evidence`
-        : `${classification}-requires-commit-intent`,
-      requiredInputPaths,
-      expectedOutputSchema: 'living-doc-harness-commit-intent-result/v1',
-      status: 'selected',
-    };
-  }
-
-  if (
-    prReviewRequiredByPolicy
-    && !prReviewSatisfied
-    && prReviewBlocked
-    && prReviewGateMentioned
-  ) {
-    return {
-      unitId: 'continuation-inference',
-      role: 'continuation',
-      reasonCode: prReviewGate.reasonCode || reasonCode || 'pr-review-gate-blocked',
-      prReviewPolicy,
-      prReviewGate,
-      reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-      livingDocPath: evidence?.livingDocPath || null,
-      requiredInputPaths,
-      expectedOutputSchema: 'living-doc-continuation-result/v1',
-      status: 'selected',
-    };
-  }
-
-  if (
-    prReviewRequiredByPolicy
-    && !prReviewSatisfied
-    && !prReviewBlocked
-    && !commitRequiredByEvidence
-    && prReviewGateEligibleAtClosureBoundary({ classification })
-  ) {
-    return {
-      unitId: 'pr-review',
-      role: 'pr-review',
-      reasonCode: prReviewGateMentioned ? reasonCode || 'pr-review-policy-gate-missing' : 'pr-review-required-by-run-policy',
-      prReviewPolicy,
-      reviewerVerdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-      livingDocPath: evidence?.livingDocPath || null,
-      requiredInputPaths,
-      expectedOutputSchema: 'living-doc-harness-pr-review-result/v1',
-      status: 'selected',
-    };
-  }
-
   const explicitControllerClosure = [
     'controller-evidence-pending',
     'controller-owned-closure-review-required',
@@ -429,17 +346,57 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     || /commit[- ]?(intent|evidence|sha)[^\n.]{0,80}(pending|missing|required before|before closure)/.test(text)
     || /side[- ]effect[^\n.]{0,80}(pending|missing|produce|producing)/.test(text)
     || /criteria[- ]?pending|acceptance[^\n.]{0,80}pending/.test(text);
-  if (!explicitControllerClosure || preconditionPending) return null;
-  return {
-    unitId: 'closure-review',
-    role: 'closure-review',
-    reasonCode: reasonCode || 'controller-owned-closure-review-required',
+  const requiredInputPaths = [
+    evidencePath ? path.relative(runDir, evidencePath) : null,
+    reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+    reviewer?.artifact?.inferenceUnitResultPath || null,
+    reviewer?.artifact?.inferenceUnitValidationPath || null,
+    prReviewGate.resultPath || null,
+    prReviewGate.validationPath || null,
+  ].filter(Boolean);
+
+  const route = selectLifecycleRoute({
+    classification,
+    reasonCode,
+    commitRequired: commitRequiredByEvidence,
+    commitPreconditionMentioned,
+    prReviewRequired: prReviewRequiredByPolicy,
+    prReviewSatisfied,
+    prReviewBlocked,
+    prReviewGate,
+    prReviewGateMentioned,
+    closureReviewMentioned,
+    explicitControllerClosure,
+    preconditionPending,
+  });
+  if (!route) return null;
+
+  const nextUnit = {
+    unitId: route.unitId,
+    role: route.role,
+    reasonCode: route.reasonCode,
+    policyRuleId: route.policyRuleId,
     requiredInputPaths,
-    expectedOutputSchema: 'living-doc-harness-closure-review/v1',
-    resultPath: closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null,
-    validationPath: closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null,
-    status: closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected',
+    expectedOutputSchema: {
+      'commit-intent': 'living-doc-harness-commit-intent-result/v1',
+      'pr-review': 'living-doc-harness-pr-review-result/v1',
+      'closure-review': 'living-doc-harness-closure-review/v1',
+      'continuation-inference': 'living-doc-continuation-result/v1',
+    }[route.unitId],
+    status: 'selected',
   };
+  if (route.unitId === 'pr-review' || route.unitId === 'continuation-inference') {
+    nextUnit.prReviewPolicy = prReviewPolicy;
+    nextUnit.prReviewGate = prReviewGate;
+    nextUnit.reviewerVerdictPath = reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null;
+    nextUnit.livingDocPath = evidence?.livingDocPath || null;
+  }
+  if (route.unitId === 'closure-review') {
+    nextUnit.resultPath = closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null;
+    nextUnit.validationPath = closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null;
+    nextUnit.status = closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected';
+  }
+  return nextUnit;
 }
 
 function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer, allowedUnitTypes }) {
