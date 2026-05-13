@@ -286,6 +286,44 @@ function selectedInitialUnit(lifecycleInput) {
   };
 }
 
+function initialUnitWorkInstruction(unitId) {
+  if (unitId === 'living-doc-balance-scan') {
+    return [
+      'Scan-only role boundary:',
+      '- Inspect the living doc, reviewer verdict, handover, required evidence paths, and raw/log summary paths named in the input contract.',
+      '- Return imbalance classification, basis, ordered unit types, blockers, and next routing recommendation only.',
+      '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or run artifacts.',
+      '- Do not render the living doc, run implementation proof tests, commit, or run lifecycle/reviewer/finalizer/dashboard/proof-route commands.',
+      '- If source changes or proof execution are needed, return blocked or order the next unit type; do not perform that work from balance-scan.',
+    ];
+  }
+  if (unitId === 'pr-review') {
+    return [
+      'PR-review role boundary:',
+      '- This unit is read-only over the repository source tree. Inspect evidence and return approved, not-required, blocked, or failed.',
+      '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or commits from this unit. If a defect needs source changes, return blocked with the required follow-up unit instead.',
+    ];
+  }
+  if (unitId === 'continuation-inference') {
+    return [
+      'Continuation role boundary:',
+      '- Inspect the prior output/input contract and decide the next executable unit type.',
+      '- Do not perform the implementation work yourself unless the selected unit contract explicitly grants that role.',
+    ];
+  }
+  if (unitId === 'closure-review') {
+    return [
+      'Closure-review role boundary:',
+      '- Inspect proof, acceptance criteria, reviewer verdicts, PR-review evidence, and controller hard facts.',
+      '- Return a closure verdict only; do not edit source files, living docs, rendered HTML, tests, scripts, or commits.',
+    ];
+  }
+  return [
+    'Worker role boundary:',
+    '- Work from the living doc objective and produce concrete source-system changes or a clear blocker.',
+  ];
+}
+
 function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }) {
   const lines = [
     'You are running inside the standalone agentic living-doc harness.',
@@ -309,16 +347,8 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
     `- runId: ${runId}`,
     `- livingDocPath: ${docPath}`,
     '',
-    'Work from the living doc objective and produce concrete source-system changes or a clear blocker.',
+    ...initialUnitWorkInstruction(initialUnit.unitId),
   ];
-  if (initialUnit.unitId === 'pr-review') {
-    lines.push(
-      '',
-      'PR-review role boundary:',
-      '- This unit is read-only over the repository source tree. Inspect evidence and return approved, not-required, blocked, or failed.',
-      '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or commits from this unit. If a defect needs source changes, return blocked with the required follow-up unit instead.',
-    );
-  }
   if (lifecycleInput) {
     lines.push(
       '',
@@ -342,6 +372,43 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
     }
   }
   return lines.join('\n');
+}
+
+async function codexEventBoundaryViolations(filePath, unitTypeId) {
+  if (unitTypeId !== 'living-doc-balance-scan') return [];
+  let content = '';
+  try {
+    content = await readFile(filePath, 'utf8');
+  } catch {
+    return [];
+  }
+  const forbiddenCommandPattern = /\b(node\s+--test|node\s+tests\/|npm\s+(run\s+)?test|scripts\/render-living-doc\.mjs|living-doc-harness-(lifecycle|runner|reviewer|closure-review|finalizer)|proof-route)\b/;
+  const violations = [];
+  for (const line of content.split('\n')) {
+    if (!line.trim()) continue;
+    let event = null;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const itemType = event?.item?.type || event?.type || null;
+    if (itemType === 'file_change') {
+      violations.push({
+        type: 'file-change-event',
+        message: 'balance-scan emitted a file_change event',
+      });
+      continue;
+    }
+    const command = event?.item?.command;
+    if (typeof command === 'string' && forbiddenCommandPattern.test(command)) {
+      violations.push({
+        type: 'forbidden-command',
+        command,
+      });
+    }
+  }
+  return violations;
 }
 
 function buildCodexCommand({ cwd, lastMessagePath, codexBin = 'codex', toolProfile }) {
@@ -728,6 +795,32 @@ function prReviewRoleBoundaryOutputContract({ base, violation, exitCode, paths, 
   };
 }
 
+function balanceScanRoleBoundaryOutputContract({ base, violation, exitCode, paths, traceRefs }) {
+  return {
+    ...(base && typeof base === 'object' ? base : {}),
+    schema: 'living-doc-balance-scan-result/v1',
+    status: 'blocked',
+    reasonCode: 'balance-scan-role-boundary-violation',
+    basis: [
+      'Balance-scan inference changed files or ran commands outside its scan-only boundary.',
+      'Balance-scan may inspect evidence and order the next unit; source changes, rendering, proof execution, and lifecycle control must be routed to another unit.',
+      ...arr(base?.basis),
+    ],
+    orderedSkills: [],
+    blocker: {
+      ...(base?.blocker && typeof base.blocker === 'object' ? base.blocker : {}),
+      reasonCode: 'balance-scan-role-boundary-violation',
+      requiredEvidence: [
+        'Regenerate the balance-scan prompt as scan-only and route source/proof work to worker, repair-skill, continuation, or controller-owned proof units.',
+      ],
+    },
+    roleBoundaryViolation: violation,
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+}
+
 function normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs }) {
   const allowedStatuses = getInferenceUnitType('continuation-inference').outputVerdicts;
   const base = {
@@ -750,7 +843,7 @@ function normalizeContinuationExternalOutputContract({ output, exitCode, paths, 
   };
 }
 
-function normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs }) {
+function normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs, roleBoundaryViolation = null }) {
   const allowedStatuses = getInferenceUnitType('living-doc-balance-scan').outputVerdicts;
   const base = {
     ...(output && typeof output === 'object' ? output : {}),
@@ -758,6 +851,15 @@ function normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, t
     ...paths,
     nativeTraceRefs: traceRefs,
   };
+  if (roleBoundaryViolation) {
+    return balanceScanRoleBoundaryOutputContract({
+      base,
+      violation: roleBoundaryViolation,
+      exitCode,
+      paths,
+      traceRefs,
+    });
+  }
   if (allowedStatuses.includes(base.status)) {
     return {
       ...base,
@@ -951,7 +1053,7 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       ? rawResult.outputContract
       : rawResult;
     if (output?.schema === 'living-doc-balance-scan-result/v1') {
-      return normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs });
+      return normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs, roleBoundaryViolation });
     }
     return normalizeBalanceScanExternalOutputContract({
       output: preparedOutputContract({
@@ -964,6 +1066,7 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       exitCode,
       paths,
       traceRefs,
+      roleBoundaryViolation,
     });
   }
   return {
@@ -1279,8 +1382,10 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   }
 
   const commitBefore = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
-  const roleBoundaryHeadBefore = initialUnit.unitId === 'pr-review' ? await gitHead(cwd) : null;
-  const roleBoundarySnapshotBefore = initialUnit.unitId === 'pr-review' ? await gitWorktreeSnapshot(cwd) : null;
+  const readOnlyBoundaryUnits = ['pr-review', 'living-doc-balance-scan'];
+  const hasReadOnlyRoleBoundary = readOnlyBoundaryUnits.includes(initialUnit.unitId);
+  const roleBoundaryHeadBefore = hasReadOnlyRoleBoundary ? await gitHead(cwd) : null;
+  const roleBoundarySnapshotBefore = hasReadOnlyRoleBoundary ? await gitWorktreeSnapshot(cwd) : null;
   const processStartedAt = new Date().toISOString();
   const child = spawn(codexCommand.command, codexCommand.args, {
     cwd,
@@ -1373,14 +1478,17 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   const commitAfter = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
   const commitEvidence = initialUnit.unitId === 'commit-intent' ? await gitCommitEvidence(cwd, commitAfter) : null;
   let roleBoundaryViolation = null;
-  if (initialUnit.unitId === 'pr-review') {
+  if (hasReadOnlyRoleBoundary) {
     const roleBoundaryHeadAfter = await gitHead(cwd);
     const roleBoundarySnapshotAfter = await gitWorktreeSnapshot(cwd);
     const worktreeChanges = worktreeSnapshotDelta(roleBoundarySnapshotBefore, roleBoundarySnapshotAfter);
-    if (roleBoundaryHeadBefore !== roleBoundaryHeadAfter || worktreeChanges.length) {
+    const commandViolations = await codexEventBoundaryViolations(codexEventsPath, initialUnit.unitId);
+    if (roleBoundaryHeadBefore !== roleBoundaryHeadAfter || worktreeChanges.length || commandViolations.length) {
       roleBoundaryViolation = {
         schema: 'living-doc-harness-role-boundary-violation/v1',
-        reasonCode: 'pr-review-mutated-repository',
+        reasonCode: initialUnit.unitId === 'living-doc-balance-scan'
+          ? 'balance-scan-side-effect-boundary-violation'
+          : 'pr-review-mutated-repository',
         unitId: initialUnit.unitId,
         role: initialUnit.role,
         headBefore: roleBoundaryHeadBefore,
@@ -1388,6 +1496,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
         headChanged: roleBoundaryHeadBefore !== roleBoundaryHeadAfter,
         changedFiles: worktreeChanges.map((entry) => entry.path),
         changes: worktreeChanges,
+        commandViolations,
       };
       await appendJsonl(path.join(runDir, 'events.jsonl'), {
         event: 'inference-unit-role-boundary-violation',
@@ -1398,6 +1507,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
         reasonCode: roleBoundaryViolation.reasonCode,
         headChanged: roleBoundaryViolation.headChanged,
         changedFiles: roleBoundaryViolation.changedFiles,
+        commandViolations,
       });
     }
   }

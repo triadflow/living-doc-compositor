@@ -955,6 +955,11 @@ exit 0
     balanceScanRun.runDir,
     balanceScanRun.contract.artifacts.initialInferenceUnit.result,
   ), 'utf8'));
+  const balanceScanPrompt = await readFile(path.join(balanceScanRun.runDir, 'prompt.md'), 'utf8');
+  assert.match(balanceScanPrompt, /Scan-only role boundary:/);
+  assert.match(balanceScanPrompt, /Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or run artifacts/);
+  assert.match(balanceScanPrompt, /Do not render the living doc, run implementation proof tests, commit, or run lifecycle\/reviewer\/finalizer\/dashboard\/proof-route commands/);
+  assert.doesNotMatch(balanceScanPrompt, /produce concrete source-system changes/);
   assert.equal(balanceScanUnit.mode, 'external-headless-codex');
   assert.equal(balanceScanUnit.status, 'blocked');
   assert.equal(balanceScanUnit.outputContract.status, 'blocked');
@@ -965,6 +970,97 @@ exit 0
     balanceScanRun.contract.artifacts.initialInferenceUnit.validation,
   ), 'utf8'));
   assert.equal(balanceScanValidation.ok, true);
+
+  const balanceScanBoundaryFixture = path.join(tmp, 'balance-scan-boundary-fixture');
+  await mkdir(balanceScanBoundaryFixture, { recursive: true });
+  await writeFile(path.join(balanceScanBoundaryFixture, 'doc.json'), `${JSON.stringify({
+    docId: 'test:balance-scan-role-boundary',
+    title: 'Balance Scan Role Boundary Fixture',
+    objective: 'Prove balance-scan cannot perform source-system implementation work.',
+    successCondition: 'Balance-scan source edits and proof commands are blocked by the harness runner.',
+    sections: [],
+  }, null, 2)}\n`, 'utf8');
+  spawnSync('git', ['init'], { cwd: balanceScanBoundaryFixture, stdio: 'ignore' });
+  spawnSync('git', ['add', 'doc.json'], { cwd: balanceScanBoundaryFixture, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'initial balance scan fixture'], { cwd: balanceScanBoundaryFixture, stdio: 'ignore' });
+  const fakeMutatingBalanceScanCodex = path.join(tmp, 'fake-mutating-balance-scan-codex');
+  const fakeMutatingBalanceScanCodexHome = path.join(tmp, 'fake-mutating-balance-scan-codex-home');
+  await writeFile(fakeMutatingBalanceScanCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+node - <<'NODE'
+const fs = require('fs');
+const doc = JSON.parse(fs.readFileSync('doc.json', 'utf8'));
+doc.mutatedByBalanceScan = true;
+fs.writeFileSync('doc.json', JSON.stringify(doc, null, 2) + '\\n');
+NODE
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-mutating-balance-scan.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"mutating-balance-scan","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"mutating balance-scan fixture"}]}}
+EOF
+printf '{"type":"item.started","item":{"type":"command_execution","status":"in_progress","command":"node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs"}}\\n'
+printf '{"type":"item.started","item":{"type":"file_change","status":"in_progress"}}\\n'
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-balance-scan-result/v1",
+  "status": "ordered",
+  "basis": [
+    "This invalid fixture changed source and ran proof before ordering continuation."
+  ],
+  "orderedSkills": [
+    "continuation-inference"
+  ]
+}
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeMutatingBalanceScanCodex, 0o755);
+  await mkdir(fakeMutatingBalanceScanCodexHome, { recursive: true });
+  const mutatingBalanceScanRun = await createHarnessRun({
+    docPath: 'doc.json',
+    runsDir: path.join(tmp, 'mutating-balance-scan-runs'),
+    execute: true,
+    cwd: balanceScanBoundaryFixture,
+    now: '2026-05-07T06:31:28.000Z',
+    codexBin: fakeMutatingBalanceScanCodex,
+    codexHome: fakeMutatingBalanceScanCodexHome,
+    iteration: 6,
+    lifecycleInput: {
+      mode: 'repair',
+      previousRunId: 'previous-balance-scan-run',
+      previousIteration: 5,
+      instruction: 'Diagnose the repair order.',
+      outputInputPath: previousBalanceScanOutputInputPath,
+      selectedUnitType: 'living-doc-balance-scan',
+      nextUnit: {
+        unitId: 'living-doc-balance-scan',
+        role: 'balance-scan',
+        reasonCode: 'acceptance-criteria-unproven',
+      },
+    },
+  });
+  const mutatingBalanceScanUnit = JSON.parse(await readFile(path.join(
+    mutatingBalanceScanRun.runDir,
+    mutatingBalanceScanRun.contract.artifacts.initialInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(mutatingBalanceScanUnit.status, 'blocked');
+  assert.equal(mutatingBalanceScanUnit.outputContract.status, 'blocked');
+  assert.equal(mutatingBalanceScanUnit.outputContract.reasonCode, 'balance-scan-role-boundary-violation');
+  assert.deepEqual(mutatingBalanceScanUnit.outputContract.orderedSkills, []);
+  assert.deepEqual(mutatingBalanceScanUnit.outputContract.roleBoundaryViolation.changedFiles, ['doc.json']);
+  assert.equal(mutatingBalanceScanUnit.outputContract.roleBoundaryViolation.commandViolations.length, 2);
+  const mutatingBalanceScanEvents = await readFile(path.join(mutatingBalanceScanRun.runDir, 'events.jsonl'), 'utf8');
+  assert.match(mutatingBalanceScanEvents, /inference-unit-role-boundary-violation/);
 
   const fakeBoundaryCodex = path.join(tmp, 'fake-boundary-codex');
   const fakeBoundaryCodexHome = path.join(tmp, 'fake-boundary-codex-home');
