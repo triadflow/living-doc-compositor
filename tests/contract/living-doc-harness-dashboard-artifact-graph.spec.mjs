@@ -20,6 +20,10 @@ try {
     cwd: process.cwd(),
     runsDir: fixture.runsDir,
   });
+  assert.equal(graph.finalState.kind, 'continuation-required');
+  assert.equal(graph.activeInferenceUnitId, null);
+  assert.equal(graph.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'continuation-required'), true);
+  assert.equal(graph.nodes.some((node) => node.id === 'stale-active-lifecycle'), false);
 
   const docChangeEdge = graph.edges.find((edge) => edge.id === 'repair-unit-to-living-doc-1-2');
   assert.ok(docChangeEdge, 'changed-living-doc repair edge must exist');

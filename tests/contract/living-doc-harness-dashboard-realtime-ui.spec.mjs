@@ -3,14 +3,14 @@ import vm from 'node:vm';
 
 import { dashboardHtml } from '../../scripts/living-doc-harness-dashboard-server.mjs';
 
-function graphFixture({ active = 'iteration-1-worker', withReviewer = false } = {}) {
+function graphFixture({ active = 'iteration-1-worker', withReviewer = false, finalKind = 'running', withTerminal = false } = {}) {
   const nodes = [
     {
       id: 'lifecycle-controller',
       type: 'lifecycle',
       role: 'controller',
       label: 'ldhl-realtime-fixture',
-      status: 'running',
+      status: finalKind,
       iteration: null,
       artifactPaths: { lifecycleResultPath: '.living-doc-runs/ldhl-realtime-fixture/lifecycle-result.json' },
       meta: {},
@@ -21,7 +21,7 @@ function graphFixture({ active = 'iteration-1-worker', withReviewer = false } = 
       type: 'inference-unit',
       role: 'worker',
       label: 'Iteration 1 worker',
-      status: active === 'iteration-1-worker' ? 'running' : 'finished',
+      status: finalKind !== 'running' ? finalKind : (active === 'iteration-1-worker' ? 'running' : 'finished'),
       iteration: 1,
       artifactPaths: {
         inputContractPath: '.living-doc-runs/ldh-worker/contract.json',
@@ -54,7 +54,7 @@ function graphFixture({ active = 'iteration-1-worker', withReviewer = false } = 
       type: 'inference-unit',
       role: 'reviewer',
       label: 'Iteration 1 reviewer',
-      status: 'running',
+      status: finalKind !== 'running' ? finalKind : 'running',
       iteration: 1,
       artifactPaths: {
         inputContractPath: '.living-doc-runs/ldh-worker/reviewer-inference/iteration-1-input.json',
@@ -79,12 +79,40 @@ function graphFixture({ active = 'iteration-1-worker', withReviewer = false } = 
       },
     });
   }
+  if (withTerminal) {
+    nodes.push({
+      id: 'iteration-1-terminal',
+      type: 'terminal-state',
+      role: 'terminal',
+      label: 'Iteration 1 terminal',
+      status: finalKind,
+      iteration: 1,
+      artifactPaths: {
+        terminalPath: '.living-doc-runs/ldh-worker/terminal/iteration-1-blocked.json',
+      },
+      meta: { finalState: { kind: finalKind, reasonCode: 'terminal-result-wins-fixture' } },
+      privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false },
+    });
+    edges.push({
+      id: 'reviewer-to-terminal-1',
+      from: withReviewer ? 'iteration-1-reviewer' : 'iteration-1-worker',
+      to: 'iteration-1-terminal',
+      type: 'contract-handoff',
+      label: 'terminal lifecycle decision',
+      status: finalKind,
+      gate: 'terminal-state-gate',
+      lifecycleEffect: 'stop-blocked',
+      contract: {
+        terminalPath: '.living-doc-runs/ldh-worker/terminal/iteration-1-blocked.json',
+      },
+    });
+  }
   return {
     schema: 'living-doc-harness-inference-graph/v1',
     resultId: 'ldhl-realtime-fixture',
     lifecycleDir: '.living-doc-runs/ldhl-realtime-fixture',
     generatedAt: null,
-    finalState: { kind: 'running' },
+    finalState: { kind: finalKind },
     activeInferenceUnitId: active,
     nodeCount: nodes.length,
     edgeCount: edges.length,
@@ -283,6 +311,7 @@ async function flushMicrotasks(rounds = 6) {
 
 const initialGraph = graphFixture();
 const reviewerGraph = graphFixture({ active: 'iteration-1-reviewer', withReviewer: true });
+const terminalGraph = graphFixture({ active: null, withReviewer: true, finalKind: 'blocked', withTerminal: true });
 const document = new FakeDocument();
 const localStorageValues = new Map();
 const socketMessages = [];
@@ -510,7 +539,30 @@ assert.match(document.getElementById('graphInspector').innerHTML, /iteration-1-i
 assert.match(document.getElementById('graphInspector').innerHTML, /graph_update/);
 assert.match(document.getElementById('graphInspector').innerHTML, /REVIEWER-ONLY-MARKER/);
 assert.doesNotMatch(document.getElementById('graphInspector').innerHTML, /WORKER-ONLY-MARKER/);
+
+globalThis.__dashboardSocket.sendEvent({
+  schema: 'living-doc-harness-dashboard-event/v1',
+  eventId: 'graph-update-terminal',
+  type: 'graph_update',
+  at: '2026-05-10T06:30:03.000Z',
+  source: 'artifact-derived-graph',
+  payload: {
+    resultId: 'ldhl-realtime-fixture',
+    activeInferenceUnitId: null,
+    nodeCount: terminalGraph.nodeCount,
+    edgeCount: terminalGraph.edgeCount,
+    graph: terminalGraph,
+  },
+  privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+});
+await flushMicrotasks();
+
+assert.doesNotMatch(document.getElementById('graphUnits').innerHTML, /current-unit/);
+assert.match(document.getElementById('graphUnits').innerHTML, /data-graph-node-id="iteration-1-terminal"/);
+assert.match(document.getElementById('graphInspector').innerHTML, /Terminal decision/);
+assert.match(document.getElementById('graphInspector').innerHTML, /blocked/);
+assert.doesNotMatch(document.getElementById('graphInspector').innerHTML, /REVIEWER-ONLY-MARKER/);
 assert.equal(reloadCount, 0);
-assert.equal(socketMessages.length, 2);
+assert.equal(socketMessages.length, 3);
 
 console.log('living-doc harness dashboard realtime UI contract spec: all assertions passed');

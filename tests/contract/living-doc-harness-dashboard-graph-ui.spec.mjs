@@ -51,7 +51,9 @@ try {
   assert.match(html, /function renderCommitIntentSection\(intent\)/);
   assert.match(html, /new WebSocket\(streamUrlForLifecycle\(state\.selectedLifecycleId\)\)/);
   assert.match(html, /function applyStreamEvent\(event\)/);
-  assert.match(html, /graph\.activeInferenceUnitId/);
+  assert.match(html, /function reconcileGraphSelection\(graph, \{ previousActive = null \} = \{\}\)/);
+  assert.match(html, /graphTerminalNodeId\(graph\)/);
+  assert.match(html, /graph\?\.activeInferenceUnitId/);
   assert.match(html, /current-unit/);
   assert.match(html, /\/api\/lifecycles\/' \+ encodeURIComponent\(state\.selectedLifecycleId\) \+ '\/nodes\//);
   assert.match(html, /Live Events/);

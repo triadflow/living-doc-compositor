@@ -1144,6 +1144,9 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const contract = await readJson(path.join(runDir, 'contract.json'), {});
     const state = await readJson(path.join(runDir, 'state.json'), {});
     const facts = await collectRunEvidence(runDir).catch(() => ({}));
+    const outputInputPath = resolveArtifactRef({ cwd, baseDir: runDir, ref: iterationRecord.outputInputPath });
+    const outputInput = await readJson(outputInputPath, null);
+    const terminalStatus = terminalStatusForIteration({ lifecycle, iterationRecord, outputInput, runId });
     const initialUnitType = contract?.runConfig?.initialUnitType || contract?.artifacts?.initialInferenceUnit?.unitId || 'worker';
     const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
     const workerUnit = contract.artifacts?.initialInferenceUnit || contract.artifacts?.workerInferenceUnit || {};
@@ -1153,7 +1156,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       type: 'inference-unit',
       role: initialUnitRole,
       label: initialUnitType === 'worker' ? `Iteration ${iteration} worker` : `${initialUnitRole} iteration ${iteration}`,
-      status: state.status || contract.status || iterationRecord.classification || 'unknown',
+      status: terminalStatus || iterationRecord.classification || state.status || contract.status || 'unknown',
       iteration,
       artifactPaths: {
         runDir: relativeTo(cwd, runDir),
@@ -1394,15 +1397,13 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       previousNodeId = lastRepairNodeId;
     }
 
-    const outputInputPath = resolveArtifactRef({ cwd, baseDir: runDir, ref: iterationRecord.outputInputPath });
-    const outputInput = await readJson(outputInputPath, null);
-    if (iterationRecord.terminalKind || outputInput?.nextAction?.action?.startsWith('stop') || lifecycle.finalState?.runId === runId) {
+    if (terminalStatus || iterationRecord.terminalKind || outputInput?.nextAction?.action?.startsWith('stop') || lifecycle.finalState?.runId === runId) {
       const terminalId = `iteration-${iteration}-terminal`;
       addNode(graphNode(terminalId, {
         type: 'terminal-state',
         role: 'terminal',
         label: `Iteration ${iteration} terminal`,
-        status: iterationRecord.terminalKind || lifecycle.finalState?.kind || 'unknown',
+        status: terminalStatus || iterationRecord.terminalKind || lifecycle.finalState?.kind || 'unknown',
         iteration,
         artifactPaths: {
           outputInputPath: relativeTo(cwd, outputInputPath),
@@ -1415,7 +1416,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       }));
       addEdge(graphEdge(`to-terminal-${iteration}`, previousNodeId, terminalId, {
         label: 'terminal lifecycle decision',
-        status: iterationRecord.terminalKind || lifecycle.finalState?.kind || 'unknown',
+        status: terminalStatus || iterationRecord.terminalKind || lifecycle.finalState?.kind || 'unknown',
         contract: {
           outputInputPath: relativeTo(cwd, outputInputPath),
           terminalPath: relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: outputInput?.previousOutput?.terminalPath })),
@@ -1470,7 +1471,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     }
   }
 
-  const lifecycleIsTerminal = ['closed', 'user-stopped'].includes(String(lifecycle.finalState?.kind || lifecycle.terminalKind || lifecycle.status || '').toLowerCase());
+  const lifecycleIsTerminal = isTerminalLifecycleState(lifecycle.finalState?.kind || lifecycle.terminalKind || lifecycle.status || '');
   const activeInferenceUnit = lifecycleIsTerminal
     ? null
     : [...nodes].reverse().find((node) =>
@@ -1592,6 +1593,19 @@ function isActiveInferenceStatus(status) {
 
 function isRunningLifecycleState(status) {
   return ['running', 'starting', 'prepared'].includes(String(status || '').toLowerCase());
+}
+
+function isTerminalLifecycleState(status) {
+  const normalized = String(status || '').toLowerCase();
+  return Boolean(normalized && !isRunningLifecycleState(normalized));
+}
+
+function terminalStatusForIteration({ lifecycle, iterationRecord, outputInput, runId }) {
+  const terminalKind = iterationRecord?.terminalKind
+    || outputInput?.previousOutput?.terminalKind
+    || (outputInput?.nextAction?.action?.startsWith('stop') ? lifecycle?.finalState?.kind : null)
+    || (lifecycle?.finalState?.runId === runId ? lifecycle?.finalState?.kind : null);
+  return isTerminalLifecycleState(terminalKind) ? terminalKind : null;
 }
 
 function isFinishedInferenceStatus(status) {
@@ -2250,6 +2264,36 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       return state.lifecycleGraph?.activeInferenceUnitId || null;
     }
 
+    function graphTerminalNodeId(graph) {
+      const nodes = graph?.nodes || [];
+      return nodes.find((node) =>
+        graphRole(node) === 'terminal'
+        || node.type === 'terminal-state'
+      )?.id || nodes.find((node) =>
+        String(node.status || '').toLowerCase() === String(graph?.finalState?.kind || '').toLowerCase()
+        && node.id !== 'lifecycle-controller'
+      )?.id || nodes.find((node) => node.id === 'lifecycle-controller')?.id || null;
+    }
+
+    function reconcileGraphSelection(graph, { previousActive = null } = {}) {
+      const nodes = graph?.nodes || [];
+      const edges = graph?.edges || [];
+      const activeId = graph?.activeInferenceUnitId || null;
+      const selectedNodeExists = nodes.some((node) => node.id === state.selectedGraphNodeId);
+      const selectedEdgeExists = edges.some((edge) => edge.id === state.selectedGraphEdgeId);
+      if (state.selectedGraphEdgeId && selectedEdgeExists) return;
+      if (state.selectedGraphEdgeId && !selectedEdgeExists) state.selectedGraphEdgeId = null;
+      if (activeId && (!state.selectedGraphNodeId || state.selectedGraphNodeId === previousActive || !selectedNodeExists)) {
+        state.selectedGraphNodeId = activeId;
+        state.selectedGraphEdgeId = null;
+        return;
+      }
+      if (!activeId && (!state.selectedGraphNodeId || state.selectedGraphNodeId === previousActive || !selectedNodeExists)) {
+        state.selectedGraphNodeId = graphTerminalNodeId(graph);
+        state.selectedGraphEdgeId = null;
+      }
+    }
+
     function applyStreamEvent(event) {
       rememberStreamEvent(event);
       cacheStreamEventPayload(event);
@@ -2259,11 +2303,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           const previousActive = currentActiveUnitId();
           state.lifecycleGraph = graph;
           if (!state.graphPositionOverrides || state.streamLifecycleId !== state.selectedLifecycleId) state.graphPositionOverrides = loadGraphLayout();
-          const activeId = graph.activeInferenceUnitId || null;
-          if (activeId && (!state.selectedGraphNodeId || state.selectedGraphNodeId === previousActive)) {
-            state.selectedGraphNodeId = activeId;
-            state.selectedGraphEdgeId = null;
-          }
+          reconcileGraphSelection(graph, { previousActive });
           renderGraph();
           if (state.selectedGraphNodeId) refreshGraphNodeTail(state.selectedGraphNodeId);
         }
@@ -2864,9 +2904,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         if (!response.ok) throw new Error(payload.error || 'server error');
         state.lifecycleGraph = payload;
         state.graphPositionOverrides = loadGraphLayout();
-        if (payload.activeInferenceUnitId && !state.selectedGraphNodeId && !state.selectedGraphEdgeId) state.selectedGraphNodeId = payload.activeInferenceUnitId;
-        if (!payload.nodes?.some((node) => node.id === state.selectedGraphNodeId)) state.selectedGraphNodeId = null;
-        if (!payload.edges?.some((edge) => edge.id === state.selectedGraphEdgeId)) state.selectedGraphEdgeId = null;
+        reconcileGraphSelection(payload, { previousActive: null });
         await loadLifecycleEventHistory();
         renderGraph();
         connectLifecycleStream();

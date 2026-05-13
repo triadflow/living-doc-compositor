@@ -745,7 +745,7 @@
       "Remote dashboard deployment."
     ]
   },
-  "updated": "2026-05-13T00:00:00.000Z",
+  "updated": "2026-05-13T01:18:00.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-harness-dashboard-terminal-state-reconciliation.json",
@@ -764,10 +764,10 @@
   "objective": "Fix the standalone harness dashboard so terminal lifecycle and inference-unit evidence always wins over stale running state. When a lifecycle-result, stop verdict, selected-unit result, repair result, closure review, or stale-supervisor artifact proves that a lifecycle or unit is no longer running, the run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state for that exact instance instead of reusing a generic running card or an old active snapshot. The fix must be source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML, and safe to run through the standalone lifecycle harness with PR-review policy enabled.",
   "successCondition": "A reproduced stale-running fixture fails before the source fix and passes after it: the dashboard API and frontend graph prefer terminal result artifacts over active-lifecycle running snapshots, keep each inference unit as an instance with its own terminal status, show stale-supervisor state only when no terminal lifecycle result exists, keep selected detail panes aligned with the clicked instance or edge, and reconstruct the same non-running graph after reload or event replay. The standalone harness run for this doc either closes with contract-bound proof and PR-review evidence, or creates a blocker issue that names the exact lifecycle run, contract, raw-log, and artifact paths that prevented closure.",
   "runState": {
-    "currentPhase": "open-ready-for-standalone-harness",
+    "currentPhase": "source-fix-and-focused-proof-complete-awaiting-controller-review",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Start the standalone lifecycle controller on this living doc with the local harness tool profile and required-before-closure PR-review policy. The first worker must inspect the dashboard server/frontend state derivation before editing.",
+    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Worker source changes and focused dashboard proof routes are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside the worker.",
     "proofRoutes": [
       {
         "id": "dashboard-server-contract",
@@ -843,13 +843,13 @@
       "data": [
         {
           "id": "open-ready",
-          "name": "Ready for standalone harness run",
-          "status": "open-ready-for-standalone-harness",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "summary": "This doc is intentionally open. It defines a real dashboard state-reconciliation objective that requires source changes or proof that the source already satisfies the stricter terminal-result precedence behavior.",
+          "name": "Source fix and focused proof complete",
+          "status": "source-fix-and-focused-proof-complete-awaiting-controller-review",
+          "updated": "2026-05-13T01:18:00.000Z",
+          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status to the affected worker instance, and reconciles frontend selection to terminal nodes when live/reloaded graphs lose an active unit.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Run through the standalone lifecycle controller; do not implement from the supervising session unless the harness exposes a blocker and the user explicitly authorizes a fix."
+          "nextStep": "Controller-owned lifecycle review can now evaluate the worker changes and PR-review policy evidence; this worker did not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
         }
       ]
     },
@@ -861,18 +861,18 @@
         {
           "id": "criterion-terminal-result-precedence",
           "name": "Terminal lifecycle result beats active running snapshot",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "terminal lifecycle evidence always wins over stale running state",
           "criterion": "When a lifecycle directory contains both active-lifecycle.json with running state and lifecycle-result.json with closed, blocked, stopped, or another terminal finalState, the run list and graph use the terminal lifecycle-result state.",
-          "proofRequired": "Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, and run list status are terminal, not running.",
+          "proofRequired": "Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, run list status, and event history are terminal, not running.",
           "acceptanceTest": "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
         },
         {
           "id": "criterion-stale-only-without-terminal-result",
           "name": "Stale-supervisor is only used when terminal result is absent",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "stale-supervisor artifact proves that a lifecycle or unit is no longer running",
           "criterion": "The dashboard reports stale-active-lifecycle only when active-lifecycle.json claims a running supervisor and no terminal lifecycle-result.json is available; a terminal result suppresses the stale fallback.",
           "proofRequired": "Contract fixture covers both cases: missing terminal result produces stale-active-lifecycle; present terminal result produces the terminal result state.",
@@ -881,8 +881,8 @@
         {
           "id": "criterion-api-exposes-instance-status",
           "name": "Each graph card is an instance with its own status",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "for that exact instance instead of reusing a generic running card",
           "criterion": "Graph nodes for worker, reviewer, repair, PR-review, proof, closure, and blocker units carry instance-specific IDs, iteration or sequence metadata, status, artifact paths, and validation/log availability derived from their own result artifacts.",
           "proofRequired": "Artifact graph tests with multiple iterations prove an old unit remains terminal while a later unit may be active, without reusing a card status across instances.",
@@ -891,8 +891,8 @@
         {
           "id": "criterion-frontend-instance-reconciliation",
           "name": "Frontend does not resurrect stale running cards",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state",
           "criterion": "The dashboard UI applies streamed or reloaded terminal graph state to the matching instance card and does not leave a prior running badge visible after terminal evidence arrives.",
           "proofRequired": "UI contract simulates running then terminal event/history and asserts the same node changes to terminal without duplicating or reusing stale state.",
@@ -901,8 +901,8 @@
         {
           "id": "criterion-selected-pane-follows-instance",
           "name": "Selected details follow the clicked instance or edge",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "selected side pane",
           "criterion": "Clicking an instance card or contract edge shows details for that exact node or edge, including status, contract label, artifact paths, raw-log availability, and commit or living-doc-change evidence when present.",
           "proofRequired": "UI contract or dashboard screenshot from a fixture graph demonstrates selected node and selected edge details remain distinct.",
@@ -911,8 +911,8 @@
         {
           "id": "criterion-reload-reconstructs-terminal-state",
           "name": "Reload reconstructs terminal state from artifacts",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "WebSocket/reload reconstruction",
           "criterion": "After a page reload, the dashboard reconstructs terminal graph and detail state from persisted lifecycle artifacts and event history instead of showing default running state until a new WebSocket event arrives.",
           "proofRequired": "Realtime UI contract loads persisted history and asserts terminal lifecycle/unit status is present before live events are emitted.",
@@ -921,8 +921,8 @@
         {
           "id": "criterion-source-backed-proof",
           "name": "Fix is source-backed and rendered",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML",
           "criterion": "The final change includes either source changes to dashboard server/dashboard HTML or explicit proof that the current source already satisfies the stricter behavior, updates this living doc with evidence, and renders the HTML.",
           "proofRequired": "Git diff, passing proof routes, updated living doc JSON, rendered HTML, and commit intent evidence if files changed.",
@@ -931,8 +931,8 @@
         {
           "id": "criterion-standalone-harness-result",
           "name": "Standalone harness produces closed or traceable blocker result",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "pending-controller-owned",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "safe to run through the standalone lifecycle harness with PR-review policy enabled",
           "criterion": "The standalone harness run for this doc ends in closed with closure-review approval and PR-review evidence, or terminal blocked with a GitHub issue that cites the exact lifecycle run, contract, raw-log, and artifact paths.",
           "proofRequired": "lifecycle-result.json, reviewer verdict, closure-review or blocker result, PR-review gate evidence, and post-flight narrative if available.",
@@ -1073,39 +1073,35 @@
         {
           "id": "verification-server",
           "name": "Dashboard server contract",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "Existing dashboard server tests cover active and stale lifecycle states; this objective requires stricter terminal-result precedence coverage.",
-          "nextStep": "Add or confirm a fixture where active-lifecycle is running while lifecycle-result is terminal.",
+          "status": "passed",
+          "updated": "2026-05-13T01:18:00.000Z",
+          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.",
+          "nextStep": "Keep this contract in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
           ],
-          "gaps": [
-            "Need proof that terminal result suppresses stale/running fallback."
-          ]
+          "gaps": []
         },
         {
           "id": "verification-ui",
           "name": "Dashboard UI contract",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "Existing UI tests cover graph and realtime behavior; this objective requires explicit stale-running reconciliation.",
-          "nextStep": "Add or confirm a live/reload sequence that changes a running card to terminal for the same instance.",
+          "status": "passed",
+          "updated": "2026-05-13T01:18:00.000Z",
+          "currentCoverage": "Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.",
+          "nextStep": "Keep the UI contracts in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs",
             "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs"
           ],
-          "gaps": [
-            "Need proof that labels, cards, and side pane follow instance identity."
-          ]
+          "gaps": []
         },
         {
           "id": "verification-harness",
           "name": "Standalone harness proof",
           "status": "planned",
           "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "This doc is prepared for a required-before-closure PR-review harness run.",
-          "nextStep": "Run the lifecycle controller after this doc is committed or intentionally passed as the current test surface.",
+          "currentCoverage": "This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.",
+          "nextStep": "Lifecycle controller should run the required-before-closure review path after worker exit.",
           "automation": [
             "scripts/living-doc-harness-lifecycle.mjs with prReviewPolicy.mode=required-before-closure"
           ],
@@ -1123,19 +1119,19 @@
         {
           "id": "proof-reproduction",
           "name": "Reproduce stale-running contradiction",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "complete",
+          "updated": "2026-05-13T01:18:00.000Z",
           "claim": "A deterministic fixture can represent the bug class: active state says running while terminal artifacts prove otherwise.",
-          "evidenceRequired": "Failing or newly added contract fixture that would fail if running state wins.",
+          "evidenceRequired": "Added dashboard server fixture with both active-lifecycle.json and terminal lifecycle-result.json, plus artifact graph and realtime UI assertions that fail if running state wins.",
           "closureRelevance": "Prevents a vague dashboard polish task from replacing the concrete state bug."
         },
         {
           "id": "proof-source-fix",
           "name": "Source fix or source proof",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "complete",
+          "updated": "2026-05-13T01:18:00.000Z",
           "claim": "The source system now enforces terminal-result precedence and instance-specific status.",
-          "evidenceRequired": "Dashboard server/HTML diff or proof that existing source already passes the stricter fixture.",
+          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, worker terminal status derivation, lifecycle active-unit suppression for every non-running final state, and frontend graph selection reconciliation.",
           "closureRelevance": "Core implementation proof."
         },
         {
@@ -42435,7 +42431,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-13T00:48:11.807Z" title="2026-05-13T00:48:11.807Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T00:48:11.807Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-13T00:56:59.339Z" title="2026-05-13T00:56:59.339Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T00:56:59.339Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42492,8 +42488,8 @@ ${tmplLine}
     <article class="flow-card" id="open-ready" data-section-id="status" data-card-key="open-ready">
       <header class="flow-card-header">
         <div>
-          <h3>Ready for standalone harness run</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <h3>Source fix and focused proof complete</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -42517,22 +42513,22 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Terminal lifecycle result beats active running snapshot</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> terminal lifecycle evidence always wins over stale running state</p><p class="code-refs"><strong>Criterion</strong> When a lifecycle directory contains both active-lifecycle.json with running state and lifecycle-result.json with closed, blocked, stopped, or another terminal finalState, the run list and graph use the terminal lifecycle-result state.</p><p class="code-refs"><strong>Proof required</strong> Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, and run list status are terminal, not running.</p><p class="code-refs"><strong>Acceptance test</strong> node tests/contract/living-doc-harness-dashboard-server.spec.mjs</p>
+      <p class="code-refs"><strong>Objective term</strong> terminal lifecycle evidence always wins over stale running state</p><p class="code-refs"><strong>Criterion</strong> When a lifecycle directory contains both active-lifecycle.json with running state and lifecycle-result.json with closed, blocked, stopped, or another terminal finalState, the run list and graph use the terminal lifecycle-result state.</p><p class="code-refs"><strong>Proof required</strong> Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, run list status, and event history are terminal, not running.</p><p class="code-refs"><strong>Acceptance test</strong> node tests/contract/living-doc-harness-dashboard-server.spec.mjs</p>
 
     </article>
     <article class="flow-card" id="criterion-stale-only-without-terminal-result" data-section-id="acceptance-criteria" data-card-key="criterion-stale-only-without-terminal-result">
       <header class="flow-card-header">
         <div>
           <h3>Stale-supervisor is only used when terminal result is absent</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
@@ -42543,9 +42539,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Each graph card is an instance with its own status</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
@@ -42556,9 +42552,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Frontend does not resurrect stale running cards</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
@@ -42569,9 +42565,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Selected details follow the clicked instance or edge</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
@@ -42582,9 +42578,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Reload reconstructs terminal state from artifacts</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
@@ -42595,9 +42591,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Fix is source-backed and rendered</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
 
 
@@ -42608,9 +42604,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone harness produces closed or traceable blocker result</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pending Controller Owned</span></div>
       </header>
 
 
@@ -42806,41 +42802,27 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Dashboard server contract</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> Existing dashboard server tests cover active and stale lifecycle states; this objective requires stricter terminal-result precedence coverage.</p><p class="code-refs"><strong>Next step</strong> Add or confirm a fixture where active-lifecycle is running while lifecycle-result is terminal.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p><p class="code-refs"><strong>Next step</strong> Keep this contract in the controller-owned closure proof set.</p>
 
-    <details class="details-block">
-      <summary>Current gaps (1)</summary>
-
-    <div class="note-stack">
-      <p class="note-description"><span class="note-line">Need proof that terminal result suppresses stale/running fallback.</span></p>
-    </div>
-    </details>
     </article>
     <article class="flow-card" id="verification-ui" data-section-id="verification-plan" data-card-key="verification-ui">
       <header class="flow-card-header">
         <div>
           <h3>Dashboard UI contract</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> Existing UI tests cover graph and realtime behavior; this objective requires explicit stale-running reconciliation.</p><p class="code-refs"><strong>Next step</strong> Add or confirm a live/reload sequence that changes a running card to terminal for the same instance.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.</p><p class="code-refs"><strong>Next step</strong> Keep the UI contracts in the controller-owned closure proof set.</p>
 
-    <details class="details-block">
-      <summary>Current gaps (1)</summary>
-
-    <div class="note-stack">
-      <p class="note-description"><span class="note-line">Need proof that labels, cards, and side pane follow instance identity.</span></p>
-    </div>
-    </details>
     </article>
     <article class="flow-card" id="verification-harness" data-section-id="verification-plan" data-card-key="verification-harness">
       <header class="flow-card-header">
@@ -42852,7 +42834,7 @@ ${tmplLine}
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> This doc is prepared for a required-before-closure PR-review harness run.</p><p class="code-refs"><strong>Next step</strong> Run the lifecycle controller after this doc is committed or intentionally passed as the current test surface.</p>
+      <p class="code-refs"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p><p class="code-refs"><strong>Next step</strong> Lifecycle controller should run the required-before-closure review path after worker exit.</p>
 
     <details class="details-block">
       <summary>Current gaps (1)</summary>
@@ -42877,9 +42859,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Reproduce stale-running contradiction</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
       </header>
 
 
@@ -42890,9 +42872,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Source fix or source proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
       </header>
 
 
@@ -42916,7 +42898,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-485fd17c (2026-05-13)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-5e456566 (2026-05-13)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -42945,43 +42927,15 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Planned</span>
-        <span class="board-count">6</span>
+        <span class="board-count">2</span>
       </header>
       <div class="board-lane-cards">
 
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
-      <h3>Dashboard server contract</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Existing dashboard server tests cover active and stale lifecycle states; this objective requires stricter terminal-result precedence coverage.</p>
-
-    </article>
-    <article class="board-card" data-section-id="verification-plan">
-      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
-      <h3>Dashboard UI contract</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Existing UI tests cover graph and realtime behavior; this objective requires explicit stale-running reconciliation.</p>
-
-    </article>
-    <article class="board-card" data-section-id="verification-plan">
-      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Standalone harness proof</h3>
       <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> This doc is prepared for a required-before-closure PR-review harness run.</p>
-
-    </article>
-    <article class="board-card" data-section-id="proof-ladder">
-      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
-      <h3>Reproduce stale-running contradiction</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-
-
-    </article>
-    <article class="board-card" data-section-id="proof-ladder">
-      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
-      <h3>Source fix or source proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-
+      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p>
 
     </article>
     <article class="board-card" data-section-id="proof-ladder">
@@ -43018,6 +42972,43 @@ ${tmplLine}
       </header>
       <div class="board-lane-cards">
         <div class="board-empty">No items</div>
+      </div>
+    </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
+        <span class="board-count">4</span>
+      </header>
+      <div class="board-lane-cards">
+
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Dashboard server contract</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Dashboard UI contract</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.</p>
+
+    </article>
+    <article class="board-card" data-section-id="proof-ladder">
+      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
+      <h3>Reproduce stale-running contradiction</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
+
+
+    </article>
+    <article class="board-card" data-section-id="proof-ladder">
+      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
+      <h3>Source fix or source proof</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
+
+
+    </article>
       </div>
     </section>
           </div>
@@ -43086,56 +43077,56 @@ ${tmplLine}
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Terminal lifecycle result beats active running snapshot</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> terminal lifecycle evidence always wins over stale running state</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Stale-supervisor is only used when terminal result is absent</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> stale-supervisor artifact proves that a lifecycle or unit is no longer running</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Each graph card is an instance with its own status</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> for that exact instance instead of reusing a generic running card</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Frontend does not resurrect stale running cards</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Selected details follow the clicked instance or edge</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> selected side pane</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Reload reconstructs terminal state from artifacts</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> WebSocket/reload reconstruction</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Fix is source-backed and rendered</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Standalone harness produces closed or traceable blocker result</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pending Controller Owned</span></div>
       <p class="board-card-note"><strong>Objective term</strong> safe to run through the standalone lifecycle harness with PR-review policy enabled</p>
 
     </article>
@@ -43388,29 +43379,15 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Planned</span>
-        <span class="board-count">3</span>
+        <span class="board-count">1</span>
       </header>
       <div class="board-lane-cards">
 
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
-      <h3>Dashboard server contract</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Existing dashboard server tests cover active and stale lifecycle states; this objective requires stricter terminal-result precedence coverage.</p>
-
-    </article>
-    <article class="board-card" data-section-id="verification-plan">
-      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
-      <h3>Dashboard UI contract</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Existing UI tests cover graph and realtime behavior; this objective requires explicit stale-running reconciliation.</p>
-
-    </article>
-    <article class="board-card" data-section-id="verification-plan">
-      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Standalone harness proof</h3>
       <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> This doc is prepared for a required-before-closure PR-review harness run.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p>
 
     </article>
       </div>
@@ -43440,6 +43417,29 @@ ${tmplLine}
       </header>
       <div class="board-lane-cards">
         <div class="board-empty">No items</div>
+      </div>
+    </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
+        <span class="board-count">2</span>
+      </header>
+      <div class="board-lane-cards">
+
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Dashboard server contract</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Dashboard UI contract</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.</p>
+
+    </article>
       </div>
     </section>
           </div>
@@ -43482,21 +43482,21 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Existing dashboard server tests cover active and stale lifecycle states; this objective requires stricter terminal-result precedence coverage.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard UI contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Existing UI tests cover graph and realtime behavior; this objective requires explicit stale-running reconciliation.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Standalone harness proof</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> This doc is prepared for a required-before-closure PR-review harness run.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p>
 
     </article>
       </div>
@@ -43515,24 +43515,10 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Planned</span>
-        <span class="board-count">3</span>
+        <span class="board-count">1</span>
       </header>
       <div class="board-lane-cards">
 
-    <article class="board-card" data-section-id="proof-ladder">
-      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
-      <h3>Reproduce stale-running contradiction</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-
-
-    </article>
-    <article class="board-card" data-section-id="proof-ladder">
-      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
-      <h3>Source fix or source proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-
-
-    </article>
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Harness terminal proof</h3>
@@ -43567,6 +43553,29 @@ ${tmplLine}
       </header>
       <div class="board-lane-cards">
         <div class="board-empty">No items</div>
+      </div>
+    </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
+        <span class="board-count">2</span>
+      </header>
+      <div class="board-lane-cards">
+
+    <article class="board-card" data-section-id="proof-ladder">
+      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
+      <h3>Reproduce stale-running contradiction</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
+
+
+    </article>
+    <article class="board-card" data-section-id="proof-ladder">
+      <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
+      <h3>Source fix or source proof</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
+
+
+    </article>
       </div>
     </section>
           </div>
@@ -43807,14 +43816,14 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="310"
       data-graph-size="12"
-      data-graph-label="ready for standalone harness run open-ready $.sections[0].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[0].data[0]&quot;,&quot;id&quot;:&quot;open-ready&quot;,&quot;title&quot;:&quot;Ready for standalone harness run&quot;,&quot;section&quot;:&quot;Status Snapshot&quot;,&quot;statuses&quot;:[]}"
+      data-graph-label="source fix and focused proof complete open-ready $.sections[0].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[0].data[0]&quot;,&quot;id&quot;:&quot;open-ready&quot;,&quot;title&quot;:&quot;Source fix and focused proof complete&quot;,&quot;section&quot;:&quot;Status Snapshot&quot;,&quot;statuses&quot;:[]}"
       transform="translate(960, 310)">
-      <title>Ready for standalone harness run · $.sections[0].data[0]</title>
+      <title>Source fix and focused proof complete · $.sections[0].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
-        <tspan x="0" dy="0">Ready for standalone</tspan><tspan x="0" dy="12">harness run</tspan>
+        <tspan x="0" dy="0">Source fix and</tspan><tspan x="0" dy="12">focused proof</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">open-ready</text>
     </g>
@@ -43845,8 +43854,8 @@ ${tmplLine}
       data-graph-home-x="1132.9239496183388"
       data-graph-home-y="333.4241405476954"
       data-graph-size="12"
-      data-graph-label="terminal lifecycle result beats active running snapshot status: planned $.sections[1].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[0]&quot;,&quot;id&quot;:&quot;criterion-terminal-result-precedence&quot;,&quot;title&quot;:&quot;Terminal lifecycle result beats active running snapshot&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="terminal lifecycle result beats active running snapshot status: proven $.sections[1].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[0]&quot;,&quot;id&quot;:&quot;criterion-terminal-result-precedence&quot;,&quot;title&quot;:&quot;Terminal lifecycle result beats active running snapshot&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1132.9239496183388, 333.4241405476954)">
       <title>Terminal lifecycle result beats active running snapshot · $.sections[1].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43854,7 +43863,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Terminal lifecycle</tspan><tspan x="0" dy="12">result beats active</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-stale-only-without-terminal-result"
@@ -43864,8 +43873,8 @@ ${tmplLine}
       data-graph-home-x="1267.1896872952314"
       data-graph-home-y="322.1140415250874"
       data-graph-size="12"
-      data-graph-label="stale-supervisor is only used when terminal result is absent status: planned $.sections[1].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[1]&quot;,&quot;id&quot;:&quot;criterion-stale-only-without-terminal-result&quot;,&quot;title&quot;:&quot;Stale-supervisor is only used when terminal result is absent&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="stale-supervisor is only used when terminal result is absent status: proven $.sections[1].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[1]&quot;,&quot;id&quot;:&quot;criterion-stale-only-without-terminal-result&quot;,&quot;title&quot;:&quot;Stale-supervisor is only used when terminal result is absent&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1267.1896872952314, 322.1140415250874)">
       <title>Stale-supervisor is only used when terminal result is absent · $.sections[1].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43873,7 +43882,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Stale-supervisor is</tspan><tspan x="0" dy="12">only used when</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-api-exposes-instance-status"
@@ -43883,8 +43892,8 @@ ${tmplLine}
       data-graph-home-x="1410.2435032560345"
       data-graph-home-y="340.2929823087902"
       data-graph-size="12"
-      data-graph-label="each graph card is an instance with its own status status: planned $.sections[1].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;criterion-api-exposes-instance-status&quot;,&quot;title&quot;:&quot;Each graph card is an instance with its own status&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="each graph card is an instance with its own status status: proven $.sections[1].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;criterion-api-exposes-instance-status&quot;,&quot;title&quot;:&quot;Each graph card is an instance with its own status&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1410.2435032560345, 340.2929823087902)">
       <title>Each graph card is an instance with its own status · $.sections[1].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43892,7 +43901,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Each graph card is</tspan><tspan x="0" dy="12">an instance with its</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-frontend-instance-reconciliation"
@@ -43902,8 +43911,8 @@ ${tmplLine}
       data-graph-home-x="1429.8166614878046"
       data-graph-home-y="510.809278158538"
       data-graph-size="12"
-      data-graph-label="frontend does not resurrect stale running cards status: planned $.sections[1].data[3]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-frontend-instance-reconciliation&quot;,&quot;title&quot;:&quot;Frontend does not resurrect stale running cards&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="frontend does not resurrect stale running cards status: proven $.sections[1].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-frontend-instance-reconciliation&quot;,&quot;title&quot;:&quot;Frontend does not resurrect stale running cards&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1429.8166614878046, 510.809278158538)">
       <title>Frontend does not resurrect stale running cards · $.sections[1].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43911,7 +43920,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Frontend does not</tspan><tspan x="0" dy="12">resurrect stale</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-selected-pane-follows-instance"
@@ -43921,8 +43930,8 @@ ${tmplLine}
       data-graph-home-x="1550.8778636346824"
       data-graph-home-y="569.9649371319115"
       data-graph-size="12"
-      data-graph-label="selected details follow the clicked instance or edge status: planned $.sections[1].data[4]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-selected-pane-follows-instance&quot;,&quot;title&quot;:&quot;Selected details follow the clicked instance or edge&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="selected details follow the clicked instance or edge status: proven $.sections[1].data[4]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-selected-pane-follows-instance&quot;,&quot;title&quot;:&quot;Selected details follow the clicked instance or edge&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1550.8778636346824, 569.9649371319115)">
       <title>Selected details follow the clicked instance or edge · $.sections[1].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43930,7 +43939,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Selected details</tspan><tspan x="0" dy="12">follow the clicked</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-reload-reconstructs-terminal-state"
@@ -43940,8 +43949,8 @@ ${tmplLine}
       data-graph-home-x="1664.3582737744114"
       data-graph-home-y="658.9428257530946"
       data-graph-size="12"
-      data-graph-label="reload reconstructs terminal state from artifacts status: planned $.sections[1].data[5]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-reload-reconstructs-terminal-state&quot;,&quot;title&quot;:&quot;Reload reconstructs terminal state from artifacts&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="reload reconstructs terminal state from artifacts status: proven $.sections[1].data[5]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-reload-reconstructs-terminal-state&quot;,&quot;title&quot;:&quot;Reload reconstructs terminal state from artifacts&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1664.3582737744114, 658.9428257530946)">
       <title>Reload reconstructs terminal state from artifacts · $.sections[1].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43949,7 +43958,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Reload reconstructs</tspan><tspan x="0" dy="12">terminal state from</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-source-backed-proof"
@@ -43959,8 +43968,8 @@ ${tmplLine}
       data-graph-home-x="1593.7031429181852"
       data-graph-home-y="815.3613929283957"
       data-graph-size="12"
-      data-graph-label="fix is source-backed and rendered status: planned $.sections[1].data[6]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[6]&quot;,&quot;id&quot;:&quot;criterion-source-backed-proof&quot;,&quot;title&quot;:&quot;Fix is source-backed and rendered&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="fix is source-backed and rendered status: proven $.sections[1].data[6]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[6]&quot;,&quot;id&quot;:&quot;criterion-source-backed-proof&quot;,&quot;title&quot;:&quot;Fix is source-backed and rendered&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
       transform="translate(1593.7031429181852, 815.3613929283957)">
       <title>Fix is source-backed and rendered · $.sections[1].data[6]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43968,7 +43977,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Fix is source-backed</tspan><tspan x="0" dy="12">and rendered</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-standalone-harness-result"
@@ -43978,8 +43987,8 @@ ${tmplLine}
       data-graph-home-x="1667.287091111251"
       data-graph-home-y="928.2357001118355"
       data-graph-size="12"
-      data-graph-label="standalone harness produces closed or traceable blocker result status: planned $.sections[1].data[7]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[7]&quot;,&quot;id&quot;:&quot;criterion-standalone-harness-result&quot;,&quot;title&quot;:&quot;Standalone harness produces closed or traceable blocker result&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="standalone harness produces closed or traceable blocker result status: pending controller owned $.sections[1].data[7]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[7]&quot;,&quot;id&quot;:&quot;criterion-standalone-harness-result&quot;,&quot;title&quot;:&quot;Standalone harness produces closed or traceable blocker result&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending Controller Owned&quot;]}"
       transform="translate(1667.287091111251, 928.2357001118355)">
       <title>Standalone harness produces closed or traceable blocker result · $.sections[1].data[7]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43987,7 +43996,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Standalone harness</tspan><tspan x="0" dy="12">produces closed or</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending Controlle...</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-implementation-surfaces"
@@ -44339,8 +44348,8 @@ ${tmplLine}
       data-graph-home-x="396.274906676863"
       data-graph-home-y="1283.5954560215896"
       data-graph-size="12"
-      data-graph-label="dashboard server contract status: planned $.sections[5].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[0]&quot;,&quot;id&quot;:&quot;verification-server&quot;,&quot;title&quot;:&quot;Dashboard server contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="dashboard server contract status: passed $.sections[5].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[0]&quot;,&quot;id&quot;:&quot;verification-server&quot;,&quot;title&quot;:&quot;Dashboard server contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Passed&quot;]}"
       transform="translate(396.274906676863, 1283.5954560215896)">
       <title>Dashboard server contract · $.sections[5].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -44348,7 +44357,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Dashboard server</tspan><tspan x="0" dy="12">contract</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Passed</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-ui"
@@ -44358,8 +44367,8 @@ ${tmplLine}
       data-graph-home-x="269.75103817526883"
       data-graph-home-y="1117.5448212410706"
       data-graph-size="12"
-      data-graph-label="dashboard ui contract status: planned $.sections[5].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-ui&quot;,&quot;title&quot;:&quot;Dashboard UI contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="dashboard ui contract status: passed $.sections[5].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-ui&quot;,&quot;title&quot;:&quot;Dashboard UI contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Passed&quot;]}"
       transform="translate(269.75103817526883, 1117.5448212410706)">
       <title>Dashboard UI contract · $.sections[5].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -44367,7 +44376,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Dashboard UI</tspan><tspan x="0" dy="12">contract</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Passed</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-harness"
@@ -44415,8 +44424,8 @@ ${tmplLine}
       data-graph-home-x="355.52603815988346"
       data-graph-home-y="721.0204413400313"
       data-graph-size="12"
-      data-graph-label="reproduce stale-running contradiction status: planned $.sections[6].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[6].data[0]&quot;,&quot;id&quot;:&quot;proof-reproduction&quot;,&quot;title&quot;:&quot;Reproduce stale-running contradiction&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="reproduce stale-running contradiction status: complete $.sections[6].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[6].data[0]&quot;,&quot;id&quot;:&quot;proof-reproduction&quot;,&quot;title&quot;:&quot;Reproduce stale-running contradiction&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Complete&quot;]}"
       transform="translate(355.52603815988346, 721.0204413400313)">
       <title>Reproduce stale-running contradiction · $.sections[6].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -44424,7 +44433,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Reproduce</tspan><tspan x="0" dy="12">stale-running</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Complete</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-proof-source-fix"
@@ -44434,8 +44443,8 @@ ${tmplLine}
       data-graph-home-x="406.46331041263477"
       data-graph-home-y="518.5692202840168"
       data-graph-size="12"
-      data-graph-label="source fix or source proof status: planned $.sections[6].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[6].data[1]&quot;,&quot;id&quot;:&quot;proof-source-fix&quot;,&quot;title&quot;:&quot;Source fix or source proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="source fix or source proof status: complete $.sections[6].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[6].data[1]&quot;,&quot;id&quot;:&quot;proof-source-fix&quot;,&quot;title&quot;:&quot;Source fix or source proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Complete&quot;]}"
       transform="translate(406.46331041263477, 518.5692202840168)">
       <title>Source fix or source proof · $.sections[6].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -44443,7 +44452,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Source fix or source</tspan><tspan x="0" dy="12">proof</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Complete</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-proof-harness-closure"

@@ -628,7 +628,7 @@ try {
   assert.equal(history.body.events.some((event) => event.type === 'lifecycle_blocked' && event.payload.blockers?.some((blocker) => blocker.reasonCode === 'graph-fixture-blocked')), true);
   assert.equal(history.body.events.some((event) => event.type === 'inference_unit_started' && event.payload.nodeId === 'iteration-1-repair-1'), true);
   assert.equal(history.body.events.some((event) => event.type === 'inference_unit_finished' && event.payload.nodeId === 'iteration-1-reviewer'), true);
-  assert.equal(history.body.events.some((event) => event.type === 'graph_update' && event.payload.graph.activeInferenceUnitId === 'iteration-1-repair-1'), true);
+  assert.equal(history.body.events.some((event) => event.type === 'graph_update' && event.payload.graph.activeInferenceUnitId === null), true);
   assert.equal(history.body.events.some((event) => event.type === 'contract_handoff' && event.payload.contract.inputContractPath), true);
   assert.equal(history.body.events.some((event) => event.type === 'artifact_update' && event.payload.path), true);
   assert.equal(history.body.events.some((event) => event.type === 'log_append' && event.payload.nodeId === 'iteration-1-repair-1'), true);
@@ -776,6 +776,53 @@ exit 0
   const stoppedGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
   assert.equal(stoppedGraph.body.activeInferenceUnitId, null);
   assert.equal(stoppedGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'process-defect-stopped'), true);
+
+  const terminalOverActiveRunId = 'ldh-20260507T121501Z-minimal-doc';
+  const terminalOverActiveRunDir = path.join(runsDir, terminalOverActiveRunId);
+  await writeFile(path.join(runsDir, activeLifecycle.body.resultId, 'lifecycle-result.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-result/v1',
+    resultId: activeLifecycle.body.resultId,
+    createdAt: '2026-05-07T12:16:00.000Z',
+    docPath: 'tests/fixtures/minimal-doc.json',
+    lifecycleDir: path.join(runsDir, activeLifecycle.body.resultId),
+    iterationCount: 1,
+    runConfig: {
+      prReviewPolicy: { mode: 'required-when-source-changes' },
+    },
+    finalState: {
+      kind: 'blocked',
+      reasonCode: 'terminal-result-wins-fixture',
+      runId: terminalOverActiveRunId,
+    },
+    iterations: [
+      {
+        iteration: 1,
+        runId: terminalOverActiveRunId,
+        runDir: terminalOverActiveRunDir,
+        classification: 'blocked',
+        terminalKind: 'blocked',
+        nextAction: {
+          action: 'stop-blocked',
+          allowed: false,
+        },
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const terminalOverActiveLifecycles = await jsonFetch(server, `/api/lifecycles`);
+  const terminalOverActiveListItem = terminalOverActiveLifecycles.body.lifecycles.find((item) => item.resultId === activeLifecycle.body.resultId);
+  assert.equal(terminalOverActiveListItem.active, false);
+  assert.equal(terminalOverActiveListItem.finalState.kind, 'blocked');
+  assert.equal(terminalOverActiveListItem.supervisorAlive, null);
+  const terminalOverActiveGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
+  assert.equal(terminalOverActiveGraph.response.status, 200);
+  assert.equal(terminalOverActiveGraph.body.finalState.kind, 'blocked');
+  assert.equal(terminalOverActiveGraph.body.activeInferenceUnitId, null);
+  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'stale-active-lifecycle'), false);
+  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'lifecycle-controller' && node.status === 'blocked'), true);
+  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'blocked'), true);
+  const terminalOverActiveHistory = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/events`);
+  assert.equal(terminalOverActiveHistory.body.events.some((event) => event.type === 'lifecycle_blocked'), true);
+  assert.equal(terminalOverActiveHistory.body.events.some((event) => event.type === 'graph_update' && event.payload.graph.activeInferenceUnitId === null), true);
 
   const lifecycleSequencePath = path.join(tmp, 'dashboard-lifecycle-sequence.json');
   await writeFile(lifecycleSequencePath, `${JSON.stringify({

@@ -6,7 +6,7 @@
   "brand": "Living Doc Compositor",
   "owner": "TriadFlow",
   "scope": "Standalone living-doc harness dashboard state reconciliation",
-  "updated": "2026-05-13T00:00:00.000Z",
+  "updated": "2026-05-13T01:18:00.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-harness-dashboard-terminal-state-reconciliation.json",
@@ -40,10 +40,10 @@
     ]
   },
   "runState": {
-    "currentPhase": "open-ready-for-standalone-harness",
+    "currentPhase": "source-fix-and-focused-proof-complete-awaiting-controller-review",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Start the standalone lifecycle controller on this living doc with the local harness tool profile and required-before-closure PR-review policy. The first worker must inspect the dashboard server/frontend state derivation before editing.",
+    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Worker source changes and focused dashboard proof routes are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside the worker.",
     "proofRoutes": [
       {
         "id": "dashboard-server-contract",
@@ -119,13 +119,13 @@
       "data": [
         {
           "id": "open-ready",
-          "name": "Ready for standalone harness run",
-          "status": "open-ready-for-standalone-harness",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "summary": "This doc is intentionally open. It defines a real dashboard state-reconciliation objective that requires source changes or proof that the source already satisfies the stricter terminal-result precedence behavior.",
+          "name": "Source fix and focused proof complete",
+          "status": "source-fix-and-focused-proof-complete-awaiting-controller-review",
+          "updated": "2026-05-13T01:18:00.000Z",
+          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status to the affected worker instance, and reconciles frontend selection to terminal nodes when live/reloaded graphs lose an active unit.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Run through the standalone lifecycle controller; do not implement from the supervising session unless the harness exposes a blocker and the user explicitly authorizes a fix."
+          "nextStep": "Controller-owned lifecycle review can now evaluate the worker changes and PR-review policy evidence; this worker did not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
         }
       ]
     },
@@ -137,18 +137,18 @@
         {
           "id": "criterion-terminal-result-precedence",
           "name": "Terminal lifecycle result beats active running snapshot",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "terminal lifecycle evidence always wins over stale running state",
           "criterion": "When a lifecycle directory contains both active-lifecycle.json with running state and lifecycle-result.json with closed, blocked, stopped, or another terminal finalState, the run list and graph use the terminal lifecycle-result state.",
-          "proofRequired": "Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, and run list status are terminal, not running.",
+          "proofRequired": "Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, run list status, and event history are terminal, not running.",
           "acceptanceTest": "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
         },
         {
           "id": "criterion-stale-only-without-terminal-result",
           "name": "Stale-supervisor is only used when terminal result is absent",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "stale-supervisor artifact proves that a lifecycle or unit is no longer running",
           "criterion": "The dashboard reports stale-active-lifecycle only when active-lifecycle.json claims a running supervisor and no terminal lifecycle-result.json is available; a terminal result suppresses the stale fallback.",
           "proofRequired": "Contract fixture covers both cases: missing terminal result produces stale-active-lifecycle; present terminal result produces the terminal result state.",
@@ -157,8 +157,8 @@
         {
           "id": "criterion-api-exposes-instance-status",
           "name": "Each graph card is an instance with its own status",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "for that exact instance instead of reusing a generic running card",
           "criterion": "Graph nodes for worker, reviewer, repair, PR-review, proof, closure, and blocker units carry instance-specific IDs, iteration or sequence metadata, status, artifact paths, and validation/log availability derived from their own result artifacts.",
           "proofRequired": "Artifact graph tests with multiple iterations prove an old unit remains terminal while a later unit may be active, without reusing a card status across instances.",
@@ -167,8 +167,8 @@
         {
           "id": "criterion-frontend-instance-reconciliation",
           "name": "Frontend does not resurrect stale running cards",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state",
           "criterion": "The dashboard UI applies streamed or reloaded terminal graph state to the matching instance card and does not leave a prior running badge visible after terminal evidence arrives.",
           "proofRequired": "UI contract simulates running then terminal event/history and asserts the same node changes to terminal without duplicating or reusing stale state.",
@@ -177,8 +177,8 @@
         {
           "id": "criterion-selected-pane-follows-instance",
           "name": "Selected details follow the clicked instance or edge",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "selected side pane",
           "criterion": "Clicking an instance card or contract edge shows details for that exact node or edge, including status, contract label, artifact paths, raw-log availability, and commit or living-doc-change evidence when present.",
           "proofRequired": "UI contract or dashboard screenshot from a fixture graph demonstrates selected node and selected edge details remain distinct.",
@@ -187,8 +187,8 @@
         {
           "id": "criterion-reload-reconstructs-terminal-state",
           "name": "Reload reconstructs terminal state from artifacts",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "WebSocket/reload reconstruction",
           "criterion": "After a page reload, the dashboard reconstructs terminal graph and detail state from persisted lifecycle artifacts and event history instead of showing default running state until a new WebSocket event arrives.",
           "proofRequired": "Realtime UI contract loads persisted history and asserts terminal lifecycle/unit status is present before live events are emitted.",
@@ -197,8 +197,8 @@
         {
           "id": "criterion-source-backed-proof",
           "name": "Fix is source-backed and rendered",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "proven",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML",
           "criterion": "The final change includes either source changes to dashboard server/dashboard HTML or explicit proof that the current source already satisfies the stricter behavior, updates this living doc with evidence, and renders the HTML.",
           "proofRequired": "Git diff, passing proof routes, updated living doc JSON, rendered HTML, and commit intent evidence if files changed.",
@@ -207,8 +207,8 @@
         {
           "id": "criterion-standalone-harness-result",
           "name": "Standalone harness produces closed or traceable blocker result",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "pending-controller-owned",
+          "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "safe to run through the standalone lifecycle harness with PR-review policy enabled",
           "criterion": "The standalone harness run for this doc ends in closed with closure-review approval and PR-review evidence, or terminal blocked with a GitHub issue that cites the exact lifecycle run, contract, raw-log, and artifact paths.",
           "proofRequired": "lifecycle-result.json, reviewer verdict, closure-review or blocker result, PR-review gate evidence, and post-flight narrative if available.",
@@ -349,39 +349,35 @@
         {
           "id": "verification-server",
           "name": "Dashboard server contract",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "Existing dashboard server tests cover active and stale lifecycle states; this objective requires stricter terminal-result precedence coverage.",
-          "nextStep": "Add or confirm a fixture where active-lifecycle is running while lifecycle-result is terminal.",
+          "status": "passed",
+          "updated": "2026-05-13T01:18:00.000Z",
+          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.",
+          "nextStep": "Keep this contract in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
           ],
-          "gaps": [
-            "Need proof that terminal result suppresses stale/running fallback."
-          ]
+          "gaps": []
         },
         {
           "id": "verification-ui",
           "name": "Dashboard UI contract",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "Existing UI tests cover graph and realtime behavior; this objective requires explicit stale-running reconciliation.",
-          "nextStep": "Add or confirm a live/reload sequence that changes a running card to terminal for the same instance.",
+          "status": "passed",
+          "updated": "2026-05-13T01:18:00.000Z",
+          "currentCoverage": "Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.",
+          "nextStep": "Keep the UI contracts in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-graph-ui.spec.mjs",
             "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs"
           ],
-          "gaps": [
-            "Need proof that labels, cards, and side pane follow instance identity."
-          ]
+          "gaps": []
         },
         {
           "id": "verification-harness",
           "name": "Standalone harness proof",
           "status": "planned",
           "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "This doc is prepared for a required-before-closure PR-review harness run.",
-          "nextStep": "Run the lifecycle controller after this doc is committed or intentionally passed as the current test surface.",
+          "currentCoverage": "This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.",
+          "nextStep": "Lifecycle controller should run the required-before-closure review path after worker exit.",
           "automation": [
             "scripts/living-doc-harness-lifecycle.mjs with prReviewPolicy.mode=required-before-closure"
           ],
@@ -399,19 +395,19 @@
         {
           "id": "proof-reproduction",
           "name": "Reproduce stale-running contradiction",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "complete",
+          "updated": "2026-05-13T01:18:00.000Z",
           "claim": "A deterministic fixture can represent the bug class: active state says running while terminal artifacts prove otherwise.",
-          "evidenceRequired": "Failing or newly added contract fixture that would fail if running state wins.",
+          "evidenceRequired": "Added dashboard server fixture with both active-lifecycle.json and terminal lifecycle-result.json, plus artifact graph and realtime UI assertions that fail if running state wins.",
           "closureRelevance": "Prevents a vague dashboard polish task from replacing the concrete state bug."
         },
         {
           "id": "proof-source-fix",
           "name": "Source fix or source proof",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "status": "complete",
+          "updated": "2026-05-13T01:18:00.000Z",
           "claim": "The source system now enforces terminal-result precedence and instance-specific status.",
-          "evidenceRequired": "Dashboard server/HTML diff or proof that existing source already passes the stricter fixture.",
+          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, worker terminal status derivation, lifecycle active-unit suppression for every non-running final state, and frontend graph selection reconciliation.",
           "closureRelevance": "Core implementation proof."
         },
         {
