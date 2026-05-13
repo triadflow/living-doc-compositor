@@ -1,0 +1,286 @@
+{
+  "version": "1.0",
+  "docId": "doc:living-doc-dashboard-log-reader-scroll-stability",
+  "title": "Dashboard Log Reader Scroll Stability",
+  "subtitle": "Use a fresh realistic objective to test whether the standalone harness can drive dashboard UI work to closure.",
+  "brand": "Living Doc Compositor",
+  "owner": "TriadFlow",
+  "scope": {
+    "in": [
+      "The log/tail reader shown in the living-doc harness dashboard inspector for selected inference-unit cards.",
+      "Live dashboard updates from graph, log_append, artifact, and tail refresh events.",
+      "User reading behavior when the selected log is not at the latest line.",
+      "An explicit follow-latest behavior for users who want automatic scrolling.",
+      "Contract or browser tests that prove the scroll behavior without relying on a manual screenshot."
+    ],
+    "out": [
+      "Redesigning the whole dashboard layout.",
+      "Changing lifecycle routing policy semantics.",
+      "Changing worker, reviewer, repair, PR-review, commit-intent, closure-review, or post-flight unit contracts.",
+      "Persisting user dashboard preferences outside the current browser session.",
+      "Making the dashboard production-hosted or multi-user."
+    ]
+  },
+  "updated": "2026-05-13T07:08:30.000Z",
+  "canonicalOrigin": {
+    "repo": "triadflow/living-doc-compositor",
+    "sourcePath": "docs/living-doc-dashboard-log-reader-scroll-stability.json",
+    "renderedPath": "docs/living-doc-dashboard-log-reader-scroll-stability.html"
+  },
+  "objective": "Make the living-doc harness dashboard log reader stable during live updates: when an operator has selected an inference-unit card and scrolled within its log/tail output to inspect earlier evidence, incoming live events, graph refreshes, or tail refreshes must not force that reader back to the top or otherwise move the viewport away from the inspected lines. The dashboard must still provide an explicit follow-latest behavior for operators who want the selected log to stay near the newest entries. The change must be implemented in the real dashboard source, proven by automated contract or browser tests, and visible in the rendered dashboard without weakening the lifecycle harness, policy routing, or local-only evidence boundaries.",
+  "successCondition": "The objective is closed only when the dashboard log/tail reader preserves manual scroll position across live updates and selected-node tail refreshes, an explicit follow-latest control or state exists and works, automated tests prove both preserve-position and follow-latest behavior, the relevant living doc is re-rendered, and the standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions with proof artifacts and dashboard graph evidence.",
+  "runState": {
+    "currentPhase": "fresh-realistic-harness-test-doc-ready",
+    "documentReady": true,
+    "objectiveReady": false,
+    "nextObjectiveAction": "Start this living doc through the standalone lifecycle harness with execute=true and executeProofRoutes=true, then observe the lifecycle graph and raw inference evidence.",
+    "proofRoutes": [
+      {
+        "id": "dashboard-realtime-ui-contract",
+        "kind": "command",
+        "command": "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-preserve-manual-scroll",
+          "criterion-follow-latest-control",
+          "criterion-live-update-proof"
+        ],
+        "description": "Contract-level proof that dashboard realtime UI behavior handles live graph/log updates correctly."
+      },
+      {
+        "id": "dashboard-realtime-browser-e2e",
+        "kind": "browser-e2e",
+        "command": "npx playwright test tests/e2e/harness-dashboard-realtime.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-preserve-manual-scroll",
+          "criterion-follow-latest-control",
+          "criterion-live-update-proof"
+        ],
+        "description": "Browser proof that streamed dashboard events update the UI without reload and without breaking selected log inspection."
+      },
+      {
+        "id": "dashboard-source-check",
+        "kind": "command",
+        "command": "node --check scripts/living-doc-harness-dashboard-server.mjs",
+        "required": true,
+        "timeoutMs": 30000,
+        "acceptanceCriteria": [
+          "criterion-dashboard-source-implemented"
+        ],
+        "description": "Syntax proof for the self-contained dashboard source."
+      },
+      {
+        "id": "living-doc-render-proof",
+        "kind": "command",
+        "command": "node scripts/render-living-doc.mjs docs/living-doc-dashboard-log-reader-scroll-stability.json",
+        "required": true,
+        "timeoutMs": 30000,
+        "acceptanceCriteria": [
+          "criterion-living-doc-updated"
+        ],
+        "description": "Render proof for the operated living doc."
+      }
+    ],
+    "supervisionBoundary": {
+      "mode": "standalone-harness-test",
+      "supervisorMay": [
+        "start the dashboard-backed standalone lifecycle",
+        "watch lifecycle graph and run tails",
+        "inspect wrapper events, raw JSONL summaries, proof artifacts, output-input contracts, and terminal state",
+        "create a GitHub issue if the lifecycle blocks or the harness violates its contracts"
+      ],
+      "supervisorMustNot": [
+        "implement this dashboard fix directly from the supervising session while the harness is running",
+        "mark the objective closed from a worker final message alone",
+        "ignore native inference logs or proof artifacts",
+        "patch the harness in response to a discovered blocker without explicit user approval"
+      ]
+    }
+  },
+  "sections": [
+    {
+      "id": "status",
+      "title": "Status Snapshot",
+      "convergenceType": "status-snapshot",
+      "data": [
+        {
+          "id": "fresh-test-doc",
+          "name": "Fresh realistic harness test doc",
+          "status": "ready-for-standalone-lifecycle",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "summary": "This living doc is intentionally small and real. The dashboard log reader jumping while the operator reads evidence is a practical defect. The objective can exercise worker implementation, reviewer inspection, policy-owned continuation, closure-review, proof routes, dashboard graph evidence, and post-flight summary.",
+          "documentReady": true,
+          "objectiveReady": false,
+          "nextStep": "Run the standalone lifecycle and inspect whether the harness can close or produce a traceable blocker."
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "data": [
+        {
+          "id": "criterion-preserve-manual-scroll",
+          "name": "Manual log reading position is preserved",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "must not force that reader back to the top or otherwise move the viewport away from inspected lines",
+          "criterion": "When the operator selects an inference-unit card, opens its log/tail reader, and scrolls away from the latest entries, incoming live events, graph refreshes, and tail refreshes preserve the reader's scroll position relative to the inspected content.",
+          "proofRequired": "Automated browser or DOM-level test simulates a selected node, populated log output, manual scroll position, live update or refresh, and asserts the scroll position is preserved.",
+          "acceptanceTest": "A failing-before/passing-after assertion is added to the dashboard realtime UI contract or browser E2E surface."
+        },
+        {
+          "id": "criterion-follow-latest-control",
+          "name": "Follow-latest behavior is explicit",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "explicit follow-latest behavior",
+          "criterion": "The dashboard exposes an explicit follow-latest control or state for the selected log reader, and when enabled it keeps the reader near the newest log entries after live updates.",
+          "proofRequired": "Automated test proves the control or state exists and that enabling it causes new log entries to remain visible.",
+          "acceptanceTest": "The test distinguishes preserve-manual-scroll from follow-latest behavior so one cannot accidentally satisfy both."
+        },
+        {
+          "id": "criterion-live-update-proof",
+          "name": "Live dashboard updates keep selected evidence usable",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "incoming live events, graph refreshes, or tail refreshes",
+          "criterion": "The selected card and its inspected log remain usable across websocket graph_update, log_append, inference-unit state changes, and explicit tail refresh actions.",
+          "proofRequired": "Contract or browser proof covers websocket/event-history updates and direct tail refresh for the selected node.",
+          "acceptanceTest": "Existing dashboard realtime tests are extended or a focused new test is added."
+        },
+        {
+          "id": "criterion-dashboard-source-implemented",
+          "name": "Real dashboard source implements the behavior",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "implemented in the real dashboard source",
+          "criterion": "The fix changes the source used by the dashboard backend and self-contained dashboard export, not only a fixture, mockup, or generated screenshot.",
+          "proofRequired": "Source diff includes scripts/living-doc-harness-dashboard-server.mjs or the canonical dashboard source that generates the live dashboard behavior; syntax check passes.",
+          "acceptanceTest": "node --check scripts/living-doc-harness-dashboard-server.mjs passes."
+        },
+        {
+          "id": "criterion-boundary-preserved",
+          "name": "Harness and evidence boundaries remain intact",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "without weakening lifecycle harness, policy routing, or local-only evidence boundaries",
+          "criterion": "The change does not expose raw prompt/private trace content, does not bypass lifecycle policy routing, and does not change inference-unit contract semantics.",
+          "proofRequired": "Relevant contract tests remain green and no dashboard privacy assertions are removed.",
+          "acceptanceTest": "npm run test:contract or a justified focused subset including dashboard privacy/realtime tests passes."
+        },
+        {
+          "id": "criterion-living-doc-updated",
+          "name": "Living doc evidence is updated and rendered",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "relevant living doc is re-rendered",
+          "criterion": "This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.",
+          "proofRequired": "Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.",
+          "acceptanceTest": "node scripts/render-living-doc.mjs docs/living-doc-dashboard-log-reader-scroll-stability.json passes after updates."
+        },
+        {
+          "id": "criterion-standalone-lifecycle-closes",
+          "name": "Standalone lifecycle closes or creates a traceable blocker",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "objectiveTerm": "standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions",
+          "criterion": "The lifecycle result reaches closed only with objective proof, or otherwise stops only as a traceable blocker/process-defect issue with raw-log and contract evidence.",
+          "proofRequired": "Lifecycle-result.json, output-input contracts, reviewer/closure-review artifacts, graph policy edges, and post-flight summary if closed.",
+          "acceptanceTest": "Supervisor inspects the lifecycle artifacts and creates a GitHub issue for any blocker."
+        }
+      ]
+    },
+    {
+      "id": "implementation-surfaces",
+      "title": "Implementation Surfaces",
+      "convergenceType": "code-anchor",
+      "data": [
+        {
+          "id": "dashboard-server",
+          "name": "Dashboard backend and embedded UI source",
+          "status": "target",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "codePath": "scripts/living-doc-harness-dashboard-server.mjs",
+          "responsibility": "Hosts the live dashboard, websocket/event history, graph inspector, and selected-node log/tail reader behavior.",
+          "nextStep": "Let the worker inspect and modify this source only as needed for scroll stability."
+        },
+        {
+          "id": "dashboard-realtime-contract",
+          "name": "Dashboard realtime UI contract tests",
+          "status": "target",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "codePath": "tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs",
+          "responsibility": "Provides DOM-level proof for live dashboard behavior without needing a running browser server.",
+          "nextStep": "Extend or add focused assertions for manual scroll preservation and follow-latest behavior."
+        },
+        {
+          "id": "dashboard-realtime-e2e",
+          "name": "Dashboard realtime browser E2E",
+          "status": "target",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "codePath": "tests/e2e/harness-dashboard-realtime.spec.mjs",
+          "responsibility": "Provides browser-level proof that streamed dashboard events update the inspector and selected logs correctly.",
+          "nextStep": "Extend if DOM-level proof is insufficient for scroll behavior."
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "data": [
+        {
+          "id": "proof-scroll-contract",
+          "name": "Scroll behavior proof",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "claim": "Manual reading position is preserved and follow-latest is explicit.",
+          "evidenceRequired": "Automated dashboard UI test with simulated log content, manual scroll, live update, and follow-latest mode.",
+          "closureRelevance": "Directly proves the user-facing defect is fixed."
+        },
+        {
+          "id": "proof-dashboard-source",
+          "name": "Dashboard source proof",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "claim": "The real dashboard source implements the behavior.",
+          "evidenceRequired": "Source diff and node --check against scripts/living-doc-harness-dashboard-server.mjs.",
+          "closureRelevance": "Prevents mock-only or fixture-only closure."
+        },
+        {
+          "id": "proof-lifecycle",
+          "name": "Standalone lifecycle proof",
+          "status": "pending",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "claim": "The harness can carry this realistic dashboard objective to closure or traceable blocker.",
+          "evidenceRequired": "Lifecycle-result.json, output-input contracts, reviewer and closure-review artifacts, graph policy edges, and post-flight summary if closed.",
+          "closureRelevance": "This is the actual harness-hardening test."
+        }
+      ]
+    },
+    {
+      "id": "relationship-maps",
+      "title": "Relationship Maps",
+      "convergenceType": "relationship-map",
+      "data": [
+        {
+          "id": "map-log-reader-behavior",
+          "name": "Log reader behavior boundary",
+          "status": "target-shape",
+          "updated": "2026-05-13T07:08:30.000Z",
+          "claim": "The dashboard must distinguish manual reading from intentional follow-latest behavior.",
+          "validationQuestion": "Can a test prove that live updates preserve manual position while follow-latest still tracks new output?",
+          "mermaid": {
+            "kind": "flowchart",
+            "text": "flowchart LR\n  Select[\"operator selects inference-unit card\"] --> Log[\"log/tail reader\"]\n  Log --> Manual[\"manual scroll away from latest\"]\n  Manual --> Update[\"websocket graph/log or tail refresh\"]\n  Update --> Preserve[\"preserve inspected position\"]\n  Log --> Follow[\"follow latest enabled\"]\n  Follow --> NewLines[\"new log lines arrive\"]\n  NewLines --> Latest[\"newest entries stay visible\"]"
+          }
+        }
+      ]
+    }
+  ]
+}

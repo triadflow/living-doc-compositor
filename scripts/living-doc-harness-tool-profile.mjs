@@ -80,6 +80,8 @@ const PROFILE_DEFINITIONS = {
   },
 };
 
+export const INFERENCE_TOOL_PROFILE_NAMES = Object.freeze(Object.keys(PROFILE_DEFINITIONS));
+
 export function resolveInferenceToolProfile(profile = 'local-harness', { cwd = process.cwd() } = {}) {
   const requested = typeof profile === 'string' ? { name: profile } : (profile || {});
   const name = requested.name || 'local-harness';

@@ -63,6 +63,15 @@ async function waitFor(predicate, { timeoutMs = 5000, intervalMs = 100 } = {}) {
   throw new Error('timed out waiting for condition');
 }
 
+async function fileExists(filePath) {
+  try {
+    await readFile(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 class FakeUpgradeSocket extends EventEmitter {
   chunks = [];
   destroyed = false;
@@ -800,6 +809,24 @@ exit 0
       return null;
     }
   });
+
+  const invalidToolProfile = await jsonFetch(server, `/api/lifecycles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      docPath: 'tests/fixtures/minimal-doc.json',
+      now: '2026-05-07T12:14:00.000Z',
+      execute: true,
+      toolProfile: 'local-harness-dashboard-test',
+    }),
+  });
+  assert.equal(invalidToolProfile.response.status, 400);
+  assert.equal(invalidToolProfile.body.schema, 'living-doc-harness-dashboard-validation-error/v1');
+  assert.equal(invalidToolProfile.body.field, 'toolProfile');
+  assert.equal(invalidToolProfile.body.value, 'local-harness-dashboard-test');
+  assert.deepEqual(invalidToolProfile.body.allowedToolProfiles, ['inherited', 'local-harness', 'local-repair']);
+  assert.match(invalidToolProfile.body.reason, /unknown inference tool profile/);
+  assert.equal(await fileExists(path.join(runsDir, 'ldhl-20260507T121400Z-minimal-doc', 'active-lifecycle.json')), false);
 
   const activeLifecycle = await jsonFetch(server, `/api/lifecycles`, {
     method: 'POST',

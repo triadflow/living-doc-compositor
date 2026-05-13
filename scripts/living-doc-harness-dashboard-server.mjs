@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { createHarnessRun } from './living-doc-harness-runner.mjs';
 import { collectRunEvidence, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
 import { DEFAULT_PR_REVIEW_POLICY, normalizePrReviewPolicy } from './living-doc-harness-inference-unit-types.mjs';
+import { INFERENCE_TOOL_PROFILE_NAMES, resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const DEFAULT_PORT = 4334;
@@ -3675,6 +3676,19 @@ export function createDashboardServer({
         if (!body?.docPath) return sendJson(res, 400, { error: 'missing docPath' });
         const now = body.now || new Date().toISOString();
         const prReviewPolicy = normalizePrReviewPolicy(body.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
+        const requestedToolProfile = body.toolProfile || 'local-harness';
+        try {
+          resolveInferenceToolProfile(requestedToolProfile, { cwd });
+        } catch (err) {
+          return sendJson(res, 400, {
+            schema: 'living-doc-harness-dashboard-validation-error/v1',
+            error: 'invalid toolProfile',
+            reason: err?.message || String(err),
+            field: 'toolProfile',
+            value: requestedToolProfile,
+            allowedToolProfiles: INFERENCE_TOOL_PROFILE_NAMES,
+          });
+        }
         const result = await startLifecycle({
           docPath: body.docPath,
           runsDir: absoluteRunsDir,
@@ -3690,7 +3704,7 @@ export function createDashboardServer({
           executeRepairSkills: body.executeRepairSkills === true,
           executeRepairSkillUnits: body.executeRepairSkillUnits === true,
           executeProofRoutes: body.executeProofRoutes === true,
-          toolProfile: body.toolProfile || 'local-harness',
+          toolProfile: requestedToolProfile,
           evidenceSequencePath: body.evidenceSequencePath || null,
           prReviewPolicy,
         });
@@ -3705,7 +3719,7 @@ export function createDashboardServer({
             docPath: body.docPath,
             createdAt: now,
             supervisorPid: result.supervisorPid ?? null,
-            toolProfile: result.toolProfile || body.toolProfile || 'local-harness',
+            toolProfile: result.toolProfile || requestedToolProfile,
             executeProofRoutes: result.executeProofRoutes === true,
             prReviewPolicy: result.prReviewPolicy || prReviewPolicy,
           });
@@ -3717,7 +3731,7 @@ export function createDashboardServer({
           executed: body.execute === true,
           background: true,
           supervisorPid: result.supervisorPid,
-          toolProfile: result.toolProfile || body.toolProfile || 'local-harness',
+          toolProfile: result.toolProfile || requestedToolProfile,
           executeProofRoutes: result.executeProofRoutes === true,
           prReviewPolicy: result.prReviewPolicy || prReviewPolicy,
           nextAction: 'watch /api/runs, /api/runs/:runId/tail, and repair-unit tails until lifecycle-result.json appears',
