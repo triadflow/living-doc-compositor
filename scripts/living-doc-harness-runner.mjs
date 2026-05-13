@@ -5,12 +5,14 @@
 // Codex; pass --execute to spawn `codex exec` as a separate process.
 
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
 import { attachTraceSummaryToRun, discoverCodexTraceFiles, summarizeCodexTrace } from './living-doc-harness-trace-reader.mjs';
 import {
   validateInferenceUnitResult,
@@ -31,6 +33,8 @@ const __filename = fileURLToPath(import.meta.url);
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_RUNS_DIR = '.living-doc-runs';
+const DEFAULT_STARTUP_EVIDENCE_TIMEOUT_MS = 120000;
+const STARTUP_EVIDENCE_POLL_MS = 1000;
 
 function arr(value) {
   return Array.isArray(value) ? value : [];
@@ -274,6 +278,114 @@ async function workerControllerArtifactViolations(runDir) {
     violations.push(...files.map((filePath) => path.join(root, filePath)));
   }
   return violations.sort();
+}
+
+async function fileSize(filePath) {
+  try {
+    return (await stat(filePath)).size;
+  } catch {
+    return 0;
+  }
+}
+
+async function startupEvidenceSnapshot({
+  codexEventsPath,
+  codexStderrPath,
+  lastMessagePath,
+  absoluteCodexHome,
+  processStartedAt,
+  traceLimit,
+}) {
+  const files = {
+    codexEventsBytes: await fileSize(codexEventsPath),
+    codexStderrBytes: await fileSize(codexStderrPath),
+    lastMessageBytes: await fileSize(lastMessagePath),
+  };
+  const startedMs = new Date(processStartedAt).getTime() - 2000;
+  let modifiedTraceCount = 0;
+  try {
+    const traces = await discoverCodexTraceFiles({
+      codexHome: absoluteCodexHome,
+      limit: Math.max(1, Math.min(traceLimit, 5)),
+    });
+    modifiedTraceCount = traces.filter((trace) => new Date(trace.modifiedAt).getTime() >= startedMs && trace.sizeBytes > 0).length;
+  } catch {
+    modifiedTraceCount = 0;
+  }
+  return {
+    ...files,
+    modifiedTraceCount,
+    hasEvidence: files.codexEventsBytes > 0
+      || files.codexStderrBytes > 0
+      || files.lastMessageBytes > 0
+      || modifiedTraceCount > 0,
+  };
+}
+
+async function waitForStartupEvidence({
+  codexEventsPath,
+  codexStderrPath,
+  lastMessagePath,
+  absoluteCodexHome,
+  processStartedAt,
+  traceLimit,
+  timeoutMs,
+  cancel = null,
+}) {
+  const started = Date.now();
+  let snapshot = await startupEvidenceSnapshot({
+    codexEventsPath,
+    codexStderrPath,
+    lastMessagePath,
+    absoluteCodexHome,
+    processStartedAt,
+    traceLimit,
+  });
+  while (!cancel?.cancelled && !snapshot.hasEvidence && Date.now() - started < timeoutMs) {
+    await delay(Math.min(STARTUP_EVIDENCE_POLL_MS, Math.max(10, timeoutMs - (Date.now() - started))));
+    if (cancel?.cancelled) break;
+    snapshot = await startupEvidenceSnapshot({
+      codexEventsPath,
+      codexStderrPath,
+      lastMessagePath,
+      absoluteCodexHome,
+      processStartedAt,
+      traceLimit,
+    });
+  }
+  return {
+    ok: snapshot.hasEvidence,
+    cancelled: cancel?.cancelled === true,
+    elapsedMs: Date.now() - started,
+    timeoutMs,
+    snapshot,
+  };
+}
+
+async function terminateChildProcess(child, signal = 'SIGTERM') {
+  if (!child || child.exitCode != null || child.killed) return;
+  let closed = false;
+  const closedPromise = new Promise((resolve) => {
+    child.once('close', () => {
+      closed = true;
+      resolve();
+    });
+  });
+  child.kill(signal);
+  await Promise.race([
+    closedPromise,
+    delay(2000),
+  ]);
+  if (!closed && child.exitCode == null) child.kill('SIGKILL');
+  await Promise.race([
+    closedPromise,
+    delay(2000),
+  ]);
+}
+
+async function closeWritableStream(stream) {
+  if (!stream || stream.destroyed || stream.closed || stream.writableEnded) return;
+  await new Promise((resolve) => stream.end(resolve));
 }
 
 function selectedInitialUnit(lifecycleInput) {
@@ -1115,6 +1227,7 @@ function parseArgs(argv) {
     toolProfile: 'local-harness',
     allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
     prReviewPolicy: DEFAULT_PR_REVIEW_POLICY,
+    startupEvidenceTimeoutMs: Number(process.env.LIVING_DOC_HARNESS_STARTUP_EVIDENCE_TIMEOUT_MS || DEFAULT_STARTUP_EVIDENCE_TIMEOUT_MS),
   };
 
   while (args.length) {
@@ -1157,6 +1270,10 @@ function parseArgs(argv) {
       const value = args.shift();
       if (!value) throw new Error('--pr-review-policy requires a value');
       options.prReviewPolicy = normalizePrReviewPolicy(value);
+    } else if (flag === '--startup-evidence-timeout-ms') {
+      const value = Number(args.shift());
+      if (!Number.isInteger(value) || value < 1) throw new Error('--startup-evidence-timeout-ms requires an integer >= 1');
+      options.startupEvidenceTimeoutMs = value;
     } else {
       throw new Error(`unknown option: ${flag}`);
     }
@@ -1179,6 +1296,7 @@ export async function createHarnessRun({
   toolProfile = 'local-harness',
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
+  startupEvidenceTimeoutMs = Number(process.env.LIVING_DOC_HARNESS_STARTUP_EVIDENCE_TIMEOUT_MS || DEFAULT_STARTUP_EVIDENCE_TIMEOUT_MS),
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -1202,6 +1320,10 @@ export async function createHarnessRun({
   const resolvedToolProfile = resolveInferenceToolProfile(toolProfile, { cwd });
   const normalizedAllowedUnitTypes = normalizeAllowedInferenceUnitTypes(allowedUnitTypes);
   const normalizedPrReviewPolicy = normalizePrReviewPolicy(prReviewPolicy);
+  const normalizedStartupEvidenceTimeoutMs = Number(startupEvidenceTimeoutMs);
+  if (!Number.isInteger(normalizedStartupEvidenceTimeoutMs) || normalizedStartupEvidenceTimeoutMs < 1) {
+    throw new Error('startupEvidenceTimeoutMs must be an integer >= 1');
+  }
   const initialUnit = selectedInitialUnit(lifecycleInput);
   const runConfigValidation = validateAllowedInferenceUnitRunConfig({
     allowedUnitTypes: normalizedAllowedUnitTypes,
@@ -1274,6 +1396,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       initialUnitType: initialUnit.unitId,
       initialUnitRole: initialUnit.role,
       prReviewPolicy: normalizedPrReviewPolicy,
+      startupEvidenceTimeoutMs: normalizedStartupEvidenceTimeoutMs,
       registrySchema: 'living-doc-harness-inference-unit-type-registry/v1',
     },
     artifacts: {
@@ -1403,12 +1526,159 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   await writeJson(path.join(runDir, 'contract.json'), contract);
   await writeJson(path.join(runDir, 'state.json'), state);
   child.stdin.end(prompt);
-  child.stdout.pipe(await import('node:fs').then((fs) => fs.createWriteStream(codexEventsPath, { flags: 'a' })));
-  child.stderr.pipe(await import('node:fs').then((fs) => fs.createWriteStream(codexStderrPath, { flags: 'a' })));
+  const codexEventsStream = createWriteStream(codexEventsPath, { flags: 'a' });
+  const codexStderrStream = createWriteStream(codexStderrPath, { flags: 'a' });
+  child.stdout.pipe(codexEventsStream);
+  child.stderr.pipe(codexStderrStream);
 
-  const exitCode = await new Promise((resolve) => {
+  const closePromise = new Promise((resolve) => {
     child.on('close', resolve);
   });
+  const startupEvidenceCancel = { cancelled: false };
+  const startupEvidence = await Promise.race([
+    closePromise.then((exitCode) => ({ closed: true, exitCode })),
+    waitForStartupEvidence({
+      codexEventsPath,
+      codexStderrPath,
+      lastMessagePath,
+      absoluteCodexHome,
+      processStartedAt,
+      traceLimit,
+      timeoutMs: normalizedStartupEvidenceTimeoutMs,
+      cancel: startupEvidenceCancel,
+    }).then((result) => ({ closed: false, ...result })),
+  ]);
+  if (startupEvidence.closed) startupEvidenceCancel.cancelled = true;
+  if (!startupEvidence.closed && !startupEvidence.ok) {
+    const defectAt = new Date().toISOString();
+    await terminateChildProcess(child);
+    await Promise.all([
+      closeWritableStream(codexEventsStream),
+      closeWritableStream(codexStderrStream),
+    ]);
+    const defect = {
+      schema: 'living-doc-harness-process-defect/v1',
+      runId,
+      unitId: initialUnit.unitId,
+      role: initialUnit.role,
+      reasonCode: 'headless-worker-no-startup-evidence',
+      reason: 'Headless Codex process stayed alive without emitting stdout, stderr, last-message, or native trace evidence during the startup window.',
+      process: {
+        pid: child.pid,
+        startedAt: processStartedAt,
+        defectAt,
+        startupEvidenceTimeoutMs: normalizedStartupEvidenceTimeoutMs,
+      },
+      missingEvidence: {
+        codexEventsPath: path.relative(runDir, codexEventsPath),
+        codexEventsBytes: startupEvidence.snapshot.codexEventsBytes,
+        codexStderrPath: path.relative(runDir, codexStderrPath),
+        codexStderrBytes: startupEvidence.snapshot.codexStderrBytes,
+        lastMessagePath: path.relative(runDir, lastMessagePath),
+        lastMessageBytes: startupEvidence.snapshot.lastMessageBytes,
+        modifiedTraceCount: startupEvidence.snapshot.modifiedTraceCount,
+      },
+    };
+    contract.status = 'process-defect';
+    contract.process.exitCode = null;
+    contract.process.finishedAt = defectAt;
+    contract.process.startupEvidence = {
+      ok: false,
+      elapsedMs: startupEvidence.elapsedMs,
+      timeoutMs: normalizedStartupEvidenceTimeoutMs,
+      snapshot: startupEvidence.snapshot,
+    };
+    contract.artifacts.processDefect = 'process-defect.json';
+    state.status = 'process-defect';
+    state.updatedAt = defectAt;
+    state.nextAction = 'inspect process-defect.json and fix the headless startup evidence boundary';
+    await writeJson(path.join(runDir, 'process-defect.json'), defect);
+    await writeJson(path.join(runDir, 'contract.json'), contract);
+    await writeJson(path.join(runDir, 'state.json'), state);
+    await appendJsonl(path.join(runDir, 'events.jsonl'), {
+      event: 'headless-startup-evidence-timeout',
+      at: defectAt,
+      runId,
+      unitId: initialUnit.unitId,
+      pid: child.pid,
+      elapsedMs: startupEvidence.elapsedMs,
+      timeoutMs: normalizedStartupEvidenceTimeoutMs,
+      processDefectPath: 'process-defect.json',
+    });
+    const failedUnitOutput = externalOutputContract({
+      unitTypeId: initialUnit.unitId,
+      runId,
+      docPath: relativeDocPath,
+      inputContract: initialInputContract,
+      status: 'failed',
+      exitCode: null,
+      traceRefs: [],
+      paths: {
+        exitCode: null,
+        codexEventsPath: path.relative(runDir, codexEventsPath),
+        lastMessagePath: path.relative(runDir, lastMessagePath),
+        stderrPath: path.relative(runDir, codexStderrPath),
+        processDefectPath: 'process-defect.json',
+      },
+      commitBefore,
+      commitAfter: commitBefore,
+      commitEvidence: null,
+      rawResult: null,
+      roleBoundaryViolation: null,
+    });
+    const failedUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
+      runDir,
+      rootDir: initialUnitRootDir(initialUnit.unitId),
+      iteration,
+      sequence: sequenceForUnit(initialUnit.unitId),
+      unitId: initialUnit.unitId,
+      role: initialUnit.role,
+      unitTypeId: initialUnit.unitId,
+      allowedUnitTypes: normalizedAllowedUnitTypes,
+      prompt,
+      inputContract: initialInputContract,
+      sourcePaths: {
+        codexEventsPath,
+        stderrPath: codexStderrPath,
+        lastMessagePath,
+      },
+      mode: 'external-headless-codex',
+      status: 'failed',
+      basis: [
+        'Headless Codex process did not emit startup evidence before the configured watchdog timeout.',
+        'The lifecycle must treat this as a process defect, not as proof of work or objective progress.',
+      ],
+      outputContract: failedUnitOutput,
+      now: defectAt,
+      cwd,
+      toolProfile: resolvedToolProfile,
+    });
+    const failedUnitArtifact = {
+      unitId: initialUnit.unitId,
+      role: initialUnit.role,
+      result: path.relative(runDir, failedUnitSnapshot.resultPath),
+      validation: path.relative(runDir, failedUnitSnapshot.validationPath),
+      inputContract: path.relative(runDir, failedUnitSnapshot.inputContractPath),
+      prompt: path.relative(runDir, failedUnitSnapshot.promptPath),
+      codexEvents: path.relative(runDir, failedUnitSnapshot.codexEventsPath),
+      lastMessage: path.relative(runDir, failedUnitSnapshot.lastMessagePath),
+      stderr: path.relative(runDir, failedUnitSnapshot.stderrPath),
+    };
+    contract.artifacts.initialInferenceUnit = failedUnitArtifact;
+    contract.artifacts[unitArtifactKey(initialUnit.unitId)] = failedUnitArtifact;
+    await writeJson(path.join(runDir, 'contract.json'), contract);
+    const err = new Error(`headless startup evidence timeout for ${initialUnit.unitId}: no stdout/stderr/last-message/native trace within ${normalizedStartupEvidenceTimeoutMs}ms`);
+    err.code = 'LIVING_DOC_HARNESS_STARTUP_EVIDENCE_TIMEOUT';
+    err.runId = runId;
+    err.runDir = runDir;
+    err.processDefectPath = path.join(runDir, 'process-defect.json');
+    throw err;
+  }
+  const exitCode = startupEvidence.closed ? startupEvidence.exitCode : await closePromise;
+  await Promise.all([
+    closeWritableStream(codexEventsStream),
+    closeWritableStream(codexStderrStream),
+  ]);
   const finishedAt = new Date().toISOString();
   contract.status = exitCode === 0 ? 'finished' : 'failed';
   contract.process.exitCode = exitCode;

@@ -140,6 +140,44 @@ exit 0
   assert.match(traceDiscovery.codexHomeHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(traceDiscovery).includes(fakeCodexHome), false);
 
+  const silentBin = path.join(tmp, 'silent-codex');
+  const silentCodexHome = path.join(tmp, 'silent-codex-home');
+  await writeFile(silentBin, `#!/bin/sh
+sleep 60
+`, 'utf8');
+  await chmod(silentBin, 0o755);
+  await mkdir(silentCodexHome, { recursive: true });
+  let silentError = null;
+  try {
+    await createHarnessRun({
+      docPath: 'tests/fixtures/minimal-doc.json',
+      runsDir: path.join(tmp, 'silent-runs'),
+      execute: true,
+      cwd: process.cwd(),
+      now: '2026-05-07T06:31:10.000Z',
+      codexBin: silentBin,
+      codexHome: silentCodexHome,
+      startupEvidenceTimeoutMs: 50,
+    });
+  } catch (err) {
+    silentError = err;
+  }
+  assert.equal(silentError?.code, 'LIVING_DOC_HARNESS_STARTUP_EVIDENCE_TIMEOUT');
+  const silentDefect = JSON.parse(await readFile(path.join(silentError.runDir, 'process-defect.json'), 'utf8'));
+  assert.equal(silentDefect.reasonCode, 'headless-worker-no-startup-evidence');
+  assert.equal(silentDefect.missingEvidence.codexEventsBytes, 0);
+  assert.equal(silentDefect.missingEvidence.codexStderrBytes, 0);
+  assert.equal(silentDefect.missingEvidence.lastMessageBytes, 0);
+  const silentContract = JSON.parse(await readFile(path.join(silentError.runDir, 'contract.json'), 'utf8'));
+  assert.equal(silentContract.status, 'process-defect');
+  assert.equal(silentContract.artifacts.processDefect, 'process-defect.json');
+  const silentUnit = JSON.parse(await readFile(path.join(silentError.runDir, silentContract.artifacts.workerInferenceUnit.result), 'utf8'));
+  assert.equal(silentUnit.status, 'failed');
+  assert.equal(silentUnit.outputContract.status, 'failed');
+  assert.equal(silentUnit.outputContract.processDefectPath, 'process-defect.json');
+  const silentEvents = await readFile(path.join(silentError.runDir, 'events.jsonl'), 'utf8');
+  assert.match(silentEvents, /headless-startup-evidence-timeout/);
+
   const previousPrRunDir = path.join(tmp, 'previous-pr-review-run');
   await mkdir(path.join(previousPrRunDir, 'artifacts'), { recursive: true });
   await mkdir(path.join(previousPrRunDir, 'reviewer-inference'), { recursive: true });

@@ -1319,6 +1319,7 @@ export async function runHarnessLifecycle({
   toolProfile = 'local-harness',
   allowedUnitTypes = DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   prReviewPolicy = DEFAULT_PR_REVIEW_POLICY,
+  startupEvidenceTimeoutMs = undefined,
   gitWorktreeCwd = cwd,
   enforceControllerWorktreeEvidence = execute,
 } = {}) {
@@ -1378,6 +1379,7 @@ export async function runHarnessLifecycle({
         toolProfile,
         allowedUnitTypes: normalizedAllowedUnitTypes,
         prReviewPolicy: normalizedPrReviewPolicy,
+        startupEvidenceTimeoutMs,
       });
       currentRun = run;
       const iterationProofRoutes = arr(plan.proofRoutes).length ? plan.proofRoutes : docProofRoutes;
@@ -1558,17 +1560,19 @@ export async function runHarnessLifecycle({
       kind: 'process-defect',
       reasonCode: 'lifecycle-controller-exception',
       reason: err?.message || String(err),
-      runId: currentRun?.runId || null,
+      runId: currentRun?.runId || err?.runId || null,
       iteration: currentIteration || null,
+      processDefectPath: err?.processDefectPath ? path.relative(cwd, err.processDefectPath) : null,
     };
     await appendJsonl(path.join(lifecycleDir, 'events.jsonl'), {
       event: 'lifecycle-process-defect',
       at: new Date().toISOString(),
       resultId,
-      runId: currentRun?.runId || null,
+      runId: currentRun?.runId || err?.runId || null,
       iteration: currentIteration || null,
       reasonCode: finalState.reasonCode,
       reason: finalState.reason,
+      processDefectPath: finalState.processDefectPath,
     });
   }
 
@@ -1666,6 +1670,7 @@ function parseArgs(argv) {
     toolProfile: 'local-harness',
     allowedUnitTypes: DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
     prReviewPolicy: DEFAULT_PR_REVIEW_POLICY,
+    startupEvidenceTimeoutMs: undefined,
     gitWorktreeCwd: process.cwd(),
     enforceControllerWorktreeEvidence: null,
   };
@@ -1723,6 +1728,11 @@ function parseArgs(argv) {
       const value = args.shift();
       if (!value) throw new Error('--pr-review-policy requires a value');
       options.prReviewPolicy = normalizePrReviewPolicy(value);
+    } else if (flag === '--startup-evidence-timeout-ms') {
+      options.startupEvidenceTimeoutMs = Number(args.shift());
+      if (!Number.isInteger(options.startupEvidenceTimeoutMs) || options.startupEvidenceTimeoutMs < 1) {
+        throw new Error('--startup-evidence-timeout-ms requires an integer >= 1');
+      }
     } else if (flag === '--git-worktree-cwd') {
       options.gitWorktreeCwd = args.shift();
       if (!options.gitWorktreeCwd) throw new Error('--git-worktree-cwd requires a value');

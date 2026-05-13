@@ -1014,6 +1014,30 @@ process.exit(2);
   assert.equal(processDefectResult.finalState.kind, 'process-defect');
   assert.equal(processDefectResult.finalState.runId, processDefect.finalState.runId);
 
+  const silentLifecycleCodexPath = path.join(tmp, 'silent-lifecycle-codex.mjs');
+  await writeFile(silentLifecycleCodexPath, `#!/usr/bin/env node
+setInterval(() => {}, 1000);
+`, 'utf8');
+  await chmod(silentLifecycleCodexPath, 0o755);
+  const silentLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'silent-lifecycle-runs'),
+    evidenceDir: path.join(tmp, 'silent-lifecycle-evidence'),
+    dashboardPath: path.join(tmp, 'silent-lifecycle-dashboard.html'),
+    execute: true,
+    codexBin: silentLifecycleCodexPath,
+    codexHome: path.join(tmp, 'silent-lifecycle-codex-home'),
+    startupEvidenceTimeoutMs: 50,
+    now: '2026-05-07T12:59:00.000Z',
+  });
+  assert.equal(silentLifecycle.finalState.kind, 'process-defect');
+  assert.equal(silentLifecycle.finalState.reasonCode, 'lifecycle-controller-exception');
+  assert.match(silentLifecycle.finalState.reason, /headless startup evidence timeout/);
+  assert.match(silentLifecycle.finalState.runId, /^ldh-/);
+  assert.match(silentLifecycle.finalState.processDefectPath, /process-defect\.json$/);
+  const silentLifecycleDefect = JSON.parse(await readFile(path.resolve(process.cwd(), silentLifecycle.finalState.processDefectPath), 'utf8'));
+  assert.equal(silentLifecycleDefect.reasonCode, 'headless-worker-no-startup-evidence');
+
   const controllerSourceCwd = path.join(tmp, 'controller-source-cwd');
   await mkdir(path.join(controllerSourceCwd, 'scripts'), { recursive: true });
   await writeFile(path.join(controllerSourceCwd, 'scripts', 'living-doc-harness-lifecycle.mjs'), 'baseline controller source\n', 'utf8');
