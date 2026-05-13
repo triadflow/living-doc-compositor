@@ -729,7 +729,8 @@ try {
   }, null, 2)}\n`, 'utf8');
   const roleBoundaryGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(prReviewBoundaryLifecycleId)}/graph`);
   assert.equal(roleBoundaryGraph.response.status, 200);
-  assert.equal(roleBoundaryGraph.body.nodes.some((node) => node.id === 'iteration-1-pr-review' && node.status === 'process-defect'), true);
+  assert.equal(roleBoundaryGraph.body.nodes.some((node) => node.id === 'iteration-1-pr-review' && node.status === 'blocked'), true);
+  assert.equal(roleBoundaryGraph.body.nodes.some((node) => node.id === 'iteration-1-terminal' && node.status === 'process-defect'), true);
   const roleBoundaryNode = roleBoundaryGraph.body.nodes.find((node) => node.type === 'blocker' && node.meta.owningLayer === 'inference-unit-role-boundary');
   assert.equal(roleBoundaryNode.status, 'open');
   assert.equal(roleBoundaryNode.meta.reasonCode, 'pr-review-mutated-repository');
@@ -945,7 +946,9 @@ exit 0
   assert.equal(terminalOverActiveGraph.body.activeInferenceUnitId, null);
   assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'stale-active-lifecycle'), false);
   assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'lifecycle-controller' && node.status === 'blocked'), true);
-  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'blocked'), true);
+  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'approved'), true);
+  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'iteration-1-terminal' && node.status === 'blocked'), true);
+  assert.equal(terminalOverActiveGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && ['starting', 'running', 'prepared', 'blocked'].includes(node.status)), false);
   const terminalOverActiveHistory = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/events`);
   assert.equal(terminalOverActiveHistory.body.events.some((event) => event.type === 'lifecycle_blocked'), true);
   assert.equal(terminalOverActiveHistory.body.events.some((event) => event.type === 'graph_update' && event.payload.graph.activeInferenceUnitId === null), true);

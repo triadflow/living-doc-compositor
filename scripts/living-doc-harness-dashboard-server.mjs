@@ -1217,11 +1217,12 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const workerId = `iteration-${iteration}-${initialUnitType}`;
     const workerResultPath = resolveInferenceUnitResultPath({ cwd, runDir, iteration, unitId: initialUnitType, unit: workerUnit });
     const workerResult = workerResultPath ? await readJson(workerResultPath, null) : null;
+    const workerResultStatus = terminalInferenceStatusFromResult(workerResult);
     addNode(graphNode(workerId, {
       type: 'inference-unit',
       role: initialUnitRole,
       label: initialUnitType === 'worker' ? `Iteration ${iteration} worker` : `${initialUnitRole} iteration ${iteration}`,
-      status: terminalStatus || iterationRecord.classification || state.status || contract.status || 'unknown',
+      status: workerResultStatus || terminalStatus || iterationRecord.classification || state.status || contract.status || 'unknown',
       iteration,
       artifactPaths: {
         runDir: relativeTo(cwd, runDir),

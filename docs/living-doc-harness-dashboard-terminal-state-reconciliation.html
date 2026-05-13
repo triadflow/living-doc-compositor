@@ -745,7 +745,7 @@
       "Remote dashboard deployment."
     ]
   },
-  "updated": "2026-05-13T01:57:40.000Z",
+  "updated": "2026-05-13T02:04:52.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-harness-dashboard-terminal-state-reconciliation.json",
@@ -861,8 +861,8 @@
           "id": "open-ready",
           "name": "Source and role-boundary proof complete",
           "status": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
-          "updated": "2026-05-13T01:57:40.000Z",
-          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status from selected unit result artifacts, and shows PR-review role-boundary violations as blocker nodes. The runner now blocks PR-review units that mutate repository files or git HEAD while trying to approve their own gate.",
+          "updated": "2026-05-13T02:04:52.000Z",
+          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, and keeps selected inference-unit cards on their own terminal result status instead of repainting them with the generic lifecycle terminal kind. Focused dashboard contracts prove the stricter case where a blocked lifecycle result coexists with an approved selected-unit result; the worker card stays approved, the terminal node stays blocked, and no running state survives.",
           "documentReady": true,
           "objectiveReady": true,
           "nextStep": "Controller-owned lifecycle review can now evaluate the dashboard fix and role-boundary guard with PR-review policy enabled; worker and PR-review units must not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
@@ -878,7 +878,7 @@
           "id": "criterion-terminal-result-precedence",
           "name": "Terminal lifecycle result beats active running snapshot",
           "status": "proven",
-          "updated": "2026-05-13T01:18:00.000Z",
+          "updated": "2026-05-13T02:04:52.000Z",
           "objectiveTerm": "terminal lifecycle evidence always wins over stale running state",
           "criterion": "When a lifecycle directory contains both active-lifecycle.json with running state and lifecycle-result.json with closed, blocked, stopped, or another terminal finalState, the run list and graph use the terminal lifecycle-result state.",
           "proofRequired": "Contract fixture writes both active and terminal artifacts and asserts finalState, controller card, graph terminal node, run list status, and event history are terminal, not running.",
@@ -901,7 +901,7 @@
           "updated": "2026-05-13T01:18:00.000Z",
           "objectiveTerm": "for that exact instance instead of reusing a generic running card",
           "criterion": "Graph nodes for worker, reviewer, repair, PR-review, proof, closure, and blocker units carry instance-specific IDs, iteration or sequence metadata, status, artifact paths, and validation/log availability derived from their own result artifacts.",
-          "proofRequired": "Artifact graph tests with multiple iterations prove an old unit remains terminal while a later unit may be active, without reusing a card status across instances.",
+          "proofRequired": "Artifact graph and dashboard server tests prove old units remain terminal while later units may be active, and that a selected unit result status wins for that unit even when the lifecycle terminal state has a different kind.",
           "acceptanceTest": "node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs"
         },
         {
@@ -938,7 +938,7 @@
           "id": "criterion-pr-review-role-boundary",
           "name": "PR-review cannot mutate source and approve its own gate",
           "status": "proven",
-          "updated": "2026-05-13T01:57:40.000Z",
+          "updated": "2026-05-13T02:04:52.000Z",
           "objectiveTerm": "safe to run through the standalone lifecycle harness with PR-review policy enabled",
           "criterion": "A PR-review inference unit is read-only over repository source state. If it changes tracked or untracked files or git HEAD while evaluating the PR-review gate, the runner converts its output contract to blocked with reasonCode pr-review-role-boundary-violation, clears approvedActions, records changed files, and the dashboard graph exposes the violation as a blocker node.",
           "proofRequired": "Runner fixture starts a PR-review unit that mutates doc.json and tries to approve; dashboard fixture renders the resulting roleBoundaryViolation as an inference-unit role-boundary blocker with result artifact paths.",
@@ -977,7 +977,7 @@
           "status": "in-scope",
           "updated": "2026-05-13T01:57:40.000Z",
           "path": "scripts/living-doc-harness-dashboard-server.mjs",
-          "reason": "Owns lifecycle listing, graph construction, artifact paths, active lifecycle snapshots, stale supervisor detection, WebSocket event replay, selected unit result reconciliation, and visible role-boundary blocker nodes."
+          "reason": "Owns lifecycle listing, graph construction, artifact paths, active lifecycle snapshots, stale supervisor detection, WebSocket event replay, selected unit result reconciliation, instance-specific terminal status precedence, and visible role-boundary blocker nodes."
         },
         {
           "id": "anchor-harness-runner",
@@ -1143,8 +1143,8 @@
           "id": "verification-server",
           "name": "Dashboard server contract",
           "status": "passed",
-          "updated": "2026-05-13T01:57:40.000Z",
-          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.",
+          "updated": "2026-05-13T02:04:52.000Z",
+          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, selected-unit status winning over a different lifecycle terminal kind, and visible role-boundary blocker nodes for PR-review violations.",
           "nextStep": "Keep this contract in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
@@ -1155,7 +1155,7 @@
           "id": "verification-runner-role-boundary",
           "name": "Harness runner PR-review role boundary",
           "status": "passed",
-          "updated": "2026-05-13T01:57:40.000Z",
+          "updated": "2026-05-13T02:04:52.000Z",
           "currentCoverage": "Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.",
           "nextStep": "Keep this contract in the PR-review policy proof set before closure.",
           "automation": [
@@ -1212,7 +1212,7 @@
           "status": "complete",
           "updated": "2026-05-13T01:57:40.000Z",
           "claim": "The source system now enforces terminal-result precedence and instance-specific status.",
-          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, selected unit terminal status derivation, lifecycle active-unit suppression for every non-running final state, role-boundary blocker graph nodes, and frontend graph selection reconciliation. Harness runner diff adds PR-review read-only prompt rules and deterministic worktree/head mutation detection.",
+          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, selected unit terminal status derivation, selected-unit result status precedence over generic lifecycle terminal kinds, lifecycle active-unit suppression for every non-running final state, role-boundary blocker graph nodes, and frontend graph selection reconciliation. Harness runner diff adds PR-review read-only prompt rules and deterministic worktree/head mutation detection.",
           "closureRelevance": "Core implementation proof."
         },
         {
@@ -42512,7 +42512,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-13T02:00:05.692Z" title="2026-05-13T02:00:05.692Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T02:00:05.692Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-13T02:07:25.856Z" title="2026-05-13T02:07:25.856Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T02:07:25.856Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42570,7 +42570,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Source and role-boundary proof complete</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:04:52Z" title="2026-05-13T02:04:52Z" data-relative-to-snapshot="true">2026-05-13T02:04:52Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -42594,7 +42594,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Terminal lifecycle result beats active running snapshot</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:04:52Z" title="2026-05-13T02:04:52Z" data-relative-to-snapshot="true">2026-05-13T02:04:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
@@ -42626,7 +42626,7 @@ ${tmplLine}
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> for that exact instance instead of reusing a generic running card</p><p class="code-refs"><strong>Criterion</strong> Graph nodes for worker, reviewer, repair, PR-review, proof, closure, and blocker units carry instance-specific IDs, iteration or sequence metadata, status, artifact paths, and validation/log availability derived from their own result artifacts.</p><p class="code-refs"><strong>Proof required</strong> Artifact graph tests with multiple iterations prove an old unit remains terminal while a later unit may be active, without reusing a card status across instances.</p><p class="code-refs"><strong>Acceptance test</strong> node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs</p>
+      <p class="code-refs"><strong>Objective term</strong> for that exact instance instead of reusing a generic running card</p><p class="code-refs"><strong>Criterion</strong> Graph nodes for worker, reviewer, repair, PR-review, proof, closure, and blocker units carry instance-specific IDs, iteration or sequence metadata, status, artifact paths, and validation/log availability derived from their own result artifacts.</p><p class="code-refs"><strong>Proof required</strong> Artifact graph and dashboard server tests prove old units remain terminal while later units may be active, and that a selected unit result status wins for that unit even when the lifecycle terminal state has a different kind.</p><p class="code-refs"><strong>Acceptance test</strong> node tests/contract/living-doc-harness-dashboard-artifact-graph.spec.mjs</p>
 
     </article>
     <article class="flow-card" id="criterion-frontend-instance-reconciliation" data-section-id="acceptance-criteria" data-card-key="criterion-frontend-instance-reconciliation">
@@ -42672,7 +42672,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>PR-review cannot mutate source and approve its own gate</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:04:52Z" title="2026-05-13T02:04:52Z" data-relative-to-snapshot="true">2026-05-13T02:04:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
@@ -42952,20 +42952,20 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Dashboard server contract</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:04:52Z" title="2026-05-13T02:04:52Z" data-relative-to-snapshot="true">2026-05-13T02:04:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p><p class="code-refs"><strong>Next step</strong> Keep this contract in the controller-owned closure proof set.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, selected-unit status winning over a different lifecycle terminal kind, and visible role-boundary blocker nodes for PR-review violations.</p><p class="code-refs"><strong>Next step</strong> Keep this contract in the controller-owned closure proof set.</p>
 
     </article>
     <article class="flow-card" id="verification-runner-role-boundary" data-section-id="verification-plan" data-card-key="verification-runner-role-boundary">
       <header class="flow-card-header">
         <div>
           <h3>Harness runner PR-review role boundary</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:04:52Z" title="2026-05-13T02:04:52Z" data-relative-to-snapshot="true">2026-05-13T02:04:52Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       </header>
@@ -43061,7 +43061,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-147ea409 (2026-05-13)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-72bbc9b2 (2026-05-13)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -43148,7 +43148,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, selected-unit status winning over a different lifecycle terminal kind, and visible role-boundary blocker nodes for PR-review violations.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -43637,7 +43637,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, selected-unit status winning over a different lifecycle terminal kind, and visible role-boundary blocker nodes for PR-review violations.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -43696,7 +43696,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, selected-unit status winning over a different lifecycle terminal kind, and visible role-boundary blocker nodes for PR-review violations.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
