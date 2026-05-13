@@ -152,6 +152,70 @@ function unique(values) {
   return [...new Set(arr(values).filter(Boolean))];
 }
 
+async function fileContentHash(cwd, filePath) {
+  try {
+    const content = await readFile(path.resolve(cwd, filePath));
+    return sha256(content);
+  } catch {
+    return null;
+  }
+}
+
+function parsePorcelainStatus(raw) {
+  const parts = String(raw || '').split('\0').filter(Boolean);
+  const entries = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    const record = parts[index];
+    const status = record.slice(0, 2);
+    const filePath = record.slice(3);
+    if (!filePath) continue;
+    entries.push({ status, path: filePath });
+    if (/^[RC]/.test(status.trim()) || /^[RC]/.test(status[0] || '')) {
+      index += 1;
+    }
+  }
+  return entries;
+}
+
+async function gitWorktreeSnapshot(cwd) {
+  let stdout = '';
+  try {
+    ({ stdout } = await execFileAsync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd }));
+  } catch {
+    return { available: false, entries: [] };
+  }
+  const entries = [];
+  for (const entry of parsePorcelainStatus(stdout)) {
+    entries.push({
+      ...entry,
+      contentHash: await fileContentHash(cwd, entry.path),
+    });
+  }
+  return { available: true, entries: entries.sort((left, right) => left.path.localeCompare(right.path)) };
+}
+
+function worktreeSnapshotDelta(before, after) {
+  if (!before?.available || !after?.available) return [];
+  const beforeMap = new Map(arr(before.entries).map((entry) => [entry.path, entry]));
+  const afterMap = new Map(arr(after.entries).map((entry) => [entry.path, entry]));
+  const paths = [...new Set([...beforeMap.keys(), ...afterMap.keys()])].sort();
+  const changed = [];
+  for (const filePath of paths) {
+    const left = beforeMap.get(filePath) || null;
+    const right = afterMap.get(filePath) || null;
+    if (left?.status !== right?.status || left?.contentHash !== right?.contentHash) {
+      changed.push({
+        path: filePath,
+        beforeStatus: left?.status || null,
+        afterStatus: right?.status || null,
+        beforeHash: left?.contentHash || null,
+        afterHash: right?.contentHash || null,
+      });
+    }
+  }
+  return changed;
+}
+
 function unitArtifactKey(unitTypeId) {
   if (unitTypeId === 'worker') return 'workerInferenceUnit';
   return `${String(unitTypeId).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}InferenceUnit`;
@@ -238,7 +302,7 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
     '- Treat the living doc JSON as the source of objective state.',
     '- Do not claim closure unless acceptance criteria and proof gates are satisfied.',
     '- If blocked, make the blocker explicit with required evidence or decision.',
-    '- Do not run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands from inside this worker process; the lifecycle controller owns review, transition, proof, dashboard, and next-iteration decisions after the worker exits.',
+    '- Do not run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands from inside this inference unit; the lifecycle controller owns review, transition, proof, dashboard, and next-iteration decisions after the unit exits.',
     '- Do not execute proof-route commands that start living-doc-harness-lifecycle.mjs, living-doc-harness-runner.mjs, reviewer, closure-review, finalizer, dashboard, or proof-route scripts. Treat those as controller-owned contracts and leave them for the lifecycle controller.',
     '',
     'Run context:',
@@ -247,6 +311,14 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
     '',
     'Work from the living doc objective and produce concrete source-system changes or a clear blocker.',
   ];
+  if (initialUnit.unitId === 'pr-review') {
+    lines.push(
+      '',
+      'PR-review role boundary:',
+      '- This unit is read-only over the repository source tree. Inspect evidence and return approved, not-required, blocked, or failed.',
+      '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or commits from this unit. If a defect needs source changes, return blocked with the required follow-up unit instead.',
+    );
+  }
   if (lifecycleInput) {
     lines.push(
       '',
@@ -631,6 +703,31 @@ function normalizePrReviewExternalOutputContract({ output, exitCode, paths, trac
   };
 }
 
+function prReviewRoleBoundaryOutputContract({ base, violation, exitCode, paths, traceRefs }) {
+  return {
+    ...(base && typeof base === 'object' ? base : {}),
+    schema: 'living-doc-harness-pr-review-result/v1',
+    status: 'blocked',
+    reasonCode: 'pr-review-role-boundary-violation',
+    basis: [
+      'PR-review inference changed repository files or git HEAD while evaluating the review gate.',
+      'PR-review must return approved, changes-requested, blocked, or not-required from inspected evidence; source changes must be routed to worker/repair/commit-intent instead.',
+      ...arr(base?.basis),
+    ],
+    approvedActions: [],
+    sideEffect: {
+      ...(base?.sideEffect && typeof base.sideEffect === 'object' ? base.sideEffect : {}),
+      type: base?.sideEffect?.type || 'github-pr-review',
+      executed: false,
+      reasonCode: 'pr-review-role-boundary-violation',
+    },
+    roleBoundaryViolation: violation,
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+}
+
 function normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs }) {
   const allowedStatuses = getInferenceUnitType('continuation-inference').outputVerdicts;
   const base = {
@@ -787,7 +884,7 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
   };
 }
 
-function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence, rawResult = null }) {
+function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence, rawResult = null, roleBoundaryViolation = null }) {
   if (unitTypeId === 'commit-intent') {
     return commitIntentOutputContract({
       inputContract,
@@ -804,21 +901,30 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
     const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
       ? rawResult.outputContract
       : rawResult;
-    if (output?.schema === 'living-doc-harness-pr-review-result/v1') {
-      return normalizePrReviewExternalOutputContract({ output, exitCode, paths, traceRefs });
+    const normalized = output?.schema === 'living-doc-harness-pr-review-result/v1'
+      ? normalizePrReviewExternalOutputContract({ output, exitCode, paths, traceRefs })
+      : normalizePrReviewExternalOutputContract({
+        output: preparedOutputContract({
+          unitTypeId,
+          runId,
+          docPath,
+          inputContract,
+          status,
+        }),
+        exitCode,
+        paths,
+        traceRefs,
+      });
+    if (roleBoundaryViolation) {
+      return prReviewRoleBoundaryOutputContract({
+        base: normalized,
+        violation: roleBoundaryViolation,
+        exitCode,
+        paths,
+        traceRefs,
+      });
     }
-    return normalizePrReviewExternalOutputContract({
-      output: preparedOutputContract({
-        unitTypeId,
-        runId,
-        docPath,
-        inputContract,
-        status,
-      }),
-      exitCode,
-      paths,
-      traceRefs,
-    });
+    return normalized;
   }
   if (unitTypeId === 'continuation-inference') {
     const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
@@ -1173,6 +1279,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   }
 
   const commitBefore = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
+  const roleBoundaryHeadBefore = initialUnit.unitId === 'pr-review' ? await gitHead(cwd) : null;
+  const roleBoundarySnapshotBefore = initialUnit.unitId === 'pr-review' ? await gitWorktreeSnapshot(cwd) : null;
   const processStartedAt = new Date().toISOString();
   const child = spawn(codexCommand.command, codexCommand.args, {
     cwd,
@@ -1264,6 +1372,35 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
   const commitAfter = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
   const commitEvidence = initialUnit.unitId === 'commit-intent' ? await gitCommitEvidence(cwd, commitAfter) : null;
+  let roleBoundaryViolation = null;
+  if (initialUnit.unitId === 'pr-review') {
+    const roleBoundaryHeadAfter = await gitHead(cwd);
+    const roleBoundarySnapshotAfter = await gitWorktreeSnapshot(cwd);
+    const worktreeChanges = worktreeSnapshotDelta(roleBoundarySnapshotBefore, roleBoundarySnapshotAfter);
+    if (roleBoundaryHeadBefore !== roleBoundaryHeadAfter || worktreeChanges.length) {
+      roleBoundaryViolation = {
+        schema: 'living-doc-harness-role-boundary-violation/v1',
+        reasonCode: 'pr-review-mutated-repository',
+        unitId: initialUnit.unitId,
+        role: initialUnit.role,
+        headBefore: roleBoundaryHeadBefore,
+        headAfter: roleBoundaryHeadAfter,
+        headChanged: roleBoundaryHeadBefore !== roleBoundaryHeadAfter,
+        changedFiles: worktreeChanges.map((entry) => entry.path),
+        changes: worktreeChanges,
+      };
+      await appendJsonl(path.join(runDir, 'events.jsonl'), {
+        event: 'inference-unit-role-boundary-violation',
+        at: finishedAt,
+        runId,
+        unitId: initialUnit.unitId,
+        role: initialUnit.role,
+        reasonCode: roleBoundaryViolation.reasonCode,
+        headChanged: roleBoundaryViolation.headChanged,
+        changedFiles: roleBoundaryViolation.changedFiles,
+      });
+    }
+  }
   const outputPaths = {
     exitCode,
     codexEventsPath: path.relative(runDir, codexEventsPath),
@@ -1320,6 +1457,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     commitAfter,
     commitEvidence,
     rawResult: rawUnitResult,
+    roleBoundaryViolation,
   });
   const finalUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,

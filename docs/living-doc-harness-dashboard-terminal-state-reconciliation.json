@@ -6,7 +6,7 @@
   "brand": "Living Doc Compositor",
   "owner": "TriadFlow",
   "scope": "Standalone living-doc harness dashboard state reconciliation",
-  "updated": "2026-05-13T01:18:00.000Z",
+  "updated": "2026-05-13T01:57:40.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-harness-dashboard-terminal-state-reconciliation.json",
@@ -20,6 +20,11 @@
       "issueNumber": "280",
       "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/280",
       "title": "Hardening: create and run a fresh realistic living-doc test case"
+    },
+    "processDefectIssue": {
+      "issueNumber": "283",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/283",
+      "title": "Process defect: pr-review unit patched source and approved its own gate"
     }
   },
   "objective": "Fix the standalone harness dashboard so terminal lifecycle and inference-unit evidence always wins over stale running state. When a lifecycle-result, stop verdict, selected-unit result, repair result, closure review, or stale-supervisor artifact proves that a lifecycle or unit is no longer running, the run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state for that exact instance instead of reusing a generic running card or an old active snapshot. The fix must be source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML, and safe to run through the standalone lifecycle harness with PR-review policy enabled.",
@@ -30,7 +35,7 @@
       "Dashboard frontend graph card status and selected side pane reconciliation.",
       "WebSocket/history reload behavior for terminal and stale lifecycle states.",
       "Focused contract/UI tests that reproduce terminal-result precedence and per-instance unit status.",
-      "Living doc update, render, and standalone harness run evidence."
+      "Living doc update, render, standalone harness run evidence, and PR-review role-boundary enforcement."
     ],
     "out": [
       "Redesigning the full dashboard layout.",
@@ -40,10 +45,10 @@
     ]
   },
   "runState": {
-    "currentPhase": "source-fix-and-focused-proof-complete-awaiting-controller-review",
+    "currentPhase": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Worker source changes and focused dashboard proof routes are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside the worker.",
+    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Dashboard terminal-state fixes, selected-unit artifact reconciliation, and PR-review role-boundary enforcement are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside worker or PR-review units.",
     "proofRoutes": [
       {
         "id": "dashboard-server-contract",
@@ -57,6 +62,17 @@
           "criterion-api-exposes-instance-status"
         ],
         "description": "Proves dashboard API state derivation for terminal lifecycle results, stale active snapshots, and per-instance unit status."
+      },
+      {
+        "id": "harness-runner-role-boundary-contract",
+        "kind": "command",
+        "command": "node --test tests/contract/living-doc-harness-runner.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-pr-review-role-boundary"
+        ],
+        "description": "Proves a PR-review inference unit that mutates repository files cannot validate as approved and is converted into a blocked role-boundary contract."
       },
       {
         "id": "dashboard-artifact-graph-contract",
@@ -119,13 +135,13 @@
       "data": [
         {
           "id": "open-ready",
-          "name": "Source fix and focused proof complete",
-          "status": "source-fix-and-focused-proof-complete-awaiting-controller-review",
-          "updated": "2026-05-13T01:18:00.000Z",
-          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status to the affected worker instance, and reconciles frontend selection to terminal nodes when live/reloaded graphs lose an active unit.",
+          "name": "Source and role-boundary proof complete",
+          "status": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status from selected unit result artifacts, and shows PR-review role-boundary violations as blocker nodes. The runner now blocks PR-review units that mutate repository files or git HEAD while trying to approve their own gate.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Controller-owned lifecycle review can now evaluate the worker changes and PR-review policy evidence; this worker did not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
+          "nextStep": "Controller-owned lifecycle review can now evaluate the dashboard fix and role-boundary guard with PR-review policy enabled; worker and PR-review units must not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
         }
       ]
     },
@@ -195,6 +211,16 @@
           "acceptanceTest": "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs"
         },
         {
+          "id": "criterion-pr-review-role-boundary",
+          "name": "PR-review cannot mutate source and approve its own gate",
+          "status": "proven",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "objectiveTerm": "safe to run through the standalone lifecycle harness with PR-review policy enabled",
+          "criterion": "A PR-review inference unit is read-only over repository source state. If it changes tracked or untracked files or git HEAD while evaluating the PR-review gate, the runner converts its output contract to blocked with reasonCode pr-review-role-boundary-violation, clears approvedActions, records changed files, and the dashboard graph exposes the violation as a blocker node.",
+          "proofRequired": "Runner fixture starts a PR-review unit that mutates doc.json and tries to approve; dashboard fixture renders the resulting roleBoundaryViolation as an inference-unit role-boundary blocker with result artifact paths.",
+          "acceptanceTest": "node --test tests/contract/living-doc-harness-runner.spec.mjs && node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs"
+        },
+        {
           "id": "criterion-source-backed-proof",
           "name": "Fix is source-backed and rendered",
           "status": "proven",
@@ -225,9 +251,17 @@
           "id": "anchor-dashboard-server",
           "name": "Dashboard server artifact state derivation",
           "status": "in-scope",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "updated": "2026-05-13T01:57:40.000Z",
           "path": "scripts/living-doc-harness-dashboard-server.mjs",
-          "reason": "Owns lifecycle listing, graph construction, artifact paths, active lifecycle snapshots, stale supervisor detection, and WebSocket event replay."
+          "reason": "Owns lifecycle listing, graph construction, artifact paths, active lifecycle snapshots, stale supervisor detection, WebSocket event replay, selected unit result reconciliation, and visible role-boundary blocker nodes."
+        },
+        {
+          "id": "anchor-harness-runner",
+          "name": "Harness runner inference-unit boundary enforcement",
+          "status": "in-scope",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "path": "scripts/living-doc-harness-runner.mjs",
+          "reason": "Owns contract-bound unit execution, final output contract normalization, PR-review read-only prompt rules, and deterministic detection of PR-review source or git HEAD mutations."
         },
         {
           "id": "anchor-dashboard-html",
@@ -287,6 +321,20 @@
           "covers": [
             "selected side pane and graph observability"
           ]
+        },
+        {
+          "id": "issue-283",
+          "name": "Process defect: pr-review unit patched source and approved its own gate",
+          "status": "implementation-ready",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "issueNumber": "283",
+          "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/283",
+          "role": "process-defect-ticket",
+          "covers": [
+            "PR-review unit read-only boundary",
+            "blocked contract when PR-review mutates repository state",
+            "dashboard blocker node for role-boundary violations"
+          ]
         }
       ]
     },
@@ -338,6 +386,27 @@
               "text": "flowchart LR\n  UnitResult[\"unit result artifact\"] --> Node[\"graph node instance\"]\n  Node --> Card[\"card status badge\"]\n  Node --> Pane[\"selected side pane\"]\n  EdgeContract[\"handoff contract\"] --> Edge[\"graph edge label\"]\n  Edge --> Pane\n  NewIteration[\"later iteration\"] --> NewNode[\"new node instance\"]\n  Node -. \"does not overwrite\" .-> NewNode"
             }
           ]
+        },
+        {
+          "id": "map-pr-review-role-boundary",
+          "name": "PR-review role-boundary enforcement",
+          "status": "specified-and-proven",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "claim": "A PR-review inference unit may judge and return a contract verdict, but it may not repair source state and then approve its own gate.",
+          "semanticRole": "Role-boundary guard between inference judgment and source mutation.",
+          "validationQuestion": "If a PR-review unit edits the repository or changes git HEAD, does the runner force a blocked contract and does the dashboard make that violation visible?",
+          "driftRisk": "The system can look reviewed while the reviewer secretly became a worker, collapsing the contract chain.",
+          "criterionIds": [
+            "criterion-pr-review-role-boundary",
+            "criterion-api-exposes-instance-status"
+          ],
+          "diagrams": [
+            {
+              "title": "PR-review Boundary",
+              "role": "contract-guard",
+              "text": "flowchart LR\n  Input[\"PR-review input contract\"] --> Review[\"PR-review inference unit\"]\n  Review -->|verdict only| Contract[\"approved / not-required / blocked / failed\"]\n  Review -. \"source mutation detected\" .-> Guard[\"runner role-boundary guard\"]\n  Guard --> Blocked[\"blocked output contract\"]\n  Blocked --> Dashboard[\"blocker node with changed files\"]"
+            }
+          ]
         }
       ]
     },
@@ -350,11 +419,23 @@
           "id": "verification-server",
           "name": "Dashboard server contract",
           "status": "passed",
-          "updated": "2026-05-13T01:18:00.000Z",
-          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.",
           "nextStep": "Keep this contract in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
+          ],
+          "gaps": []
+        },
+        {
+          "id": "verification-runner-role-boundary",
+          "name": "Harness runner PR-review role boundary",
+          "status": "passed",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "currentCoverage": "Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.",
+          "nextStep": "Keep this contract in the PR-review policy proof set before closure.",
+          "automation": [
+            "node --test tests/contract/living-doc-harness-runner.spec.mjs"
           ],
           "gaps": []
         },
@@ -405,9 +486,9 @@
           "id": "proof-source-fix",
           "name": "Source fix or source proof",
           "status": "complete",
-          "updated": "2026-05-13T01:18:00.000Z",
+          "updated": "2026-05-13T01:57:40.000Z",
           "claim": "The source system now enforces terminal-result precedence and instance-specific status.",
-          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, worker terminal status derivation, lifecycle active-unit suppression for every non-running final state, and frontend graph selection reconciliation.",
+          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, selected unit terminal status derivation, lifecycle active-unit suppression for every non-running final state, role-boundary blocker graph nodes, and frontend graph selection reconciliation. Harness runner diff adds PR-review read-only prompt rules and deterministic worktree/head mutation detection.",
           "closureRelevance": "Core implementation proof."
         },
         {

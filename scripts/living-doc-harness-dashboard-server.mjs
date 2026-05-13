@@ -644,6 +644,39 @@ function graphEdge(id, from, to, fields = {}) {
   };
 }
 
+function roleBoundaryViolationFromResult(result) {
+  const output = result?.outputContract && typeof result.outputContract === 'object'
+    ? result.outputContract
+    : result;
+  return output?.roleBoundaryViolation || null;
+}
+
+function roleBoundaryBlockerNode({ iteration, unitId, violation, resultPath, validationPath }) {
+  const reasonCode = violation?.reasonCode || 'role-boundary-violation';
+  const blockerId = `iteration-${iteration}-${unitId}-blocker-${reasonCode}`.replace(/[^a-zA-Z0-9_.-]+/g, '-');
+  return graphNode(blockerId, {
+    type: 'blocker',
+    role: 'blocker',
+    label: reasonCode,
+    status: 'open',
+    iteration,
+    artifactPaths: {
+      resultPath,
+      validationPath,
+    },
+    meta: {
+      owningLayer: 'inference-unit-role-boundary',
+      requiredDecision: 'route source changes to an allowed worker/repair/commit-intent unit before PR-review can approve closure',
+      unitId,
+      changedFiles: arr(violation?.changedFiles),
+      headChanged: violation?.headChanged === true,
+      headBefore: violation?.headBefore || null,
+      headAfter: violation?.headAfter || null,
+      reasonCode,
+    },
+  });
+}
+
 export async function collectDashboardLifecycles({ runsDir, cwd }) {
   const lifecycleDirs = await listLifecycleDirs(runsDir);
   const lifecycles = [];
@@ -852,9 +885,12 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
     const workerUnit = contract?.artifacts?.initialInferenceUnit || contract?.artifacts?.workerInferenceUnit || {};
     const workerId = `iteration-${iteration}-${initialUnitType}`;
+    const workerResultPath = resolveInferenceUnitResultPath({ cwd, runDir, iteration, unitId: initialUnitType, unit: workerUnit });
+    const workerResult = workerResultPath ? await readJson(workerResultPath, null) : null;
+    const workerResultStatus = terminalInferenceStatusFromResult(workerResult);
     const workerStatus = !lifecycleRunning && stoppedInferenceUnitId === workerId
       ? active.finalState?.kind || active.status || 'stopped'
-      : state.status || contract?.status || 'running';
+      : workerResultStatus || state.status || contract?.status || 'running';
     addNode(graphNode(workerId, {
       type: 'inference-unit',
       role: initialUnitRole,
@@ -880,9 +916,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
         lastMessagePath: workerUnit.lastMessage
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.lastMessage }))
           : relativeTo(cwd, path.join(runDir, 'codex-turns', 'last-message.txt')),
-        resultPath: workerUnit.result
-          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.result }))
-          : null,
+        resultPath: workerResultPath ? relativeTo(cwd, workerResultPath) : null,
         validationPath: workerUnit.validation
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
           : null,
@@ -910,7 +944,36 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
       lifecycleEffect: initialUnitType === 'worker' ? 'start-worker' : `start-${initialUnitType}`,
     }));
 
-    let previousNodeId = workerId;
+    const roleBoundaryViolation = roleBoundaryViolationFromResult(workerResult);
+    const roleBoundaryBlocker = roleBoundaryViolation
+      ? roleBoundaryBlockerNode({
+        iteration,
+        unitId: initialUnitType,
+        violation: roleBoundaryViolation,
+        resultPath: workerResultPath ? relativeTo(cwd, workerResultPath) : null,
+        validationPath: workerUnit.validation
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
+          : null,
+      })
+      : null;
+    if (roleBoundaryBlocker) {
+      addNode(roleBoundaryBlocker);
+      addEdge(graphEdge(`role-boundary-blocker-${iteration}-${initialUnitType}`, workerId, roleBoundaryBlocker.id, {
+        label: roleBoundaryViolation.reasonCode || 'role boundary violation',
+        status: 'blocked',
+        contract: {
+          resultPath: workerResultPath ? relativeTo(cwd, workerResultPath) : null,
+          validationPath: workerUnit.validation
+            ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
+            : null,
+          changedFiles: arr(roleBoundaryViolation.changedFiles),
+        },
+        gate: 'inference-unit-role-boundary',
+        lifecycleEffect: 'process-defect-visible',
+      }));
+    }
+
+    let previousNodeId = roleBoundaryBlocker?.id || workerId;
     const reviewerVerdictPath = path.join(runDir, 'reviewer-inference', `iteration-${iteration}-verdict.json`);
     const reviewerVerdict = await readJson(reviewerVerdictPath, null);
     const reviewerUnitDir = path.join(runDir, 'inference-units', `iteration-${iteration}`, '02-reviewer-inference');
@@ -1152,6 +1215,8 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const workerUnit = contract.artifacts?.initialInferenceUnit || contract.artifacts?.workerInferenceUnit || {};
 
     const workerId = `iteration-${iteration}-${initialUnitType}`;
+    const workerResultPath = resolveInferenceUnitResultPath({ cwd, runDir, iteration, unitId: initialUnitType, unit: workerUnit });
+    const workerResult = workerResultPath ? await readJson(workerResultPath, null) : null;
     addNode(graphNode(workerId, {
       type: 'inference-unit',
       role: initialUnitRole,
@@ -1171,9 +1236,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         codexEventsPath: workerUnit.codexEvents
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.codexEvents }))
           : relativeTo(cwd, path.join(runDir, 'codex-turns', 'codex-events.jsonl')),
-        resultPath: workerUnit.result
-          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.result }))
-          : null,
+        resultPath: workerResultPath ? relativeTo(cwd, workerResultPath) : null,
         validationPath: workerUnit.validation
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
           : relativeTo(cwd, path.join(runDir, 'artifacts', `iteration-${iteration}-proof-validation.json`)),
@@ -1210,7 +1273,36 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
       lifecycleEffect: initialUnitType === 'worker' ? 'start-worker' : `start-${initialUnitType}`,
     }));
 
-    let previousNodeId = workerId;
+    const roleBoundaryViolation = roleBoundaryViolationFromResult(workerResult);
+    const roleBoundaryBlocker = roleBoundaryViolation
+      ? roleBoundaryBlockerNode({
+        iteration,
+        unitId: initialUnitType,
+        violation: roleBoundaryViolation,
+        resultPath: workerResultPath ? relativeTo(cwd, workerResultPath) : null,
+        validationPath: workerUnit.validation
+          ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
+          : relativeTo(cwd, path.join(runDir, 'artifacts', `iteration-${iteration}-proof-validation.json`)),
+      })
+      : null;
+    if (roleBoundaryBlocker) {
+      addNode(roleBoundaryBlocker);
+      addEdge(graphEdge(`role-boundary-blocker-${iteration}-${initialUnitType}`, workerId, roleBoundaryBlocker.id, {
+        label: roleBoundaryViolation.reasonCode || 'role boundary violation',
+        status: 'blocked',
+        contract: {
+          resultPath: workerResultPath ? relativeTo(cwd, workerResultPath) : null,
+          validationPath: workerUnit.validation
+            ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
+            : relativeTo(cwd, path.join(runDir, 'artifacts', `iteration-${iteration}-proof-validation.json`)),
+          changedFiles: arr(roleBoundaryViolation.changedFiles),
+        },
+        gate: 'inference-unit-role-boundary',
+        lifecycleEffect: 'process-defect-visible',
+      }));
+    }
+
+    let previousNodeId = roleBoundaryBlocker?.id || workerId;
     const reviewerVerdictPath = resolveArtifactRef({ cwd, baseDir: runDir, ref: iterationRecord.reviewerVerdictPath });
     const reviewerVerdict = await readJson(reviewerVerdictPath, null);
     if (reviewerVerdict) {
@@ -1611,6 +1703,30 @@ function terminalStatusForIteration({ lifecycle, iterationRecord, outputInput, r
 function isFinishedInferenceStatus(status) {
   const normalized = String(status || '').toLowerCase();
   return normalized && !['unknown', 'starting', 'running', 'prepared'].includes(normalized);
+}
+
+function terminalInferenceStatusFromResult(result) {
+  const status = result?.outputContract?.status || result?.status || null;
+  return isFinishedInferenceStatus(status) ? status : null;
+}
+
+function inferenceUnitSequence(unitId) {
+  const sequenceByUnit = {
+    worker: 1,
+    'reviewer-inference': 2,
+    'closure-review': 3,
+    'commit-intent': 4,
+    'pr-review': 5,
+    'continuation-inference': 6,
+    'post-flight-summary': 7,
+  };
+  return sequenceByUnit[unitId] || 1;
+}
+
+function resolveInferenceUnitResultPath({ cwd, runDir, iteration, unitId, unit }) {
+  if (unit?.result) return resolveArtifactRef({ cwd, baseDir: runDir, ref: unit.result });
+  const sequence = String(inferenceUnitSequence(unitId)).padStart(2, '0');
+  return path.join(runDir, 'inference-units', `iteration-${iteration}`, `${sequence}-${slug(unitId)}`, 'result.json');
 }
 
 function lifecycleTransitionEvents(graph) {

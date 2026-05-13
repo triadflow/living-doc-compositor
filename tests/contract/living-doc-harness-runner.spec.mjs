@@ -626,6 +626,108 @@ exit 0
   const selectedHandoffEvents = await readFile(path.join(selectedHandoffPrReviewRun.runDir, 'events.jsonl'), 'utf8');
   assert.match(selectedHandoffEvents, /selected-unit-handoff-artifact/);
 
+  const prReviewBoundaryFixture = path.join(tmp, 'pr-review-role-boundary-fixture');
+  await mkdir(prReviewBoundaryFixture, { recursive: true });
+  await writeFile(path.join(prReviewBoundaryFixture, 'doc.json'), `${JSON.stringify({
+    docId: 'test:pr-review-role-boundary',
+    title: 'PR Review Role Boundary Fixture',
+    objective: 'Prove PR-review cannot mutate source while approving its own gate.',
+    successCondition: 'PR-review mutations are blocked by the harness runner.',
+    sections: [],
+  }, null, 2)}\n`, 'utf8');
+  spawnSync('git', ['init'], { cwd: prReviewBoundaryFixture, stdio: 'ignore' });
+  spawnSync('git', ['add', 'doc.json'], { cwd: prReviewBoundaryFixture, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'initial pr review fixture'], { cwd: prReviewBoundaryFixture, stdio: 'ignore' });
+  const fakeMutatingPrReviewCodex = path.join(tmp, 'fake-mutating-pr-review-codex');
+  const fakeMutatingPrReviewCodexHome = path.join(tmp, 'fake-mutating-pr-review-codex-home');
+  await writeFile(fakeMutatingPrReviewCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+RUN_DIR="$(dirname "$(dirname "$OUT")")"
+RESULT="$RUN_DIR/initial-inference-units/iteration-2/05-pr-review/result.json"
+node - <<'NODE'
+const fs = require('fs');
+const doc = JSON.parse(fs.readFileSync('doc.json', 'utf8'));
+doc.mutatedByPrReview = true;
+fs.writeFileSync('doc.json', JSON.stringify(doc, null, 2) + '\\n');
+NODE
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-mutating-pr-review.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"mutating-pr-review","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"mutating pr-review fixture"}]}}
+EOF
+node - "$RESULT" <<'NODE'
+const fs = require('fs');
+const resultPath = process.argv[2];
+const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+result.mode = 'external-headless-codex';
+result.status = 'approved';
+result.basis = ['This invalid fixture changed source and then tried to approve review.'];
+result.outputContract = {
+  schema: 'living-doc-harness-pr-review-result/v1',
+  status: 'approved',
+  approvedActions: ['invalid-source-mutation'],
+  sideEffect: {
+    type: 'github-pr-review',
+    executed: false,
+    reasonCode: 'invalid-source-mutation'
+  },
+  basis: result.basis
+};
+fs.writeFileSync(resultPath, JSON.stringify(result, null, 2) + '\\n');
+NODE
+cat > "$OUT" <<'EOF'
+Completed the PR-review unit and wrote an approved verdict after changing source.
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeMutatingPrReviewCodex, 0o755);
+  await mkdir(fakeMutatingPrReviewCodexHome, { recursive: true });
+  const mutatingPrReviewRun = await createHarnessRun({
+    docPath: 'doc.json',
+    runsDir: path.join(tmp, 'mutating-pr-review-runs'),
+    execute: true,
+    cwd: prReviewBoundaryFixture,
+    now: '2026-05-07T06:31:23.000Z',
+    codexBin: fakeMutatingPrReviewCodex,
+    codexHome: fakeMutatingPrReviewCodexHome,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'continuation',
+      previousRunId: 'previous-pr-review-run',
+      previousIteration: 1,
+      instruction: 'Run the required PR-review gate.',
+      outputInputPath: previousPrOutputInputPath,
+      selectedUnitType: 'pr-review',
+      nextUnit: {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        reasonCode: 'pr-review-policy-gate-missing',
+      },
+    },
+  });
+  const mutatingPrReviewUnit = JSON.parse(await readFile(path.join(
+    mutatingPrReviewRun.runDir,
+    mutatingPrReviewRun.contract.artifacts.prReviewInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(mutatingPrReviewUnit.status, 'blocked');
+  assert.equal(mutatingPrReviewUnit.outputContract.status, 'blocked');
+  assert.equal(mutatingPrReviewUnit.outputContract.reasonCode, 'pr-review-role-boundary-violation');
+  assert.deepEqual(mutatingPrReviewUnit.outputContract.approvedActions, []);
+  assert.deepEqual(mutatingPrReviewUnit.outputContract.roleBoundaryViolation.changedFiles, ['doc.json']);
+  const mutatingPrReviewEvents = await readFile(path.join(mutatingPrReviewRun.runDir, 'events.jsonl'), 'utf8');
+  assert.match(mutatingPrReviewEvents, /inference-unit-role-boundary-violation/);
+
   const previousContinuationRunDir = path.join(tmp, 'previous-continuation-run');
   await mkdir(path.join(previousContinuationRunDir, 'artifacts'), { recursive: true });
   await mkdir(path.join(previousContinuationRunDir, 'reviewer-inference'), { recursive: true });

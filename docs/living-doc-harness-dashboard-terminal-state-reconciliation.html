@@ -736,7 +736,7 @@
       "Dashboard frontend graph card status and selected side pane reconciliation.",
       "WebSocket/history reload behavior for terminal and stale lifecycle states.",
       "Focused contract/UI tests that reproduce terminal-result precedence and per-instance unit status.",
-      "Living doc update, render, and standalone harness run evidence."
+      "Living doc update, render, standalone harness run evidence, and PR-review role-boundary enforcement."
     ],
     "out": [
       "Redesigning the full dashboard layout.",
@@ -745,7 +745,7 @@
       "Remote dashboard deployment."
     ]
   },
-  "updated": "2026-05-13T01:18:00.000Z",
+  "updated": "2026-05-13T01:57:40.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-harness-dashboard-terminal-state-reconciliation.json",
@@ -759,15 +759,20 @@
       "issueNumber": "280",
       "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/280",
       "title": "Hardening: create and run a fresh realistic living-doc test case"
+    },
+    "processDefectIssue": {
+      "issueNumber": "283",
+      "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/283",
+      "title": "Process defect: pr-review unit patched source and approved its own gate"
     }
   },
   "objective": "Fix the standalone harness dashboard so terminal lifecycle and inference-unit evidence always wins over stale running state. When a lifecycle-result, stop verdict, selected-unit result, repair result, closure review, or stale-supervisor artifact proves that a lifecycle or unit is no longer running, the run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state for that exact instance instead of reusing a generic running card or an old active snapshot. The fix must be source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML, and safe to run through the standalone lifecycle harness with PR-review policy enabled.",
   "successCondition": "A reproduced stale-running fixture fails before the source fix and passes after it: the dashboard API and frontend graph prefer terminal result artifacts over active-lifecycle running snapshots, keep each inference unit as an instance with its own terminal status, show stale-supervisor state only when no terminal lifecycle result exists, keep selected detail panes aligned with the clicked instance or edge, and reconstruct the same non-running graph after reload or event replay. The standalone harness run for this doc either closes with contract-bound proof and PR-review evidence, or creates a blocker issue that names the exact lifecycle run, contract, raw-log, and artifact paths that prevented closure.",
   "runState": {
-    "currentPhase": "source-fix-and-focused-proof-complete-awaiting-controller-review",
+    "currentPhase": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Worker source changes and focused dashboard proof routes are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside the worker.",
+    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Dashboard terminal-state fixes, selected-unit artifact reconciliation, and PR-review role-boundary enforcement are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside worker or PR-review units.",
     "proofRoutes": [
       {
         "id": "dashboard-server-contract",
@@ -781,6 +786,17 @@
           "criterion-api-exposes-instance-status"
         ],
         "description": "Proves dashboard API state derivation for terminal lifecycle results, stale active snapshots, and per-instance unit status."
+      },
+      {
+        "id": "harness-runner-role-boundary-contract",
+        "kind": "command",
+        "command": "node --test tests/contract/living-doc-harness-runner.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-pr-review-role-boundary"
+        ],
+        "description": "Proves a PR-review inference unit that mutates repository files cannot validate as approved and is converted into a blocked role-boundary contract."
       },
       {
         "id": "dashboard-artifact-graph-contract",
@@ -843,13 +859,13 @@
       "data": [
         {
           "id": "open-ready",
-          "name": "Source fix and focused proof complete",
-          "status": "source-fix-and-focused-proof-complete-awaiting-controller-review",
-          "updated": "2026-05-13T01:18:00.000Z",
-          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status to the affected worker instance, and reconciles frontend selection to terminal nodes when live/reloaded graphs lose an active unit.",
+          "name": "Source and role-boundary proof complete",
+          "status": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, assigns terminal status from selected unit result artifacts, and shows PR-review role-boundary violations as blocker nodes. The runner now blocks PR-review units that mutate repository files or git HEAD while trying to approve their own gate.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Controller-owned lifecycle review can now evaluate the worker changes and PR-review policy evidence; this worker did not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
+          "nextStep": "Controller-owned lifecycle review can now evaluate the dashboard fix and role-boundary guard with PR-review policy enabled; worker and PR-review units must not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
         }
       ]
     },
@@ -919,6 +935,16 @@
           "acceptanceTest": "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs"
         },
         {
+          "id": "criterion-pr-review-role-boundary",
+          "name": "PR-review cannot mutate source and approve its own gate",
+          "status": "proven",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "objectiveTerm": "safe to run through the standalone lifecycle harness with PR-review policy enabled",
+          "criterion": "A PR-review inference unit is read-only over repository source state. If it changes tracked or untracked files or git HEAD while evaluating the PR-review gate, the runner converts its output contract to blocked with reasonCode pr-review-role-boundary-violation, clears approvedActions, records changed files, and the dashboard graph exposes the violation as a blocker node.",
+          "proofRequired": "Runner fixture starts a PR-review unit that mutates doc.json and tries to approve; dashboard fixture renders the resulting roleBoundaryViolation as an inference-unit role-boundary blocker with result artifact paths.",
+          "acceptanceTest": "node --test tests/contract/living-doc-harness-runner.spec.mjs && node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs"
+        },
+        {
           "id": "criterion-source-backed-proof",
           "name": "Fix is source-backed and rendered",
           "status": "proven",
@@ -949,9 +975,17 @@
           "id": "anchor-dashboard-server",
           "name": "Dashboard server artifact state derivation",
           "status": "in-scope",
-          "updated": "2026-05-13T00:00:00.000Z",
+          "updated": "2026-05-13T01:57:40.000Z",
           "path": "scripts/living-doc-harness-dashboard-server.mjs",
-          "reason": "Owns lifecycle listing, graph construction, artifact paths, active lifecycle snapshots, stale supervisor detection, and WebSocket event replay."
+          "reason": "Owns lifecycle listing, graph construction, artifact paths, active lifecycle snapshots, stale supervisor detection, WebSocket event replay, selected unit result reconciliation, and visible role-boundary blocker nodes."
+        },
+        {
+          "id": "anchor-harness-runner",
+          "name": "Harness runner inference-unit boundary enforcement",
+          "status": "in-scope",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "path": "scripts/living-doc-harness-runner.mjs",
+          "reason": "Owns contract-bound unit execution, final output contract normalization, PR-review read-only prompt rules, and deterministic detection of PR-review source or git HEAD mutations."
         },
         {
           "id": "anchor-dashboard-html",
@@ -1011,6 +1045,20 @@
           "covers": [
             "selected side pane and graph observability"
           ]
+        },
+        {
+          "id": "issue-283",
+          "name": "Process defect: pr-review unit patched source and approved its own gate",
+          "status": "implementation-ready",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "issueNumber": "283",
+          "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/283",
+          "role": "process-defect-ticket",
+          "covers": [
+            "PR-review unit read-only boundary",
+            "blocked contract when PR-review mutates repository state",
+            "dashboard blocker node for role-boundary violations"
+          ]
         }
       ]
     },
@@ -1062,6 +1110,27 @@
               "text": "flowchart LR\n  UnitResult[\"unit result artifact\"] --> Node[\"graph node instance\"]\n  Node --> Card[\"card status badge\"]\n  Node --> Pane[\"selected side pane\"]\n  EdgeContract[\"handoff contract\"] --> Edge[\"graph edge label\"]\n  Edge --> Pane\n  NewIteration[\"later iteration\"] --> NewNode[\"new node instance\"]\n  Node -. \"does not overwrite\" .-> NewNode"
             }
           ]
+        },
+        {
+          "id": "map-pr-review-role-boundary",
+          "name": "PR-review role-boundary enforcement",
+          "status": "specified-and-proven",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "claim": "A PR-review inference unit may judge and return a contract verdict, but it may not repair source state and then approve its own gate.",
+          "semanticRole": "Role-boundary guard between inference judgment and source mutation.",
+          "validationQuestion": "If a PR-review unit edits the repository or changes git HEAD, does the runner force a blocked contract and does the dashboard make that violation visible?",
+          "driftRisk": "The system can look reviewed while the reviewer secretly became a worker, collapsing the contract chain.",
+          "criterionIds": [
+            "criterion-pr-review-role-boundary",
+            "criterion-api-exposes-instance-status"
+          ],
+          "diagrams": [
+            {
+              "title": "PR-review Boundary",
+              "role": "contract-guard",
+              "text": "flowchart LR\n  Input[\"PR-review input contract\"] --> Review[\"PR-review inference unit\"]\n  Review -->|verdict only| Contract[\"approved / not-required / blocked / failed\"]\n  Review -. \"source mutation detected\" .-> Guard[\"runner role-boundary guard\"]\n  Guard --> Blocked[\"blocked output contract\"]\n  Blocked --> Dashboard[\"blocker node with changed files\"]"
+            }
+          ]
         }
       ]
     },
@@ -1074,11 +1143,23 @@
           "id": "verification-server",
           "name": "Dashboard server contract",
           "status": "passed",
-          "updated": "2026-05-13T01:18:00.000Z",
-          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "currentCoverage": "Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.",
           "nextStep": "Keep this contract in the controller-owned closure proof set.",
           "automation": [
             "node tests/contract/living-doc-harness-dashboard-server.spec.mjs"
+          ],
+          "gaps": []
+        },
+        {
+          "id": "verification-runner-role-boundary",
+          "name": "Harness runner PR-review role boundary",
+          "status": "passed",
+          "updated": "2026-05-13T01:57:40.000Z",
+          "currentCoverage": "Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.",
+          "nextStep": "Keep this contract in the PR-review policy proof set before closure.",
+          "automation": [
+            "node --test tests/contract/living-doc-harness-runner.spec.mjs"
           ],
           "gaps": []
         },
@@ -1129,9 +1210,9 @@
           "id": "proof-source-fix",
           "name": "Source fix or source proof",
           "status": "complete",
-          "updated": "2026-05-13T01:18:00.000Z",
+          "updated": "2026-05-13T01:57:40.000Z",
           "claim": "The source system now enforces terminal-result precedence and instance-specific status.",
-          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, worker terminal status derivation, lifecycle active-unit suppression for every non-running final state, and frontend graph selection reconciliation.",
+          "evidenceRequired": "Dashboard server diff adds terminal-state helpers, selected unit terminal status derivation, lifecycle active-unit suppression for every non-running final state, role-boundary blocker graph nodes, and frontend graph selection reconciliation. Harness runner diff adds PR-review read-only prompt rules and deterministic worktree/head mutation detection.",
           "closureRelevance": "Core implementation proof."
         },
         {
@@ -42431,7 +42512,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-13T00:56:59.339Z" title="2026-05-13T00:56:59.339Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T00:56:59.339Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-13T02:00:05.692Z" title="2026-05-13T02:00:05.692Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T02:00:05.692Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42488,8 +42569,8 @@ ${tmplLine}
     <article class="flow-card" id="open-ready" data-section-id="status" data-card-key="open-ready">
       <header class="flow-card-header">
         <div>
-          <h3>Source fix and focused proof complete</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
+          <h3>Source and role-boundary proof complete</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -42587,6 +42668,19 @@ ${tmplLine}
       <p class="code-refs"><strong>Objective term</strong> WebSocket/reload reconstruction</p><p class="code-refs"><strong>Criterion</strong> After a page reload, the dashboard reconstructs terminal graph and detail state from persisted lifecycle artifacts and event history instead of showing default running state until a new WebSocket event arrives.</p><p class="code-refs"><strong>Proof required</strong> Realtime UI contract loads persisted history and asserts terminal lifecycle/unit status is present before live events are emitted.</p><p class="code-refs"><strong>Acceptance test</strong> node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs</p>
 
     </article>
+    <article class="flow-card" id="criterion-pr-review-role-boundary" data-section-id="acceptance-criteria" data-card-key="criterion-pr-review-role-boundary">
+      <header class="flow-card-header">
+        <div>
+          <h3>PR-review cannot mutate source and approve its own gate</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
+      </header>
+
+
+      <p class="code-refs"><strong>Objective term</strong> safe to run through the standalone lifecycle harness with PR-review policy enabled</p><p class="code-refs"><strong>Criterion</strong> A PR-review inference unit is read-only over repository source state. If it changes tracked or untracked files or git HEAD while evaluating the PR-review gate, the runner converts its output contract to blocked with reasonCode pr-review-role-boundary-violation, clears approvedActions, records changed files, and the dashboard graph exposes the violation as a blocker node.</p><p class="code-refs"><strong>Proof required</strong> Runner fixture starts a PR-review unit that mutates doc.json and tries to approve; dashboard fixture renders the resulting roleBoundaryViolation as an inference-unit role-boundary blocker with result artifact paths.</p><p class="code-refs"><strong>Acceptance test</strong> node --test tests/contract/living-doc-harness-runner.spec.mjs &amp;&amp; node --test tests/contract/living-doc-harness-dashboard-server.spec.mjs</p>
+
+    </article>
     <article class="flow-card" id="criterion-source-backed-proof" data-section-id="acceptance-criteria" data-card-key="criterion-source-backed-proof">
       <header class="flow-card-header">
         <div>
@@ -42628,13 +42722,26 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Dashboard server artifact state derivation</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">In Scope</span></div>
       </header>
 
 
       <p class="code-refs"><strong>Path</strong> scripts/living-doc-harness-dashboard-server.mjs</p>
+
+    </article>
+    <article class="flow-card" id="anchor-harness-runner" data-section-id="implementation-surfaces" data-card-key="anchor-harness-runner">
+      <header class="flow-card-header">
+        <div>
+          <h3>Harness runner inference-unit boundary enforcement</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">In Scope</span></div>
+      </header>
+
+
+      <p class="code-refs"><strong>Path</strong> scripts/living-doc-harness-runner.mjs</p>
 
     </article>
     <article class="flow-card" id="anchor-dashboard-html" data-section-id="implementation-surfaces" data-card-key="anchor-dashboard-html">
@@ -42707,6 +42814,19 @@ ${tmplLine}
           <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Open</span></div>
+      </header>
+
+
+
+
+    </article>
+    <article class="flow-card" id="issue-283" data-section-id="issue-orbit" data-card-key="issue-283">
+      <header class="flow-card-header">
+        <div>
+          <h3>Process defect: pr-review unit patched source and approved its own gate</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Implementation Ready</span></div>
       </header>
 
 
@@ -42786,6 +42906,36 @@ ${tmplLine}
   NewIteration[&quot;later iteration&quot;] --&gt; NewNode[&quot;new node instance&quot;]
   Node -. &quot;does not overwrite&quot; .-&gt; NewNode</code></pre></details></article></div>
     </details>
+    </article>
+    <article class="flow-card" id="map-pr-review-role-boundary" data-section-id="relationship-maps" data-card-key="map-pr-review-role-boundary">
+      <header class="flow-card-header">
+        <div>
+          <h3>PR-review role-boundary enforcement</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Specified And Proven</span></div>
+      </header>
+      <div class="flow-meta"><strong>Acceptance criteria</strong> <a href="#criterion-pr-review-role-boundary"><code>criterion-pr-review-role-boundary</code></a> <a href="#criterion-api-exposes-instance-status"><code>criterion-api-exposes-instance-status</code></a></div>
+
+      <p class="code-refs"><strong>Relationship claim</strong> A PR-review inference unit may judge and return a contract verdict, but it may not repair source state and then approve its own gate.</p><p class="code-refs"><strong>Semantic role</strong> Role-boundary guard between inference judgment and source mutation.</p><p class="code-refs"><strong>Validation question</strong> If a PR-review unit edits the repository or changes git HEAD, does the runner force a blocked contract and does the dashboard make that violation visible?</p><p class="code-refs"><strong>Drift risk</strong> The system can look reviewed while the reviewer secretly became a worker, collapsing the contract chain.</p>
+
+    <details class="details-block mermaid-details" open>
+      <summary>Mermaid diagrams (1)</summary>
+      <div class="mermaid-stack"><article class="mermaid-card"><h4 class="mermaid-title">PR-review Boundary</h4><div class="mermaid-rendered"><svg class="mermaid-svg" viewBox="0 0 748 238" role="img" aria-label="Rendered Mermaid flowchart">
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M 0 0 L 10 4 L 0 8 z" class="mermaid-arrowhead"/>
+      </marker>
+    </defs>
+    <g class="mermaid-edge" data-edge-index="0"><path d="M 212 160 C 246 160, 246 160, 280 160" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="1"><path d="M 468 160 C 502 160, 502 54, 536 54" marker-end="url(#arrowhead)"/><text class="mermaid-edge-label" x="502" y="101" text-anchor="middle">verdict only</text></g><g class="mermaid-edge" data-edge-index="2"><path d="M 212 50 C 246 50, 246 50, 280 50" marker-end="url(#arrowhead)"/></g><g class="mermaid-edge" data-edge-index="3"><path d="M 468 50 C 502 50, 502 164, 536 164" marker-end="url(#arrowhead)"/></g>
+    <g class="mermaid-node"><rect x="24" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="164" text-anchor="middle"><tspan x="118" dy="0">PR-review input contract</tspan></text></g><g class="mermaid-node"><rect x="280" y="134" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="374" y="164" text-anchor="middle"><tspan x="374" dy="0">PR-review inference unit</tspan></text></g><g class="mermaid-node"><rect x="536" y="24" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="630" y="50" text-anchor="middle"><tspan x="630" dy="0">approved / not-required</tspan><tspan x="630" dy="16">/ blocked / failed</tspan></text></g><g class="mermaid-node"><rect x="24" y="24" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="118" y="54" text-anchor="middle"><tspan x="118" dy="0">Guard</tspan></text></g><g class="mermaid-node"><rect x="280" y="24" width="188" height="52" rx="10"/><text class="mermaid-node-label" x="374" y="54" text-anchor="middle"><tspan x="374" dy="0">blocked output contract</tspan></text></g><g class="mermaid-node"><rect x="536" y="134" width="188" height="60" rx="10"/><text class="mermaid-node-label" x="630" y="160" text-anchor="middle"><tspan x="630" dy="0">blocker node with</tspan><tspan x="630" dy="16">changed files</tspan></text></g>
+  </svg></div><details class="mermaid-source"><summary>Mermaid source</summary><pre><code>flowchart LR
+  Input[&quot;PR-review input contract&quot;] --&gt; Review[&quot;PR-review inference unit&quot;]
+  Review --&gt;|verdict only| Contract[&quot;approved / not-required / blocked / failed&quot;]
+  Review -. &quot;source mutation detected&quot; .-&gt; Guard[&quot;runner role-boundary guard&quot;]
+  Guard --&gt; Blocked[&quot;blocked output contract&quot;]
+  Blocked --&gt; Dashboard[&quot;blocker node with changed files&quot;]</code></pre></details></article></div>
+    </details>
     </article></div>
       </div>
     </section>
@@ -42802,13 +42952,26 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Dashboard server contract</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p><p class="code-refs"><strong>Next step</strong> Keep this contract in the controller-owned closure proof set.</p>
+      <p class="code-refs"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p><p class="code-refs"><strong>Next step</strong> Keep this contract in the controller-owned closure proof set.</p>
+
+    </article>
+    <article class="flow-card" id="verification-runner-role-boundary" data-section-id="verification-plan" data-card-key="verification-runner-role-boundary">
+      <header class="flow-card-header">
+        <div>
+          <h3>Harness runner PR-review role boundary</h3>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      </header>
+
+
+      <p class="code-refs"><strong>Current coverage</strong> Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.</p><p class="code-refs"><strong>Next step</strong> Keep this contract in the PR-review policy proof set before closure.</p>
 
     </article>
     <article class="flow-card" id="verification-ui" data-section-id="verification-plan" data-card-key="verification-ui">
@@ -42872,7 +43035,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Source fix or source proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T01:57:40Z" title="2026-05-13T01:57:40Z" data-relative-to-snapshot="true">2026-05-13T01:57:40Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Complete</span></div>
       </header>
@@ -42898,7 +43061,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-5e456566 (2026-05-13)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-147ea409 (2026-05-13)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -42977,7 +43140,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">4</span>
+        <span class="board-count">5</span>
       </header>
       <div class="board-lane-cards">
 
@@ -42985,7 +43148,14 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Harness runner PR-review role boundary</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -43070,7 +43240,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">8</span>
+        <span class="board-count">9</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43114,6 +43284,13 @@ ${tmplLine}
       <h3>Reload reconstructs terminal state from artifacts</h3>
       <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       <p class="board-card-note"><strong>Objective term</strong> WebSocket/reload reconstruction</p>
+
+    </article>
+    <article class="board-card" data-section-id="acceptance-criteria">
+      <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
+      <h3>PR-review cannot mutate source and approve its own gate</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
+      <p class="board-card-note"><strong>Objective term</strong> safe to run through the standalone lifecycle harness with PR-review policy enabled</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
@@ -43173,7 +43350,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43182,6 +43359,13 @@ ${tmplLine}
       <h3>Dashboard server artifact state derivation</h3>
       <div class="badge-row"><span class="badge badge-neutral">In Scope</span></div>
       <p class="board-card-note"><strong>Path</strong> scripts/living-doc-harness-dashboard-server.mjs</p>
+
+    </article>
+    <article class="board-card" data-section-id="implementation-surfaces">
+      <div class="board-card-kicker">Implementation Surfaces · Code Anchor</div>
+      <h3>Harness runner inference-unit boundary enforcement</h3>
+      <div class="badge-row"><span class="badge badge-neutral">In Scope</span></div>
+      <p class="board-card-note"><strong>Path</strong> scripts/living-doc-harness-runner.mjs</p>
 
     </article>
     <article class="board-card" data-section-id="implementation-surfaces">
@@ -43250,7 +43434,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43272,6 +43456,13 @@ ${tmplLine}
       <div class="board-card-kicker">Issue Orbit · Issue Orbit</div>
       <h3>Hardening: improve dashboard observability for routing decisions</h3>
       <div class="badge-row"><span class="badge badge-neutral">Open</span></div>
+
+
+    </article>
+    <article class="board-card" data-section-id="issue-orbit">
+      <div class="board-card-kicker">Issue Orbit · Issue Orbit</div>
+      <h3>Process defect: pr-review unit patched source and approved its own gate</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Implementation Ready</span></div>
 
 
     </article>
@@ -43365,6 +43556,22 @@ ${tmplLine}
         <div class="board-empty">No items</div>
       </div>
     </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
+        <span class="board-count">1</span>
+      </header>
+      <div class="board-lane-cards">
+
+    <article class="board-card" data-section-id="relationship-maps">
+      <div class="board-card-kicker">Relationship Maps · Relationship Map</div>
+      <h3>PR-review role-boundary enforcement</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Specified And Proven</span></div>
+      <p class="board-card-note"><strong>Relationship claim</strong> A PR-review inference unit may judge and return a contract verdict, but it may not repair source state and then approve its own gate.</p>
+      <div class="flow-meta"><strong>Acceptance criteria</strong> <a href="#criterion-pr-review-role-boundary"><code>criterion-pr-review-role-boundary</code></a> <a href="#criterion-api-exposes-instance-status"><code>criterion-api-exposes-instance-status</code></a></div>
+    </article>
+      </div>
+    </section>
           </div>
         </div>
       </div>
@@ -43422,7 +43629,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">2</span>
+        <span class="board-count">3</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43430,7 +43637,14 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Harness runner PR-review role boundary</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -43474,7 +43688,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43482,7 +43696,14 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Dashboard server contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, and contradictory active-plus-terminal lifecycle artifacts. The new fixture leaves active-lifecycle.json present while lifecycle-result.json proves blocked, and asserts the list, graph, controller card, worker card, and history graph_update are terminal with no stale fallback.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> Dashboard server tests now cover active, stale, stopped, contradictory active-plus-terminal lifecycle artifacts, selected unit result reconciliation, and visible role-boundary blocker nodes for PR-review violations.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Harness runner PR-review role boundary</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> Runner tests now include a PR-review inference unit that mutates doc.json and writes an approved output contract. The runner detects the worktree delta, records an inference-unit-role-boundary-violation event, and rewrites the final output contract to blocked with no approved actions.</p>
 
     </article>
     <article class="board-card" data-section-id="verification-plan">
@@ -43594,9 +43815,9 @@ ${tmplLine}
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="section" style="--toggle-color: #7c3aed; border-color: #7c3aed; background: #7c3aed;">
             <span class="shape-icon" aria-hidden="true"></span>Sections (7)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="card" style="--toggle-color: #64748b; border-color: #64748b; background: #64748b;">
-            <span class="shape-icon" aria-hidden="true"></span>Cards (23)
+            <span class="shape-icon" aria-hidden="true"></span>Cards (28)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="source" style="--toggle-color: #f59e0b; border-color: #f59e0b; background: #f59e0b;">
-            <span class="shape-icon" aria-hidden="true"></span>Refs (6)
+            <span class="shape-icon" aria-hidden="true"></span>Refs (7)
           </button>
         </div>
         <div class="toolbar-section toolbar-controls">
@@ -43606,7 +43827,7 @@ ${tmplLine}
       </div>
       <div class="json-graph-shell">
         <div class="json-graph-canvas graph-container" tabindex="0" aria-label="Living doc JSON structure graph">
-          <svg class="json-graph-svg graph-canvas" viewBox="54 168 1756 1889" data-graph-svg data-graph-initial-view-box="54 168 1756 1889" role="img" aria-labelledby="json-graph-title">
+          <svg class="json-graph-svg graph-canvas" viewBox="57 157 1811 1900" data-graph-svg data-graph-initial-view-box="57 157 1811 1900" role="img" aria-labelledby="json-graph-title">
             <title id="json-graph-title">Living doc JSON structure graph</title>
             <defs>
               <marker id="json-graph-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -43630,52 +43851,61 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 981.8912815091048 942.5422855479554 L 1276.641750399552 707.4866302472128"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-terminal-result-precedence" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1287.0690494564703 671.8780671495612 L 1140.799007440651 350.71527886462644"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1285.2156245064605 672.8306378346363 L 1092.7060504610024 338.25667173088925"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-stale-only-without-terminal-result" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1294.467620206004 669.9667181345827 L 1268.6750703793098 341.0558903549544"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1291.6981364044998 670.3623176623904 L 1218.2196174115147 317.8627734771563"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-api-exposes-instance-status" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1302.9757963047334 670.9728579715575 L 1404.3809160730284 358.36589218854266"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1299.5765523354896 670.1619847539984 L 1353.6367373496792 323.41582591832565"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-frontend-instance-reconciliation" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1309.2502236193523 674.1972319324273 L 1418.5352507149005 526.097501435721"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1304.7350018079753 671.627709067738 L 1381.649620961745 489.21241183674135"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-selected-pane-follows-instance" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1316.0306667963555 682.3993737170471 L 1533.7406155725482 578.1694925041957"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1313.3878300755493 678.1826095598524 L 1498.6818914204725 530.4155265193326"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-reload-reconstructs-terminal-state" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1318.0999226598087 689.9379125626211 L 1645.4339411029312 660.6368248496557"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1317.3345268199898 685.8326858459503 L 1615.25205008284 600.3653876173304"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-pr-review-role-boundary" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1317.6414122451122 696.7708589775892 L 1558.5218395168301 751.4669312084267"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-source-backed-proof" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1316.5074012474429 700.3316527315264 L 1576.1541696482936 808.0789800609023"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1316.185640034886 701.0686759832664 L 1643.4967760203951 851.1434628865835"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-acceptance-criteria" data-graph-edge-to="graph-card-acceptance-criteria-criterion-standalone-harness-result" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1314.7439657617733 703.7171247784997 L 1651.2610848517104 918.0294704765014"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1314.3424465199798 704.3251357643663 L 1709.8868660418584 975.0473012080314"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-implementation-surfaces" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 987.2979815410911 966.2305861507768 L 1354.8458044336387 1050.1209782523074"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-anchor-dashboard-server" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1397.894515895904 1044.0553649820617 L 1592.1727128552366 923.0846330991125"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1397.4559463919245 1043.3789673496026 L 1591.6332029641299 912.361524248252"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-anchor-harness-runner" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1401.2020239054539 1054.8198497763872 L 1643.9502869555608 1045.2774239141172"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-anchor-dashboard-html" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1400.6674163061844 1060.5794621482542 L 1631.7253314932766 1113.3169234959007"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1398.920557310857 1065.4742379476186 L 1667.871796609215 1199.1233934927682"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-anchor-dashboard-tests" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1393.545077356081 1072.3802158941733 L 1611.955821326956 1326.9253411439022"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1390.3109668953198 1074.683167899894 L 1508.4122918191413 1276.9761594195256"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-issue-orbit" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 972.1487446952916 985.2271283012677 L 1135.7229143426111 1324.8923915004796"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-orbit" data-graph-edge-to="graph-card-issue-orbit-issue-275" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1167.3056343376466 1354.767381385344 L 1383.0148355085817 1431.2361744728687"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1167.5610196882326 1354.0027669140425 L 1391.0621206830092 1424.1286196421659"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-orbit" data-graph-edge-to="graph-card-issue-orbit-issue-280" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1156.1154500811363 1367.2379282918932 L 1258.9458962519977 1580.7675499847664"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1160.951818746415 1364.0648417672503 L 1319.7634541353177 1547.9034709241366"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-orbit" data-graph-edge-to="graph-card-issue-orbit-issue-281" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1142.4485435849538 1369.027109086721 L 1079.614022438167 1698.493794538476"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1151.1994114926988 1368.9240217272027 L 1214.3966489820284 1662.5274533688842"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-issue-orbit" data-graph-edge-to="graph-card-issue-orbit-issue-283" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1138.6315883138989 1367.9344468004558 L 1054.10753053722 1586.3973979470713"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-relationship-maps" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 947.8512553047084 985.2271283012677 L 784.2770856573889 1324.8923915004796"><title>section</title></path>
@@ -43693,28 +43923,40 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 853.8837773038359 1616.5565065526262 L 698.8983464156187 1901.9097361916"><title>criterionIds</title></path>
     <text class="json-graph-edge-label" x="773.291353241963" y="1764.9401859648924">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-relationship-maps" data-graph-edge-to="graph-card-relationship-maps-map-instance-status" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 753.3835773597285 1356.4797943655801 L 497.04604875761595 1472.3725104773353"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 763.8845499188636 1367.2379282918932 L 661.0541037480023 1580.7675499847664"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-instance-status" data-graph-edge-to="graph-source-section-ref-criterion-api-exposes-instance-status" data-graph-edge-label="criterionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 478.2413847926882 1496.130100855942 L 465.4029704643861 1633.2213637093776"><title>criterionIds</title></path>
-    <text class="json-graph-edge-label" x="471.56540934197113" y="1567.4175575397285">criterionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 656.0412165915061 1613.5563528565056 L 683.8453861333785 1748.4109686073273"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="670.4993847532797" y="1683.6807530469328">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-instance-status" data-graph-edge-to="graph-source-section-ref-criterion-frontend-instance-reconciliation" data-graph-edge-label="criterionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 468.8797497657434 1491.9557310621262 L 346.0996872071793 1624.9446638276577"><title>criterionIds</title></path>
-    <text class="json-graph-edge-label" x="405.03411723529007" y="1561.1099761002026">criterionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 645.8681728788877 1612.3014603613512 L 567.3352160986095 1775.3768254516892"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="605.031035353143" y="1697.100650208327">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-instance-status" data-graph-edge-to="graph-source-section-ref-criterion-selected-pane-follows-instance" data-graph-edge-label="criterionIds">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 465.0922062572405 1486.6527289410337 L 217.30349962677752 1595.8637701189941"><title>criterionIds</title></path>
-    <text class="json-graph-edge-label" x="336.24207880939974" y="1543.442470353573">criterionIds</text>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 640.6956792379974 1608.337544764361 L 435.6643788971015 1785.2229894151099"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="534.0794030607316" y="1700.3179759827503">criterionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-relationship-maps" data-graph-edge-to="graph-card-relationship-maps-map-pr-review-role-boundary" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 753.9645352223133 1357.6682465044876 L 457.2004249720416 1513.9613581174951"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-pr-review-role-boundary" data-graph-edge-to="graph-source-section-ref-criterion-pr-review-role-boundary" data-graph-edge-label="criterionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 437.4685681059378 1538.5461902043744 L 425.71420242909414 1601.8545015862474"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="431.3562979539791" y="1571.4665121229484">criterionIds</text>
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-card-relationship-maps-map-pr-review-role-boundary" data-graph-edge-to="graph-source-section-ref-criterion-api-exposes-instance-status" data-graph-edge-label="criterionIds">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 451.80993881114495 1534.0208487234677 L 675.1438443170719 1753.15459238592"><title>criterionIds</title></path>
+    <text class="json-graph-edge-label" x="567.943569674227" y="1647.970395427943">criterionIds</text>
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-verification-plan" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 932.7020184589089 966.2305861507768 L 565.1541955663614 1050.1209782523074"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-server" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 529.0004177012813 1074.264042866975 L 406.44904400187005 1267.5490567466152"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 529.6890331046801 1074.683167899894 L 411.58770818085856 1276.9761594195252"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-runner-role-boundary" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 521.3499210421032 1066.0006511306235 L 306.7815967099435 1179.9226037932685"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-ui" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 519.3325836938156 1060.5794621482542 L 288.27466850672346 1113.3169234959007"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 518.7826856392504 1055.411487825061 L 218.4777967098227 1051.6913288045055"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-verification-plan" data-graph-edge-to="graph-card-verification-plan-verification-harness" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 520.6294341948226 1046.8570833504648 L 213.40516274415853 912.2847202816678"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 522.5440536080756 1043.3789673496026 L 328.3667970358703 912.3615242482517"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-proof-ladder" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 938.1087184908952 942.5422855479554 L 643.3582496004478 707.4866302472129"><title>section</title></path>
@@ -43740,8 +43982,8 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="960"
       data-graph-size="24"
-      data-graph-label="dashboard terminal state reconciliation 7 sections · 23 cards $"
-      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Dashboard Terminal State Reconciliation&quot;,&quot;sections&quot;:7,&quot;cards&quot;:23,&quot;objective&quot;:&quot;Fix the standalone harness dashboard so terminal lifecycle and inference-unit evidence always wins over stale running state. When a lifecycle-result, stop verdict, selected-unit result, repair result, closure review, or stale-supervisor artifact proves that a lifecycle or unit is no longer running, the run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state for that exact instance instead of reusing a generic running card or an old active snapshot. The fix must be source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML, and safe to run through the standalone lifecycle harness with PR-review policy enabled.&quot;,&quot;successCondition&quot;:&quot;A reproduced stale-running fixture fails before the source fix and passes after it: the dashboard API and frontend graph prefer terminal result artifacts over active-lifecycle running snapshots, keep each inference unit as an instance with its own terminal status, show stale-supervisor state only when no terminal lifecycle result exists, keep selected detail panes aligned with the clicked instance or edge, and reconstruct the same non-running graph after reload or event replay. The standalone harness run for this doc either closes with contract-bound proof and PR-review evidence, or creates a blocker issue that names the exact lifecycle run, contract, raw-log, and artifact paths that prevented closure.&quot;}"
+      data-graph-label="dashboard terminal state reconciliation 7 sections · 28 cards $"
+      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Dashboard Terminal State Reconciliation&quot;,&quot;sections&quot;:7,&quot;cards&quot;:28,&quot;objective&quot;:&quot;Fix the standalone harness dashboard so terminal lifecycle and inference-unit evidence always wins over stale running state. When a lifecycle-result, stop verdict, selected-unit result, repair result, closure review, or stale-supervisor artifact proves that a lifecycle or unit is no longer running, the run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state for that exact instance instead of reusing a generic running card or an old active snapshot. The fix must be source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML, and safe to run through the standalone lifecycle harness with PR-review policy enabled.&quot;,&quot;successCondition&quot;:&quot;A reproduced stale-running fixture fails before the source fix and passes after it: the dashboard API and frontend graph prefer terminal result artifacts over active-lifecycle running snapshots, keep each inference unit as an instance with its own terminal status, show stale-supervisor state only when no terminal lifecycle result exists, keep selected detail panes aligned with the clicked instance or edge, and reconstruct the same non-running graph after reload or event replay. The standalone harness run for this doc either closes with contract-bound proof and PR-review evidence, or creates a blocker issue that names the exact lifecycle run, contract, raw-log, and artifact paths that prevented closure.&quot;}"
       transform="translate(960, 960)">
       <title>Dashboard Terminal State Reconciliation · $</title>
       <circle class="json-graph-node-hit" r="42"></circle>
@@ -43749,7 +43991,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="40" text-anchor="middle">
         <tspan x="0" dy="0">Dashboard Terminal State</tspan><tspan x="0" dy="12">Reconciliation</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">7 sections · 23 cards</text>
+      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">7 sections · 28 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-governance" tabindex="0" role="button"
       data-graph-node="graph-governance-objective"
@@ -43816,14 +44058,14 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="310"
       data-graph-size="12"
-      data-graph-label="source fix and focused proof complete open-ready $.sections[0].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[0].data[0]&quot;,&quot;id&quot;:&quot;open-ready&quot;,&quot;title&quot;:&quot;Source fix and focused proof complete&quot;,&quot;section&quot;:&quot;Status Snapshot&quot;,&quot;statuses&quot;:[]}"
+      data-graph-label="source and role-boundary proof complete open-ready $.sections[0].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[0].data[0]&quot;,&quot;id&quot;:&quot;open-ready&quot;,&quot;title&quot;:&quot;Source and role-boundary proof complete&quot;,&quot;section&quot;:&quot;Status Snapshot&quot;,&quot;statuses&quot;:[]}"
       transform="translate(960, 310)">
-      <title>Source fix and focused proof complete · $.sections[0].data[0]</title>
+      <title>Source and role-boundary proof complete · $.sections[0].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
-        <tspan x="0" dy="0">Source fix and</tspan><tspan x="0" dy="12">focused proof</tspan>
+        <tspan x="0" dy="0">Source and</tspan><tspan x="0" dy="12">role-boundary proof</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">open-ready</text>
     </g>
@@ -43835,8 +44077,8 @@ ${tmplLine}
       data-graph-home-x="1296.1875374612528"
       data-graph-home-y="691.8993852007445"
       data-graph-size="18"
-      data-graph-label="acceptance criteria acceptance criteria · 8 cards $.sections[1]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[1]&quot;,&quot;id&quot;:&quot;acceptance-criteria&quot;,&quot;title&quot;:&quot;Acceptance Criteria&quot;,&quot;convergenceType&quot;:&quot;acceptance-criteria&quot;,&quot;cards&quot;:8}"
+      data-graph-label="acceptance criteria acceptance criteria · 9 cards $.sections[1]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[1]&quot;,&quot;id&quot;:&quot;acceptance-criteria&quot;,&quot;title&quot;:&quot;Acceptance Criteria&quot;,&quot;convergenceType&quot;:&quot;acceptance-criteria&quot;,&quot;cards&quot;:9}"
       transform="translate(1296.1875374612528, 691.8993852007445)">
       <title>Acceptance Criteria · $.sections[1]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -43844,19 +44086,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Acceptance Criteria</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Acceptance Criteria · 8 c...</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Acceptance Criteria · 9 c...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-terminal-result-precedence"
       data-graph-type="card"
-      data-graph-x="1132.9239496183388"
-      data-graph-y="333.4241405476954"
-      data-graph-home-x="1132.9239496183388"
-      data-graph-home-y="333.4241405476954"
+      data-graph-x="1083.230307454591"
+      data-graph-y="321.788208096523"
+      data-graph-home-x="1083.230307454591"
+      data-graph-home-y="321.788208096523"
       data-graph-size="12"
       data-graph-label="terminal lifecycle result beats active running snapshot status: proven $.sections[1].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[0]&quot;,&quot;id&quot;:&quot;criterion-terminal-result-precedence&quot;,&quot;title&quot;:&quot;Terminal lifecycle result beats active running snapshot&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1132.9239496183388, 333.4241405476954)">
+      transform="translate(1083.230307454591, 321.788208096523)">
       <title>Terminal lifecycle result beats active running snapshot · $.sections[1].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43868,14 +44110,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-stale-only-without-terminal-result"
       data-graph-type="card"
-      data-graph-x="1267.1896872952314"
-      data-graph-y="322.1140415250874"
-      data-graph-home-x="1267.1896872952314"
-      data-graph-home-y="322.1140415250874"
+      data-graph-x="1214.3424074079553"
+      data-graph-y="299.2625787849414"
+      data-graph-home-x="1214.3424074079553"
+      data-graph-home-y="299.2625787849414"
       data-graph-size="12"
       data-graph-label="stale-supervisor is only used when terminal result is absent status: proven $.sections[1].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[1]&quot;,&quot;id&quot;:&quot;criterion-stale-only-without-terminal-result&quot;,&quot;title&quot;:&quot;Stale-supervisor is only used when terminal result is absent&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1267.1896872952314, 322.1140415250874)">
+      transform="translate(1214.3424074079553, 299.2625787849414)">
       <title>Stale-supervisor is only used when terminal result is absent · $.sections[1].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43887,14 +44129,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-api-exposes-instance-status"
       data-graph-type="card"
-      data-graph-x="1410.2435032560345"
-      data-graph-y="340.2929823087902"
-      data-graph-home-x="1410.2435032560345"
-      data-graph-home-y="340.2929823087902"
+      data-graph-x="1356.5636138319746"
+      data-graph-y="304.64261644159035"
+      data-graph-home-x="1356.5636138319746"
+      data-graph-home-y="304.64261644159035"
       data-graph-size="12"
       data-graph-label="each graph card is an instance with its own status status: proven $.sections[1].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;criterion-api-exposes-instance-status&quot;,&quot;title&quot;:&quot;Each graph card is an instance with its own status&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1410.2435032560345, 340.2929823087902)">
+      transform="translate(1356.5636138319746, 304.64261644159035)">
       <title>Each graph card is an instance with its own status · $.sections[1].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43906,14 +44148,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-frontend-instance-reconciliation"
       data-graph-type="card"
-      data-graph-x="1429.8166614878046"
-      data-graph-y="510.809278158538"
-      data-graph-home-x="1429.8166614878046"
-      data-graph-home-y="510.809278158538"
+      data-graph-x="1389.03152198846"
+      data-graph-y="471.70505517641755"
+      data-graph-home-x="1389.03152198846"
+      data-graph-home-y="471.70505517641755"
       data-graph-size="12"
       data-graph-label="frontend does not resurrect stale running cards status: proven $.sections[1].data[3]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-frontend-instance-reconciliation&quot;,&quot;title&quot;:&quot;Frontend does not resurrect stale running cards&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1429.8166614878046, 510.809278158538)">
+      transform="translate(1389.03152198846, 471.70505517641755)">
       <title>Frontend does not resurrect stale running cards · $.sections[1].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43925,14 +44167,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-selected-pane-follows-instance"
       data-graph-type="card"
-      data-graph-x="1550.8778636346824"
-      data-graph-y="569.9649371319115"
-      data-graph-home-x="1550.8778636346824"
-      data-graph-home-y="569.9649371319115"
+      data-graph-x="1513.5366895873651"
+      data-graph-y="518.5692202840166"
+      data-graph-home-x="1513.5366895873651"
+      data-graph-home-y="518.5692202840166"
       data-graph-size="12"
       data-graph-label="selected details follow the clicked instance or edge status: proven $.sections[1].data[4]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-selected-pane-follows-instance&quot;,&quot;title&quot;:&quot;Selected details follow the clicked instance or edge&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1550.8778636346824, 569.9649371319115)">
+      transform="translate(1513.5366895873651, 518.5692202840166)">
       <title>Selected details follow the clicked instance or edge · $.sections[1].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43944,14 +44186,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-reload-reconstructs-terminal-state"
       data-graph-type="card"
-      data-graph-x="1664.3582737744114"
-      data-graph-y="658.9428257530946"
-      data-graph-home-x="1664.3582737744114"
-      data-graph-home-y="658.9428257530946"
+      data-graph-x="1633.5153590744767"
+      data-graph-y="595.1259654472808"
+      data-graph-home-x="1633.5153590744767"
+      data-graph-home-y="595.1259654472808"
       data-graph-size="12"
       data-graph-label="reload reconstructs terminal state from artifacts status: proven $.sections[1].data[5]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-reload-reconstructs-terminal-state&quot;,&quot;title&quot;:&quot;Reload reconstructs terminal state from artifacts&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1664.3582737744114, 658.9428257530946)">
+      transform="translate(1633.5153590744767, 595.1259654472808)">
       <title>Reload reconstructs terminal state from artifacts · $.sections[1].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43961,17 +44203,36 @@ ${tmplLine}
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-acceptance-criteria-criterion-pr-review-role-boundary"
+      data-graph-type="card"
+      data-graph-x="1577.0501859210722"
+      data-graph-y="755.6741131066107"
+      data-graph-home-x="1577.0501859210722"
+      data-graph-home-y="755.6741131066107"
+      data-graph-size="12"
+      data-graph-label="pr-review cannot mutate source and approve its own gate status: proven $.sections[1].data[6]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[6]&quot;,&quot;id&quot;:&quot;criterion-pr-review-role-boundary&quot;,&quot;title&quot;:&quot;PR-review cannot mutate source and approve its own gate&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
+      transform="translate(1577.0501859210722, 755.6741131066107)">
+      <title>PR-review cannot mutate source and approve its own gate · $.sections[1].data[6]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">PR-review cannot</tspan><tspan x="0" dy="12">mutate source and</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Proven</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-source-backed-proof"
       data-graph-type="card"
-      data-graph-x="1593.7031429181852"
-      data-graph-y="815.3613929283957"
-      data-graph-home-x="1593.7031429181852"
-      data-graph-home-y="815.3613929283957"
+      data-graph-x="1660.7678646067147"
+      data-graph-y="859.0623958351251"
+      data-graph-home-x="1660.7678646067147"
+      data-graph-home-y="859.0623958351251"
       data-graph-size="12"
-      data-graph-label="fix is source-backed and rendered status: proven $.sections[1].data[6]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[6]&quot;,&quot;id&quot;:&quot;criterion-source-backed-proof&quot;,&quot;title&quot;:&quot;Fix is source-backed and rendered&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
-      transform="translate(1593.7031429181852, 815.3613929283957)">
-      <title>Fix is source-backed and rendered · $.sections[1].data[6]</title>
+      data-graph-label="fix is source-backed and rendered status: proven $.sections[1].data[7]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[7]&quot;,&quot;id&quot;:&quot;criterion-source-backed-proof&quot;,&quot;title&quot;:&quot;Fix is source-backed and rendered&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Proven&quot;]}"
+      transform="translate(1660.7678646067147, 859.0623958351251)">
+      <title>Fix is source-backed and rendered · $.sections[1].data[7]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -43982,15 +44243,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-standalone-harness-result"
       data-graph-type="card"
-      data-graph-x="1667.287091111251"
-      data-graph-y="928.2357001118355"
-      data-graph-home-x="1667.287091111251"
-      data-graph-home-y="928.2357001118355"
+      data-graph-x="1725.5661056834865"
+      data-graph-y="985.7786312402502"
+      data-graph-home-x="1725.5661056834865"
+      data-graph-home-y="985.7786312402502"
       data-graph-size="12"
-      data-graph-label="standalone harness produces closed or traceable blocker result status: pending controller owned $.sections[1].data[7]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[7]&quot;,&quot;id&quot;:&quot;criterion-standalone-harness-result&quot;,&quot;title&quot;:&quot;Standalone harness produces closed or traceable blocker result&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending Controller Owned&quot;]}"
-      transform="translate(1667.287091111251, 928.2357001118355)">
-      <title>Standalone harness produces closed or traceable blocker result · $.sections[1].data[7]</title>
+      data-graph-label="standalone harness produces closed or traceable blocker result status: pending controller owned $.sections[1].data[8]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[8]&quot;,&quot;id&quot;:&quot;criterion-standalone-harness-result&quot;,&quot;title&quot;:&quot;Standalone harness produces closed or traceable blocker result&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending Controller Owned&quot;]}"
+      transform="translate(1725.5661056834865, 985.7786312402502)">
+      <title>Standalone harness produces closed or traceable blocker result · $.sections[1].data[8]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -44006,8 +44267,8 @@ ${tmplLine}
       data-graph-home-x="1379.2190022381842"
       data-graph-home-y="1055.6840016012152"
       data-graph-size="18"
-      data-graph-label="implementation surfaces code anchor · 3 cards $.sections[2]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[2]&quot;,&quot;id&quot;:&quot;implementation-surfaces&quot;,&quot;title&quot;:&quot;Implementation Surfaces&quot;,&quot;convergenceType&quot;:&quot;code-anchor&quot;,&quot;cards&quot;:3}"
+      data-graph-label="implementation surfaces code anchor · 4 cards $.sections[2]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[2]&quot;,&quot;id&quot;:&quot;implementation-surfaces&quot;,&quot;title&quot;:&quot;Implementation Surfaces&quot;,&quot;convergenceType&quot;:&quot;code-anchor&quot;,&quot;cards&quot;:4}"
       transform="translate(1379.2190022381842, 1055.6840016012152)">
       <title>Implementation Surfaces · $.sections[2]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44015,19 +44276,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Implementation</tspan><tspan x="0" dy="12">Surfaces</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="64" text-anchor="middle">Code Anchor · 3 cards</text>
+      <text class="json-graph-node-meta" x="0" y="64" text-anchor="middle">Code Anchor · 4 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-implementation-surfaces-anchor-dashboard-server"
       data-graph-type="card"
-      data-graph-x="1608.301565559631"
-      data-graph-y="913.0417196552982"
-      data-graph-home-x="1608.301565559631"
-      data-graph-home-y="913.0417196552982"
+      data-graph-x="1607.3832910969054"
+      data-graph-y="901.7344492127683"
+      data-graph-home-x="1607.3832910969054"
+      data-graph-home-y="901.7344492127683"
       data-graph-size="12"
       data-graph-label="dashboard server artifact state derivation status: in scope $.sections[2].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[0]&quot;,&quot;id&quot;:&quot;anchor-dashboard-server&quot;,&quot;title&quot;:&quot;Dashboard server artifact state derivation&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: In Scope&quot;]}"
-      transform="translate(1608.301565559631, 913.0417196552982)">
+      transform="translate(1607.3832910969054, 901.7344492127683)">
       <title>Dashboard server artifact state derivation · $.sections[2].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44037,17 +44298,36 @@ ${tmplLine}
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: In Scope</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-implementation-surfaces-anchor-harness-runner"
+      data-graph-type="card"
+      data-graph-x="1662.9356238500209"
+      data-graph-y="1044.531110974493"
+      data-graph-home-x="1662.9356238500209"
+      data-graph-home-y="1044.531110974493"
+      data-graph-size="12"
+      data-graph-label="harness runner inference-unit boundary enforcement status: in scope $.sections[2].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[1]&quot;,&quot;id&quot;:&quot;anchor-harness-runner&quot;,&quot;title&quot;:&quot;Harness runner inference-unit boundary enforcement&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: In Scope&quot;]}"
+      transform="translate(1662.9356238500209, 1044.531110974493)">
+      <title>Harness runner inference-unit boundary enforcement · $.sections[2].data[1]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Harness runner</tspan><tspan x="0" dy="12">inference-unit</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: In Scope</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-implementation-surfaces-anchor-dashboard-html"
       data-graph-type="card"
-      data-graph-x="1650.2489618247312"
-      data-graph-y="1117.5448212410706"
-      data-graph-home-x="1650.2489618247312"
-      data-graph-home-y="1117.5448212410706"
+      data-graph-x="1684.8867759901598"
+      data-graph-y="1207.5785976101165"
+      data-graph-home-x="1684.8867759901598"
+      data-graph-home-y="1207.5785976101165"
       data-graph-size="12"
-      data-graph-label="embedded dashboard graph ui status: in scope $.sections[2].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[1]&quot;,&quot;id&quot;:&quot;anchor-dashboard-html&quot;,&quot;title&quot;:&quot;Embedded dashboard graph UI&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: In Scope&quot;]}"
-      transform="translate(1650.2489618247312, 1117.5448212410706)">
-      <title>Embedded dashboard graph UI · $.sections[2].data[1]</title>
+      data-graph-label="embedded dashboard graph ui status: in scope $.sections[2].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[2]&quot;,&quot;id&quot;:&quot;anchor-dashboard-html&quot;,&quot;title&quot;:&quot;Embedded dashboard graph UI&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: In Scope&quot;]}"
+      transform="translate(1684.8867759901598, 1207.5785976101165)">
+      <title>Embedded dashboard graph UI · $.sections[2].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -44058,15 +44338,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-implementation-surfaces-anchor-dashboard-tests"
       data-graph-type="card"
-      data-graph-x="1624.328340746958"
-      data-graph-y="1341.344798942366"
-      data-graph-home-x="1624.328340746958"
-      data-graph-home-y="1341.344798942366"
+      data-graph-x="1517.991715841213"
+      data-graph-y="1293.3845303138392"
+      data-graph-home-x="1517.991715841213"
+      data-graph-home-y="1293.3845303138392"
       data-graph-size="12"
-      data-graph-label="dashboard contract and ui tests status: in scope $.sections[2].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[2]&quot;,&quot;id&quot;:&quot;anchor-dashboard-tests&quot;,&quot;title&quot;:&quot;Dashboard contract and UI tests&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: In Scope&quot;]}"
-      transform="translate(1624.328340746958, 1341.344798942366)">
-      <title>Dashboard contract and UI tests · $.sections[2].data[2]</title>
+      data-graph-label="dashboard contract and ui tests status: in scope $.sections[2].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[3]&quot;,&quot;id&quot;:&quot;anchor-dashboard-tests&quot;,&quot;title&quot;:&quot;Dashboard contract and UI tests&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: In Scope&quot;]}"
+      transform="translate(1517.991715841213, 1293.3845303138392)">
+      <title>Dashboard contract and UI tests · $.sections[2].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -44082,8 +44362,8 @@ ${tmplLine}
       data-graph-home-x="1146.57000782055"
       data-graph-home-y="1347.41661319804"
       data-graph-size="18"
-      data-graph-label="issue orbit issue orbit · 3 cards $.sections[3]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[3]&quot;,&quot;id&quot;:&quot;issue-orbit&quot;,&quot;title&quot;:&quot;Issue Orbit&quot;,&quot;convergenceType&quot;:&quot;issue-orbit&quot;,&quot;cards&quot;:3}"
+      data-graph-label="issue orbit issue orbit · 4 cards $.sections[3]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[3]&quot;,&quot;id&quot;:&quot;issue-orbit&quot;,&quot;title&quot;:&quot;Issue Orbit&quot;,&quot;convergenceType&quot;:&quot;issue-orbit&quot;,&quot;cards&quot;:4}"
       transform="translate(1146.57000782055, 1347.41661319804)">
       <title>Issue Orbit · $.sections[3]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44091,19 +44371,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Issue Orbit</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Issue Orbit · 3 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Issue Orbit · 4 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-orbit-issue-275"
       data-graph-type="card"
-      data-graph-x="1400.9228765915286"
-      data-graph-y="1437.5845651800857"
-      data-graph-home-x="1400.9228765915286"
-      data-graph-home-y="1437.5845651800857"
+      data-graph-x="1409.1907218414622"
+      data-graph-y="1429.8166614878044"
+      data-graph-home-x="1409.1907218414622"
+      data-graph-home-y="1429.8166614878044"
       data-graph-size="12"
       data-graph-label="epic: fresh realistic harness hardening run status: open $.sections[3].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[0]&quot;,&quot;id&quot;:&quot;issue-275&quot;,&quot;title&quot;:&quot;Epic: fresh realistic harness hardening run&quot;,&quot;section&quot;:&quot;Issue Orbit&quot;,&quot;statuses&quot;:[&quot;Status: Open&quot;]}"
-      transform="translate(1400.9228765915286, 1437.5845651800857)">
+      transform="translate(1409.1907218414622, 1429.8166614878044)">
       <title>Epic: fresh realistic harness hardening run · $.sections[3].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44115,14 +44395,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-orbit-issue-280"
       data-graph-type="card"
-      data-graph-x="1267.1896872952314"
-      data-graph-y="1597.8859584749125"
-      data-graph-home-x="1267.1896872952314"
-      data-graph-home-y="1597.8859584749125"
+      data-graph-x="1332.1841090258374"
+      data-graph-y="1562.2814865066364"
+      data-graph-home-x="1332.1841090258374"
+      data-graph-home-y="1562.2814865066364"
       data-graph-size="12"
       data-graph-label="hardening: create and run a fresh realistic living-doc test case status: open $.sections[3].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[1]&quot;,&quot;id&quot;:&quot;issue-280&quot;,&quot;title&quot;:&quot;Hardening: create and run a fresh realistic living-doc test case&quot;,&quot;section&quot;:&quot;Issue Orbit&quot;,&quot;statuses&quot;:[&quot;Status: Open&quot;]}"
-      transform="translate(1267.1896872952314, 1597.8859584749125)">
+      transform="translate(1332.1841090258374, 1562.2814865066364)">
       <title>Hardening: create and run a fresh realistic living-doc test case · $.sections[3].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44134,14 +44414,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-issue-orbit-issue-281"
       data-graph-type="card"
-      data-graph-x="1076.0545760528794"
-      data-graph-y="1717.157404624155"
-      data-graph-home-x="1076.0545760528794"
-      data-graph-home-y="1717.157404624155"
+      data-graph-x="1218.3947703352478"
+      data-graph-y="1681.1020334622517"
+      data-graph-home-x="1218.3947703352478"
+      data-graph-home-y="1681.1020334622517"
       data-graph-size="12"
       data-graph-label="hardening: improve dashboard observability for routing decisions status: open $.sections[3].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[2]&quot;,&quot;id&quot;:&quot;issue-281&quot;,&quot;title&quot;:&quot;Hardening: improve dashboard observability for routing decisions&quot;,&quot;section&quot;:&quot;Issue Orbit&quot;,&quot;statuses&quot;:[&quot;Status: Open&quot;]}"
-      transform="translate(1076.0545760528794, 1717.157404624155)">
+      transform="translate(1218.3947703352478, 1681.1020334622517)">
       <title>Hardening: improve dashboard observability for routing decisions · $.sections[3].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44149,6 +44429,25 @@ ${tmplLine}
         <tspan x="0" dy="0">Hardening: improve</tspan><tspan x="0" dy="12">dashboard</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Open</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-issue-orbit-issue-283"
+      data-graph-type="card"
+      data-graph-x="1047.251622781476"
+      data-graph-y="1604.1173451491577"
+      data-graph-home-x="1047.251622781476"
+      data-graph-home-y="1604.1173451491577"
+      data-graph-size="12"
+      data-graph-label="process defect: pr-review unit patched source and approved its own gate status: implementation ready $.sections[3].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[3]&quot;,&quot;id&quot;:&quot;issue-283&quot;,&quot;title&quot;:&quot;Process defect: pr-review unit patched source and approved its own gate&quot;,&quot;section&quot;:&quot;Issue Orbit&quot;,&quot;statuses&quot;:[&quot;Status: Implementation Ready&quot;]}"
+      transform="translate(1047.251622781476, 1604.1173451491577)">
+      <title>Process defect: pr-review unit patched source and approved its own gate · $.sections[3].data[3]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Process defect:</tspan><tspan x="0" dy="12">pr-review unit</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Implementation Re...</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-relationship-maps"
@@ -44158,8 +44457,8 @@ ${tmplLine}
       data-graph-home-x="773.4299921794499"
       data-graph-home-y="1347.41661319804"
       data-graph-size="18"
-      data-graph-label="relationship maps relationship map · 2 cards $.sections[4]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[4]&quot;,&quot;id&quot;:&quot;relationship-maps&quot;,&quot;title&quot;:&quot;Relationship Maps&quot;,&quot;convergenceType&quot;:&quot;relationship-map&quot;,&quot;cards&quot;:2}"
+      data-graph-label="relationship maps relationship map · 3 cards $.sections[4]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[4]&quot;,&quot;id&quot;:&quot;relationship-maps&quot;,&quot;title&quot;:&quot;Relationship Maps&quot;,&quot;convergenceType&quot;:&quot;relationship-map&quot;,&quot;cards&quot;:3}"
       transform="translate(773.4299921794499, 1347.41661319804)">
       <title>Relationship Maps · $.sections[4]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44167,7 +44466,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Relationship Maps</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Relationship Map · 2 cards</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Relationship Map · 3 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-relationship-maps-map-terminal-precedence"
@@ -44248,14 +44547,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-relationship-maps-map-instance-status"
       data-graph-type="card"
-      data-graph-x="479.73323595876565"
-      data-graph-y="1480.1998033038471"
-      data-graph-home-x="479.73323595876565"
-      data-graph-home-y="1480.1998033038471"
+      data-graph-x="652.8103127047686"
+      data-graph-y="1597.8859584749125"
+      data-graph-home-x="652.8103127047686"
+      data-graph-home-y="1597.8859584749125"
       data-graph-size="12"
       data-graph-label="inference unit instance status status: specified $.sections[4].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[1]&quot;,&quot;id&quot;:&quot;map-instance-status&quot;,&quot;title&quot;:&quot;Inference unit instance status&quot;,&quot;section&quot;:&quot;Relationship Maps&quot;,&quot;statuses&quot;:[&quot;Status: Specified&quot;]}"
-      transform="translate(479.73323595876565, 1480.1998033038471)">
+      transform="translate(652.8103127047686, 1597.8859584749125)">
       <title>Inference unit instance status · $.sections[4].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44267,14 +44566,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-section-ref-criterion-api-exposes-instance-status"
       data-graph-type="source"
-      data-graph-x="463.8178786004288"
-      data-graph-y="1650.147304858478"
-      data-graph-home-x="463.8178786004288"
-      data-graph-home-y="1650.147304858478"
+      data-graph-x="687.2782215130371"
+      data-graph-y="1765.06076263777"
+      data-graph-home-x="687.2782215130371"
+      data-graph-home-y="1765.06076263777"
       data-graph-size="10"
       data-graph-label="criterion-api-exposes-instance-status acceptance criteria $.sections[4].data[1].criterionids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-api-exposes-instance-status&quot;}"
-      transform="translate(463.8178786004288, 1650.147304858478)">
+      transform="translate(687.2782215130371, 1765.06076263777)">
       <title>criterion-api-exposes-instance-status · $.sections[4].data[1].criterionIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44286,14 +44585,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-section-ref-criterion-frontend-instance-reconciliation"
       data-graph-type="source"
-      data-graph-x="334.56785812709313"
-      data-graph-y="1637.435337070829"
-      data-graph-home-x="334.56785812709313"
-      data-graph-home-y="1637.435337070829"
+      data-graph-x="559.959192533611"
+      data-graph-y="1790.6932962060303"
+      data-graph-home-x="559.959192533611"
+      data-graph-home-y="1790.6932962060303"
       data-graph-size="10"
       data-graph-label="criterion-frontend-instance-reconciliation acceptance criteria $.sections[4].data[1].criterionids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-frontend-instance-reconciliation&quot;}"
-      transform="translate(334.56785812709313, 1637.435337070829)">
+      transform="translate(559.959192533611, 1790.6932962060303)">
       <title>criterion-frontend-instance-reconciliation · $.sections[4].data[1].criterionIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
@@ -44305,19 +44604,57 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
       data-graph-node="graph-source-section-ref-criterion-selected-pane-follows-instance"
       data-graph-type="source"
-      data-graph-x="201.74740556890708"
-      data-graph-y="1602.7200036085048"
-      data-graph-home-x="201.74740556890708"
-      data-graph-home-y="1602.7200036085048"
+      data-graph-x="422.79258083865705"
+      data-graph-y="1796.3277998476487"
+      data-graph-home-x="422.79258083865705"
+      data-graph-home-y="1796.3277998476487"
       data-graph-size="10"
       data-graph-label="criterion-selected-pane-follows-instance acceptance criteria $.sections[4].data[1].criterionids"
       data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[1].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-selected-pane-follows-instance&quot;}"
-      transform="translate(201.74740556890708, 1602.7200036085048)">
+      transform="translate(422.79258083865705, 1796.3277998476487)">
       <title>criterion-selected-pane-follows-instance · $.sections[4].data[1].criterionIds</title>
       <circle class="json-graph-node-hit" r="28"></circle>
       <circle class="json-graph-node-dot" r="10"></circle>
       <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
         <tspan x="18" dy="0">criterion-selected-pane-follows-instance</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Acceptance criteria</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-relationship-maps-map-pr-review-role-boundary"
+      data-graph-type="card"
+      data-graph-x="440.38934850906"
+      data-graph-y="1522.8150414276088"
+      data-graph-home-x="440.38934850906"
+      data-graph-home-y="1522.8150414276088"
+      data-graph-size="12"
+      data-graph-label="pr-review role-boundary enforcement status: specified and proven $.sections[4].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[4].data[2]&quot;,&quot;id&quot;:&quot;map-pr-review-role-boundary&quot;,&quot;title&quot;:&quot;PR-review role-boundary enforcement&quot;,&quot;section&quot;:&quot;Relationship Maps&quot;,&quot;statuses&quot;:[&quot;Status: Specified And Proven&quot;]}"
+      transform="translate(440.38934850906, 1522.8150414276088)">
+      <title>PR-review role-boundary enforcement · $.sections[4].data[2]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">PR-review</tspan><tspan x="0" dy="12">role-boundary</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Specified And Pro...</text>
+    </g>
+    <g class="json-graph-node json-graph-node-source" tabindex="0" role="button"
+      data-graph-node="graph-source-section-ref-criterion-pr-review-role-boundary"
+      data-graph-type="source"
+      data-graph-x="422.61087325077676"
+      data-graph-y="1618.5688471615608"
+      data-graph-home-x="422.61087325077676"
+      data-graph-home-y="1618.5688471615608"
+      data-graph-size="10"
+      data-graph-label="criterion-pr-review-role-boundary acceptance criteria $.sections[4].data[2].criterionids"
+      data-graph-details="{&quot;type&quot;:&quot;source&quot;,&quot;path&quot;:&quot;$.sections[4].data[2].criterionIds&quot;,&quot;field&quot;:&quot;criterionIds&quot;,&quot;entityType&quot;:&quot;section-ref&quot;,&quot;label&quot;:&quot;criterion-pr-review-role-boundary&quot;}"
+      transform="translate(422.61087325077676, 1618.5688471615608)">
+      <title>criterion-pr-review-role-boundary · $.sections[4].data[2].criterionIds</title>
+      <circle class="json-graph-node-hit" r="28"></circle>
+      <circle class="json-graph-node-dot" r="10"></circle>
+      <text class="json-graph-node-label" x="18" y="26" text-anchor="start">
+        <tspan x="18" dy="0">criterion-pr-review-role-boundary</tspan>
       </text>
       <text class="json-graph-node-meta" x="18" y="44" text-anchor="start">Acceptance criteria</text>
     </g>
@@ -44329,8 +44666,8 @@ ${tmplLine}
       data-graph-home-x="540.7809977618158"
       data-graph-home-y="1055.6840016012152"
       data-graph-size="18"
-      data-graph-label="verification plan verification surface · 3 cards $.sections[5]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[5]&quot;,&quot;id&quot;:&quot;verification-plan&quot;,&quot;title&quot;:&quot;Verification Plan&quot;,&quot;convergenceType&quot;:&quot;verification-surface&quot;,&quot;cards&quot;:3}"
+      data-graph-label="verification plan verification surface · 4 cards $.sections[5]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[5]&quot;,&quot;id&quot;:&quot;verification-plan&quot;,&quot;title&quot;:&quot;Verification Plan&quot;,&quot;convergenceType&quot;:&quot;verification-surface&quot;,&quot;cards&quot;:4}"
       transform="translate(540.7809977618158, 1055.6840016012152)">
       <title>Verification Plan · $.sections[5]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -44338,19 +44675,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Verification Plan</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Verification Surface · 3 ...</text>
+      <text class="json-graph-node-meta" x="0" y="52" text-anchor="middle">Verification Surface · 4 ...</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-server"
       data-graph-type="card"
-      data-graph-x="396.274906676863"
-      data-graph-y="1283.5954560215896"
-      data-graph-home-x="396.274906676863"
-      data-graph-home-y="1283.5954560215896"
+      data-graph-x="402.00828415878686"
+      data-graph-y="1293.3845303138387"
+      data-graph-home-x="402.00828415878686"
+      data-graph-home-y="1293.3845303138387"
       data-graph-size="12"
       data-graph-label="dashboard server contract status: passed $.sections[5].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[0]&quot;,&quot;id&quot;:&quot;verification-server&quot;,&quot;title&quot;:&quot;Dashboard server contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Passed&quot;]}"
-      transform="translate(396.274906676863, 1283.5954560215896)">
+      transform="translate(402.00828415878686, 1293.3845303138387)">
       <title>Dashboard server contract · $.sections[5].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -44360,17 +44697,36 @@ ${tmplLine}
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Passed</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-verification-plan-verification-runner-role-boundary"
+      data-graph-type="card"
+      data-graph-x="290.0002122701917"
+      data-graph-y="1188.8324374777576"
+      data-graph-home-x="290.0002122701917"
+      data-graph-home-y="1188.8324374777576"
+      data-graph-size="12"
+      data-graph-label="harness runner pr-review role boundary status: passed $.sections[5].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-runner-role-boundary&quot;,&quot;title&quot;:&quot;Harness runner PR-review role boundary&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Passed&quot;]}"
+      transform="translate(290.0002122701917, 1188.8324374777576)">
+      <title>Harness runner PR-review role boundary · $.sections[5].data[1]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Harness runner</tspan><tspan x="0" dy="12">PR-review role</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Passed</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-ui"
       data-graph-type="card"
-      data-graph-x="269.75103817526883"
-      data-graph-y="1117.5448212410706"
-      data-graph-home-x="269.75103817526883"
-      data-graph-home-y="1117.5448212410706"
+      data-graph-x="199.47925442215262"
+      data-graph-y="1051.4559759978267"
+      data-graph-home-x="199.47925442215262"
+      data-graph-home-y="1051.4559759978267"
       data-graph-size="12"
-      data-graph-label="dashboard ui contract status: passed $.sections[5].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[1]&quot;,&quot;id&quot;:&quot;verification-ui&quot;,&quot;title&quot;:&quot;Dashboard UI contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Passed&quot;]}"
-      transform="translate(269.75103817526883, 1117.5448212410706)">
-      <title>Dashboard UI contract · $.sections[5].data[1]</title>
+      data-graph-label="dashboard ui contract status: passed $.sections[5].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[2]&quot;,&quot;id&quot;:&quot;verification-ui&quot;,&quot;title&quot;:&quot;Dashboard UI contract&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Passed&quot;]}"
+      transform="translate(199.47925442215262, 1051.4559759978267)">
+      <title>Dashboard UI contract · $.sections[5].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -44381,15 +44737,15 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-verification-plan-verification-harness"
       data-graph-type="card"
-      data-graph-x="196.00153966357345"
-      data-graph-y="904.6614727014743"
-      data-graph-home-x="196.00153966357345"
-      data-graph-home-y="904.6614727014743"
+      data-graph-x="312.6167089030947"
+      data-graph-y="901.734449212768"
+      data-graph-home-x="312.6167089030947"
+      data-graph-home-y="901.734449212768"
       data-graph-size="12"
-      data-graph-label="standalone harness proof status: planned $.sections[5].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[2]&quot;,&quot;id&quot;:&quot;verification-harness&quot;,&quot;title&quot;:&quot;Standalone harness proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
-      transform="translate(196.00153966357345, 904.6614727014743)">
-      <title>Standalone harness proof · $.sections[5].data[2]</title>
+      data-graph-label="standalone harness proof status: planned $.sections[5].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[3]&quot;,&quot;id&quot;:&quot;verification-harness&quot;,&quot;title&quot;:&quot;Standalone harness proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      transform="translate(312.6167089030947, 901.734449212768)">
+      <title>Standalone harness proof · $.sections[5].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
@@ -44485,7 +44841,7 @@ ${tmplLine}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="graph-info" data-graph-info>39 nodes · 38 edges · 100%</div>
+          <div class="graph-info" data-graph-info>45 nodes · 45 edges · 100%</div>
         </div>
         <aside class="json-graph-inspector" aria-live="polite">
           <span class="json-graph-inspector-kicker">Selected node</span>

@@ -633,6 +633,109 @@ try {
   assert.equal(history.body.events.some((event) => event.type === 'artifact_update' && event.payload.path), true);
   assert.equal(history.body.events.some((event) => event.type === 'log_append' && event.payload.nodeId === 'iteration-1-repair-1'), true);
 
+  const prReviewBoundaryRunId = 'ldh-20260507T120040Z-pr-review-role-boundary';
+  const prReviewBoundaryRunDir = path.join(runsDir, prReviewBoundaryRunId);
+  const prReviewResultPath = path.join(prReviewBoundaryRunDir, 'inference-units', 'iteration-1', '05-pr-review', 'result.json');
+  const prReviewValidationPath = path.join(prReviewBoundaryRunDir, 'inference-units', 'iteration-1', '05-pr-review', 'validation.json');
+  await mkdir(path.dirname(prReviewResultPath), { recursive: true });
+  await writeFile(path.join(prReviewBoundaryRunDir, 'contract.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-run/v1',
+    runId: prReviewBoundaryRunId,
+    status: 'finished',
+    livingDoc: {
+      sourcePath: 'tests/fixtures/minimal-doc.json',
+      renderedHtml: 'tests/fixtures/minimal-doc.html',
+    },
+    runConfig: {
+      initialUnitType: 'pr-review',
+      initialUnitRole: 'pr-review',
+    },
+    process: {
+      toolProfile: {
+        name: 'local-harness',
+        sandboxMode: 'danger-full-access',
+      },
+    },
+    artifacts: {
+      initialInferenceUnit: {
+        unitId: 'pr-review',
+        role: 'pr-review',
+        result: 'inference-units/iteration-1/05-pr-review/result.json',
+        validation: 'inference-units/iteration-1/05-pr-review/validation.json',
+        inputContract: 'inference-units/iteration-1/05-pr-review/input-contract.json',
+        prompt: 'inference-units/iteration-1/05-pr-review/prompt.md',
+        codexEvents: 'inference-units/iteration-1/05-pr-review/codex-events.jsonl',
+        stderr: 'inference-units/iteration-1/05-pr-review/stderr.log',
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(prReviewBoundaryRunDir, 'state.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-state/v1',
+    runId: prReviewBoundaryRunId,
+    status: 'finished',
+    docPath: 'tests/fixtures/minimal-doc.json',
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(prReviewResultPath, `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'pr-review',
+    role: 'pr-review',
+    status: 'blocked',
+    outputContract: {
+      schema: 'living-doc-harness-pr-review-result/v1',
+      status: 'blocked',
+      reasonCode: 'pr-review-role-boundary-violation',
+      approvedActions: [],
+      sideEffect: {
+        type: 'github-pr-review',
+        executed: false,
+        reasonCode: 'pr-review-role-boundary-violation',
+      },
+      roleBoundaryViolation: {
+        schema: 'living-doc-harness-role-boundary-violation/v1',
+        reasonCode: 'pr-review-mutated-repository',
+        unitId: 'pr-review',
+        role: 'pr-review',
+        headChanged: false,
+        changedFiles: ['docs/example-living-doc.json'],
+      },
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(prReviewValidationPath, `${JSON.stringify({ ok: true }, null, 2)}\n`, 'utf8');
+  const prReviewBoundaryLifecycleId = 'ldhl-20260507T120041Z-pr-review-role-boundary';
+  const prReviewBoundaryLifecycleDir = path.join(runsDir, prReviewBoundaryLifecycleId);
+  await mkdir(prReviewBoundaryLifecycleDir, { recursive: true });
+  await writeFile(path.join(prReviewBoundaryLifecycleDir, 'lifecycle-result.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-result/v1',
+    resultId: prReviewBoundaryLifecycleId,
+    createdAt: '2026-05-07T12:00:41.000Z',
+    docPath: 'tests/fixtures/minimal-doc.json',
+    lifecycleDir: prReviewBoundaryLifecycleDir,
+    iterationCount: 1,
+    finalState: {
+      kind: 'process-defect',
+      reasonCode: 'pr-review-role-boundary-violation',
+      runId: prReviewBoundaryRunId,
+    },
+    iterations: [
+      {
+        iteration: 1,
+        runId: prReviewBoundaryRunId,
+        runDir: prReviewBoundaryRunDir,
+        classification: 'blocked',
+        terminalKind: 'process-defect',
+        nextAction: { action: 'stop-process-defect', allowed: false },
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const roleBoundaryGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(prReviewBoundaryLifecycleId)}/graph`);
+  assert.equal(roleBoundaryGraph.response.status, 200);
+  assert.equal(roleBoundaryGraph.body.nodes.some((node) => node.id === 'iteration-1-pr-review' && node.status === 'process-defect'), true);
+  const roleBoundaryNode = roleBoundaryGraph.body.nodes.find((node) => node.type === 'blocker' && node.meta.owningLayer === 'inference-unit-role-boundary');
+  assert.equal(roleBoundaryNode.status, 'open');
+  assert.equal(roleBoundaryNode.meta.reasonCode, 'pr-review-mutated-repository');
+  assert.deepEqual(roleBoundaryNode.meta.changedFiles, ['docs/example-living-doc.json']);
+  assert.equal(roleBoundaryGraph.body.edges.some((edge) => edge.to === roleBoundaryNode.id && edge.gate === 'inference-unit-role-boundary' && edge.contract.resultPath.endsWith('result.json')), true);
+
   const wsMessages = await readWebSocketMessages(server, `/ws/lifecycles/${encodeURIComponent(graphLifecycleId)}`, { count: 16 });
   assert.equal(wsMessages[0].type, 'stream_opened');
   assert.equal(wsMessages[0].payload.eventSource, 'local-harness-artifacts');
@@ -736,15 +839,38 @@ exit 0
   assert.equal(activeTail.response.status, 200);
   assert.equal(activeTail.body.codexEvents.some((line) => line.includes('ACTIVE-LIFECYCLE-WORKER-MARKER')), true);
 
+  const activeWorkerNode = activeGraph.body.nodes.find((node) => node.id === 'iteration-1-worker');
+  const activeWorkerResultPath = path.resolve(process.cwd(), activeWorkerNode.artifactPaths.resultPath);
+  await mkdir(path.dirname(activeWorkerResultPath), { recursive: true });
+  await writeFile(activeWorkerResultPath, `${JSON.stringify({
+    schema: 'living-doc-contract-bound-inference-result/v1',
+    unitId: 'worker',
+    role: 'worker',
+    status: 'approved',
+    outputContract: {
+      schema: 'dashboard-active-selected-unit-result-fixture/v1',
+      status: 'approved',
+      basis: ['Selected unit result proves this instance is no longer running.'],
+    },
+  }, null, 2)}\n`, 'utf8');
+  const selectedUnitResultGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
+  assert.equal(selectedUnitResultGraph.response.status, 200);
+  assert.equal(selectedUnitResultGraph.body.finalState.kind, 'running');
+  assert.equal(selectedUnitResultGraph.body.activeInferenceUnitId, null);
+  assert.equal(selectedUnitResultGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'approved'), true);
+  assert.equal(selectedUnitResultGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && ['starting', 'running', 'prepared'].includes(node.status)), false);
+
   const activeHistory = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/events`);
   assert.equal(activeHistory.response.status, 200);
   assert.equal(activeHistory.body.events.some((event) => event.type === 'lifecycle_snapshot'), true);
   assert.equal(activeHistory.body.events.some((event) => event.type === 'log_append' && event.payload.nodeId === 'iteration-1-worker'), true);
+  assert.equal(activeHistory.body.events.some((event) => event.type === 'graph_update' && event.payload.graph.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'approved')), true);
 
   const activeWsMessages = await readWebSocketMessages(server, `/ws/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}`, { count: 5 });
   assert.equal(activeWsMessages[0].type, 'stream_opened');
   assert.equal(activeWsMessages.some((event) => event.type === 'lifecycle_snapshot'), true);
   assert.equal(activeWsMessages.some((event) => event.type === 'log_append' && event.payload.nodeId === 'iteration-1-worker'), true);
+  assert.equal(activeWsMessages.some((event) => event.type === 'graph_update' && event.payload.graph.activeInferenceUnitId === null), true);
 
   const activeLifecyclePath = path.join(runsDir, activeLifecycle.body.resultId, 'active-lifecycle.json');
   const staleActiveLifecycle = JSON.parse(await readFile(activeLifecyclePath, 'utf8'));
