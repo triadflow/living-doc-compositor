@@ -1300,6 +1300,58 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.equal(proofRouteProof.controllerProofRoutes.results[0].routeId, 'controller-owned-fixture-proof');
   assert.equal(proofRouteProof.controllerProofRoutes.results[0].closureAllowedContribution, 'pass');
 
+  const repairablePrGateSequencePath = path.join(tmp, 'repairable-pr-gate-sequence.json');
+  await writeFile(repairablePrGateSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'implementation-still-moving',
+        unresolvedObjectiveTerms: ['dashboard behavior still needs more source work'],
+        unprovenAcceptanceCriteria: ['criterion-terminal-result-precedence'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: true,
+        sideEffectEvidence: {
+          commit: { sha: 'abc1234', required: true },
+        },
+        traceMessage: 'Commit evidence exists, PR-review is still missing, but the objective is not a closure candidate.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'pr-review-policy-gate-missing',
+          mode: 'continuation',
+          instruction: 'PR-review is required before closure, but continue source work because the objective is still repairable.',
+        }),
+      },
+      {
+        stageAfter: 'operator-stopped-after-routing-proof',
+        unresolvedObjectiveTerms: ['routing proof complete'],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        traceMessage: 'Stop after proving repairable state did not invoke PR-review.',
+        reviewerVerdict: reviewerVerdict('user-stopped', {
+          reasonCode: 'operator-stop',
+          mode: 'user-stop',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const repairablePrGateLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'repairable-pr-gate-runs'),
+    evidenceDir: path.join(tmp, 'repairable-pr-gate-evidence'),
+    dashboardPath: path.join(tmp, 'repairable-pr-gate-dashboard.html'),
+    evidenceSequencePath: repairablePrGateSequencePath,
+    prReviewPolicy: { mode: 'required-before-closure' },
+    now: '2026-05-07T13:05:30.000Z',
+  });
+  assert.equal(repairablePrGateLifecycle.iterations[0].classification, 'repairable');
+  assert.equal(repairablePrGateLifecycle.iterations[0].nextAction.selectedUnitType, 'worker');
+  const repairablePrGateOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), repairablePrGateLifecycle.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(repairablePrGateOutputInput.postReviewSelection.prReviewRequired, true);
+  assert.equal(repairablePrGateOutputInput.postReviewSelection.prReviewGate.status, 'missing');
+  assert.equal(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.notEqual(repairablePrGateOutputInput.postReviewSelection.nextUnit.unitId, 'pr-review');
+
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({
     iterations: [

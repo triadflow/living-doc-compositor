@@ -404,10 +404,7 @@ function controllerOwnedNextUnitFromVerdict(verdict, { evidencePath, evidence, r
     && !prReviewSatisfied
     && !prReviewBlocked
     && !commitRequiredByEvidence
-    && (
-      prReviewGateEligibleAtClosureBoundary({ classification })
-      || prReviewGateMentioned
-    )
+    && prReviewGateEligibleAtClosureBoundary({ classification })
   ) {
     return {
       unitId: 'pr-review',
