@@ -882,6 +882,12 @@ exit 0
   assert.equal(staleLifecycleListItem.active, false);
   assert.equal(staleLifecycleListItem.finalState.kind, 'stale-active-lifecycle');
   assert.equal(staleLifecycleListItem.finalState.reasonCode, 'supervisor-pid-not-running');
+  const staleRuns = await jsonFetch(server, `/api/runs`);
+  const staleRunListItem = staleRuns.body.runs.find((item) => item.runId === 'ldh-20260507T121501Z-minimal-doc');
+  assert.equal(staleRunListItem.status, 'stale-active-lifecycle');
+  assert.equal(staleRunListItem.lifecycleStage, 'stale-active-lifecycle');
+  assert.equal(staleRunListItem.lifecycleOverride.source, 'stale-active-lifecycle');
+  assert.equal(staleRunListItem.lifecycleOverride.finalState.reasonCode, 'supervisor-pid-not-running');
   const staleGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
   assert.equal(staleGraph.body.finalState.kind, 'stale-active-lifecycle');
   assert.equal(staleGraph.body.activeInferenceUnitId, null);
@@ -900,6 +906,11 @@ exit 0
   const stoppedLifecycleListItem = stoppedLifecycles.body.lifecycles.find((item) => item.resultId === activeLifecycle.body.resultId);
   assert.equal(stoppedLifecycleListItem.active, false);
   assert.equal(stoppedLifecycleListItem.finalState.kind, 'process-defect-stopped');
+  const stoppedRuns = await jsonFetch(server, `/api/runs`);
+  const stoppedRunListItem = stoppedRuns.body.runs.find((item) => item.runId === 'ldh-20260507T121501Z-minimal-doc');
+  assert.equal(stoppedRunListItem.status, 'process-defect-stopped');
+  assert.equal(stoppedRunListItem.lifecycleStage, 'process-defect-stopped');
+  assert.equal(stoppedRunListItem.lifecycleOverride.source, 'active-lifecycle-final-state');
   const stoppedGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
   assert.equal(stoppedGraph.body.activeInferenceUnitId, null);
   assert.equal(stoppedGraph.body.nodes.some((node) => node.id === 'iteration-1-worker' && node.status === 'process-defect-stopped'), true);
@@ -940,6 +951,13 @@ exit 0
   assert.equal(terminalOverActiveListItem.active, false);
   assert.equal(terminalOverActiveListItem.finalState.kind, 'blocked');
   assert.equal(terminalOverActiveListItem.supervisorAlive, null);
+  const terminalOverActiveRuns = await jsonFetch(server, `/api/runs`);
+  const terminalOverActiveRunListItem = terminalOverActiveRuns.body.runs.find((item) => item.runId === terminalOverActiveRunId);
+  assert.equal(terminalOverActiveRunListItem.status, 'blocked');
+  assert.equal(terminalOverActiveRunListItem.lifecycleStage, 'blocked');
+  assert.equal(terminalOverActiveRunListItem.terminalState.kind, 'blocked');
+  assert.equal(terminalOverActiveRunListItem.lifecycleOverride.source, 'lifecycle-result');
+  assert.equal(terminalOverActiveRunListItem.lifecycleOverride.finalState.reasonCode, 'terminal-result-wins-fixture');
   const terminalOverActiveGraph = await jsonFetch(server, `/api/lifecycles/${encodeURIComponent(activeLifecycle.body.resultId)}/graph`);
   assert.equal(terminalOverActiveGraph.response.status, 200);
   assert.equal(terminalOverActiveGraph.body.finalState.kind, 'blocked');

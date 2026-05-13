@@ -1912,17 +1912,38 @@ async function readGraphNodeTail(lifecycleDir, nodeId, { cwd, runsDir, lines = 8
   };
 }
 
-function summarizeRunFacts(facts, { cwd }) {
+function summarizeRunFacts(facts, { cwd, lifecycleOverride = null } = {}) {
   const objectiveRef = facts.contract?.livingDoc || {};
   const state = facts.state || {};
   const latestProof = facts.latestProof || {};
   const latestVerdict = facts.latestVerdict || {};
+  const overrideKind = lifecycleOverride?.finalState?.kind || null;
+  const terminalState = facts.terminalState ? {
+    kind: facts.terminalState.kind,
+    status: facts.terminalState.status,
+    loopMayContinue: facts.terminalState.loopMayContinue,
+    nextAction: facts.terminalState.nextAction,
+    blockerRef: facts.terminalState.blockerRef,
+  } : (lifecycleOverride ? {
+    kind: lifecycleOverride.finalState?.kind || null,
+    status: lifecycleOverride.finalState?.status || lifecycleOverride.finalState?.kind || null,
+    loopMayContinue: lifecycleOverride.finalState?.loopMayContinue ?? null,
+    nextAction: lifecycleOverride.nextAction || null,
+    blockerRef: null,
+  } : null);
   return {
     schema: 'living-doc-harness-dashboard-run/v1',
     runId: facts.runId,
     runDir: relativeTo(cwd, facts.runDir),
-    status: state.status || facts.contract?.status || 'unknown',
-    lifecycleStage: state.lifecycleStage || facts.terminalState?.kind || 'unknown',
+    status: overrideKind || state.status || facts.contract?.status || 'unknown',
+    lifecycleStage: overrideKind || state.lifecycleStage || facts.terminalState?.kind || 'unknown',
+    lifecycleOverride: lifecycleOverride ? {
+      resultId: lifecycleOverride.resultId,
+      source: lifecycleOverride.source,
+      finalState: lifecycleOverride.finalState || null,
+      lifecycleResultPath: lifecycleOverride.lifecycleResultPath || null,
+      activeLifecyclePath: lifecycleOverride.activeLifecyclePath || null,
+    } : null,
     recommendation: facts.recommendation,
     objective: {
       sourcePath: objectiveRef.sourcePath || state.docPath || null,
@@ -1941,13 +1962,7 @@ function summarizeRunFacts(facts, { cwd }) {
     proofGates: facts.proofGates || {},
     stopVerdict: facts.terminalState?.stopVerdict || latestVerdict.stopVerdict || facts.handover?.stopVerdict || null,
     stopMismatch: latestVerdict.mismatch || facts.handover?.mismatch || null,
-    terminalState: facts.terminalState ? {
-      kind: facts.terminalState.kind,
-      status: facts.terminalState.status,
-      loopMayContinue: facts.terminalState.loopMayContinue,
-      nextAction: facts.terminalState.nextAction,
-      blockerRef: facts.terminalState.blockerRef,
-    } : null,
+    terminalState,
     blockers: (facts.blockers || []).map((blocker) => ({
       id: blocker.id,
       reasonCode: blocker.reasonCode,
@@ -2003,14 +2018,94 @@ function summarizeRunFacts(facts, { cwd }) {
   };
 }
 
+function rememberRunLifecycleOverride(overrides, runKey, override) {
+  if (!runKey || !override?.finalState?.kind) return;
+  const existing = overrides.get(runKey);
+  const existingTime = Date.parse(existing?.createdAt || '') || 0;
+  const nextTime = Date.parse(override.createdAt || '') || 0;
+  if (!existing || nextTime >= existingTime) overrides.set(runKey, override);
+}
+
+async function collectRunLifecycleOverrides({ runsDir, cwd }) {
+  const overrides = new Map();
+  const lifecycleDirs = await listLifecycleDirs(runsDir);
+  for (const lifecycleDir of lifecycleDirs) {
+    const resultPath = path.join(lifecycleDir, 'lifecycle-result.json');
+    const activePath = path.join(lifecycleDir, 'active-lifecycle.json');
+    const result = await readJson(resultPath, null);
+    if (result?.schema) {
+      const kind = result.finalState?.kind || null;
+      if (!isTerminalLifecycleState(kind)) continue;
+      const baseOverride = {
+        resultId: result.resultId || path.basename(lifecycleDir),
+        source: 'lifecycle-result',
+        createdAt: result.createdAt || null,
+        finalState: result.finalState || { kind },
+        lifecycleResultPath: relativeTo(cwd, resultPath),
+        activeLifecyclePath: null,
+      };
+      if (result.finalState?.runId) {
+        rememberRunLifecycleOverride(overrides, result.finalState.runId, baseOverride);
+      }
+      for (const iteration of arr(result.iterations)) {
+        const iterationKind = terminalStatusForIteration({
+          lifecycle: result,
+          iterationRecord: iteration,
+          outputInput: null,
+          runId: iteration.runId,
+        }) || iteration.terminalKind || kind;
+        if (!isTerminalLifecycleState(iterationKind)) continue;
+        const override = {
+          ...baseOverride,
+          finalState: {
+            ...(baseOverride.finalState || {}),
+            kind: iterationKind,
+          },
+          nextAction: iteration.nextAction || null,
+        };
+        rememberRunLifecycleOverride(overrides, iteration.runId, override);
+        rememberRunLifecycleOverride(overrides, iteration.runDir ? path.resolve(cwd, iteration.runDir) : null, override);
+      }
+      continue;
+    }
+
+    const active = await readJson(activePath, null);
+    if (!active?.schema) continue;
+    const runtime = activeLifecycleRuntime(active);
+    if (!isTerminalLifecycleState(runtime.finalState?.kind)) continue;
+    const activeRuns = await findActiveLifecycleRuns({
+      runsDir,
+      cwd,
+      docPath: active.docPath,
+      createdAt: active.createdAt,
+    });
+    const override = {
+      resultId: active.resultId || path.basename(lifecycleDir),
+      source: runtime.stale ? 'stale-active-lifecycle' : 'active-lifecycle-final-state',
+      createdAt: active.createdAt || null,
+      finalState: runtime.finalState,
+      lifecycleResultPath: null,
+      activeLifecyclePath: relativeTo(cwd, activePath),
+    };
+    for (const activeRun of activeRuns) {
+      const runId = activeRun.contract?.runId || path.basename(activeRun.runDir);
+      rememberRunLifecycleOverride(overrides, runId, override);
+      rememberRunLifecycleOverride(overrides, path.resolve(cwd, activeRun.runDir), override);
+    }
+  }
+  return overrides;
+}
+
 async function collectDashboardRuns({ runsDir, cwd }) {
   const runDirs = await listRunDirs(runsDir);
+  const lifecycleOverrides = await collectRunLifecycleOverrides({ runsDir, cwd });
   const runs = [];
   const errors = [];
   for (const runDir of runDirs) {
     try {
       const facts = await collectRunEvidence(runDir);
-      runs.push(summarizeRunFacts(facts, { cwd }));
+      const lifecycleOverride = lifecycleOverrides.get(facts.runId) || lifecycleOverrides.get(path.resolve(cwd, runDir)) || null;
+      runs.push(summarizeRunFacts(facts, { cwd, lifecycleOverride }));
     } catch (err) {
       errors.push({
         runDir: relativeTo(cwd, runDir),
