@@ -194,6 +194,40 @@ async function appendJsonl(filePath, event) {
   await writeFile(filePath, `${JSON.stringify(event)}\n`, { encoding: 'utf8', flag: 'a' });
 }
 
+async function writeActiveLifecycleSnapshot({
+  lifecycleDir,
+  resultId,
+  docPath,
+  createdAt,
+  supervisorPid,
+  executeProofRoutes,
+  toolProfile,
+  prReviewPolicy,
+  command,
+  status = 'running',
+  finalState = { kind: 'running' },
+} = {}) {
+  const snapshot = {
+    schema: 'living-doc-harness-active-lifecycle/v1',
+    resultId,
+    createdAt,
+    updatedAt: new Date().toISOString(),
+    docPath,
+    status,
+    finalState,
+    supervisorPid,
+    executeProofRoutes: executeProofRoutes === true,
+    runConfig: {
+      prReviewPolicy,
+    },
+    prReviewPolicy,
+    toolProfile,
+    command,
+  };
+  await writeJson(path.join(lifecycleDir, 'active-lifecycle.json'), snapshot);
+  return snapshot;
+}
+
 async function fileHash(filePath) {
   try {
     return sha256(await readFile(filePath, 'utf8'));
@@ -1322,6 +1356,7 @@ export async function runHarnessLifecycle({
   startupEvidenceTimeoutMs = undefined,
   gitWorktreeCwd = cwd,
   enforceControllerWorktreeEvidence = execute,
+  command = null,
 } = {}) {
   if (!docPath) throw new Error('docPath is required');
 
@@ -1343,6 +1378,24 @@ export async function runHarnessLifecycle({
   const resultId = `ldhl-${timestampForId(now)}-${path.basename(docPath, '.json').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   const lifecycleDir = path.join(absoluteRunsDir, resultId);
   await mkdir(lifecycleDir, { recursive: true });
+  const commandInfo = command || {
+    command: process.execPath,
+    args: process.argv.slice(1),
+    cwd,
+  };
+  if (execute) {
+    await writeActiveLifecycleSnapshot({
+      lifecycleDir,
+      resultId,
+      docPath,
+      createdAt: now,
+      supervisorPid: process.pid,
+      executeProofRoutes,
+      toolProfile,
+      prReviewPolicy: normalizedPrReviewPolicy,
+      command: commandInfo,
+    });
+  }
 
   const iterations = [];
   let lifecycleInput = null;
@@ -1637,6 +1690,21 @@ export async function runHarnessLifecycle({
     finalState: result.finalState,
     iterationCount: iterations.length,
   });
+  if (execute) {
+    await writeActiveLifecycleSnapshot({
+      lifecycleDir,
+      resultId,
+      docPath,
+      createdAt: now,
+      supervisorPid: process.pid,
+      executeProofRoutes,
+      toolProfile,
+      prReviewPolicy: normalizedPrReviewPolicy,
+      command: commandInfo,
+      status: 'finished',
+      finalState: result.finalState,
+    });
+  }
   return {
     ...result,
     resultPath,

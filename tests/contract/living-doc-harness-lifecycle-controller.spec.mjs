@@ -107,6 +107,17 @@ try {
   assert.equal(noValidRoute.policyRuleId, 'no-valid-route-blocker');
   assert.equal(noValidRoute.terminalActionKind, 'continuation-required');
   assert.equal(noValidRoute.unitId, undefined);
+  const controllerOwnedClosureRoute = selectLifecycleRoute({
+    classification: 'repairable',
+    reasonCode: 'acceptance-criteria-pending',
+    nextIterationAllowed: true,
+    nextIterationMode: 'repair',
+    controllerOwnedClosureCriteriaPending: true,
+    commitRequired: false,
+    prReviewRequired: false,
+  });
+  assert.equal(controllerOwnedClosureRoute.policyRuleId, 'controller-owned-closure-criteria-need-continuation');
+  assert.equal(controllerOwnedClosureRoute.unitId, 'continuation-inference');
 
   const gitFixture = path.join(tmp, 'git-fixture');
   await mkdir(gitFixture, { recursive: true });
@@ -621,6 +632,49 @@ try {
   assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
   assert.equal(commitPending.iterations[0].closureReviewResultPath, null);
 
+  const controllerClosureCriteriaSequencePath = path.join(tmp, 'controller-closure-criteria-sequence.json');
+  await writeFile(controllerClosureCriteriaSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'worker-proof-produced',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: ['criterion-standalone-lifecycle-closes'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        finalMessageSummary: 'Worker proof is present; the only remaining criterion is the controller-owned lifecycle closure artifact.',
+        traceMessage: 'Iteration one produced worker-side proof and cannot prove the lifecycle result from inside the worker.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'acceptance-criteria-pending',
+          mode: 'repair',
+          instruction: 'Continue with the controller-owned lifecycle closure proof; do not send another ordinary worker for standalone lifecycle closure.',
+        }),
+      },
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        finalMessageSummary: 'Lifecycle controller proof is complete after controller-owned continuation.',
+        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const controllerClosureCriteria = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'controller-closure-criteria-runs'),
+    evidenceDir: path.join(tmp, 'controller-closure-criteria-evidence'),
+    dashboardPath: path.join(tmp, 'controller-closure-criteria-dashboard.html'),
+    evidenceSequencePath: controllerClosureCriteriaSequencePath,
+    now: '2026-05-07T13:10:00.000Z',
+  });
+  const controllerClosureOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), controllerClosureCriteria.iterations[0].outputInputPath), 'utf8'));
+  assert.equal(controllerClosureOutputInput.postReviewSelection.nextUnit.policyRuleId, 'controller-owned-closure-criteria-need-continuation');
+  assert.equal(controllerClosureOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(controllerClosureOutputInput.nextAction.action, 'continue-with-continuation-inference');
+  assert.notEqual(controllerClosureOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+
   const closureCandidateCommitGateSequencePath = path.join(tmp, 'closure-candidate-commit-gate-sequence.json');
   await writeFile(closureCandidateCommitGateSequencePath, `${JSON.stringify({
     schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
@@ -1035,6 +1089,15 @@ setInterval(() => {}, 1000);
   assert.match(silentLifecycle.finalState.reason, /headless startup evidence timeout/);
   assert.match(silentLifecycle.finalState.runId, /^ldh-/);
   assert.match(silentLifecycle.finalState.processDefectPath, /process-defect\.json$/);
+  const silentLifecycleActive = JSON.parse(await readFile(path.join(path.dirname(silentLifecycle.resultPath), 'active-lifecycle.json'), 'utf8'));
+  assert.equal(silentLifecycleActive.schema, 'living-doc-harness-active-lifecycle/v1');
+  assert.equal(silentLifecycleActive.resultId, silentLifecycle.resultId);
+  assert.equal(silentLifecycleActive.supervisorPid, process.pid);
+  assert.equal(silentLifecycleActive.status, 'finished');
+  assert.equal(silentLifecycleActive.finalState.kind, 'process-defect');
+  assert.equal(silentLifecycleActive.toolProfile, 'local-harness');
+  assert.equal(silentLifecycleActive.prReviewPolicy.mode, 'disabled');
+  assert.equal(silentLifecycleActive.command.cwd, process.cwd());
   const silentLifecycleDefect = JSON.parse(await readFile(path.resolve(process.cwd(), silentLifecycle.finalState.processDefectPath), 'utf8'));
   assert.equal(silentLifecycleDefect.reasonCode, 'headless-worker-no-startup-evidence');
 

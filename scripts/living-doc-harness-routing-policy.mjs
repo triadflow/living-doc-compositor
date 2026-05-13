@@ -114,6 +114,18 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
     when: ({ repairRunBlocked }) => repairRunBlocked === true,
   },
   {
+    id: 'controller-owned-closure-criteria-need-continuation',
+    unitId: 'continuation-inference',
+    role: 'continuation',
+    reasonCode: () => 'controller-owned-closure-criteria-pending',
+    when: ({ classification, controllerOwnedClosureCriteriaPending, commitRequired, prReviewRequired, prReviewSatisfied }) => (
+      ['repairable', 'resumable', 'closure-candidate'].includes(classification)
+      && controllerOwnedClosureCriteriaPending === true
+      && commitRequired !== true
+      && (prReviewRequired !== true || prReviewSatisfied === true)
+    ),
+  },
+  {
     id: 'reviewer-repair-routes-balance-scan',
     unitId: 'living-doc-balance-scan',
     role: 'balance-scan',

@@ -362,6 +362,13 @@ function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
   return gate.status === 'satisfied';
 }
 
+function controllerOwnedClosureCriteriaPending(evidence) {
+  const unresolved = arr(evidence?.objectiveState?.unresolvedObjectiveTerms);
+  const unproven = arr(evidence?.objectiveState?.unprovenAcceptanceCriteria);
+  if (unresolved.length || !unproven.length) return false;
+  return unproven.some((criterion) => /standalone[-_ ]?lifecycle|lifecycle[-_ ]?closes|lifecycle[-_ ]?closure|terminal[-_ ]?lifecycle/i.test(String(criterion || '')));
+}
+
 function controllerOwnedSelectionFromVerdict(verdict, {
   evidencePath,
   evidence,
@@ -431,6 +438,7 @@ function controllerOwnedSelectionFromVerdict(verdict, {
     prReviewGateMentioned,
     closureReviewMentioned,
     explicitControllerClosure,
+    controllerOwnedClosureCriteriaPending: controllerOwnedClosureCriteriaPending(evidence),
     preconditionPending,
     nextIterationAllowed,
     nextIterationMode,
