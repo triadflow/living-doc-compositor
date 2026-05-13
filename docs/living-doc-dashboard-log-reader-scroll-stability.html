@@ -746,7 +746,7 @@
       "Making the dashboard production-hosted or multi-user."
     ]
   },
-  "updated": "2026-05-13T07:08:30.000Z",
+  "updated": "2026-05-13T08:48:53.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-dashboard-log-reader-scroll-stability.json",
@@ -755,10 +755,10 @@
   "objective": "Make the living-doc harness dashboard log reader stable during live updates: when an operator has selected an inference-unit card and scrolled within its log/tail output to inspect earlier evidence, incoming live events, graph refreshes, or tail refreshes must not force that reader back to the top or otherwise move the viewport away from the inspected lines. The dashboard must still provide an explicit follow-latest behavior for operators who want the selected log to stay near the newest entries. The change must be implemented in the real dashboard source, proven by automated contract or browser tests, and visible in the rendered dashboard without weakening the lifecycle harness, policy routing, or local-only evidence boundaries.",
   "successCondition": "The objective is closed only when the dashboard log/tail reader preserves manual scroll position across live updates and selected-node tail refreshes, an explicit follow-latest control or state exists and works, automated tests prove both preserve-position and follow-latest behavior, the relevant living doc is re-rendered, and the standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions with proof artifacts and dashboard graph evidence.",
   "runState": {
-    "currentPhase": "fresh-realistic-harness-test-doc-ready",
+    "currentPhase": "worker-proof-produced",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Start this living doc through the standalone lifecycle harness with execute=true and executeProofRoutes=true, then observe the lifecycle graph and raw inference evidence.",
+    "nextObjectiveAction": "Return to the standalone lifecycle controller for policy-owned reviewer, closure-review, proof routing, dashboard graph evidence, and terminal decision.",
     "proofRoutes": [
       {
         "id": "dashboard-realtime-ui-contract",
@@ -851,68 +851,68 @@
         {
           "id": "criterion-preserve-manual-scroll",
           "name": "Manual log reading position is preserved",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "must not force that reader back to the top or otherwise move the viewport away from inspected lines",
           "criterion": "When the operator selects an inference-unit card, opens its log/tail reader, and scrolls away from the latest entries, incoming live events, graph refreshes, and tail refreshes preserve the reader's scroll position relative to the inspected content.",
           "proofRequired": "Automated browser or DOM-level test simulates a selected node, populated log output, manual scroll position, live update or refresh, and asserts the scroll position is preserved.",
-          "acceptanceTest": "A failing-before/passing-after assertion is added to the dashboard realtime UI contract or browser E2E surface."
+          "acceptanceTest": "Added DOM contract and Playwright assertions that set graphTailBox.scrollTop, perform tail refresh, live log append, and graph_update, then assert the selected log reader preserves scrollTop."
         },
         {
           "id": "criterion-follow-latest-control",
           "name": "Follow-latest behavior is explicit",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "explicit follow-latest behavior",
           "criterion": "The dashboard exposes an explicit follow-latest control or state for the selected log reader, and when enabled it keeps the reader near the newest log entries after live updates.",
           "proofRequired": "Automated test proves the control or state exists and that enabling it causes new log entries to remain visible.",
-          "acceptanceTest": "The test distinguishes preserve-manual-scroll from follow-latest behavior so one cannot accidentally satisfy both."
+          "acceptanceTest": "Added graphTailFollowLatest aria-pressed control and tests proving disabled mode preserves manual scroll while enabled mode keeps the reader at the newest entries."
         },
         {
           "id": "criterion-live-update-proof",
           "name": "Live dashboard updates keep selected evidence usable",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "incoming live events, graph refreshes, or tail refreshes",
           "criterion": "The selected card and its inspected log remain usable across websocket graph_update, log_append, inference-unit state changes, and explicit tail refresh actions.",
           "proofRequired": "Contract or browser proof covers websocket/event-history updates and direct tail refresh for the selected node.",
-          "acceptanceTest": "Existing dashboard realtime tests are extended or a focused new test is added."
+          "acceptanceTest": "Extended tests cover websocket log_append, graph_update, direct refresh of the selected unit log, and pinned manual card selection across graph refresh."
         },
         {
           "id": "criterion-dashboard-source-implemented",
           "name": "Real dashboard source implements the behavior",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "implemented in the real dashboard source",
           "criterion": "The fix changes the source used by the dashboard backend and self-contained dashboard export, not only a fixture, mockup, or generated screenshot.",
           "proofRequired": "Source diff includes scripts/living-doc-harness-dashboard-server.mjs or the canonical dashboard source that generates the live dashboard behavior; syntax check passes.",
-          "acceptanceTest": "node --check scripts/living-doc-harness-dashboard-server.mjs passes."
+          "acceptanceTest": "node --check scripts/living-doc-harness-dashboard-server.mjs passed at 2026-05-13T08:48:53.000Z."
         },
         {
           "id": "criterion-boundary-preserved",
           "name": "Harness and evidence boundaries remain intact",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "without weakening lifecycle harness, policy routing, or local-only evidence boundaries",
           "criterion": "The change does not expose raw prompt/private trace content, does not bypass lifecycle policy routing, and does not change inference-unit contract semantics.",
           "proofRequired": "Relevant contract tests remain green and no dashboard privacy assertions are removed.",
-          "acceptanceTest": "npm run test:contract or a justified focused subset including dashboard privacy/realtime tests passes."
+          "acceptanceTest": "Focused dashboard realtime contract and browser E2E passed; the change is limited to local dashboard inspector state and does not alter lifecycle policy or raw prompt/native trace exposure."
         },
         {
           "id": "criterion-living-doc-updated",
           "name": "Living doc evidence is updated and rendered",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "partial",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "relevant living doc is re-rendered",
           "criterion": "This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.",
           "proofRequired": "Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.",
-          "acceptanceTest": "node scripts/render-living-doc.mjs docs/living-doc-dashboard-log-reader-scroll-stability.json passes after updates."
+          "acceptanceTest": "Worker updated this JSON with implementation and proof evidence; render proof is run after this update. Lifecycle artifacts remain controller-owned."
         },
         {
           "id": "criterion-standalone-lifecycle-closes",
           "name": "Standalone lifecycle closes or creates a traceable blocker",
           "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "updated": "2026-05-13T08:48:53.000Z",
           "objectiveTerm": "standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions",
           "criterion": "The lifecycle result reaches closed only with objective proof, or otherwise stops only as a traceable blocker/process-defect issue with raw-log and contract evidence.",
           "proofRequired": "Lifecycle-result.json, output-input contracts, reviewer/closure-review artifacts, graph policy edges, and post-flight summary if closed.",
@@ -962,26 +962,26 @@
         {
           "id": "proof-scroll-contract",
           "name": "Scroll behavior proof",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "claim": "Manual reading position is preserved and follow-latest is explicit.",
-          "evidenceRequired": "Automated dashboard UI test with simulated log content, manual scroll, live update, and follow-latest mode.",
+          "evidenceRequired": "node tests/contract/living-doc-harness-dashboard-realtime-ui.spec.mjs passed; npx playwright test tests/e2e/harness-dashboard-realtime.spec.mjs passed.",
           "closureRelevance": "Directly proves the user-facing defect is fixed."
         },
         {
           "id": "proof-dashboard-source",
           "name": "Dashboard source proof",
-          "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "status": "pass",
+          "updated": "2026-05-13T08:48:53.000Z",
           "claim": "The real dashboard source implements the behavior.",
-          "evidenceRequired": "Source diff and node --check against scripts/living-doc-harness-dashboard-server.mjs.",
+          "evidenceRequired": "scripts/living-doc-harness-dashboard-server.mjs now captures/restores selected tail scroll, exposes graphTailFollowLatest, and pins manual graph-node selections; node --check passed.",
           "closureRelevance": "Prevents mock-only or fixture-only closure."
         },
         {
           "id": "proof-lifecycle",
           "name": "Standalone lifecycle proof",
           "status": "pending",
-          "updated": "2026-05-13T07:08:30.000Z",
+          "updated": "2026-05-13T08:48:53.000Z",
           "claim": "The harness can carry this realistic dashboard objective to closure or traceable blocker.",
           "evidenceRequired": "Lifecycle-result.json, output-input contracts, reviewer and closure-review artifacts, graph policy edges, and post-flight summary if closed.",
           "closureRelevance": "This is the actual harness-hardening test."
@@ -42283,7 +42283,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-13T07:13:03.528Z" title="2026-05-13T07:13:03.528Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T07:13:03.528Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-13T08:52:02.893Z" title="2026-05-13T08:52:02.893Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T08:52:02.893Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42365,85 +42365,85 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Manual log reading position is preserved</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> must not force that reader back to the top or otherwise move the viewport away from inspected lines</p><p class="code-refs"><strong>Criterion</strong> When the operator selects an inference-unit card, opens its log/tail reader, and scrolls away from the latest entries, incoming live events, graph refreshes, and tail refreshes preserve the reader&#39;s scroll position relative to the inspected content.</p><p class="code-refs"><strong>Proof required</strong> Automated browser or DOM-level test simulates a selected node, populated log output, manual scroll position, live update or refresh, and asserts the scroll position is preserved.</p><p class="code-refs"><strong>Acceptance test</strong> A failing-before/passing-after assertion is added to the dashboard realtime UI contract or browser E2E surface.</p>
+      <p class="code-refs"><strong>Objective term</strong> must not force that reader back to the top or otherwise move the viewport away from inspected lines</p><p class="code-refs"><strong>Criterion</strong> When the operator selects an inference-unit card, opens its log/tail reader, and scrolls away from the latest entries, incoming live events, graph refreshes, and tail refreshes preserve the reader&#39;s scroll position relative to the inspected content.</p><p class="code-refs"><strong>Proof required</strong> Automated browser or DOM-level test simulates a selected node, populated log output, manual scroll position, live update or refresh, and asserts the scroll position is preserved.</p><p class="code-refs"><strong>Acceptance test</strong> Added DOM contract and Playwright assertions that set graphTailBox.scrollTop, perform tail refresh, live log append, and graph_update, then assert the selected log reader preserves scrollTop.</p>
 
     </article>
     <article class="flow-card" id="criterion-follow-latest-control" data-section-id="acceptance-criteria" data-card-key="criterion-follow-latest-control">
       <header class="flow-card-header">
         <div>
           <h3>Follow-latest behavior is explicit</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> explicit follow-latest behavior</p><p class="code-refs"><strong>Criterion</strong> The dashboard exposes an explicit follow-latest control or state for the selected log reader, and when enabled it keeps the reader near the newest log entries after live updates.</p><p class="code-refs"><strong>Proof required</strong> Automated test proves the control or state exists and that enabling it causes new log entries to remain visible.</p><p class="code-refs"><strong>Acceptance test</strong> The test distinguishes preserve-manual-scroll from follow-latest behavior so one cannot accidentally satisfy both.</p>
+      <p class="code-refs"><strong>Objective term</strong> explicit follow-latest behavior</p><p class="code-refs"><strong>Criterion</strong> The dashboard exposes an explicit follow-latest control or state for the selected log reader, and when enabled it keeps the reader near the newest log entries after live updates.</p><p class="code-refs"><strong>Proof required</strong> Automated test proves the control or state exists and that enabling it causes new log entries to remain visible.</p><p class="code-refs"><strong>Acceptance test</strong> Added graphTailFollowLatest aria-pressed control and tests proving disabled mode preserves manual scroll while enabled mode keeps the reader at the newest entries.</p>
 
     </article>
     <article class="flow-card" id="criterion-live-update-proof" data-section-id="acceptance-criteria" data-card-key="criterion-live-update-proof">
       <header class="flow-card-header">
         <div>
           <h3>Live dashboard updates keep selected evidence usable</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> incoming live events, graph refreshes, or tail refreshes</p><p class="code-refs"><strong>Criterion</strong> The selected card and its inspected log remain usable across websocket graph_update, log_append, inference-unit state changes, and explicit tail refresh actions.</p><p class="code-refs"><strong>Proof required</strong> Contract or browser proof covers websocket/event-history updates and direct tail refresh for the selected node.</p><p class="code-refs"><strong>Acceptance test</strong> Existing dashboard realtime tests are extended or a focused new test is added.</p>
+      <p class="code-refs"><strong>Objective term</strong> incoming live events, graph refreshes, or tail refreshes</p><p class="code-refs"><strong>Criterion</strong> The selected card and its inspected log remain usable across websocket graph_update, log_append, inference-unit state changes, and explicit tail refresh actions.</p><p class="code-refs"><strong>Proof required</strong> Contract or browser proof covers websocket/event-history updates and direct tail refresh for the selected node.</p><p class="code-refs"><strong>Acceptance test</strong> Extended tests cover websocket log_append, graph_update, direct refresh of the selected unit log, and pinned manual card selection across graph refresh.</p>
 
     </article>
     <article class="flow-card" id="criterion-dashboard-source-implemented" data-section-id="acceptance-criteria" data-card-key="criterion-dashboard-source-implemented">
       <header class="flow-card-header">
         <div>
           <h3>Real dashboard source implements the behavior</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> implemented in the real dashboard source</p><p class="code-refs"><strong>Criterion</strong> The fix changes the source used by the dashboard backend and self-contained dashboard export, not only a fixture, mockup, or generated screenshot.</p><p class="code-refs"><strong>Proof required</strong> Source diff includes scripts/living-doc-harness-dashboard-server.mjs or the canonical dashboard source that generates the live dashboard behavior; syntax check passes.</p><p class="code-refs"><strong>Acceptance test</strong> node --check scripts/living-doc-harness-dashboard-server.mjs passes.</p>
+      <p class="code-refs"><strong>Objective term</strong> implemented in the real dashboard source</p><p class="code-refs"><strong>Criterion</strong> The fix changes the source used by the dashboard backend and self-contained dashboard export, not only a fixture, mockup, or generated screenshot.</p><p class="code-refs"><strong>Proof required</strong> Source diff includes scripts/living-doc-harness-dashboard-server.mjs or the canonical dashboard source that generates the live dashboard behavior; syntax check passes.</p><p class="code-refs"><strong>Acceptance test</strong> node --check scripts/living-doc-harness-dashboard-server.mjs passed at 2026-05-13T08:48:53.000Z.</p>
 
     </article>
     <article class="flow-card" id="criterion-boundary-preserved" data-section-id="acceptance-criteria" data-card-key="criterion-boundary-preserved">
       <header class="flow-card-header">
         <div>
           <h3>Harness and evidence boundaries remain intact</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> without weakening lifecycle harness, policy routing, or local-only evidence boundaries</p><p class="code-refs"><strong>Criterion</strong> The change does not expose raw prompt/private trace content, does not bypass lifecycle policy routing, and does not change inference-unit contract semantics.</p><p class="code-refs"><strong>Proof required</strong> Relevant contract tests remain green and no dashboard privacy assertions are removed.</p><p class="code-refs"><strong>Acceptance test</strong> npm run test:contract or a justified focused subset including dashboard privacy/realtime tests passes.</p>
+      <p class="code-refs"><strong>Objective term</strong> without weakening lifecycle harness, policy routing, or local-only evidence boundaries</p><p class="code-refs"><strong>Criterion</strong> The change does not expose raw prompt/private trace content, does not bypass lifecycle policy routing, and does not change inference-unit contract semantics.</p><p class="code-refs"><strong>Proof required</strong> Relevant contract tests remain green and no dashboard privacy assertions are removed.</p><p class="code-refs"><strong>Acceptance test</strong> Focused dashboard realtime contract and browser E2E passed; the change is limited to local dashboard inspector state and does not alter lifecycle policy or raw prompt/native trace exposure.</p>
 
     </article>
     <article class="flow-card" id="criterion-living-doc-updated" data-section-id="acceptance-criteria" data-card-key="criterion-living-doc-updated">
       <header class="flow-card-header">
         <div>
           <h3>Living doc evidence is updated and rendered</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Partial</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> relevant living doc is re-rendered</p><p class="code-refs"><strong>Criterion</strong> This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.</p><p class="code-refs"><strong>Proof required</strong> Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.</p><p class="code-refs"><strong>Acceptance test</strong> node scripts/render-living-doc.mjs docs/living-doc-dashboard-log-reader-scroll-stability.json passes after updates.</p>
+      <p class="code-refs"><strong>Objective term</strong> relevant living doc is re-rendered</p><p class="code-refs"><strong>Criterion</strong> This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.</p><p class="code-refs"><strong>Proof required</strong> Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.</p><p class="code-refs"><strong>Acceptance test</strong> Worker updated this JSON with implementation and proof evidence; render proof is run after this update. Lifecycle artifacts remain controller-owned.</p>
 
     </article>
     <article class="flow-card" id="criterion-standalone-lifecycle-closes" data-section-id="acceptance-criteria" data-card-key="criterion-standalone-lifecycle-closes">
       <header class="flow-card-header">
         <div>
           <h3>Standalone lifecycle closes or creates a traceable blocker</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
       </header>
@@ -42517,9 +42517,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Scroll behavior proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
@@ -42530,9 +42530,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Dashboard source proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       </header>
 
 
@@ -42543,7 +42543,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone lifecycle proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T07:08:30Z" title="2026-05-13T07:08:30Z" data-relative-to-snapshot="true">2026-05-13T07:08:30Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T08:48:53Z" title="2026-05-13T08:48:53Z" data-relative-to-snapshot="true">2026-05-13T08:48:53Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
       </header>
@@ -42580,7 +42580,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-7efa92ea (2026-05-13)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-e66952b9 (2026-05-13)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -42661,42 +42661,42 @@ ${tmplLine}
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Manual log reading position is preserved</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       <p class="board-card-note"><strong>Objective term</strong> must not force that reader back to the top or otherwise move the viewport away from inspected lines</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Follow-latest behavior is explicit</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       <p class="board-card-note"><strong>Objective term</strong> explicit follow-latest behavior</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Live dashboard updates keep selected evidence usable</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       <p class="board-card-note"><strong>Objective term</strong> incoming live events, graph refreshes, or tail refreshes</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Real dashboard source implements the behavior</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       <p class="board-card-note"><strong>Objective term</strong> implemented in the real dashboard source</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Harness and evidence boundaries remain intact</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
       <p class="board-card-note"><strong>Objective term</strong> without weakening lifecycle harness, policy routing, or local-only evidence boundaries</p>
 
     </article>
     <article class="board-card" data-section-id="acceptance-criteria">
       <div class="board-card-kicker">Acceptance Criteria · Acceptance Criteria</div>
       <h3>Living doc evidence is updated and rendered</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Partial</span></div>
       <p class="board-card-note"><strong>Objective term</strong> relevant living doc is re-rendered</p>
 
     </article>
@@ -42834,14 +42834,14 @@ ${tmplLine}
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Scroll behavior proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
 
 
     </article>
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Dashboard source proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Pending</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Pass</span></div>
 
 
     </article>
@@ -43170,8 +43170,8 @@ ${tmplLine}
       data-graph-home-x="1382.1412314146194"
       data-graph-home-y="465.73612235997984"
       data-graph-size="12"
-      data-graph-label="manual log reading position is preserved status: pending $.sections[1].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[0]&quot;,&quot;id&quot;:&quot;criterion-preserve-manual-scroll&quot;,&quot;title&quot;:&quot;Manual log reading position is preserved&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="manual log reading position is preserved status: pass $.sections[1].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[0]&quot;,&quot;id&quot;:&quot;criterion-preserve-manual-scroll&quot;,&quot;title&quot;:&quot;Manual log reading position is preserved&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(1382.1412314146194, 465.73612235997984)">
       <title>Manual log reading position is preserved · $.sections[1].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43179,7 +43179,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Manual log reading</tspan><tspan x="0" dy="12">position is</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-follow-latest-control"
@@ -43189,8 +43189,8 @@ ${tmplLine}
       data-graph-home-x="1510.2193407115356"
       data-graph-home-y="514.4411631367152"
       data-graph-size="12"
-      data-graph-label="follow-latest behavior is explicit status: pending $.sections[1].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[1]&quot;,&quot;id&quot;:&quot;criterion-follow-latest-control&quot;,&quot;title&quot;:&quot;Follow-latest behavior is explicit&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="follow-latest behavior is explicit status: pass $.sections[1].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[1]&quot;,&quot;id&quot;:&quot;criterion-follow-latest-control&quot;,&quot;title&quot;:&quot;Follow-latest behavior is explicit&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(1510.2193407115356, 514.4411631367152)">
       <title>Follow-latest behavior is explicit · $.sections[1].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43198,7 +43198,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Follow-latest</tspan><tspan x="0" dy="12">behavior is explicit</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-live-update-proof"
@@ -43208,8 +43208,8 @@ ${tmplLine}
       data-graph-home-x="1633.1739082990655"
       data-graph-home-y="594.49638964114"
       data-graph-size="12"
-      data-graph-label="live dashboard updates keep selected evidence usable status: pending $.sections[1].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;criterion-live-update-proof&quot;,&quot;title&quot;:&quot;Live dashboard updates keep selected evidence usable&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="live dashboard updates keep selected evidence usable status: pass $.sections[1].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[2]&quot;,&quot;id&quot;:&quot;criterion-live-update-proof&quot;,&quot;title&quot;:&quot;Live dashboard updates keep selected evidence usable&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(1633.1739082990655, 594.49638964114)">
       <title>Live dashboard updates keep selected evidence usable · $.sections[1].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43217,7 +43217,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Live dashboard</tspan><tspan x="0" dy="12">updates keep</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-dashboard-source-implemented"
@@ -43227,8 +43227,8 @@ ${tmplLine}
       data-graph-home-x="1578.1867355918498"
       data-graph-home-y="759.1389536562842"
       data-graph-size="12"
-      data-graph-label="real dashboard source implements the behavior status: pending $.sections[1].data[3]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-dashboard-source-implemented&quot;,&quot;title&quot;:&quot;Real dashboard source implements the behavior&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="real dashboard source implements the behavior status: pass $.sections[1].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[3]&quot;,&quot;id&quot;:&quot;criterion-dashboard-source-implemented&quot;,&quot;title&quot;:&quot;Real dashboard source implements the behavior&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(1578.1867355918498, 759.1389536562842)">
       <title>Real dashboard source implements the behavior · $.sections[1].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43236,7 +43236,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Real dashboard</tspan><tspan x="0" dy="12">source implements</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-boundary-preserved"
@@ -43246,8 +43246,8 @@ ${tmplLine}
       data-graph-home-x="1661.9429618526578"
       data-graph-home-y="867.5874559082035"
       data-graph-size="12"
-      data-graph-label="harness and evidence boundaries remain intact status: pending $.sections[1].data[4]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-boundary-preserved&quot;,&quot;title&quot;:&quot;Harness and evidence boundaries remain intact&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="harness and evidence boundaries remain intact status: pass $.sections[1].data[4]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[4]&quot;,&quot;id&quot;:&quot;criterion-boundary-preserved&quot;,&quot;title&quot;:&quot;Harness and evidence boundaries remain intact&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(1661.9429618526578, 867.5874559082035)">
       <title>Harness and evidence boundaries remain intact · $.sections[1].data[4]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43255,7 +43255,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Harness and evidence</tspan><tspan x="0" dy="12">boundaries remain</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-living-doc-updated"
@@ -43265,8 +43265,8 @@ ${tmplLine}
       data-graph-home-x="1724.9502236220037"
       data-graph-home-y="1000.0893424820949"
       data-graph-size="12"
-      data-graph-label="living doc evidence is updated and rendered status: pending $.sections[1].data[5]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-living-doc-updated&quot;,&quot;title&quot;:&quot;Living doc evidence is updated and rendered&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="living doc evidence is updated and rendered status: partial $.sections[1].data[5]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[1].data[5]&quot;,&quot;id&quot;:&quot;criterion-living-doc-updated&quot;,&quot;title&quot;:&quot;Living doc evidence is updated and rendered&quot;,&quot;section&quot;:&quot;Acceptance Criteria&quot;,&quot;statuses&quot;:[&quot;Status: Partial&quot;]}"
       transform="translate(1724.9502236220037, 1000.0893424820949)">
       <title>Living doc evidence is updated and rendered · $.sections[1].data[5]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43274,7 +43274,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Living doc evidence</tspan><tspan x="0" dy="12">is updated and</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Partial</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-acceptance-criteria-criterion-standalone-lifecycle-closes"
@@ -43398,8 +43398,8 @@ ${tmplLine}
       data-graph-home-x="748.3806996028484"
       data-graph-home-y="1574.587074139556"
       data-graph-size="12"
-      data-graph-label="scroll behavior proof status: pending $.sections[3].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[0]&quot;,&quot;id&quot;:&quot;proof-scroll-contract&quot;,&quot;title&quot;:&quot;Scroll behavior proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="scroll behavior proof status: pass $.sections[3].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[0]&quot;,&quot;id&quot;:&quot;proof-scroll-contract&quot;,&quot;title&quot;:&quot;Scroll behavior proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(748.3806996028484, 1574.587074139556)">
       <title>Scroll behavior proof · $.sections[3].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43407,7 +43407,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Scroll behavior</tspan><tspan x="0" dy="12">proof</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-proof-dashboard-source"
@@ -43417,8 +43417,8 @@ ${tmplLine}
       data-graph-home-x="543.8480413769291"
       data-graph-home-y="1532.7840320174628"
       data-graph-size="12"
-      data-graph-label="dashboard source proof status: pending $.sections[3].data[1]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[1]&quot;,&quot;id&quot;:&quot;proof-dashboard-source&quot;,&quot;title&quot;:&quot;Dashboard source proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Pending&quot;]}"
+      data-graph-label="dashboard source proof status: pass $.sections[3].data[1]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[1]&quot;,&quot;id&quot;:&quot;proof-dashboard-source&quot;,&quot;title&quot;:&quot;Dashboard source proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Pass&quot;]}"
       transform="translate(543.8480413769291, 1532.7840320174628)">
       <title>Dashboard source proof · $.sections[3].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43426,7 +43426,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Dashboard source</tspan><tspan x="0" dy="12">proof</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pass</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-proof-ladder-proof-lifecycle"
