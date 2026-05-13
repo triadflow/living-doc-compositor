@@ -745,7 +745,7 @@
       "Remote dashboard deployment."
     ]
   },
-  "updated": "2026-05-13T02:04:52.000Z",
+  "updated": "2026-05-13T02:13:36.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-harness-dashboard-terminal-state-reconciliation.json",
@@ -769,10 +769,10 @@
   "objective": "Fix the standalone harness dashboard so terminal lifecycle and inference-unit evidence always wins over stale running state. When a lifecycle-result, stop verdict, selected-unit result, repair result, closure review, or stale-supervisor artifact proves that a lifecycle or unit is no longer running, the run list, lifecycle graph, card status, selected side pane, and WebSocket/reload reconstruction must show the terminal or stale state for that exact instance instead of reusing a generic running card or an old active snapshot. The fix must be source-backed in the dashboard server or dashboard HTML, proven by focused contract/UI tests, reflected in this living doc, rendered to HTML, and safe to run through the standalone lifecycle harness with PR-review policy enabled.",
   "successCondition": "A reproduced stale-running fixture fails before the source fix and passes after it: the dashboard API and frontend graph prefer terminal result artifacts over active-lifecycle running snapshots, keep each inference unit as an instance with its own terminal status, show stale-supervisor state only when no terminal lifecycle result exists, keep selected detail panes aligned with the clicked instance or edge, and reconstruct the same non-running graph after reload or event replay. The standalone harness run for this doc either closes with contract-bound proof and PR-review evidence, or creates a blocker issue that names the exact lifecycle run, contract, raw-log, and artifact paths that prevented closure.",
   "runState": {
-    "currentPhase": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
+    "currentPhase": "worker-continuation-proof-reverified-awaiting-controller-review",
     "documentReady": true,
     "objectiveReady": true,
-    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Dashboard terminal-state fixes, selected-unit artifact reconciliation, and PR-review role-boundary enforcement are complete; controller-owned finalizer/reviewer/evidence-dashboard commands were intentionally not run inside worker or PR-review units.",
+    "nextObjectiveAction": "Lifecycle controller should run its owned review/closure path with PR-review policy enabled. Dashboard terminal-state fixes, selected-unit artifact reconciliation, and PR-review role-boundary enforcement are complete and were reverified in worker continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati; controller-owned finalizer, reviewer, evidence-dashboard, proof-route, dashboard, and lifecycle-control commands were intentionally not run inside the worker unit.",
     "proofRoutes": [
       {
         "id": "dashboard-server-contract",
@@ -860,12 +860,12 @@
         {
           "id": "open-ready",
           "name": "Source and role-boundary proof complete",
-          "status": "source-fix-and-role-boundary-proof-complete-awaiting-controller-review",
-          "updated": "2026-05-13T02:04:52.000Z",
-          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, and keeps selected inference-unit cards on their own terminal result status instead of repainting them with the generic lifecycle terminal kind. Focused dashboard contracts prove the stricter case where a blocked lifecycle result coexists with an approved selected-unit result; the worker card stays approved, the terminal node stays blocked, and no running state survives.",
+          "status": "worker-continuation-proof-reverified-awaiting-controller-review",
+          "updated": "2026-05-13T02:13:36.000Z",
+          "summary": "The dashboard server now treats any non-running lifecycle result as terminal, lets lifecycle-result.json beat active-lifecycle.json and stale-supervisor fallback, and keeps selected inference-unit cards on their own terminal result status instead of repainting them with the generic lifecycle terminal kind. Focused dashboard contracts prove the stricter case where a blocked lifecycle result coexists with an approved selected-unit result; the worker card stays approved, the terminal node stays blocked, and no running state survives. Worker continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati re-ran the five required focused contracts successfully without invoking controller-owned lifecycle, reviewer, finalizer, dashboard, or proof-route commands.",
           "documentReady": true,
           "objectiveReady": true,
-          "nextStep": "Controller-owned lifecycle review can now evaluate the dashboard fix and role-boundary guard with PR-review policy enabled; worker and PR-review units must not run finalizer, reviewer, evidence-dashboard, proof-route, or lifecycle-control commands."
+          "nextStep": "Controller-owned lifecycle review can now evaluate the dashboard fix and role-boundary guard with PR-review policy enabled; worker and PR-review units must not run finalizer, reviewer, evidence-dashboard, proof-route, dashboard, or lifecycle-control commands."
         }
       ]
     },
@@ -888,7 +888,7 @@
           "id": "criterion-stale-only-without-terminal-result",
           "name": "Stale-supervisor is only used when terminal result is absent",
           "status": "proven",
-          "updated": "2026-05-13T01:18:00.000Z",
+          "updated": "2026-05-13T02:13:36.000Z",
           "objectiveTerm": "stale-supervisor artifact proves that a lifecycle or unit is no longer running",
           "criterion": "The dashboard reports stale-active-lifecycle only when active-lifecycle.json claims a running supervisor and no terminal lifecycle-result.json is available; a terminal result suppresses the stale fallback.",
           "proofRequired": "Contract fixture covers both cases: missing terminal result produces stale-active-lifecycle; present terminal result produces the terminal result state.",
@@ -958,7 +958,7 @@
           "id": "criterion-standalone-harness-result",
           "name": "Standalone harness produces closed or traceable blocker result",
           "status": "pending-controller-owned",
-          "updated": "2026-05-13T01:18:00.000Z",
+          "updated": "2026-05-13T02:13:36.000Z",
           "objectiveTerm": "safe to run through the standalone lifecycle harness with PR-review policy enabled",
           "criterion": "The standalone harness run for this doc ends in closed with closure-review approval and PR-review evidence, or terminal blocked with a GitHub issue that cites the exact lifecycle run, contract, raw-log, and artifact paths.",
           "proofRequired": "lifecycle-result.json, reviewer verdict, closure-review or blocker result, PR-review gate evidence, and post-flight narrative if available.",
@@ -1179,15 +1179,15 @@
         {
           "id": "verification-harness",
           "name": "Standalone harness proof",
-          "status": "planned",
-          "updated": "2026-05-13T00:00:00.000Z",
-          "currentCoverage": "This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.",
+          "status": "pending-controller-owned",
+          "updated": "2026-05-13T02:13:36.000Z",
+          "currentCoverage": "This worker completed source and focused proof, and continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati re-ran the dashboard server, dashboard artifact graph, dashboard graph UI, dashboard realtime UI, and harness runner role-boundary contracts successfully. The final standalone lifecycle review remains controller-owned by the run rules.",
           "nextStep": "Lifecycle controller should run the required-before-closure review path after worker exit.",
           "automation": [
             "scripts/living-doc-harness-lifecycle.mjs with prReviewPolicy.mode=required-before-closure"
           ],
           "gaps": [
-            "The standalone run has not started yet."
+            "The controller-owned closure or blocker terminal result for run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati is not available inside this worker unit."
           ]
         }
       ]
@@ -42512,7 +42512,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-13T02:07:25.856Z" title="2026-05-13T02:07:25.856Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T02:07:25.856Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-13T02:15:32.914Z" title="2026-05-13T02:15:32.914Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-13T02:15:32.914Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42570,7 +42570,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Source and role-boundary proof complete</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T02:04:52Z" title="2026-05-13T02:04:52Z" data-relative-to-snapshot="true">2026-05-13T02:04:52Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:13:36Z" title="2026-05-13T02:13:36Z" data-relative-to-snapshot="true">2026-05-13T02:13:36Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -42607,7 +42607,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Stale-supervisor is only used when terminal result is absent</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:13:36Z" title="2026-05-13T02:13:36Z" data-relative-to-snapshot="true">2026-05-13T02:13:36Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Proven</span></div>
       </header>
@@ -42698,7 +42698,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone harness produces closed or traceable blocker result</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T01:18:00Z" title="2026-05-13T01:18:00Z" data-relative-to-snapshot="true">2026-05-13T01:18:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:13:36Z" title="2026-05-13T02:13:36Z" data-relative-to-snapshot="true">2026-05-13T02:13:36Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-neutral">Pending Controller Owned</span></div>
       </header>
@@ -42991,19 +42991,19 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone harness proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T00:00:00Z" title="2026-05-13T00:00:00Z" data-relative-to-snapshot="true">2026-05-13T00:00:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-13T02:13:36Z" title="2026-05-13T02:13:36Z" data-relative-to-snapshot="true">2026-05-13T02:13:36Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Pending Controller Owned</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p><p class="code-refs"><strong>Next step</strong> Lifecycle controller should run the required-before-closure review path after worker exit.</p>
+      <p class="code-refs"><strong>Current coverage</strong> This worker completed source and focused proof, and continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati re-ran the dashboard server, dashboard artifact graph, dashboard graph UI, dashboard realtime UI, and harness runner role-boundary contracts successfully. The final standalone lifecycle review remains controller-owned by the run rules.</p><p class="code-refs"><strong>Next step</strong> Lifecycle controller should run the required-before-closure review path after worker exit.</p>
 
     <details class="details-block">
       <summary>Current gaps (1)</summary>
 
     <div class="note-stack">
-      <p class="note-description"><span class="note-line">The standalone run has not started yet.</span></p>
+      <p class="note-description"><span class="note-line">The controller-owned closure or blocker terminal result for run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati is not available inside this worker unit.</span></p>
     </div>
     </details>
     </article></div>
@@ -43061,7 +43061,7 @@ ${tmplLine}
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-72bbc9b2 (2026-05-13)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-c06de3f3 (2026-05-13)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -43090,17 +43090,10 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Planned</span>
-        <span class="board-count">2</span>
+        <span class="board-count">1</span>
       </header>
       <div class="board-lane-cards">
 
-    <article class="board-card" data-section-id="verification-plan">
-      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
-      <h3>Standalone harness proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p>
-
-    </article>
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Harness terminal proof</h3>
@@ -43140,7 +43133,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">5</span>
+        <span class="board-count">6</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43163,6 +43156,13 @@ ${tmplLine}
       <h3>Dashboard UI contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       <p class="board-card-note"><strong>Current coverage</strong> Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Standalone harness proof</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Pending Controller Owned</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof, and continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati re-ran the dashboard server, dashboard artifact graph, dashboard graph UI, dashboard realtime UI, and harness runner role-boundary contracts successfully. The final standalone lifecycle review remains controller-owned by the run rules.</p>
 
     </article>
     <article class="board-card" data-section-id="proof-ladder">
@@ -43586,17 +43586,10 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Planned</span>
-        <span class="board-count">1</span>
+        <span class="board-count">0</span>
       </header>
       <div class="board-lane-cards">
-
-    <article class="board-card" data-section-id="verification-plan">
-      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
-      <h3>Standalone harness proof</h3>
-      <div class="badge-row"><span class="badge badge-neutral">Planned</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p>
-
-    </article>
+        <div class="board-empty">No items</div>
       </div>
     </section>
     <section class="board-lane">
@@ -43629,7 +43622,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Other / missing</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -43652,6 +43645,13 @@ ${tmplLine}
       <h3>Dashboard UI contract</h3>
       <div class="badge-row"><span class="badge badge-neutral">Passed</span></div>
       <p class="board-card-note"><strong>Current coverage</strong> Graph UI tests now assert explicit reconciliation hooks, and realtime UI tests replay running worker, running reviewer, and terminal blocked graph updates. The terminal replay has no current-unit marker and the inspector follows the terminal node rather than the old reviewer log.</p>
+
+    </article>
+    <article class="board-card" data-section-id="verification-plan">
+      <div class="board-card-kicker">Verification Plan · Verification Surface</div>
+      <h3>Standalone harness proof</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Pending Controller Owned</span></div>
+      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof, and continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati re-ran the dashboard server, dashboard artifact graph, dashboard graph UI, dashboard realtime UI, and harness runner role-boundary contracts successfully. The final standalone lifecycle review remains controller-owned by the run rules.</p>
 
     </article>
       </div>
@@ -43717,7 +43717,7 @@ ${tmplLine}
       <div class="board-card-kicker">Verification Plan · Verification Surface</div>
       <h3>Standalone harness proof</h3>
       <div class="badge-row"><span class="badge badge-neutral">Missing</span></div>
-      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof. The final standalone lifecycle review remains controller-owned by the run rules.</p>
+      <p class="board-card-note"><strong>Current coverage</strong> This worker completed source and focused proof, and continuation run ldh-20260513T020243Z-doc-living-doc-harness-dashboard-terminal-state-reconciliati re-ran the dashboard server, dashboard artifact graph, dashboard graph UI, dashboard realtime UI, and harness runner role-boundary contracts successfully. The final standalone lifecycle review remains controller-owned by the run rules.</p>
 
     </article>
       </div>
@@ -44742,8 +44742,8 @@ ${tmplLine}
       data-graph-home-x="312.6167089030947"
       data-graph-home-y="901.734449212768"
       data-graph-size="12"
-      data-graph-label="standalone harness proof status: planned $.sections[5].data[3]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[3]&quot;,&quot;id&quot;:&quot;verification-harness&quot;,&quot;title&quot;:&quot;Standalone harness proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Planned&quot;]}"
+      data-graph-label="standalone harness proof status: pending controller owned $.sections[5].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[3]&quot;,&quot;id&quot;:&quot;verification-harness&quot;,&quot;title&quot;:&quot;Standalone harness proof&quot;,&quot;section&quot;:&quot;Verification Plan&quot;,&quot;statuses&quot;:[&quot;Status: Pending Controller Owned&quot;]}"
       transform="translate(312.6167089030947, 901.734449212768)">
       <title>Standalone harness proof · $.sections[5].data[3]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -44751,7 +44751,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Standalone harness</tspan><tspan x="0" dy="12">proof</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Planned</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Pending Controlle...</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-proof-ladder"
