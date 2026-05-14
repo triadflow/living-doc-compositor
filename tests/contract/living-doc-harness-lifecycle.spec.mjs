@@ -30,7 +30,7 @@ try {
   const dashboardHtml = await readFile(result.dashboardPath, 'utf8');
   assert.match(dashboardHtml, /Living Doc Harness Dashboard/);
   assert.match(dashboardHtml, /data-recommendation="close"/);
-  assert.match(dashboardHtml, /data-recommendation="resume"/);
+  assert.match(dashboardHtml, /data-recommendation="fresh-unit"/);
   assert.match(dashboardHtml, /Wrapper\/native mismatch:/);
   assert.match(dashboardHtml, /done -> closure-candidate/);
 

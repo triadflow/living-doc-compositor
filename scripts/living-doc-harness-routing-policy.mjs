@@ -21,9 +21,30 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
     when: ({ classification }) => classification === 'user-stopped',
   },
   {
+    id: 'latest-unit-output-recommendation',
+    unitId: ({ latestRecommendedUnitType }) => latestRecommendedUnitType,
+    role: ({ latestRecommendedUnitRole, latestRecommendedUnitType }) => latestRecommendedUnitRole || latestRecommendedUnitType,
+    selectedBy: 'latest-unit-output-contract',
+    reasonCode: ({ latestRecommendationReasonCode, latestRecommendedUnitType }) => (
+      latestRecommendationReasonCode || `latest-unit-recommended-${latestRecommendedUnitType}`
+    ),
+    when: ({ latestRecommendedUnitType, latestRecommendation, sameReasonContinuationLoop }) => (
+      Boolean(latestRecommendedUnitType)
+      && latestRecommendation?.sourceUnitType !== 'worker'
+      && sameReasonContinuationLoop !== true
+    ),
+  },
+  {
+    id: 'same-reason-continuation-loop-blocked',
+    terminalActionKind: 'continuation-required',
+    selectedBy: 'routing-policy',
+    reasonCode: ({ reasonCode }) => reasonCode || 'same-reason-continuation-loop-blocked',
+    when: ({ sameReasonContinuationLoop }) => sameReasonContinuationLoop === true,
+  },
+  {
     id: 'blocked-commit-intent-gate-needs-continuation',
-    unitId: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    role: 'worker',
     reasonCode: ({ commitGate, reasonCode }) => commitGate?.reasonCode || reasonCode || 'commit-intent-gate-blocked',
     when: ({ classification, commitBlocked }) => (
       ['closure-candidate', 'resumable', 'repairable', 'closed'].includes(classification)
@@ -42,8 +63,8 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
   },
   {
     id: 'blocked-pr-review-gate-needs-continuation',
-    unitId: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    role: 'worker',
     reasonCode: ({ prReviewGate, reasonCode }) => prReviewGate?.reasonCode || reasonCode || 'pr-review-gate-blocked',
     when: ({ prReviewRequired, prReviewSatisfied, prReviewBlocked, prReviewGateMentioned }) => (
       prReviewRequired === true
@@ -69,8 +90,8 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
   },
   {
     id: 'closure-review-denied-needs-continuation',
-    unitId: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    role: 'worker',
     reasonCode: ({ closureReview }) => closureReview?.review?.reasonCode || 'closure-review-denied',
     when: ({ closureReviewDenied }) => closureReviewDenied === true,
   },
@@ -101,22 +122,22 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
   },
   {
     id: 'blocked-terminal-classification-needs-continuation',
-    unitId: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    role: 'worker',
     reasonCode: ({ reasonCode, classification }) => reasonCode || classification || 'terminal-classification-requires-continuation',
     when: ({ classification }) => ['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification),
   },
   {
     id: 'repair-skill-chain-blocked-needs-continuation',
-    unitId: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    role: 'worker',
     reasonCode: () => 'repair-skill-chain-blocked',
     when: ({ repairRunBlocked }) => repairRunBlocked === true,
   },
   {
     id: 'controller-owned-closure-criteria-need-continuation',
-    unitId: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    role: 'worker',
     reasonCode: () => 'controller-owned-closure-criteria-pending',
     when: ({ classification, controllerOwnedClosureCriteriaPending, commitRequired, prReviewRequired, prReviewSatisfied }) => (
       ['repairable', 'resumable', 'closure-candidate'].includes(classification)
@@ -166,15 +187,19 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
 export function selectLifecycleRoute(facts) {
   for (const rule of LIFECYCLE_ROUTING_POLICY_RULES) {
     if (!rule.when(facts)) continue;
+    const unitId = typeof rule.unitId === 'function' ? rule.unitId(facts) : rule.unitId;
+    const role = typeof rule.role === 'function' ? rule.role(facts) : rule.role;
     return {
       schema: 'living-doc-harness-routing-policy-selection/v1',
       policyRuleId: rule.id,
-      ...(rule.unitId ? { unitId: rule.unitId } : {}),
-      ...(rule.role ? { role: rule.role } : {}),
+      ...(unitId ? { unitId } : {}),
+      ...(role ? { role } : {}),
       ...(rule.terminalActionKind ? { terminalActionKind: rule.terminalActionKind } : {}),
       ...(rule.selectedBy ? { selectedBy: rule.selectedBy } : {}),
       reasonCode: typeof rule.reasonCode === 'function' ? rule.reasonCode(facts) : rule.reasonCode,
       status: 'selected',
+      ...(facts.latestRecommendation ? { latestRecommendation: facts.latestRecommendation } : {}),
+      ...(facts.sameReasonContinuationLoop ? { loopGuard: facts.sameReasonContinuationLoop } : {}),
     };
   }
   return null;

@@ -183,6 +183,8 @@ function balanceScanPrompt(input) {
 Read the input contract. Return JSON only.
 
 Classify the living-doc imbalance and return an ordered repair skill list. Do not claim repair. This unit only diagnoses and orders repair skills.
+Use this unit only for structural living-doc imbalance. Do not substitute balance-scan for ordinary worker progress.
+The goal is to route the lifecycle back to worker progress after the narrow imbalance or missing repair path is named.
 
 Mandatory evidence-path inspection:
 - The input contract contains requiredInspectionPaths.
@@ -205,6 +207,9 @@ function repairSkillPrompt({ skill, skillInstructions, input }) {
   return `You are the ${skill} repair-skill inference unit in a standalone living-doc lifecycle harness.
 
 Run this skill as an independent inference unit. Do not rely on prior chat. Read the input contract paths and produce JSON only.
+The living doc is the working surface for objective truth: repair only the named doc/objective/evidence defect you were given.
+Do not become a general worker replacement. After the narrow repair, return evidence that lets the controller route back to worker progress or to a required gate.
+Progress-shaped artifacts are invalid if they only rename the blocker, polish a report, or create route churn without repairing the named defect.
 
 Mandatory evidence-path inspection:
 - The input contract contains requiredInspectionPaths.

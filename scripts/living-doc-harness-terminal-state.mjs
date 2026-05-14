@@ -220,7 +220,7 @@ export async function canResumeRun(runDir) {
     return { allowed: false, reason: 'user explicitly stopped the lifecycle' };
   }
   if (state.lifecycleStage === 'continuation-required') {
-    return { allowed: true, reason: 'non-closure verdict requires continuation inference', blockerRef: state.activeBlocker || null };
+    return { allowed: true, reason: 'non-closure verdict requires a fresh inference unit', blockerRef: state.activeBlocker || null };
   }
   return { allowed: true, reason: 'no terminal blocker present' };
 }

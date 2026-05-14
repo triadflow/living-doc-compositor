@@ -3,7 +3,7 @@
 //
 // This is the output-input channel between iterations. It consumes one
 // iteration's durable output, writes the next controlled input, and starts the
-// next worker iteration when the stop verdict allows repair or resume.
+// next worker iteration when the stop verdict requires fresh follow-up work.
 
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -24,6 +24,16 @@ import {
   validateAllowedInferenceUnitRunConfig,
 } from './living-doc-harness-inference-unit-types.mjs';
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
+import {
+  artifactRefFromPath,
+  resolveArtifactRef,
+  artifactRefDisplayPath,
+  isArtifactRef,
+} from './living-doc-harness-artifact-ref.mjs';
+import {
+  commitEvidenceSatisfied,
+  commitGateFromCommitEvidence,
+} from './living-doc-harness-commit-gate.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const execFileAsync = promisify(execFile);
@@ -37,6 +47,7 @@ const CONTROLLER_SOURCE_FILES = [
   'scripts/living-doc-harness-closure-review.mjs',
   'scripts/living-doc-harness-skill-router.mjs',
   'scripts/living-doc-harness-runner.mjs',
+  'scripts/living-doc-harness-commit-gate.mjs',
 ];
 
 function sha256(text) {
@@ -69,8 +80,16 @@ async function readJson(filePath, fallback = null) {
 
 async function validationArtifactOk(runDir, validationRef) {
   if (!validationRef) return false;
-  const validation = await readJson(path.resolve(runDir, validationRef), null);
+  const validation = await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: validationRef }), null);
   return validation?.ok === true;
+}
+
+function runArtifactRef({ runDir, runId = null, filePath, kind }) {
+  return filePath ? artifactRefFromPath({ runId, runDir, filePath, kind }) : null;
+}
+
+function cwdArtifactRef({ cwd = process.cwd(), filePath, kind }) {
+  return filePath ? artifactRefFromPath({ cwd, runDir: cwd, filePath, kind }) : null;
 }
 
 function prReviewEvidenceFromOutput({ runDir, output, resultPath, validationPath, fallbackReasonCode = null }) {
@@ -97,15 +116,32 @@ function prReviewEvidenceFromOutput({ runDir, output, resultPath, validationPath
         : ['PR-review artifact used the right schema but did not emit an approved, not-required, blocked, or failed verdict.'],
     url: sideEffect.url || sideEffect.prUrl || output.reviewTarget || null,
     source: 'pr-review-output-contract',
-    resultPath: path.relative(runDir, path.resolve(runDir, resultPath)),
-    validationPath: validationPath ? path.relative(runDir, path.resolve(runDir, validationPath)) : null,
+    resultPath: isArtifactRef(resultPath) ? artifactRefDisplayPath({ currentRunDir: runDir, ref: resultPath }) : path.relative(runDir, path.resolve(runDir, resultPath)),
+    validationPath: validationPath
+      ? isArtifactRef(validationPath)
+        ? artifactRefDisplayPath({ currentRunDir: runDir, ref: validationPath })
+        : path.relative(runDir, path.resolve(runDir, validationPath))
+      : null,
+    resultRef: isArtifactRef(resultPath) ? resultPath : artifactRefFromPath({ runDir, filePath: resultPath, kind: 'pr-review-result' }),
+    validationRef: validationPath
+      ? isArtifactRef(validationPath)
+        ? validationPath
+        : artifactRefFromPath({ runDir, filePath: validationPath, kind: 'pr-review-validation' })
+      : null,
   };
 }
 
 function rebaseEvidenceArtifactRef({ fromDir, toDir, ref }) {
   if (!ref) return null;
+  if (isArtifactRef(ref)) return ref;
   const absolute = path.isAbsolute(ref) ? ref : path.resolve(fromDir, ref);
   return path.relative(toDir, absolute);
+}
+
+function carriedEvidenceArtifactRef({ fromDir, ref, kind }) {
+  if (!ref) return null;
+  if (isArtifactRef(ref)) return ref;
+  return artifactRefFromPath({ runDir: fromDir, filePath: ref, kind });
 }
 
 function carriedSideEffectEvidenceFromLifecycleInput({ lifecycleInput, cwd, runDir }) {
@@ -119,6 +155,31 @@ function carriedSideEffectEvidenceFromLifecycleInput({ lifecycleInput, cwd, runD
   if (!baseDir) return carried;
   return {
     ...carried,
+    ...(carried.commit ? {
+      commit: {
+        ...carried.commit,
+        resultPath: rebaseEvidenceArtifactRef({
+          fromDir: baseDir,
+          toDir: runDir,
+          ref: carried.commit.resultPath,
+        }),
+        resultRef: carriedEvidenceArtifactRef({
+          fromDir: baseDir,
+          ref: carried.commit.resultRef || lifecycleInput?.nextUnit?.commitGate?.resultRef || carried.commit.resultPath,
+          kind: 'commit-intent-result',
+        }),
+        validationPath: rebaseEvidenceArtifactRef({
+          fromDir: baseDir,
+          toDir: runDir,
+          ref: carried.commit.validationPath,
+        }),
+        validationRef: carriedEvidenceArtifactRef({
+          fromDir: baseDir,
+          ref: carried.commit.validationRef || lifecycleInput?.nextUnit?.commitGate?.validationRef || carried.commit.validationPath,
+          kind: 'commit-intent-validation',
+        }),
+      },
+    } : {}),
     ...(carried.prReview ? {
       prReview: {
         ...carried.prReview,
@@ -127,10 +188,20 @@ function carriedSideEffectEvidenceFromLifecycleInput({ lifecycleInput, cwd, runD
           toDir: runDir,
           ref: carried.prReview.resultPath,
         }),
+        resultRef: carriedEvidenceArtifactRef({
+          fromDir: baseDir,
+          ref: carried.prReview.resultRef || lifecycleInput?.nextUnit?.prReviewGate?.resultRef || carried.prReview.resultPath,
+          kind: 'pr-review-result',
+        }),
         validationPath: rebaseEvidenceArtifactRef({
           fromDir: baseDir,
           toDir: runDir,
           ref: carried.prReview.validationPath,
+        }),
+        validationRef: carriedEvidenceArtifactRef({
+          fromDir: baseDir,
+          ref: carried.prReview.validationRef || lifecycleInput?.nextUnit?.prReviewGate?.validationRef || carried.prReview.validationPath,
+          kind: 'pr-review-validation',
         }),
       },
     } : {}),
@@ -138,20 +209,54 @@ function carriedSideEffectEvidenceFromLifecycleInput({ lifecycleInput, cwd, runD
 }
 
 async function prReviewEvidenceFromContractArtifacts({ runDir, prReview }) {
-  if (prReview?.source !== 'pr-review-output-contract' || !prReview.resultPath || !prReview.validationPath) return null;
-  const validationOk = await validationArtifactOk(runDir, prReview.validationPath);
+  if (
+    prReview?.source !== 'pr-review-output-contract'
+    || !(prReview.resultRef || prReview.resultPath)
+    || !(prReview.validationRef || prReview.validationPath)
+  ) return null;
+  const validationOk = await validationArtifactOk(runDir, prReview.validationRef || prReview.validationPath);
   if (!validationOk) return null;
-  const result = await readJson(path.resolve(runDir, prReview.resultPath), null);
+  const result = await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: prReview.resultRef || prReview.resultPath }), null);
   const output = result?.outputContract || result;
   const evidence = prReviewEvidenceFromOutput({
     runDir,
     output,
-    resultPath: prReview.resultPath,
-    validationPath: prReview.validationPath,
+    resultPath: prReview.resultRef || prReview.resultPath,
+    validationPath: prReview.validationRef || prReview.validationPath,
     fallbackReasonCode: prReview.reasonCode,
   });
   if (evidence && !evidence.url && prReview.url) evidence.url = prReview.url;
   return evidence;
+}
+
+async function initialInferenceUnitEvidenceFromRun({ run, runDir, plan }) {
+  const initialUnit = run?.contract?.artifacts?.initialInferenceUnit || null;
+  if (!initialUnit?.unitId) return null;
+  const resultPath = initialUnit.result || null;
+  const validationPath = initialUnit.validation || null;
+  const resultRef = initialUnit.resultRef || (resultPath
+    ? artifactRefFromPath({ runDir, filePath: resultPath, kind: `${initialUnit.unitId}-result` })
+    : null);
+  const validationRef = initialUnit.validationRef || (validationPath
+    ? artifactRefFromPath({ runDir, filePath: validationPath, kind: `${initialUnit.unitId}-validation` })
+    : null);
+  const result = resultRef ? await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: resultRef }), null) : null;
+  const validation = validationRef ? await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: validationRef }), null) : null;
+  const plannedOutput = plan?.initialInferenceUnitOutputContract || plan?.initialUnitOutputContract || null;
+  const outputContract = plannedOutput || result?.outputContract || result || null;
+  if (!outputContract) return null;
+  return {
+    schema: 'living-doc-harness-initial-inference-unit-evidence/v1',
+    unitId: initialUnit.unitId,
+    role: initialUnit.role || initialUnit.unitId,
+    resultPath,
+    validationPath,
+    resultRef,
+    validationRef,
+    validationOk: validation?.ok === true,
+    status: result?.status || outputContract.status || null,
+    outputContract,
+  };
 }
 
 async function writePlanPrReviewFixture({ run, runDir, plan }) {
@@ -551,7 +656,7 @@ function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesCh
     documentReady: sourceState?.documentReady === true,
     renderedHtmlExists: sourceState?.renderedHtmlExists === true,
     closureAllowed,
-    commitEvidencePresent: Boolean(sideEffectEvidence?.commit?.sha || sideEffectEvidence?.commit?.exemption?.approved === true || sideEffectEvidence?.commit?.notRequired === true),
+    commitEvidencePresent: commitEvidenceSatisfied(sideEffectEvidence?.commit || {}),
     commitGate,
     prReviewPolicy,
     prReviewRequired: prReviewRequired === true,
@@ -562,41 +667,7 @@ function requiredHardFactsFromEvidence({ sourceState, gitWorktree, sourceFilesCh
 
 function commitGateFromEvidence({ sideEffectEvidence, sourceFilesChanged }) {
   const commit = sideEffectEvidence?.commit || {};
-  const blocked = commit.blocked === true || ['blocked', 'failed'].includes(commit.status);
-  if (blocked) {
-    return {
-      required: true,
-      status: 'blocked',
-      evidencePresent: false,
-      resultPath: commit.resultPath || null,
-      validationPath: commit.validationPath || null,
-      reasonCode: commit.reasonCode || 'commit-intent-gate-blocked',
-      basis: arr(commit.basis),
-    };
-  }
-  if (commit.sha || commit.exemption?.approved === true || commit.notRequired === true) {
-    return {
-      required: sourceFilesChanged === true || commit.required === true,
-      status: 'satisfied',
-      evidencePresent: true,
-      resultPath: commit.resultPath || null,
-      validationPath: commit.validationPath || null,
-      reasonCode: commit.reasonCode || null,
-      basis: arr(commit.basis),
-    };
-  }
-  if (sourceFilesChanged === true || commit.required === true) {
-    return {
-      required: true,
-      status: 'missing',
-      evidencePresent: false,
-    };
-  }
-  return {
-    required: false,
-    status: 'not-required',
-    evidencePresent: false,
-  };
+  return commitGateFromCommitEvidence({ commit, sourceChanged: sourceFilesChanged });
 }
 
 export async function sideEffectEvidenceFromRun({ run, runDir }) {
@@ -619,33 +690,59 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
   const prReviewValidationRef = run?.contract?.artifacts?.prReviewInferenceUnit?.validation || initialPrReviewValidationRef;
   const evidence = {};
   if (commitResultRef) {
-    const commitResult = await readJson(path.resolve(runDir, commitResultRef), null);
+    const commitResultArtifactRef = initialUnit?.unitId === 'commit-intent' && initialUnit?.resultRef
+      ? initialUnit.resultRef
+      : artifactRefFromPath({ runDir, filePath: commitResultRef, kind: 'commit-intent-result' });
+    const commitValidationArtifactRef = commitValidationRef
+      ? initialUnit?.unitId === 'commit-intent' && initialUnit?.validationRef
+        ? initialUnit.validationRef
+        : artifactRefFromPath({ runDir, filePath: commitValidationRef, kind: 'commit-intent-validation' })
+      : null;
+    const commitResult = await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: commitResultArtifactRef }), null);
     const output = commitResult?.outputContract || commitResult;
     const sideEffect = output?.sideEffect || {};
+    const validationOk = await validationArtifactOk(runDir, commitValidationArtifactRef);
     if (output?.schema === 'living-doc-harness-commit-intent-result/v1'
       && sideEffect.type === 'git-commit'
       && sideEffect.executed === true
-      && sideEffect.sha) {
+      && sideEffect.sha
+      && output.approved === true
+      && output.status === 'approved'
+      && validationOk) {
       evidence.commit = {
         required: arr(sideEffect.requiredChangedFiles).length > 0 || arr(output.changedFiles).length > 0,
         sha: sideEffect.sha,
+        status: output.status,
+        approved: true,
+        validationOk,
+        commitKind: output.commitKind || null,
         message: output.message || null,
         committedAt: sideEffect.committedAt || null,
         changedFiles: arr(output.changedFiles).length ? arr(output.changedFiles) : arr(sideEffect.requiredChangedFiles),
         committedFiles: arr(sideEffect.committedFiles),
+        livingDocStateFiles: arr(sideEffect.livingDocStateFiles),
+        livingDocStateCommittedFiles: arr(sideEffect.livingDocStateCommittedFiles),
+        nonLivingDocStateCommittedFiles: arr(sideEffect.nonLivingDocStateCommittedFiles),
         source: 'commit-intent-output-contract',
         resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
+        resultRef: commitResultArtifactRef,
+        validationPath: commitValidationRef ? path.relative(runDir, path.resolve(runDir, commitValidationRef)) : null,
+        validationRef: commitValidationArtifactRef,
       };
     } else if (output?.schema === 'living-doc-harness-commit-intent-result/v1'
-      && ['blocked', 'failed'].includes(output.status)) {
+      && (['blocked', 'failed'].includes(output.status) || sideEffect.executed === true || sideEffect.sha)) {
       evidence.commit = {
         required: arr(sideEffect.requiredChangedFiles).length > 0 || arr(output.changedFiles).length > 0 || output.status === 'blocked',
         status: output.status || 'blocked',
-        blocked: output.status === 'blocked' || output.status === 'failed',
+        approved: output.approved === true,
+        validationOk,
+        blocked: output.status !== 'approved' || validationOk !== true,
         reasonCode: sideEffect.reasonCode || output.reasonCode || 'commit-intent-gate-blocked',
         message: output.message || null,
         basis: arr(output.basis),
         changedFiles: arr(output.changedFiles).length ? arr(output.changedFiles) : arr(sideEffect.requiredChangedFiles),
+        sha: sideEffect.sha || null,
+        committedFiles: arr(sideEffect.committedFiles),
         currentRunChangedFiles: arr(sideEffect.currentRunChangedFiles),
         preExistingDirtyFiles: arr(sideEffect.preExistingDirtyFiles),
         allowedCommitFiles: arr(sideEffect.allowedCommitFiles),
@@ -653,13 +750,23 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
         source: 'commit-intent-output-contract',
         resultPath: path.relative(runDir, path.resolve(runDir, commitResultRef)),
         validationPath: commitValidationRef ? path.relative(runDir, path.resolve(runDir, commitValidationRef)) : null,
+        resultRef: commitResultArtifactRef,
+        validationRef: commitValidationArtifactRef,
       };
     }
   }
   if (prReviewResultRef) {
-    const prResult = await readJson(path.resolve(runDir, prReviewResultRef), null);
+    const prResultArtifactRef = initialUnit?.unitId === 'pr-review' && initialUnit?.resultRef
+      ? initialUnit.resultRef
+      : artifactRefFromPath({ runDir, filePath: prReviewResultRef, kind: 'pr-review-result' });
+    const prValidationArtifactRef = prReviewValidationRef
+      ? initialUnit?.unitId === 'pr-review' && initialUnit?.validationRef
+        ? initialUnit.validationRef
+        : artifactRefFromPath({ runDir, filePath: prReviewValidationRef, kind: 'pr-review-validation' })
+      : null;
+    const prResult = await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: prResultArtifactRef }), null);
     const output = prResult?.outputContract || prResult;
-    const validationOk = await validationArtifactOk(runDir, prReviewValidationRef);
+    const validationOk = await validationArtifactOk(runDir, prValidationArtifactRef);
     if (validationOk) {
       const prEvidence = prReviewEvidenceFromOutput({
         runDir,
@@ -667,6 +774,10 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
         resultPath: prReviewResultRef,
         validationPath: prReviewValidationRef,
       });
+      if (prEvidence) {
+        prEvidence.resultRef = prResultArtifactRef;
+        prEvidence.validationRef = prValidationArtifactRef;
+      }
       if (prEvidence) evidence.prReview = prEvidence;
     }
   }
@@ -697,10 +808,11 @@ function compactGitWorktreeEvidence(gitWorktree) {
   };
 }
 
-function compactControllerEvidence({ evidenceSnapshotPath, evidenceSnapshotHash, evidenceSnapshotBytes, gitWorktree, controllerState, requiredHardFacts }) {
+function compactControllerEvidence({ evidenceSnapshotPath, evidenceSnapshotRef, evidenceSnapshotHash, evidenceSnapshotBytes, gitWorktree, controllerState, requiredHardFacts }) {
   return {
     schema: 'living-doc-harness-controller-evidence-summary/v1',
     snapshotPath: evidenceSnapshotPath,
+    snapshotRef: evidenceSnapshotRef || null,
     snapshotHash: evidenceSnapshotHash,
     snapshotBytes: evidenceSnapshotBytes,
     gitWorktree: compactGitWorktreeEvidence(gitWorktree),
@@ -788,9 +900,10 @@ async function writeJsonlText(filePath, text) {
 }
 
 function nextInputFromFinalization({ finalization, outputInputPath }) {
-  const mode = ['none', 'user-stop'].includes(finalization.nextIteration?.mode)
-    ? 'continuation'
-    : finalization.nextIteration?.mode || 'continuation';
+  const requestedMode = finalization.nextIteration?.mode || null;
+  const mode = ['none', 'user-stop', 'resume', 'continuation'].includes(requestedMode)
+    ? 'fresh-unit'
+    : requestedMode || 'fresh-unit';
   const nextUnit = finalization.postReviewSelection?.nextUnit || null;
   const instruction = instructionForSelectedUnit({
     fallback: finalization.nextIteration?.instruction,
@@ -803,8 +916,26 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
     previousIteration: finalization.iteration,
     instruction,
     handoverPath: finalization.handoverPath ? path.relative(process.cwd(), finalization.handoverPath) : null,
+    handoverRef: runArtifactRef({
+      runDir: finalization.runDir,
+      runId: finalization.runId,
+      filePath: finalization.handoverPath,
+      kind: 'handover',
+    }),
     repairSkillResultPath: finalization.repairSkillResultPath ? path.relative(process.cwd(), finalization.repairSkillResultPath) : null,
+    repairSkillResultRef: runArtifactRef({
+      runDir: finalization.runDir,
+      runId: finalization.runId,
+      filePath: finalization.repairSkillResultPath,
+      kind: 'repair-skill-result',
+    }),
     outputInputPath: path.relative(process.cwd(), outputInputPath),
+    outputInputRef: runArtifactRef({
+      runDir: finalization.runDir,
+      runId: finalization.runId,
+      filePath: outputInputPath,
+      kind: 'output-input',
+    }),
     selectedUnitType: nextUnit?.unitId || null,
     selectedUnitRole: nextUnit?.role || nextUnit?.unitId || null,
     nextUnit,
@@ -825,15 +956,12 @@ function instructionForSelectedUnit({ fallback, nextUnit }) {
     return 'Run the selected closure-review unit against the controller evidence and return the terminal closure verdict.';
   }
   if (unitId === 'living-doc-balance-scan') {
-    return 'Run the selected scan-only living-doc balance scan and return an ordered repair or continuation recommendation.';
-  }
-  if (unitId === 'continuation-inference') {
-    return 'Run the selected continuation inference unit to resolve the controller-owned blocker or reroute the lifecycle.';
+    return 'Run the selected scan-only living-doc balance scan and return an ordered repair or fresh-worker recommendation.';
   }
   if (unitId === 'worker') {
     return 'Run the selected worker unit for the remaining source or living-doc objective work named by the controller evidence.';
   }
-  return fallback || 'Continue from the previous non-closure state until the living-doc objective is reached.';
+  return fallback || 'Start a fresh inference unit from the living doc and controller-approved contract evidence until the objective is reached.';
 }
 
 function lifecycleMayStop(finalization) {
@@ -857,10 +985,10 @@ function nextActionFromFinalization(finalization) {
   const nextUnit = finalization.postReviewSelection?.nextUnit || null;
   const unitId = nextUnit?.unitId || 'worker';
   return {
-    action: unitId === 'worker' ? 'start-next-worker-iteration' : `continue-with-${unitId}`,
+    action: unitId === 'worker' ? 'start-next-worker-iteration' : `start-next-${unitId}`,
     allowed: true,
     reason: instructionForSelectedUnit({
-      fallback: finalization.nextIteration?.instruction || 'Non-closure verdict requires continuation inference.',
+      fallback: finalization.nextIteration?.instruction || 'Non-closure verdict requires a fresh next inference unit.',
       nextUnit,
     }),
     selectedUnitType: unitId,
@@ -881,6 +1009,48 @@ async function writeOutputInput({
   nextInput = null,
   now,
 }) {
+  const evidenceRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.evidencePath || evidencePath,
+    kind: 'iteration-evidence',
+  });
+  const verdictRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.verdictPath,
+    kind: 'stop-verdict',
+  });
+  const reviewerVerdictRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.reviewerVerdictPath,
+    kind: 'reviewer-verdict',
+  });
+  const proofRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.proofPath,
+    kind: 'iteration-proof',
+  });
+  const handoverRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.handoverPath,
+    kind: 'handover',
+  });
+  const terminalRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.terminalPath,
+    kind: 'terminal-state',
+  });
+  const postReviewSelectionRef = runArtifactRef({
+    runDir,
+    runId: finalization.runId,
+    filePath: finalization.postReviewSelectionPath,
+    kind: 'post-review-selection',
+  });
   const artifact = {
     schema: 'living-doc-harness-output-input/v1',
     runId: finalization.runId,
@@ -891,13 +1061,21 @@ async function writeOutputInput({
       terminalKind: finalization.terminalKind,
       proofValid: finalization.proofValid,
       evidencePath: path.relative(runDir, finalization.evidencePath || evidencePath),
+      evidenceRef,
       verdictPath: path.relative(runDir, finalization.verdictPath),
+      verdictRef,
       reviewerVerdictPath: finalization.reviewerVerdictPath ? path.relative(runDir, finalization.reviewerVerdictPath) : null,
+      reviewerVerdictRef,
       proofPath: path.relative(runDir, finalization.proofPath),
+      proofRef,
       handoverPath: finalization.handoverPath ? path.relative(runDir, finalization.handoverPath) : null,
+      handoverRef,
       terminalPath: path.relative(runDir, finalization.terminalPath),
+      terminalRef,
       bundlePath: path.relative(process.cwd(), finalization.bundlePath),
+      bundleRef: cwdArtifactRef({ filePath: finalization.bundlePath, kind: 'evidence-bundle' }),
       postReviewSelectionPath: finalization.postReviewSelectionPath ? path.relative(runDir, finalization.postReviewSelectionPath) : null,
+      postReviewSelectionRef,
     },
     postReviewSelection: finalization.postReviewSelection ? {
       prReviewPolicy: finalization.postReviewSelection.prReviewPolicy || null,
@@ -979,6 +1157,7 @@ async function buildEvidenceFromPlan({
 
   await writePlanPrReviewFixture({ run, runDir, plan });
   const runSideEffectEvidence = await sideEffectEvidenceFromRun({ run, runDir });
+  const initialInferenceUnit = await initialInferenceUnitEvidenceFromRun({ run, runDir, plan });
   const carriedSideEffectEvidence = carriedSideEffectEvidenceFromLifecycleInput({
     lifecycleInput,
     cwd,
@@ -1019,6 +1198,34 @@ async function buildEvidenceFromPlan({
     : fallbackSideEffectEvidence;
   if (normalizedPrReviewPolicy.mode === 'disabled' && sideEffectEvidence?.prReview) {
     delete sideEffectEvidence.prReview;
+  }
+  if (sideEffectEvidence?.commit?.resultPath && !sideEffectEvidence.commit.resultRef) {
+    sideEffectEvidence.commit.resultRef = artifactRefFromPath({
+      runDir,
+      filePath: sideEffectEvidence.commit.resultPath,
+      kind: 'commit-intent-result',
+    });
+  }
+  if (sideEffectEvidence?.commit?.validationPath && !sideEffectEvidence.commit.validationRef) {
+    sideEffectEvidence.commit.validationRef = artifactRefFromPath({
+      runDir,
+      filePath: sideEffectEvidence.commit.validationPath,
+      kind: 'commit-intent-validation',
+    });
+  }
+  if (sideEffectEvidence?.prReview?.resultPath && !sideEffectEvidence.prReview.resultRef) {
+    sideEffectEvidence.prReview.resultRef = artifactRefFromPath({
+      runDir,
+      filePath: sideEffectEvidence.prReview.resultPath,
+      kind: 'pr-review-result',
+    });
+  }
+  if (sideEffectEvidence?.prReview?.validationPath && !sideEffectEvidence.prReview.validationRef) {
+    sideEffectEvidence.prReview.validationRef = artifactRefFromPath({
+      runDir,
+      filePath: sideEffectEvidence.prReview.validationPath,
+      kind: 'pr-review-validation',
+    });
   }
   if (sideEffectEvidence?.prReview) {
     const contractPrReview = await prReviewEvidenceFromContractArtifacts({
@@ -1082,10 +1289,17 @@ async function buildEvidenceFromPlan({
   await mkdir(path.dirname(evidenceSnapshotPath), { recursive: true });
   await writeFile(evidenceSnapshotPath, evidenceSnapshotText, 'utf8');
   const relativeEvidenceSnapshotPath = path.relative(runDir, evidenceSnapshotPath);
+  const evidenceSnapshotRef = runArtifactRef({
+    runDir,
+    runId: run.runId,
+    filePath: evidenceSnapshotPath,
+    kind: 'controller-evidence-snapshot',
+  });
   const evidenceSnapshotHash = sha256(evidenceSnapshotText);
   const evidenceSnapshotBytes = Buffer.byteLength(evidenceSnapshotText, 'utf8');
   const controllerEvidence = compactControllerEvidence({
     evidenceSnapshotPath: relativeEvidenceSnapshotPath,
+    evidenceSnapshotRef,
     evidenceSnapshotHash,
     evidenceSnapshotBytes,
     gitWorktree,
@@ -1122,6 +1336,7 @@ async function buildEvidenceFromPlan({
     ...(sourceState ? { sourceState } : {}),
     livingDocPath: docPath,
     controllerEvidenceSnapshotPath: relativeEvidenceSnapshotPath,
+    controllerEvidenceSnapshotRef: evidenceSnapshotRef,
     controllerEvidence,
     requiredHardFacts,
     sourceFilesChanged,
@@ -1138,6 +1353,7 @@ async function buildEvidenceFromPlan({
       },
     } : {}),
     ...(sideEffectEvidence ? { sideEffectEvidence } : {}),
+    ...(initialInferenceUnit ? { initialInferenceUnit } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
     ...(plan.prReview ? { prReview: plan.prReview } : {}),
     ...(proofRouteBundle ? {
@@ -1155,6 +1371,12 @@ async function buildEvidenceFromPlan({
           failureClass: result.failureClass,
           command: result.command,
           resultPath: path.relative(runDir, result.resultPath),
+          resultRef: runArtifactRef({
+            runDir,
+            runId: run.runId,
+            filePath: result.resultPath,
+            kind: 'proof-route-result',
+          }),
           stdoutPath: result.stdoutPath,
           stderrPath: result.stderrPath,
           acceptanceCriteria: result.acceptanceCriteria,
@@ -1207,9 +1429,17 @@ async function runPostFlightSummaryUnit({
     runId,
     iteration,
     terminalPath: path.relative(runDir, finalization.terminalPath),
+    terminalRef: runArtifactRef({ runDir, runId, filePath: finalization.terminalPath, kind: 'terminal-state' }),
     proofPath: path.relative(runDir, finalization.proofPath),
+    proofRef: runArtifactRef({ runDir, runId, filePath: finalization.proofPath, kind: 'iteration-proof' }),
     lifecycleResultPath: path.relative(runDir, lifecycleResultPath),
+    lifecycleResultRef: runArtifactRef({ runDir, runId, filePath: lifecycleResultPath, kind: 'lifecycle-result' }),
     requiredInspectionPaths: [finalization.terminalPath, finalization.proofPath, lifecycleResultPath],
+    requiredInputRefs: [
+      runArtifactRef({ runDir, runId, filePath: finalization.terminalPath, kind: 'terminal-state' }),
+      runArtifactRef({ runDir, runId, filePath: finalization.proofPath, kind: 'iteration-proof' }),
+      runArtifactRef({ runDir, runId, filePath: lifecycleResultPath, kind: 'lifecycle-result' }),
+    ].filter(Boolean),
   };
   const unit = await runContractBoundInferenceUnit({
     runDir,
@@ -1220,7 +1450,12 @@ async function runPostFlightSummaryUnit({
     role: 'post-flight-summary',
     unitTypeId: 'post-flight-summary',
     allowedUnitTypes,
-    prompt: `Write a post-flight summary from the closed run artifacts.\n\n${JSON.stringify(input, null, 2)}`,
+    prompt: `Write a post-flight summary from the closed run artifacts.
+
+This unit runs only after terminal closure. It summarizes the receipts; it must not create a new progress claim, reopen objective work, edit source files, or change terminal state.
+Treat the living doc as the closed objective record and summarize what was proven, what artifacts matter, and where the final evidence lives.
+
+${JSON.stringify(input, null, 2)}`,
     inputContract: input,
     fixtureResult: {
       status: 'written',
@@ -1263,7 +1498,9 @@ async function writeControllerSourceRestartHandoff({
     iteration,
     docPath,
     evidencePath: path.relative(runDir, evidencePath),
+    evidenceRef: runArtifactRef({ runDir, runId: run.runId, filePath: evidencePath, kind: 'iteration-evidence' }),
     evidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || null,
+    evidenceSnapshotRef: evidence.controllerEvidenceSnapshotRef || evidence.controllerEvidence?.snapshotRef || null,
     requiredHardFacts: evidence.requiredHardFacts || null,
     commitScope: evidence.commitScope || null,
     sourceFilesChanged: evidence.sourceFilesChanged === true,
@@ -1274,8 +1511,11 @@ async function writeControllerSourceRestartHandoff({
       state: run.contract?.artifacts?.state || null,
       events: run.contract?.artifacts?.events || null,
       lastMessage: run.contract?.artifacts?.lastMessage || null,
+      lastMessageRef: run.contract?.artifacts?.lastMessageRef || null,
       codexEvents: run.contract?.artifacts?.codexEvents || null,
+      codexEventsRef: run.contract?.artifacts?.codexEventsRef || null,
       codexStderr: run.contract?.artifacts?.codexStderr || null,
+      codexStderrRef: run.contract?.artifacts?.codexStderrRef || null,
     },
     requiredAction: 'Commit or restore controller-owned source changes, then restart the standalone lifecycle from the new controller version.',
   };
@@ -1292,7 +1532,9 @@ async function writeControllerSourceRestartHandoff({
       terminalKind: 'restart-required',
       proofValid: false,
       evidencePath: path.relative(runDir, evidencePath),
+      evidenceRef: runArtifactRef({ runDir, runId: run.runId, filePath: evidencePath, kind: 'iteration-evidence' }),
       restartHandoffPath: path.relative(runDir, handoffPath),
+      restartHandoffRef: runArtifactRef({ runDir, runId: run.runId, filePath: handoffPath, kind: 'controller-source-restart-handoff' }),
     },
     postReviewSelection: null,
     nextUnit: null,
@@ -1489,11 +1731,23 @@ export async function runHarnessLifecycle({
           terminalKind: 'restart-required',
           nextAction,
           outputInputPath: restartHandoff.outputInputPath,
+          outputInputRef: runArtifactRef({
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: restartHandoff.outputInputPath,
+            kind: 'output-input',
+          }),
           reviewerVerdictPath: null,
           repairSkillResultPath: null,
           closureReviewResultPath: null,
           postReviewSelectionPath: null,
           restartHandoffPath: restartHandoff.handoffPath,
+          restartHandoffRef: runArtifactRef({
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: restartHandoff.handoffPath,
+            kind: 'controller-source-restart-handoff',
+          }),
           proofValid: false,
         });
         finalState = {
@@ -1503,8 +1757,29 @@ export async function runHarnessLifecycle({
           runId: run.runId,
           iteration,
           restartHandoffPath: path.relative(cwd, restartHandoff.handoffPath),
+          restartHandoffRef: runArtifactRef({
+            cwd,
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: restartHandoff.handoffPath,
+            kind: 'controller-source-restart-handoff',
+          }),
           outputInputPath: path.relative(cwd, restartHandoff.outputInputPath),
+          outputInputRef: runArtifactRef({
+            cwd,
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: restartHandoff.outputInputPath,
+            kind: 'output-input',
+          }),
           evidencePath: path.relative(cwd, evidencePath),
+          evidenceRef: runArtifactRef({
+            cwd,
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: evidencePath,
+            kind: 'iteration-evidence',
+          }),
         };
         break;
       }
@@ -1555,10 +1830,40 @@ export async function runHarnessLifecycle({
         terminalKind: finalization.terminalKind,
         nextAction,
         outputInputPath: outputInput.outputInputPath,
+        outputInputRef: runArtifactRef({
+          runDir: run.runDir,
+          runId: run.runId,
+          filePath: outputInput.outputInputPath,
+          kind: 'output-input',
+        }),
         reviewerVerdictPath: finalization.reviewerVerdictPath,
+        reviewerVerdictRef: runArtifactRef({
+          runDir: run.runDir,
+          runId: run.runId,
+          filePath: finalization.reviewerVerdictPath,
+          kind: 'reviewer-verdict',
+        }),
         repairSkillResultPath: finalization.repairSkillResultPath,
+        repairSkillResultRef: runArtifactRef({
+          runDir: run.runDir,
+          runId: run.runId,
+          filePath: finalization.repairSkillResultPath,
+          kind: 'repair-skill-result',
+        }),
         closureReviewResultPath: finalization.closureReviewResultPath,
+        closureReviewResultRef: runArtifactRef({
+          runDir: run.runDir,
+          runId: run.runId,
+          filePath: finalization.closureReviewResultPath,
+          kind: 'closure-review-result',
+        }),
         postReviewSelectionPath: finalization.postReviewSelectionPath,
+        postReviewSelectionRef: runArtifactRef({
+          runDir: run.runDir,
+          runId: run.runId,
+          filePath: finalization.postReviewSelectionPath,
+          kind: 'post-review-selection',
+        }),
         prReviewPolicy: finalization.prReviewPolicy || null,
         prReviewRequired: finalization.prReviewRequired === true,
         prReviewGate: finalization.prReviewGate || null,
@@ -1598,7 +1903,9 @@ export async function runHarnessLifecycle({
           reason: nextAction.reason,
           runId: run.runId,
           postFlightSummaryPath: null,
+          postFlightSummaryRef: null,
           postFlightUnitResultPath: null,
+          postFlightUnitResultRef: null,
         };
         break;
       }
@@ -1642,6 +1949,7 @@ export async function runHarnessLifecycle({
       prReviewPolicy: normalizedPrReviewPolicy,
     },
     lifecycleDir,
+    lifecycleRef: cwdArtifactRef({ cwd, filePath: lifecycleDir, kind: 'lifecycle-dir' }),
     iterationCount: iterations.length,
     finalState: finalState || {
       kind: 'unknown',
@@ -1652,11 +1960,17 @@ export async function runHarnessLifecycle({
       ...item,
       runDir: resultPathRef(cwd, item.runDir),
       outputInputPath: resultPathRef(cwd, item.outputInputPath),
+      outputInputRef: item.outputInputRef || runArtifactRef({ cwd, runDir: item.runDir, runId: item.runId, filePath: item.outputInputPath, kind: 'output-input' }),
       reviewerVerdictPath: resultPathRef(cwd, item.reviewerVerdictPath),
+      reviewerVerdictRef: item.reviewerVerdictRef || runArtifactRef({ cwd, runDir: item.runDir, runId: item.runId, filePath: item.reviewerVerdictPath, kind: 'reviewer-verdict' }),
       repairSkillResultPath: resultPathRef(cwd, item.repairSkillResultPath),
+      repairSkillResultRef: item.repairSkillResultRef || runArtifactRef({ cwd, runDir: item.runDir, runId: item.runId, filePath: item.repairSkillResultPath, kind: 'repair-skill-result' }),
       closureReviewResultPath: resultPathRef(cwd, item.closureReviewResultPath),
+      closureReviewResultRef: item.closureReviewResultRef || runArtifactRef({ cwd, runDir: item.runDir, runId: item.runId, filePath: item.closureReviewResultPath, kind: 'closure-review-result' }),
       postReviewSelectionPath: resultPathRef(cwd, item.postReviewSelectionPath),
+      postReviewSelectionRef: item.postReviewSelectionRef || runArtifactRef({ cwd, runDir: item.runDir, runId: item.runId, filePath: item.postReviewSelectionPath, kind: 'post-review-selection' }),
       restartHandoffPath: resultPathRef(cwd, item.restartHandoffPath),
+      restartHandoffRef: item.restartHandoffRef || runArtifactRef({ cwd, runDir: item.runDir, runId: item.runId, filePath: item.restartHandoffPath, kind: 'controller-source-restart-handoff' }),
     })),
     lastEvidenceSummary: lastEvidence ? {
       unresolvedObjectiveTerms: arr(lastEvidence.objectiveState?.unresolvedObjectiveTerms).length,
@@ -1678,7 +1992,13 @@ export async function runHarnessLifecycle({
       finalState: {
         ...result.finalState,
         postFlightSummaryPath: postFlight?.summaryPath ? path.relative(cwd, postFlight.summaryPath) : null,
+        postFlightSummaryRef: postFlight?.summaryPath
+          ? runArtifactRef({ cwd, runDir: pendingPostFlight.runDir, runId: pendingPostFlight.runId, filePath: postFlight.summaryPath, kind: 'post-flight-summary' })
+          : null,
         postFlightUnitResultPath: postFlight?.unit?.resultPath ? path.relative(cwd, postFlight.unit.resultPath) : null,
+        postFlightUnitResultRef: postFlight?.unit?.resultPath
+          ? runArtifactRef({ cwd, runDir: pendingPostFlight.runDir, runId: pendingPostFlight.runId, filePath: postFlight.unit.resultPath, kind: 'post-flight-summary-result' })
+          : null,
       },
     };
     await writeJson(resultPath, result);

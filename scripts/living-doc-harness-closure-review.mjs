@@ -10,6 +10,13 @@ import path from 'node:path';
 
 import { runContractBoundInferenceUnit } from './living-doc-harness-inference-unit.mjs';
 import { DEFAULT_PR_REVIEW_POLICY, normalizePrReviewPolicy, prReviewRequiredForEvidence } from './living-doc-harness-inference-unit-types.mjs';
+import {
+  artifactRefDisplayPath,
+  artifactRefFromPath,
+  isArtifactRef,
+  resolveArtifactRef,
+} from './living-doc-harness-artifact-ref.mjs';
+import { commitEvidenceSatisfied } from './living-doc-harness-commit-gate.mjs';
 
 function arr(value) {
   return Array.isArray(value) ? value : [];
@@ -21,13 +28,18 @@ function rel(runDir, filePath) {
 
 function pathFromRunRef(runDir, filePath) {
   if (!filePath) return null;
+  if (isArtifactRef(filePath)) return resolveArtifactRef({ currentRunDir: runDir, ref: filePath });
   return path.isAbsolute(filePath) ? filePath : path.resolve(runDir, filePath);
 }
 
 function runRefInspectionPaths(runDir, filePath) {
   if (!filePath) return [];
   const absolutePath = pathFromRunRef(runDir, filePath);
-  const relativePath = path.isAbsolute(filePath) ? path.relative(runDir, filePath) : filePath;
+  const relativePath = isArtifactRef(filePath)
+    ? artifactRefDisplayPath({ currentRunDir: runDir, ref: filePath })
+    : path.isAbsolute(filePath)
+      ? path.relative(runDir, filePath)
+      : filePath;
   return [...new Set([relativePath, absolutePath].filter(Boolean))];
 }
 
@@ -36,14 +48,12 @@ function closureApprovedFromEvidence({ evidence, verdict }) {
   const sideEffects = evidence?.sideEffectEvidence || {};
   const sourceChanged = evidence?.sourceFilesChanged === true || sideEffects.commit?.required === true;
   const commitGateSatisfied = !sourceChanged
-    || sideEffects.commit?.sha
-    || sideEffects.commit?.exemption?.approved === true
-    || sideEffects.commit?.notRequired === true;
+    || commitEvidenceSatisfied(sideEffects.commit || {}, evidence?.requiredHardFacts || {});
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewRequired = prReviewRequiredForEvidence({ policy: prReviewPolicy, evidence });
   const prReviewEvidenceFromUnit = sideEffects.prReview?.source === 'pr-review-output-contract'
-    && sideEffects.prReview?.resultPath
-    && sideEffects.prReview?.validationPath;
+    && (sideEffects.prReview?.resultRef || sideEffects.prReview?.resultPath)
+    && (sideEffects.prReview?.validationRef || sideEffects.prReview?.validationPath);
   const prGateSatisfied = prReviewRequired
     ? Boolean(prReviewEvidenceFromUnit && (sideEffects.prReview?.approved === true || sideEffects.prReview?.notRequired === true))
     : true;
@@ -67,6 +77,11 @@ function closureReviewPrompt(input) {
 
 You are not the worker and you are not the reviewer that emitted the first stop verdict.
 You are the final closure reviewer. Emit JSON only.
+
+Living-doc purpose:
+- Treat the living doc as the active working surface for objective truth, not as a report wrapper.
+- Your job is terminal guard duty only: decide whether the worker/reviewer/gate evidence proves the objective and the living doc truth are aligned.
+- If closure is denied, return a concrete denial reason that can route to continuation or worker. Do not request broad new work from inside closure-review.
 
 Mandatory inspection:
 - Inspect every file path in requiredInspectionPaths before emitting JSON.
@@ -137,8 +152,8 @@ export async function runClosureReviewUnit({
     reviewer?.artifactPath,
     reviewer?.artifact?.inferenceUnitResultPath ? path.resolve(runDir, reviewer.artifact.inferenceUnitResultPath) : null,
     reviewer?.artifact?.inferenceUnitValidationPath ? path.resolve(runDir, reviewer.artifact.inferenceUnitValidationPath) : null,
-    ...runRefInspectionPaths(runDir, sideEffectEvidence?.prReview?.resultPath),
-    ...runRefInspectionPaths(runDir, sideEffectEvidence?.prReview?.validationPath),
+    ...runRefInspectionPaths(runDir, sideEffectEvidence?.prReview?.resultRef || sideEffectEvidence?.prReview?.resultPath),
+    ...runRefInspectionPaths(runDir, sideEffectEvidence?.prReview?.validationRef || sideEffectEvidence?.prReview?.validationPath),
   ].filter(Boolean);
   const approved = closureApprovedFromEvidence({ evidence, verdict });
   const input = {
@@ -147,13 +162,22 @@ export async function runClosureReviewUnit({
     iteration,
     createdAt: now,
     evidencePath: rel(runDir, evidencePath),
+    evidenceRef: artifactRefFromPath({ runDir, filePath: evidencePath, kind: 'iteration-evidence' }),
     reviewerVerdictPath: rel(runDir, reviewer?.artifactPath),
+    reviewerVerdictRef: artifactRefFromPath({ runDir, filePath: reviewer?.artifactPath, kind: 'reviewer-verdict' }),
     evidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || evidence.controllerEvidence?.snapshotPath || null,
+    evidenceSnapshotRef: evidence.controllerEvidenceSnapshotRef || evidence.controllerEvidence?.snapshotRef || null,
     requiredHardFacts: evidence.requiredHardFacts || null,
     prReviewPolicy,
     prReviewRequired,
     reviewerInferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
+    reviewerInferenceUnitResultRef: reviewer?.artifact?.inferenceUnitResultPath
+      ? artifactRefFromPath({ runDir, filePath: reviewer.artifact.inferenceUnitResultPath, kind: 'reviewer-result' })
+      : null,
     reviewerInferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
+    reviewerInferenceUnitValidationRef: reviewer?.artifact?.inferenceUnitValidationPath
+      ? artifactRefFromPath({ runDir, filePath: reviewer.artifact.inferenceUnitValidationPath, kind: 'reviewer-validation' })
+      : null,
     objectiveState: evidence.objectiveState,
     proofGates: evidence.proofGates,
     sideEffectEvidence,
@@ -161,23 +185,34 @@ export async function runClosureReviewUnit({
     stopVerdict: verdict.stopVerdict,
     nextIteration: verdict.nextIteration,
     requiredInspectionPaths,
+    requiredInputRefs: [
+      artifactRefFromPath({ runDir, filePath: evidencePath, kind: 'iteration-evidence' }),
+      artifactRefFromPath({ runDir, filePath: reviewer?.artifactPath, kind: 'reviewer-verdict' }),
+      evidence.controllerEvidenceSnapshotRef || evidence.controllerEvidence?.snapshotRef || null,
+      reviewer?.artifact?.inferenceUnitResultPath
+        ? artifactRefFromPath({ runDir, filePath: reviewer.artifact.inferenceUnitResultPath, kind: 'reviewer-result' })
+        : null,
+      reviewer?.artifact?.inferenceUnitValidationPath
+        ? artifactRefFromPath({ runDir, filePath: reviewer.artifact.inferenceUnitValidationPath, kind: 'reviewer-validation' })
+        : null,
+      sideEffectEvidence?.prReview?.resultRef || (sideEffectEvidence?.prReview?.resultPath
+        ? artifactRefFromPath({ runDir, filePath: sideEffectEvidence.prReview.resultPath, kind: 'pr-review-result' })
+        : null),
+      sideEffectEvidence?.prReview?.validationRef || (sideEffectEvidence?.prReview?.validationPath
+        ? artifactRefFromPath({ runDir, filePath: sideEffectEvidence.prReview.validationPath, kind: 'pr-review-validation' })
+        : null),
+    ].filter(Boolean),
   };
   const prompt = closureReviewPrompt(input);
   const fixtureResult = {
-    status: approved ? 'approved' : 'blocked',
+    schema: 'living-doc-harness-closure-review/v1',
+    approved,
+    reasonCode: approved ? 'closure-proof-accepted' : 'closure-proof-rejected',
+    confidence: 'high',
     basis: approved
-      ? ['Closure review fixture approved because reviewer verdict and all hard proof gates allow closure.']
-      : ['Closure review fixture blocked because reviewer verdict or hard proof gates do not allow closure.'],
-    outputContract: {
-      schema: 'living-doc-harness-closure-review/v1',
-      approved,
-      reasonCode: approved ? 'closure-proof-accepted' : 'closure-proof-rejected',
-      confidence: 'high',
-      basis: approved
-        ? ['Reviewer verdict is closed, closureAllowed is true, native trace evidence exists, proof gates pass, and objective/criteria are resolved.']
-        : ['Closure proof is not complete enough to allow terminal closure.'],
-      terminalAllowed: approved,
-    },
+      ? ['Reviewer verdict is closed, closureAllowed is true, native trace evidence exists, proof gates pass, and objective/criteria are resolved.']
+      : ['Closure proof is not complete enough to allow terminal closure.'],
+    terminalAllowed: approved,
   };
 
   const unit = await runContractBoundInferenceUnit({
@@ -203,5 +238,5 @@ export async function runClosureReviewUnit({
 
 export async function readClosureReviewResult(runDir, resultRef) {
   if (!resultRef) return null;
-  return normalizeClosureReview(JSON.parse(await readFile(path.resolve(runDir, resultRef), 'utf8')));
+  return normalizeClosureReview(JSON.parse(await readFile(resolveArtifactRef({ currentRunDir: runDir, ref: resultRef }), 'utf8')));
 }

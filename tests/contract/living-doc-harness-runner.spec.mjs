@@ -70,7 +70,7 @@ try {
       execute: false,
       cwd: process.cwd(),
       now: '2026-05-07T06:30:30.000Z',
-      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference', 'post-flight-summary'],
+      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'worker', 'post-flight-summary'],
       prReviewPolicy: { mode: 'required-before-closure' },
     }),
     /invalid harness runner inference unit run config: .*prReviewPolicy required-before-closure requires pr-review/,
@@ -277,7 +277,7 @@ exit 0
     prReviewPolicy: { mode: 'required-before-closure' },
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-pr-review-run',
       previousIteration: 1,
       instruction: 'Run the required PR-review gate.',
@@ -367,7 +367,7 @@ exit 0
     prReviewPolicy: { mode: 'required-before-closure' },
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-pr-review-run',
       previousIteration: 1,
       instruction: 'Run the required PR-review gate.',
@@ -451,7 +451,7 @@ exit 0
     prReviewPolicy: { mode: 'required-before-closure' },
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-pr-review-run',
       previousIteration: 1,
       instruction: 'Run the required PR-review gate.',
@@ -640,7 +640,7 @@ exit 0
     prReviewPolicy: { mode: 'required-before-closure' },
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'selected-handoff-previous-run',
       previousIteration: 1,
       instruction: 'Run the required PR-review gate.',
@@ -658,11 +658,12 @@ exit 0
     selectedHandoffPrReviewRun.runDir,
     selectedHandoffPrReviewRun.contract.artifacts.prReviewInferenceUnit.result,
   ), 'utf8'));
-  assert.equal(selectedHandoffPrReviewUnit.status, 'not-required');
-  assert.equal(selectedHandoffPrReviewUnit.outputContract.status, 'not-required');
-  assert.equal(selectedHandoffPrReviewUnit.outputContract.reasonCode, 'no-reviewable-pr-target');
+  assert.equal(selectedHandoffPrReviewUnit.status, 'blocked');
+  assert.equal(selectedHandoffPrReviewUnit.outputContract.status, 'blocked');
+  assert.equal(selectedHandoffPrReviewUnit.outputContract.reasonCode, 'pr-review-non-verdict-output');
   const selectedHandoffEvents = await readFile(path.join(selectedHandoffPrReviewRun.runDir, 'events.jsonl'), 'utf8');
-  assert.match(selectedHandoffEvents, /selected-unit-handoff-artifact/);
+  assert.doesNotMatch(selectedHandoffEvents, /selected-unit-handoff-artifact/);
+  assert.doesNotMatch(selectedHandoffEvents, /self-authored-inference-unit-result-recovered/);
 
   const prReviewBoundaryFixture = path.join(tmp, 'pr-review-role-boundary-fixture');
   await mkdir(prReviewBoundaryFixture, { recursive: true });
@@ -741,7 +742,7 @@ exit 0
     prReviewPolicy: { mode: 'required-before-closure' },
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-pr-review-run',
       previousIteration: 1,
       instruction: 'Run the required PR-review gate.',
@@ -818,8 +819,8 @@ exit 0
       classification: 'repairable',
     },
   }, null, 2)}\n`, 'utf8');
-  const fakeContinuationCodex = path.join(tmp, 'fake-continuation-codex');
-  const fakeContinuationCodexHome = path.join(tmp, 'fake-continuation-codex-home');
+  const fakeContinuationCodex = path.join(tmp, 'fake-fresh-worker-codex');
+  const fakeContinuationCodexHome = path.join(tmp, 'fake-fresh-worker-codex-home');
   await writeFile(fakeContinuationCodex, `#!/bin/sh
 set -eu
 OUT=""
@@ -832,16 +833,16 @@ while [ "$#" -gt 0 ]; do
 done
 mkdir -p "$CODEX_HOME/sessions/2026/05/07"
 LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
-cat > "$CODEX_HOME/sessions/2026/05/07/rollout-continuation-live.jsonl" <<EOF
-{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"continuation-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
-{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"continuation non-verdict fixture"}]}}
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-fresh-worker-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"fresh-worker-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"fresh worker fixture"}]}}
 EOF
 cat > "$OUT" <<'EOF'
 {
-  "schema": "living-doc-continuation-result/v1",
+  "schema": "living-doc-worker-output/v1",
   "status": "finished",
   "basis": [
-    "Continuation process finished but did not emit a registered continuation verdict."
+    "Fresh worker unit started from controller-approved evidence."
   ],
   "nextRecommendedUnitType": "worker"
 }
@@ -862,15 +863,15 @@ exit 0
     prReviewPolicy: { mode: 'required-before-closure' },
     iteration: 4,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-continuation-run',
       previousIteration: 3,
       instruction: 'Continue after blocked PR-review gate.',
       outputInputPath: previousContinuationOutputInputPath,
-      selectedUnitType: 'continuation-inference',
+      selectedUnitType: 'worker',
       nextUnit: {
-        unitId: 'continuation-inference',
-        role: 'continuation',
+        unitId: 'worker',
+        role: 'worker',
         reasonCode: 'pr-review-non-verdict-output',
       },
     },
@@ -880,10 +881,10 @@ exit 0
     continuationRun.contract.artifacts.initialInferenceUnit.result,
   ), 'utf8'));
   assert.equal(continuationUnit.mode, 'external-headless-codex');
-  assert.equal(continuationUnit.status, 'blocked');
-  assert.equal(continuationUnit.outputContract.status, 'blocked');
-  assert.equal(continuationUnit.outputContract.reasonCode, 'continuation-non-verdict-output');
-  assert.equal(continuationUnit.outputContract.nextRecommendedUnitType, 'worker');
+  assert.equal(continuationUnit.unitId, 'worker');
+  assert.equal(continuationUnit.status, 'finished');
+  assert.equal(continuationUnit.outputContract.status, 'finished');
+  assert.equal(continuationUnit.outputContract.nextAuthority, 'reviewer-inference');
   const continuationValidation = JSON.parse(await readFile(path.join(
     continuationRun.runDir,
     continuationRun.contract.artifacts.initialInferenceUnit.validation,
@@ -976,7 +977,7 @@ exit 0
     codexHome: fakeBalanceScanCodexHome,
     iteration: 6,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-balance-scan-run',
       previousIteration: 5,
       instruction: 'Diagnose the repair order.',
@@ -1055,7 +1056,7 @@ cat > "$OUT" <<'EOF'
     "This invalid fixture changed source and ran proof before ordering continuation."
   ],
   "orderedSkills": [
-    "continuation-inference"
+    "worker"
   ]
 }
 EOF
@@ -1160,6 +1161,7 @@ exit 0
   const changedDoc = JSON.parse(await readFile(commitDocPath, 'utf8'));
   changedDoc.updated = '2026-05-07T06:32:00.000Z';
   await writeFile(commitDocPath, `${JSON.stringify(changedDoc, null, 2)}\n`, 'utf8');
+  await writeFile(commitHtmlPath, '<!doctype html><title>Commit Intent Fixture Updated</title>\n', 'utf8');
   const previousRunDir = path.join(tmp, 'previous-run');
   await mkdir(path.join(previousRunDir, 'artifacts'), { recursive: true });
   await mkdir(path.join(previousRunDir, 'output-input'), { recursive: true });
@@ -1173,8 +1175,9 @@ exit 0
     requiredHardFacts: {
       schema: 'living-doc-harness-required-hard-facts/v1',
       sourceFilesChanged: true,
-      dirtyTrackedFiles: ['doc.json'],
+      dirtyTrackedFiles: ['doc.json', 'doc.html'],
       relevantUntrackedFiles: [],
+      forbiddenCommitFiles: ['doc.html'],
       commitEvidencePresent: false,
     },
     workerEvidence: { filesChanged: ['doc.json'] },
@@ -1199,7 +1202,7 @@ while [ "$#" -gt 0 ]; do
   fi
   shift || true
 done
-git add doc.json
+git add doc.json doc.html
 git -c user.name=CommitIntent -c user.email=commit-intent@example.com commit -m "commit-intent fixture commit"
 mkdir -p "$CODEX_HOME/sessions/2026/05/07"
 LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
@@ -1223,7 +1226,7 @@ exit 0
     codexHome: fakeCommitCodexHome,
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'previous-run',
       previousIteration: 1,
       instruction: 'Run commit-intent.',
@@ -1243,10 +1246,15 @@ exit 0
   assert.equal(commitIntentResult.outputContract.schema, 'living-doc-harness-commit-intent-result/v1');
   assert.equal(commitIntentResult.outputContract.approved, true);
   assert.equal(commitIntentResult.outputContract.status, 'approved');
+  assert.equal(commitIntentResult.outputContract.commitKind, 'living-doc-state');
   assert.equal(commitIntentResult.outputContract.sideEffect.executed, true);
   assert.match(commitIntentResult.outputContract.sideEffect.sha, /^[a-f0-9]{40}$/);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.requiredChangedFiles, ['doc.json']);
+  assert.deepEqual(commitIntentResult.outputContract.sideEffect.allowedCommitFiles, ['doc.json', 'doc.html']);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.missingChangedFiles, []);
+  assert.deepEqual(commitIntentResult.outputContract.sideEffect.extraCommittedFiles, []);
+  assert.deepEqual(commitIntentResult.outputContract.sideEffect.forbiddenCommittedFiles, []);
+  assert.deepEqual([...commitIntentResult.outputContract.sideEffect.livingDocStateCommittedFiles].sort(), ['doc.html', 'doc.json']);
 
   await writeFile(path.join(gitFixture, 'unrelated.md'), 'baseline unrelated\n', 'utf8');
   spawnSync('git', ['add', 'unrelated.md'], { cwd: gitFixture, stdio: 'ignore' });
@@ -1339,7 +1347,7 @@ exit 0
     codexHome: fakeBroadCommitCodexHome,
     iteration: 2,
     lifecycleInput: {
-      mode: 'continuation',
+      mode: 'fresh-unit',
       previousRunId: 'scoped-previous-run',
       previousIteration: 1,
       instruction: 'Run scoped commit-intent.',

@@ -1,0 +1,694 @@
+{
+  "docId": "doc:living-doc-inference-unit-chain-hard-proof",
+  "title": "Inference Unit Chain Hard Proof",
+  "subtitle": "Prove the controller-owned maximal lifecycle chain composes.",
+  "brand": "LD",
+  "scope": "Deterministic hard proof for inference-unit chaining in the standalone living-doc harness.",
+  "owner": "Living Docs",
+  "version": "complete",
+  "canonicalOrigin": "docs/living-doc-inference-unit-chain-hard-proof.json",
+  "sourceCoverage": "Created from the May 14, 2026 session that identified partial inference-unit chaining tests, report evidence, GitHub issues #300 and #301, and the existing contract-bound inference unit type-system living doc as source context.",
+  "updated": "2026-05-14T06:33:16.000Z",
+  "objective": "Prove that the living-doc harness can deterministically coordinate the hardest inference-unit lifecycle chain as one controller-owned composition, using mock or fake-headless unit execution with the same input contracts, output contracts, validations, and artifact layout as real units, from unresolved work through repair, worker re-entry, commit-intent, PR-review, closure-review, and controller-persisted terminal closure, with generated HTML and JSON evidence showing the actual chain timeline and gate transitions.",
+  "successCondition": "The objective is met only when a deterministic maximal-chain test runs locally and in CI, the generated report shows one composed controller-owned timeline with concrete unit artifacts and gate before/after state, every acceptance criterion maps to source-system evidence, and partial proofs, hand-written report prose, architecture diagrams, or suite-level coverage summaries cannot satisfy closure.",
+  "runState": {
+    "currentPhase": "complete-contract-surface-coverage-proven",
+    "documentReady": true,
+    "objectiveReady": true,
+    "nextObjectiveAction": "This hard-proof living doc is complete for contract-surface coverage. Next work moves back to the contract-bound inference unit type-system living doc: run a fresh standalone lifecycle to prove cross-run artifact references in the real harness path.",
+    "proofRoutes": [
+      {
+        "id": "maximal-chain-report",
+        "kind": "command",
+        "command": "npm run test:harness-chaining-report",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-deterministic-maximal-chain",
+          "criterion-controller-owned-routing",
+          "criterion-artifact-continuity",
+          "criterion-gate-block-unblock",
+          "criterion-terminal-authority",
+          "criterion-generated-report-evidence"
+        ],
+        "description": "Runs the deterministic inference-unit chaining suite and renders the HTML/JSON report that must include the maximal-chain timeline."
+      },
+      {
+        "id": "contract-suite",
+        "kind": "command",
+        "command": "npm run test:contract",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-deterministic-maximal-chain",
+          "criterion-controller-owned-routing",
+          "criterion-artifact-continuity",
+          "criterion-negative-breakpoints"
+        ],
+        "description": "Ensures the maximal-chain proof remains part of the normal contract surface and CI path."
+      }
+    ],
+    "relatedIssues": [
+      {
+        "id": "issue-297",
+        "number": 297,
+        "title": "Deterministic test harness for inference unit chaining",
+        "url": "https://github.com/triadflow/living-doc-compositor/issues/297",
+        "state": "closed",
+        "role": "predecessor deterministic fixture layer"
+      },
+      {
+        "id": "issue-298",
+        "number": 298,
+        "title": "Upgrade inference-unit chaining tests to controller-selected routing proof",
+        "url": "https://github.com/triadflow/living-doc-compositor/issues/298",
+        "state": "closed",
+        "role": "predecessor controller-selected routing layer"
+      },
+      {
+        "id": "issue-299",
+        "number": 299,
+        "title": "Upgrade inference-unit chaining tests to live inference calibration proof",
+        "url": "https://github.com/triadflow/living-doc-compositor/issues/299",
+        "state": "closed",
+        "role": "predecessor headless calibration layer"
+      },
+      {
+        "id": "issue-300",
+        "number": 300,
+        "title": "Hard-proof maximal inference-unit lifecycle chain",
+        "url": "https://github.com/triadflow/living-doc-compositor/issues/300",
+        "state": "closed",
+        "role": "implementation target"
+      },
+      {
+        "id": "issue-301",
+        "number": 301,
+        "title": "Process defect: chaining work substituted partial proofs for composition proof",
+        "url": "https://github.com/triadflow/living-doc-compositor/issues/301",
+        "state": "closed",
+        "role": "guardrail against premature closure"
+      }
+    ]
+  },
+  "objectiveFacets": [
+    {
+      "id": "maximal-chain-composition",
+      "name": "Maximal chain composition",
+      "description": "One deterministic test must exercise the hardest lifecycle path as a single composed controller-owned run."
+    },
+    {
+      "id": "contract-shape-fidelity",
+      "name": "Contract shape fidelity",
+      "description": "Mock or fake-headless units are valid only when they use the same input contracts, output contracts, validation artifacts, and artifact layout as real units."
+    },
+    {
+      "id": "controller-owned-routing",
+      "name": "Controller-owned routing",
+      "description": "Units emit typed claims and artifacts; the lifecycle controller selects every next unit and persists terminal state."
+    },
+    {
+      "id": "evidence-carryover",
+      "name": "Evidence carryover",
+      "description": "Output and evidence from each unit must become authoritative input to the following controller-selected unit."
+    },
+    {
+      "id": "gate-block-unblock",
+      "name": "Gate block and unblock",
+      "description": "Commit and PR-review gates must prove both the blocking state and the later unblocked state in the same hard chain."
+    },
+    {
+      "id": "terminal-authority",
+      "name": "Terminal authority",
+      "description": "Reviewer closure claims cannot close the lifecycle; closure-review approval plus controller persistence is required."
+    },
+    {
+      "id": "negative-breakpoints",
+      "name": "Negative breakpoints",
+      "description": "The suite must fail deterministically at the hard-chain points where composition can break."
+    },
+    {
+      "id": "generated-report-evidence",
+      "name": "Generated report evidence",
+      "description": "The HTML and JSON report must be generated from test artifacts and expose the actual timeline, not hand-authored proof language."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "maximal-chain-composition",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-deterministic-maximal-chain"
+    },
+    {
+      "facetId": "contract-shape-fidelity",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-artifact-continuity"
+    },
+    {
+      "facetId": "controller-owned-routing",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-controller-owned-routing"
+    },
+    {
+      "facetId": "evidence-carryover",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-artifact-continuity"
+    },
+    {
+      "facetId": "gate-block-unblock",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-gate-block-unblock"
+    },
+    {
+      "facetId": "terminal-authority",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-terminal-authority"
+    },
+    {
+      "facetId": "negative-breakpoints",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-negative-breakpoints"
+    },
+    {
+      "facetId": "generated-report-evidence",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-generated-report-evidence"
+    },
+    {
+      "facetId": "maximal-chain-composition",
+      "sectionId": "issue-spine",
+      "cardId": "issue-300"
+    },
+    {
+      "facetId": "generated-report-evidence",
+      "sectionId": "issue-spine",
+      "cardId": "issue-301"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "no-partial-proof-closure",
+      "statement": "The objective cannot close from isolated transition tests, fake-headless calibration alone, architecture prose, closed tickets, or report polish.",
+      "guards": [
+        "maximal-chain-composition",
+        "generated-report-evidence"
+      ]
+    },
+    {
+      "id": "units-produce-claims-controller-produces-authority",
+      "statement": "Inference units may produce typed claims and artifacts, but the controller must own route selection, gate decisions, and terminal persistence.",
+      "guards": [
+        "controller-owned-routing",
+        "terminal-authority"
+      ]
+    },
+    {
+      "id": "mocks-must-preserve-real-contract-shape",
+      "statement": "A mock or fake-headless unit counts as proof only when its input, output, validation, and artifact shape match real unit execution.",
+      "guards": [
+        "contract-shape-fidelity",
+        "evidence-carryover"
+      ]
+    },
+    {
+      "id": "gates-must-prove-block-and-unblock",
+      "statement": "A side-effect gate is not proven by showing only the blocked or only the approved state; the hard chain must show both.",
+      "guards": [
+        "gate-block-unblock"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Current Proof State",
+      "convergenceType": "status-snapshot",
+      "summary": "The suite now includes a deterministic maximal contract-chain proof; closure still requires review before issue closure.",
+      "data": [
+        {
+          "id": "snapshot-partial-proof",
+          "title": "Partial proof exists",
+          "status": "known",
+          "count": 3,
+          "label": "Existing proof slices",
+          "notes": [
+            "Mock unit chain artifacts exist.",
+            "Controller-selected routing tests exist.",
+            "Fake-headless calibration exists."
+          ]
+        },
+        {
+          "id": "snapshot-hard-proof-gap",
+          "title": "Maximal contract proof produced",
+          "status": "ready",
+          "count": 9,
+          "label": "Timeline steps",
+          "notes": [
+            "`npm run test:harness-chaining-report` now runs a maximal-chain suite and renders a 9-step timeline.",
+            "`npm run test:contract` includes `tests/contract/living-doc-harness-maximal-chain.spec.mjs`.",
+            "Issue #301's guardrail is now represented by executable tests: partial proofs alone cannot satisfy this living doc because the maximal-chain report, system-invariant suite, and full contract gate are all required.",
+            "On 2026-05-14T05:01:08.000Z, artifact-ref inventory/malformed-ref coverage and dashboard object-ref resolution were added to the contract suite.",
+            "On 2026-05-14T08:20:00.000Z, `tests/contract/living-doc-harness-system-invariants.spec.mjs` was added to audit runtime handoffs for policy-owned routing, artifact-ref continuity, stale-blocker override, and absence of preplanned unit chains.",
+            "On 2026-05-14T06:24:53.000Z, `npm run test:contract` passed with the system-invariant, artifact-ref, controller-selected, inference-unit chaining, maximal-chain, dashboard, lifecycle-controller, iteration, and MCP contract specs wired into the normal gate."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "summary": "Closure criteria for proving the hard-chain objective.",
+      "data": [
+        {
+          "id": "criterion-deterministic-maximal-chain",
+          "title": "Deterministic maximal-chain test",
+          "status": "ready",
+          "objectiveTerm": "deterministically coordinate the hardest inference-unit lifecycle chain as one controller-owned composition",
+          "criterion": "A deterministic maximal-chain test runs locally and in CI as one composed lifecycle path, not a set of isolated finalizer calls.",
+          "proofRequired": "A test file and generated report entry for the maximal chain, run by `npm run test:harness-chaining-report` and covered by `npm run test:contract`.",
+          "acceptanceTest": "The report shows one named maximal-chain timeline containing repair, worker re-entry, commit-intent, PR-review, closure-review, and terminal closed.",
+          "facetIds": [
+            "maximal-chain-composition"
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "criterion-controller-owned-routing",
+          "title": "Controller-owned routing",
+          "status": "ready",
+          "objectiveTerm": "controller-owned composition",
+          "criterion": "Every transition in the maximal chain is selected by controller routing from validated contracts and evidence, not by a unit directly invoking the next unit.",
+          "proofRequired": "Selection artifacts for each step showing current unit, selected next unit, gate reason, and validation status.",
+          "acceptanceTest": "The test fails if a unit bypasses controller selection or if a selected next unit lacks a valid selection artifact.",
+          "facetIds": [
+            "controller-owned-routing"
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ]
+        },
+        {
+          "id": "criterion-artifact-continuity",
+          "title": "Artifact continuity",
+          "status": "ready",
+          "objectiveTerm": "same input contracts, output contracts, validations, and artifact layout as real units",
+          "criterion": "Each unit writes prompt, input contract, result, validation, and output artifacts, and later unit inputs reference earlier artifacts as required evidence.",
+          "proofRequired": "Generated JSON report timeline listing artifact paths for every unit and assertions that those files exist and parse.",
+          "acceptanceTest": "The test fails if any required artifact is missing, malformed, or not carried into the next unit input where required.",
+          "facetIds": [
+            "contract-shape-fidelity",
+            "evidence-carryover"
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "criterion-repair-reentry",
+          "title": "Repair re-entry",
+          "status": "ready",
+          "objectiveTerm": "from unresolved work through repair, worker re-entry",
+          "criterion": "The maximal chain proves that repair returns to worker and the later reviewer pass observes the repaired state before closure gates proceed.",
+          "proofRequired": "Timeline evidence showing reviewer repairable, balance scan, repair-skill result, next worker, and second reviewer consuming repaired evidence.",
+          "acceptanceTest": "The test fails if the chain skips worker re-entry or if the later reviewer does not consume repair output.",
+          "facetIds": [
+            "maximal-chain-composition",
+            "evidence-carryover"
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "criterion-gate-block-unblock",
+          "title": "Commit and PR-review gates block and unblock",
+          "status": "ready",
+          "objectiveTerm": "commit-intent, PR-review",
+          "criterion": "The maximal chain proves both blocked and unblocked states for commit evidence and PR-review evidence.",
+          "proofRequired": "Timeline evidence showing missing commit evidence selects commit-intent, later commit evidence permits progress, missing PR-review evidence selects pr-review, and later approved PR-review evidence permits closure-review.",
+          "acceptanceTest": "The test fails if either gate is shown only in blocked form or only in approved form.",
+          "facetIds": [
+            "gate-block-unblock"
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "criterion-terminal-authority",
+          "title": "Terminal authority",
+          "status": "ready",
+          "objectiveTerm": "closure-review, and controller-persisted terminal closure",
+          "criterion": "Reviewer closure cannot close the lifecycle; terminal closed is written only after closure-review approval and controller persistence.",
+          "proofRequired": "Assertions and report evidence showing reviewer closure claim, closure-review approval, and terminal state path written by the lifecycle controller.",
+          "acceptanceTest": "The test fails if reviewer output alone can persist terminal closed.",
+          "facetIds": [
+            "terminal-authority"
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ]
+        },
+        {
+          "id": "criterion-negative-breakpoints",
+          "title": "Negative breakpoint matrix",
+          "status": "ready",
+          "objectiveTerm": "partial proofs cannot satisfy closure",
+          "criterion": "Deterministic negative cases cover missing commit evidence, bad commit scope, missing PR review, blocked PR review, closure denial, ineffective repair, invalid next unit, and stale or mismatched evidence.",
+          "proofRequired": "Named negative tests in the chaining suite and report, with failing condition assertions for each breakpoint.",
+          "acceptanceTest": "The suite fails if any required hard-chain breakpoint is not represented by a deterministic negative case.",
+          "facetIds": [
+            "negative-breakpoints"
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ]
+        },
+        {
+          "id": "criterion-generated-report-evidence",
+          "title": "Generated report evidence",
+          "status": "ready",
+          "objectiveTerm": "generated HTML and JSON evidence showing the actual chain timeline and gate transitions",
+          "criterion": "The report is generated from test artifacts and shows test names, statuses, timings, stdout/stderr, unit sequence, artifact paths, selected next units, gate before/after state, and terminal state path.",
+          "proofRequired": "`docs/inference-unit-chaining-test-report.html` and `.json` generated by `scripts/render-inference-unit-chaining-test-report.mjs` after running the suite.",
+          "acceptanceTest": "The report must make it obvious that the complex chain ran as one composed lifecycle path; hand-written prose or suite-level coverage summaries do not count.",
+          "facetIds": [
+            "generated-report-evidence"
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "summary": "Proof must advance from partial slices to one composed lifecycle path.",
+      "data": [
+        {
+          "id": "rung-existing-partial-tests",
+          "title": "Existing partial tests",
+          "status": "ready",
+          "ticketIds": [
+            "#297",
+            "#298",
+            "#299"
+          ],
+          "notes": [
+            "Current suite covers mock artifact shape, controller-selected routing slices, and fake-headless calibration."
+          ],
+          "nextStrongerProof": "Maximal chain composition."
+        },
+        {
+          "id": "rung-maximal-chain",
+          "title": "Maximal chain composition",
+          "status": "ready",
+          "ticketIds": [
+            "#300"
+          ],
+          "notes": [
+            "`tests/contract/living-doc-harness-maximal-chain.spec.mjs` composes repair, worker re-entry, commit-intent, PR-review, closure-review, and terminal closure as a 9-step deterministic contract chain."
+          ],
+          "nextStrongerProof": "Negative breakpoint matrix and generated artifact timeline."
+        },
+        {
+          "id": "rung-negative-breakpoints",
+          "title": "Negative breakpoint matrix",
+          "status": "ready",
+          "ticketIds": [
+            "#300",
+            "#301"
+          ],
+          "notes": [
+            "The maximal-chain spec records 8 deterministic negative breakpoint checks. Artifact-ref malformed/missing cases now fail through `validateArtifactRef` with precise violations. The separate system-invariant suite guards against stale blocker override, same-reason continuation loops, and preplanned unit chains."
+          ],
+          "nextStrongerProof": "CI and deploy report artifact proof."
+        },
+        {
+          "id": "rung-ci-report-proof",
+          "title": "CI generated report proof",
+          "status": "ready",
+          "ticketIds": [
+            "#300"
+          ],
+          "notes": [
+            "The deploy smoke workflow runs `npm run test:harness-chaining-report`; the generated report now includes maximal-chain timeline evidence."
+          ],
+          "nextStrongerProof": "Future optional real Codex smoke, outside this objective."
+        }
+      ]
+    },
+    {
+      "id": "verification-surface",
+      "title": "Verification Surface",
+      "convergenceType": "verification-surface",
+      "summary": "Concrete verification surfaces for the hard-proof objective.",
+      "data": [
+        {
+          "id": "verify-chaining-report-command",
+          "title": "Generated chaining report command",
+          "status": "ready",
+          "priority": "high",
+          "currentCoverage": "`npm run test:harness-chaining-report` runs five chaining suites and renders HTML/JSON with named tests, suite timings, coverage counts, a 9-step maximal-chain timeline, gate before/after states, artifact paths, stdout/stderr, and 8 negative breakpoints.",
+          "nextStep": "Use the generated report as source evidence when closing the hard-proof tickets; real harness-run proof continues in the type-system living doc.",
+          "gaps": [
+            "The report now includes the maximal-chain artifact timeline.",
+            "Production lifecycle proof is outside this hard-proof objective and belongs to the contract-bound inference unit type-system living doc.",
+            "Dashboard object-ref resolution is now covered by `tests/contract/living-doc-harness-dashboard-server.spec.mjs` using `living-doc-artifact-ref/v1` objects in lifecycle graph path fields."
+          ],
+          "automationPaths": [
+            "scripts/render-inference-unit-chaining-test-report.mjs"
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "verify-artifact-ref-surfaces",
+          "title": "Artifact-ref surface inventory",
+          "status": "ready",
+          "priority": "high",
+          "currentCoverage": "`tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs` checks lifecycle handoff path/ref pairs and malformed object-ref validation.",
+          "nextStep": "Extend this inventory if new lifecycle handoff path fields are introduced.",
+          "gaps": [
+            "The test inventories current lifecycle output-input and lifecycle-result path/ref pairs; it does not automatically discover every future JSON surface without adding the field to the inventory."
+          ],
+          "automationPaths": [
+            "tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs",
+            "scripts/living-doc-harness-artifact-ref.mjs"
+          ],
+          "ticketIds": [
+            "#301"
+          ]
+        },
+        {
+          "id": "verify-contract-suite",
+          "title": "Contract suite",
+          "status": "ready",
+          "priority": "high",
+          "currentCoverage": "`npm run test:contract` includes the current contract tests plus `tests/contract/living-doc-harness-maximal-chain.spec.mjs` and `tests/contract/living-doc-harness-system-invariants.spec.mjs`.",
+          "nextStep": "Keep the maximal-chain and system-invariant specs in the contract path; extend them when new inference-unit types or routing policies are added.",
+          "gaps": [
+            "The contract path now includes one hard composed lifecycle path plus system-level invariants for artifact refs, policy-owned routing, stale-blocker override, and no preplanned unit chains."
+          ],
+          "automationPaths": [
+            "package.json:test:contract"
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "relationship-map",
+      "title": "Hard Chain Relationship Map",
+      "convergenceType": "relationship-map",
+      "summary": "The required composition shape and authority boundary.",
+      "data": [
+        {
+          "id": "map-maximal-chain",
+          "title": "Maximal lifecycle chain authority map",
+          "status": "draft",
+          "claim": "The controller owns lifecycle routing and terminal authority while units only produce typed artifacts and claims.",
+          "semanticRole": "execution-guiding",
+          "validationQuestion": "Does the maximal-chain test show every transition as controller-selected and every gate as evidence-driven?",
+          "driftRisk": "This map becomes stale if the hard-proof chain changes unit order or if side-effect gate semantics move to a different artifact contract.",
+          "sectionIds": [
+            "acceptance-criteria",
+            "proof-ladder",
+            "verification-surface"
+          ],
+          "criterionIds": [
+            "criterion-deterministic-maximal-chain",
+            "criterion-controller-owned-routing",
+            "criterion-gate-block-unblock",
+            "criterion-terminal-authority"
+          ],
+          "invariantIds": [
+            "units-produce-claims-controller-produces-authority",
+            "gates-must-prove-block-and-unblock"
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ],
+          "diagrams": [
+            {
+              "title": "Required maximal chain",
+              "role": "control-model",
+              "text": "flowchart LR\n  W1[worker unresolved work] --> R1[reviewer repairable]\n  R1 --> BS[living-doc-balance-scan]\n  BS --> RS[repair-skill]\n  RS --> W2[worker re-entry]\n  W2 --> R2[reviewer closed claim with source changes]\n  R2 --> CI[commit-intent]\n  CI --> PR[pr-review]\n  PR --> CR[closure-review]\n  CR --> TS[controller terminal closed]\n  K[harness controller] -. selects every next unit .-> R1\n  K -. validates gates and evidence .-> CI\n  K -. persists terminal state .-> TS"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "issue-spine",
+      "title": "Issue Spine",
+      "convergenceType": "issue-orbit",
+      "summary": "Tickets that define and guard the hard-proof objective.",
+      "data": [
+        {
+          "id": "issue-297",
+          "title": "#297 Deterministic test harness for inference unit chaining",
+          "status": "closed",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/297",
+          "github_state": "CLOSED",
+          "relationship": "predecessor-deterministic-fixture-layer",
+          "relevance": "Established deterministic contract-kernel chaining coverage without live model execution, network calls, or external side effects. Closed on GitHub after the completed hard-proof living doc showed this layer is preserved and extended by the maximal-chain and system-invariant suites.",
+          "ticketIds": [
+            "#297"
+          ]
+        },
+        {
+          "id": "issue-298",
+          "title": "#298 Upgrade inference-unit chaining tests to controller-selected routing proof",
+          "status": "closed",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/298",
+          "github_state": "CLOSED",
+          "relationship": "predecessor-controller-selected-routing-layer",
+          "relevance": "Upgraded chaining coverage from legal path composition to controller-selected routing proof. Closed on GitHub after the hard-proof living doc referenced controller-selected chaining, system invariants, and full contract-suite evidence.",
+          "ticketIds": [
+            "#298"
+          ]
+        },
+        {
+          "id": "issue-299",
+          "title": "#299 Upgrade inference-unit chaining tests to live inference calibration proof",
+          "status": "closed",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/299",
+          "github_state": "CLOSED",
+          "relationship": "predecessor-headless-calibration-layer",
+          "relevance": "Added the representative headless/fake-live calibration layer for required evidence inspection, native event logs, result validation, and controller consumption. Closed on GitHub after the generated chaining report included the Headless Calibration suite as passing evidence.",
+          "ticketIds": [
+            "#299"
+          ]
+        },
+        {
+          "id": "issue-300",
+          "title": "#300 Hard-proof maximal inference-unit lifecycle chain",
+          "status": "closed",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/300",
+          "github_state": "CLOSED",
+          "relationship": "implementation-target",
+          "relevance": "Defines the deterministic maximal-chain test, required artifacts, negative matrix, and report timeline requirements. Closed on GitHub after the generated report and full contract-suite pass were referenced in a closure comment.",
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "issue-301",
+          "title": "#301 Process defect: chaining work substituted partial proofs for composition proof",
+          "status": "closed",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/301",
+          "github_state": "CLOSED",
+          "relationship": "closure-guardrail",
+          "relevance": "Prevents the work from closing through partial tests, prose, or report polish without the maximal composition proof. Closed on GitHub after the executable guardrail was documented: maximal-chain report, system-invariant suite, and full contract gate.",
+          "ticketIds": [
+            "#301"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-anchors",
+      "title": "Code Anchors",
+      "convergenceType": "code-anchor",
+      "summary": "Source surfaces expected to change or validate the proof.",
+      "data": [
+        {
+          "id": "anchor-report-generator",
+          "title": "Chaining report generator",
+          "status": "current",
+          "path": "scripts/render-inference-unit-chaining-test-report.mjs",
+          "range": "whole file",
+          "revision": "78b0f4b213e8af4aafcd0b50928f4362e4258142",
+          "what_it_does": "Runs the deterministic chaining suites and renders HTML/JSON report evidence.",
+          "why_it_matters": [
+            "Must be extended to show the maximal-chain timeline from real test artifacts rather than suite-level coverage alone."
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "anchor-current-chain-tests",
+          "title": "Current chaining tests",
+          "status": "current",
+          "path": "tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs",
+          "range": "whole file",
+          "revision": "78b0f4b213e8af4aafcd0b50928f4362e4258142",
+          "what_it_does": "Covers mock unit artifact shape and several legal and illegal transition paths.",
+          "why_it_matters": [
+            "Useful foundation, but not sufficient for the maximal composed lifecycle proof."
+          ],
+          "ticketIds": [
+            "#300",
+            "#301"
+          ]
+        },
+        {
+          "id": "anchor-controller-selected-tests",
+          "title": "Controller-selected chaining tests",
+          "status": "current",
+          "path": "tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs",
+          "range": "whole file",
+          "revision": "78b0f4b213e8af4aafcd0b50928f4362e4258142",
+          "what_it_does": "Covers controller-selected routing for individual gates and denial paths.",
+          "why_it_matters": [
+            "Provides the routing primitives that the maximal-chain test must compose end to end."
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        },
+        {
+          "id": "anchor-live-calibration-tests",
+          "title": "Fake-headless calibration tests",
+          "status": "current",
+          "path": "tests/calibration/living-doc-harness-live-inference-chaining.spec.mjs",
+          "range": "whole file",
+          "revision": "78b0f4b213e8af4aafcd0b50928f4362e4258142",
+          "what_it_does": "Covers execute:true through a fake Codex process and required-inspection enforcement.",
+          "why_it_matters": [
+            "Shows the fake-headless seam can preserve real artifact contracts where the maximal chain needs that realism."
+          ],
+          "ticketIds": [
+            "#300"
+          ]
+        }
+      ]
+    }
+  ]
+}

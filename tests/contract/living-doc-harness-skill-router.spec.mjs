@@ -137,8 +137,8 @@ try {
       now: '2026-05-07T07:02:00.000Z',
     });
     const actionNames = result.routing.actions.map((action) => action.skill || action.actionId);
-    assert.deepEqual(actionNames, ['reaction-path-validator', 'resume-worker']);
-    assert.equal(result.handover.nextIteration.mode, 'resume');
+    assert.deepEqual(actionNames, ['reaction-path-validator', 'start-fresh-worker']);
+    assert.equal(result.handover.nextIteration.mode, 'fresh-unit');
   }
 
   // Closure candidate routes through conservation and activation checks.
@@ -168,7 +168,7 @@ try {
     assert.equal(result.handover.mismatch.inferredClassification, 'closure-candidate');
   }
 
-  // True block creates blocker record action and continuation handover.
+  // True block creates blocker record action and fresh-unit handover.
   {
     const ev = evidence({
       terminalSignal: {
@@ -190,9 +190,9 @@ try {
       now: '2026-05-07T07:04:00.000Z',
     });
     const actionNames = result.routing.actions.map((action) => action.skill || action.actionId);
-    assert.deepEqual(actionNames, ['create-blocker-record', 'reaction-path-validator', 'prepare-continuation-handover']);
+    assert.deepEqual(actionNames, ['create-blocker-record', 'reaction-path-validator', 'prepare-fresh-unit-handover']);
     assert.equal(result.handover.nextIteration.allowed, true);
-    assert.equal(result.handover.nextIteration.mode, 'continuation');
+    assert.equal(result.handover.nextIteration.mode, 'fresh-unit');
   }
 } finally {
   await rm(tmp, { recursive: true, force: true });

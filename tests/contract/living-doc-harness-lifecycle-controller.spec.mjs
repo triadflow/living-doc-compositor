@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import { deriveGitWorktreeEvidence, runHarnessLifecycle, sideEffectEvidenceFromRun } from '../../scripts/living-doc-harness-lifecycle.mjs';
 import { selectLifecycleRoute } from '../../scripts/living-doc-harness-routing-policy.mjs';
+import { resolveArtifactRef } from '../../scripts/living-doc-harness-artifact-ref.mjs';
 
 function minimalDoc(docPath) {
   return {
@@ -117,7 +118,33 @@ try {
     prReviewRequired: false,
   });
   assert.equal(controllerOwnedClosureRoute.policyRuleId, 'controller-owned-closure-criteria-need-continuation');
-  assert.equal(controllerOwnedClosureRoute.unitId, 'continuation-inference');
+  assert.equal(controllerOwnedClosureRoute.unitId, 'worker');
+  const latestUnitRecommendationRoute = selectLifecycleRoute({
+    classification: 'repairable',
+    reasonCode: 'git-head-unchanged',
+    nextIterationAllowed: true,
+    commitBlocked: true,
+    latestRecommendation: {
+      sourceUnitType: 'worker',
+      recommendedUnitType: 'living-doc-balance-scan',
+      reasonCode: 'git-head-unchanged',
+    },
+    latestRecommendedUnitType: 'living-doc-balance-scan',
+    latestRecommendedUnitRole: 'balance-scan',
+    latestRecommendationReasonCode: 'git-head-unchanged',
+  });
+  assert.equal(latestUnitRecommendationRoute.policyRuleId, 'blocked-commit-intent-gate-needs-continuation');
+  assert.equal(latestUnitRecommendationRoute.unitId, 'worker');
+  assert.equal(latestUnitRecommendationRoute.selectedBy, undefined);
+  const sameReasonLoopRoute = selectLifecycleRoute({
+    classification: 'repairable',
+    reasonCode: 'git-head-unchanged',
+    nextIterationAllowed: true,
+    commitBlocked: true,
+    sameReasonContinuationLoop: true,
+  });
+  assert.equal(sameReasonLoopRoute.policyRuleId, 'same-reason-continuation-loop-blocked');
+  assert.equal(sameReasonLoopRoute.terminalActionKind, 'continuation-required');
 
   const gitFixture = path.join(tmp, 'git-fixture');
   await mkdir(gitFixture, { recursive: true });
@@ -143,7 +170,7 @@ try {
       allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review'],
       now: '2026-05-07T12:39:00.000Z',
     }),
-    /invalid lifecycle inference unit run config: .*continuation-inference.*post-flight-summary/,
+    /invalid lifecycle inference unit run config: .*post-flight-summary/,
   );
   await assert.rejects(
     () => runHarnessLifecycle({
@@ -151,7 +178,7 @@ try {
       runsDir: path.join(tmp, 'invalid-pr-policy-runs'),
       evidenceDir: path.join(tmp, 'invalid-pr-policy-evidence'),
       dashboardPath: path.join(tmp, 'invalid-pr-policy-dashboard.html'),
-      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference', 'post-flight-summary'],
+      allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'worker', 'post-flight-summary'],
       prReviewPolicy: { mode: 'required-before-closure' },
       now: '2026-05-07T12:39:30.000Z',
     }),
@@ -240,24 +267,50 @@ try {
   assert.equal(firstReviewerInput.controllerEvidence.gitWorktree.entries.omittedFromInlineContract, true);
 
   const firstOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[0].outputInputPath), 'utf8'));
-  assert.equal(firstOutputInput.schema, 'living-doc-harness-output-input/v1');
-  assert.equal(firstOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
-  assert.equal(firstOutputInput.nextUnit.unitId, 'worker');
-  assert.match(firstOutputInput.previousOutput.postReviewSelectionPath, /iteration-1-post-review-selection\.json$/);
-  assert.equal(firstOutputInput.nextInput.mode, 'repair');
-  assert.equal(firstOutputInput.nextInput.previousRunId, result.iterations[0].runId);
-  assert.match(firstOutputInput.nextInput.handoverPath, /iteration-1-handover\.json$/);
-  const secondOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[1].outputInputPath), 'utf8'));
-  assert.equal(secondOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
-  assert.equal(secondOutputInput.postReviewSelection.terminalAction.kind, 'closed');
+	  assert.equal(firstOutputInput.schema, 'living-doc-harness-output-input/v1');
+	  assert.equal(firstOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+	  assert.equal(firstOutputInput.nextUnit.unitId, 'worker');
+	  assert.equal(firstOutputInput.previousOutput.evidenceRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(firstOutputInput.previousOutput.reviewerVerdictRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(firstOutputInput.previousOutput.proofRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(firstOutputInput.previousOutput.handoverRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(firstOutputInput.previousOutput.postReviewSelectionRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(resolveArtifactRef({
+	    currentRunDir: path.resolve(process.cwd(), result.iterations[1].runDir),
+	    ref: firstOutputInput.previousOutput.evidenceRef,
+	  }), path.resolve(process.cwd(), result.iterations[0].runDir, firstOutputInput.previousOutput.evidencePath));
+	  assert.match(firstOutputInput.previousOutput.postReviewSelectionPath, /iteration-1-post-review-selection\.json$/);
+	  assert.equal(firstOutputInput.nextInput.mode, 'repair');
+	  assert.equal(firstOutputInput.nextInput.previousRunId, result.iterations[0].runId);
+	  assert.match(firstOutputInput.nextInput.handoverPath, /iteration-1-handover\.json$/);
+	  assert.equal(firstOutputInput.nextInput.handoverRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(firstOutputInput.nextInput.outputInputRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(result.iterations[0].outputInputRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(result.iterations[0].reviewerVerdictRef.schema, 'living-doc-artifact-ref/v1');
+	  const secondOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[1].outputInputPath), 'utf8'));
+	  assert.equal(secondOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
+	  assert.equal(secondOutputInput.postReviewSelection.terminalAction.kind, 'closed');
   assert.equal(secondOutputInput.terminalAction.kind, 'closed');
 
   const secondContract = JSON.parse(await readFile(path.resolve(process.cwd(), result.iterations[1].runDir, 'contract.json'), 'utf8'));
   assert.equal(secondContract.lifecycleInput.previousRunId, result.iterations[0].runId);
   assert.equal(secondContract.lifecycleInput.mode, 'repair');
-  const secondPrompt = await readFile(path.resolve(process.cwd(), result.iterations[1].runDir, 'prompt.md'), 'utf8');
-  assert.match(secondPrompt, /Lifecycle input from previous iteration/);
-  assert.match(secondPrompt, /previousRunId:/);
+	  const secondPrompt = await readFile(path.resolve(process.cwd(), result.iterations[1].runDir, 'prompt.md'), 'utf8');
+	  assert.match(secondPrompt, /Lifecycle input from previous iteration/);
+	  assert.match(secondPrompt, /previousRunId:/);
+	  assert.match(secondPrompt, /Resolved contract-bound evidence refs/);
+	  assert.match(secondPrompt, /living-doc-artifact-ref\/v1/);
+	  const secondInputContract = JSON.parse(await readFile(path.resolve(
+	    process.cwd(),
+	    result.iterations[1].runDir,
+	    'inference-units',
+	    'iteration-2',
+	    '01-worker',
+	    'input-contract.json',
+	  ), 'utf8'));
+	  assert.equal(secondInputContract.lifecycleInput.outputInputRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(secondInputContract.lifecycleInput.handoverRef.schema, 'living-doc-artifact-ref/v1');
+	  assert.equal(postFlightInput.requiredInputRefs.some((ref) => ref.kind === 'lifecycle-result'), true);
 
   const commitEvidenceRunDir = path.join(tmp, 'commit-evidence-ingest-run');
   await mkdir(path.join(commitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent'), { recursive: true });
@@ -344,6 +397,13 @@ try {
   assert.equal(blockedCommitEvidence.commit.source, 'commit-intent-output-contract');
   assert.equal(blockedCommitEvidence.commit.resultPath, 'initial-inference-units/iteration-2/04-commit-intent/result.json');
   assert.equal(blockedCommitEvidence.commit.validationPath, 'initial-inference-units/iteration-2/04-commit-intent/validation.json');
+  assert.equal(blockedCommitEvidence.commit.resultRef.schema, 'living-doc-artifact-ref/v1');
+  assert.equal(blockedCommitEvidence.commit.resultRef.runId, path.basename(blockedCommitEvidenceRunDir));
+  assert.equal(blockedCommitEvidence.commit.resultRef.relativePath, 'initial-inference-units/iteration-2/04-commit-intent/result.json');
+  assert.equal(resolveArtifactRef({
+    currentRunDir: path.join(tmp, 'later-run-that-receives-the-ref'),
+    ref: blockedCommitEvidence.commit.resultRef,
+  }), path.join(blockedCommitEvidenceRunDir, 'initial-inference-units', 'iteration-2', '04-commit-intent', 'result.json'));
   assert.equal(blockedCommitEvidence.commit.reasonCode, 'git-head-unchanged');
 
   const prReviewEvidenceRunDir = path.join(tmp, 'pr-review-evidence-ingest-run');
@@ -540,7 +600,7 @@ try {
         traceMessage: 'Iteration one produced resumable evidence and mentioned post-flight before closure.',
         reviewerVerdict: reviewerVerdict('resumable', {
           reasonCode: 'criteria-pending-after-routing-fix',
-          mode: 'resume',
+          mode: 'fresh-unit',
           instruction: 'Resume the harness after the controller-owned routing fix, rerun the objective proof path, and continue until post-flight summary can run after closure.',
         }),
       },
@@ -574,7 +634,7 @@ try {
   assert.equal(resumeOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
   assert.equal(resumeOutputInput.nextUnit.unitId, 'worker');
   assert.equal(resumeOutputInput.nextAction.action, 'start-next-worker-iteration');
-  assert.equal(resumeOutputInput.nextInput.mode, 'resume');
+  assert.equal(resumeOutputInput.nextInput.mode, 'fresh-unit');
   assert.notEqual(resumeOutputInput.postReviewSelection.nextUnit.unitId, 'post-flight-summary');
 
   const commitPendingSequencePath = path.join(tmp, 'commit-pending-sequence.json');
@@ -592,7 +652,7 @@ try {
         traceMessage: 'Iteration one produced proof and mentioned commit evidence before closure review.',
         reviewerVerdict: reviewerVerdict('resumable', {
           reasonCode: 'commit-evidence-and-criteria-pending',
-          mode: 'continuation',
+          mode: 'fresh-unit',
           instruction: 'Continue by producing fresh current-run commit evidence, then run closure review and post-flight summary only after acceptance criteria pass.',
         }),
       },
@@ -625,9 +685,9 @@ try {
   assert.equal(commitPending.iterations[0].classification, 'resumable');
   assert.equal(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'commit-intent');
   assert.equal(commitPendingOutputInput.nextUnit.unitId, 'commit-intent');
-  assert.equal(commitPendingOutputInput.nextAction.action, 'continue-with-commit-intent');
+  assert.equal(commitPendingOutputInput.nextAction.action, 'start-next-commit-intent');
   assert.equal(commitPendingOutputInput.nextAction.selectedUnitType, 'commit-intent');
-  assert.equal(commitPendingOutputInput.nextInput.mode, 'continuation');
+  assert.equal(commitPendingOutputInput.nextInput.mode, 'fresh-unit');
   assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
   assert.notEqual(commitPendingOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
   assert.equal(commitPending.iterations[0].closureReviewResultPath, null);
@@ -671,9 +731,9 @@ try {
   });
   const controllerClosureOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), controllerClosureCriteria.iterations[0].outputInputPath), 'utf8'));
   assert.equal(controllerClosureOutputInput.postReviewSelection.nextUnit.policyRuleId, 'controller-owned-closure-criteria-need-continuation');
-  assert.equal(controllerClosureOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
-  assert.equal(controllerClosureOutputInput.nextAction.action, 'continue-with-continuation-inference');
-  assert.notEqual(controllerClosureOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(controllerClosureOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(controllerClosureOutputInput.nextAction.action, 'start-next-worker-iteration');
+  assert.notEqual(controllerClosureOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
 
   const closureCandidateCommitGateSequencePath = path.join(tmp, 'closure-candidate-commit-gate-sequence.json');
   await writeFile(closureCandidateCommitGateSequencePath, `${JSON.stringify({
@@ -691,7 +751,7 @@ try {
         traceMessage: 'Iteration one produced worker-side proof and deferred to controller-owned commit gates.',
         reviewerVerdict: reviewerVerdict('closure-candidate', {
           reasonCode: 'acceptance-criteria-pending',
-          mode: 'continuation',
+          mode: 'fresh-unit',
           instruction: 'Continue through controller rerun and commit-intent gates, then closure review and post-flight summary.',
         }),
       },
@@ -775,7 +835,7 @@ try {
         reviewerVerdict: reviewerVerdict('closure-candidate', {
           closureAllowed: true,
           reasonCode: 'raw-log-shows-commit-intent',
-          mode: 'continuation',
+          mode: 'fresh-unit',
           instruction: 'Run the next closure-review unit against the candidate state before terminal closure.',
         }),
       },
@@ -811,7 +871,7 @@ try {
   const closureCandidateReviewOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), closureCandidateReview.iterations[0].outputInputPath), 'utf8'));
   assert.equal(closureCandidateReviewOutputInput.postReviewSelection.nextUnit.unitId, 'closure-review');
   assert.equal(closureCandidateReviewOutputInput.postReviewSelection.nextUnit.status, 'blocked');
-  assert.equal(closureCandidateReviewOutputInput.nextAction.action, 'continue-with-closure-review');
+  assert.equal(closureCandidateReviewOutputInput.nextAction.action, 'start-next-closure-review');
   assert.equal(closureCandidateReviewOutputInput.nextAction.selectedUnitType, 'closure-review');
   const closureCandidateReviewContinuationContract = JSON.parse(await readFile(path.resolve(
     process.cwd(),
@@ -849,7 +909,7 @@ try {
         },
         reviewerVerdict: reviewerVerdict('true-block', {
           reasonCode: 'missing-source',
-          mode: 'continuation',
+          mode: 'fresh-unit',
           terminal: {
             kind: 'true-block',
             reasonCode: 'missing-source',
@@ -880,10 +940,10 @@ try {
   assert.equal(terminal.finalState.kind, 'closed');
   assert.equal(terminal.iterations[0].classification, 'true-block');
   assert.equal(terminal.iterations[0].terminalKind, 'continuation-required');
-  assert.equal(terminal.iterations[0].nextAction.action, 'continue-with-continuation-inference');
+  assert.equal(terminal.iterations[0].nextAction.action, 'start-next-worker-iteration');
   const trueBlockOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), terminal.iterations[0].outputInputPath), 'utf8'));
-  assert.equal(trueBlockOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
-  assert.equal(trueBlockOutputInput.nextAction.selectedUnitType, 'continuation-inference');
+  assert.equal(trueBlockOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(trueBlockOutputInput.nextAction.selectedUnitType, 'worker');
   assert.equal(trueBlockOutputInput.terminalAction, null);
 
   const trueBlockBatchSequencePath = path.join(tmp, 'true-block-batch-sequence.json');
@@ -904,7 +964,7 @@ try {
         },
         reviewerVerdict: reviewerVerdict('true-block', {
           reasonCode: 'runtime-proof-surface-unavailable',
-          mode: 'continuation',
+          mode: 'fresh-unit',
           terminal: {
             kind: 'true-block',
             reasonCode: 'runtime-proof-surface-unavailable',
@@ -936,17 +996,17 @@ try {
   assert.equal(trueBlockBatch.finalState.kind, 'closed');
   assert.equal(trueBlockBatch.iterations[0].classification, 'true-block');
   assert.equal(trueBlockBatch.iterations[0].terminalKind, 'continuation-required');
-  assert.equal(trueBlockBatch.iterations[0].nextAction.action, 'continue-with-continuation-inference');
+  assert.equal(trueBlockBatch.iterations[0].nextAction.action, 'start-next-worker-iteration');
   assert.equal(trueBlockBatch.iterations[0].nextAction.allowed, true);
   assert.equal(trueBlockBatch.iterations[1].classification, 'closed');
   const trueBlockBatchOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), trueBlockBatch.iterations[0].outputInputPath), 'utf8'));
   assert.equal(trueBlockBatchOutputInput.previousOutput.classification, 'true-block');
   assert.equal(trueBlockBatchOutputInput.previousOutput.terminalKind, 'continuation-required');
-  assert.equal(trueBlockBatchOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
-  assert.equal(trueBlockBatchOutputInput.nextAction.selectedUnitType, 'continuation-inference');
+  assert.equal(trueBlockBatchOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(trueBlockBatchOutputInput.nextAction.selectedUnitType, 'worker');
   assert.equal(trueBlockBatchOutputInput.terminalAction, null);
-  assert.equal(trueBlockBatchOutputInput.nextInput.mode, 'continuation');
-  assert.match(trueBlockBatchOutputInput.nextAction.reason, /selected continuation inference unit/);
+  assert.equal(trueBlockBatchOutputInput.nextInput.mode, 'fresh-unit');
+  assert.match(trueBlockBatchOutputInput.nextAction.reason, /selected worker unit/);
 
   const deniedClosureSequencePath = path.join(tmp, 'denied-closure-sequence.json');
   const fakeClosureReviewPath = path.join(tmp, 'fake-closure-review.mjs');
@@ -975,7 +1035,6 @@ const next = current + 1;
 writeFileSync(countPath, String(next));
 writeFileSync(outputPath, JSON.stringify({
   schema: 'living-doc-harness-closure-review/v1',
-  status: next > 1 ? 'approved' : 'blocked',
   approved: next > 1,
   reasonCode: next > 1 ? 'fixture-approved-closure' : 'fixture-denied-closure',
   confidence: 'high',
@@ -1027,7 +1086,7 @@ writeFileSync(outputPath, JSON.stringify({
   assert.match(deniedClosure.iterations[0].closureReviewResultPath, /inference-units\/iteration-1\/03-closure-review\/result\.json$/);
   assert.match(deniedClosure.iterations[0].postReviewSelectionPath, /artifacts\/iteration-1-post-review-selection\.json$/);
   const deniedOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), deniedClosure.iterations[0].outputInputPath), 'utf8'));
-  assert.equal(deniedOutputInput.nextUnit.unitId, 'continuation-inference');
+  assert.equal(deniedOutputInput.nextUnit.unitId, 'worker');
   assert.equal(deniedOutputInput.terminalAction, null);
   assert.equal(deniedOutputInput.postReviewSelection.nextUnit.status, 'selected');
 
@@ -1226,7 +1285,7 @@ writeFileSync(htmlPath, '<!doctype html><title>' + doc.runState.currentPhase + '
   assert.match(sourceClosure.iterations[1].reviewerVerdictPath, /reviewer-inference\/iteration-2-verdict\.json$/);
   assert.equal(sourceClosure.iterations[1].closureReviewResultPath, null);
   const sourceClosureSelection = JSON.parse(await readFile(path.resolve(process.cwd(), sourceClosure.iterations[1].postReviewSelectionPath), 'utf8'));
-  assert.equal(sourceClosureSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(sourceClosureSelection.nextUnit.unitId, 'worker');
   assert.equal(sourceClosureSelection.nextUnit.policyRuleId, 'blocked-commit-intent-gate-needs-continuation');
   assert.equal(sourceClosureSelection.nextUnit.commitGate.status, 'blocked');
   assert.match(sourceClosureSelection.nextUnit.commitGate.resultPath, /initial-inference-units\/iteration-2\/04-commit-intent\/result\.json$/);
@@ -1462,7 +1521,7 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
         traceMessage: 'Commit evidence exists and PR-review is the next missing controller-owned gate.',
         reviewerVerdict: reviewerVerdict('repairable', {
           reasonCode: 'pr-review-policy-gate-missing',
-          mode: 'continuation',
+          mode: 'fresh-unit',
           instruction: 'Run the required PR-review gate before another worker continuation.',
         }),
       },
@@ -1552,13 +1611,132 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
     now: '2026-05-07T13:05:45.000Z',
   });
   assert.equal(blockedCommitGateLifecycle.iterations[0].classification, 'repairable');
-  assert.equal(blockedCommitGateLifecycle.iterations[0].nextAction.selectedUnitType, 'continuation-inference');
+  assert.equal(blockedCommitGateLifecycle.iterations[0].nextAction.selectedUnitType, 'worker');
   const blockedCommitGateOutputInput = JSON.parse(await readFile(path.resolve(process.cwd(), blockedCommitGateLifecycle.iterations[0].outputInputPath), 'utf8'));
-  assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
   assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.policyRuleId, 'blocked-commit-intent-gate-needs-continuation');
   assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.commitGate.status, 'blocked');
   assert.equal(blockedCommitGateOutputInput.postReviewSelection.nextUnit.commitGate.reasonCode, 'git-head-unchanged');
   assert.notEqual(blockedCommitGateOutputInput.postReviewSelection.nextUnit.unitId, 'commit-intent');
+  const blockedCommitRequiredRefs = blockedCommitGateOutputInput.postReviewSelection.nextUnit.requiredInputRefs || [];
+  const blockedCommitResultRef = blockedCommitRequiredRefs.find((ref) => ref.kind === 'commit-intent-result');
+  assert.equal(blockedCommitResultRef?.schema, 'living-doc-artifact-ref/v1');
+  assert.equal(blockedCommitResultRef?.relativePath, 'initial-inference-units/iteration-2/04-commit-intent/result.json');
+  const blockedCommitContinuationContract = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    blockedCommitGateLifecycle.iterations[1].runDir,
+    'contract.json',
+  ), 'utf8'));
+  const blockedCommitContinuationInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    blockedCommitGateLifecycle.iterations[1].runDir,
+    blockedCommitContinuationContract.artifacts.initialInferenceUnit.inputContract,
+  ), 'utf8'));
+  assert.ok(blockedCommitContinuationInput.requiredInputRefs.some((ref) => ref.kind === 'commit-intent-result'));
+  assert.ok(blockedCommitContinuationInput.resolvedRequiredInputRefs.some((item) =>
+    item.displayPath?.includes('initial-inference-units/iteration-2/04-commit-intent/result.json')
+  ));
+
+  const workerRecommendationSequencePath = path.join(tmp, 'worker-recommendation-sequence.json');
+  await writeFile(workerRecommendationSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'commit-intent-blocked',
+        unresolvedObjectiveTerms: ['commit gate is blocked and needs fresh worker unit'],
+        unprovenAcceptanceCriteria: ['criterion-unit-output-route-authority'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: true,
+        sideEffectEvidence: {
+          commit: {
+            required: true,
+            status: 'blocked',
+            blocked: true,
+            source: 'commit-intent-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/04-commit-intent/result.json',
+            validationPath: 'initial-inference-units/iteration-2/04-commit-intent/validation.json',
+            reasonCode: 'git-head-unchanged',
+            changedFiles: ['docs/example.json'],
+          },
+        },
+        traceMessage: 'The first iteration proves a blocked commit gate that should start a fresh worker.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'acceptance-criteria-unproven',
+          mode: 'repair',
+          instruction: 'Continue through the controller-owned blocker.',
+        }),
+      },
+      {
+        stageAfter: 'worker-recommendation-ignored',
+        unresolvedObjectiveTerms: ['worker output must not become route authority'],
+        unprovenAcceptanceCriteria: ['criterion-unit-output-route-authority'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: true,
+        initialInferenceUnitOutputContract: {
+          schema: 'living-doc-worker-output/v1',
+          status: 'running',
+          reasonCode: 'git-head-unchanged',
+          basis: [
+            'The worker output is evidence for review, not route authority.',
+            'The controller should keep owning the next unit selection.',
+          ],
+          nextRecommendedUnitType: 'living-doc-balance-scan',
+        },
+        sideEffectEvidence: {
+          commit: {
+            required: true,
+            status: 'blocked',
+            blocked: true,
+            source: 'commit-intent-output-contract',
+            resultPath: 'initial-inference-units/iteration-2/04-commit-intent/result.json',
+            validationPath: 'initial-inference-units/iteration-2/04-commit-intent/validation.json',
+            reasonCode: 'git-head-unchanged',
+            changedFiles: ['docs/example.json'],
+          },
+        },
+        traceMessage: 'Worker recommended living-doc-balance-scan from raw blocker evidence.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'acceptance-criteria-not-satisfied',
+          mode: 'repair',
+          instruction: 'Ignore worker route claims and use policy input.',
+        }),
+      },
+      {
+        stageAfter: 'operator-stopped-after-route-authority-proof',
+        unresolvedObjectiveTerms: ['route authority proof captured'],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        traceMessage: 'Stop after proving worker route claims do not control the route.',
+        reviewerVerdict: reviewerVerdict('user-stopped', {
+          reasonCode: 'operator-stop',
+          mode: 'user-stop',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const workerRecommendationLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'worker-recommendation-runs'),
+    evidenceDir: path.join(tmp, 'worker-recommendation-evidence'),
+    dashboardPath: path.join(tmp, 'worker-recommendation-dashboard.html'),
+    evidenceSequencePath: workerRecommendationSequencePath,
+    now: '2026-05-07T13:05:50.000Z',
+  });
+  assert.equal(workerRecommendationLifecycle.iterations[0].nextAction.selectedUnitType, 'worker');
+  assert.equal(workerRecommendationLifecycle.iterations[1].classification, 'repairable');
+  assert.equal(workerRecommendationLifecycle.iterations[1].nextAction.selectedUnitType, 'worker');
+  const workerRecommendationOutputInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    workerRecommendationLifecycle.iterations[1].outputInputPath,
+  ), 'utf8'));
+  assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.unitId, 'worker');
+  assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.policyRuleId, 'blocked-commit-intent-gate-needs-continuation');
+  assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.selectedBy, 'routing-policy');
+  assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.routeAuthority, undefined);
+  assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.commitGate.status, 'blocked');
 
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({

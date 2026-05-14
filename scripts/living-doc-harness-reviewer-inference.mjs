@@ -129,9 +129,9 @@ function validateHardGates(verdict, evidence) {
   } else if (closureAllowed) {
     throw new Error('reviewer closureAllowed true is only valid for closed verdicts');
   } else {
-    const allowedModes = new Set(['continuation', 'repair', 'resume']);
+    const allowedModes = new Set(['fresh-unit', 'repair']);
     if (verdict.nextIteration.allowed !== true || !allowedModes.has(verdict.nextIteration.mode)) {
-      throw new Error('reviewer non-closure verdicts must continue with mode continuation, repair, or resume');
+      throw new Error('reviewer non-closure verdicts must request a fresh next unit with mode fresh-unit or repair');
     }
   }
   return true;
@@ -345,6 +345,12 @@ Read the frozen worker evidence below. Emit JSON only. Do not ask for user input
 You are not the worker. You are judging the worker stop state from evidence.
 The lifecycle code will enforce your verdict against hard gates.
 
+Living-doc purpose:
+- Treat the living doc as the active working surface for the objective: it must keep source-system state, evidence, unresolved decisions, acceptance criteria, and current truth aligned.
+- Judge whether the worker materially advanced that surface through source changes, living-doc truth updates, evidence, or resolved acceptance criteria.
+- Do not treat scans, summaries, blocker labels, report polish, or route churn as progress unless they advance the objective, repair the living doc, satisfy a gate, or expose a concrete missing condition.
+- When work remains knowable and allowed, prefer routing back to worker over creating another governance detour.
+
 Mandatory raw-log inspection:
 - The input contains logInspection.rawWorkerJsonlPaths.
 - Before emitting the verdict, run commands that inspect every raw JSONL file path in logInspection.rawWorkerJsonlPaths.
@@ -371,14 +377,14 @@ Return this JSON shape:
   },
   "nextIteration": {
     "allowed": true,
-    "mode": "repair|resume|continuation|none|user-stop",
+    "mode": "repair|fresh-unit|none|user-stop",
     "instruction": "what should happen next"
   }
 }
 
 Hard rule: only use classification "closed" when closureAllowed is true and the evidence shows no unresolved objective terms, no unproven acceptance criteria, native trace refs are present, acceptance criteria pass, rendered doc proof exists, evidence bundle proof exists, and the objective is actually proven.
 Hard rule: for every classification except "closed", set stopVerdict.closureAllowed to false even when controller hard facts say closure is possible. Use nextIteration.instruction to request closure-review when the evidence is a closure candidate that still needs terminal closure review.
-Hard rule: for every classification except "closed" and an explicit "user-stopped" lifecycle control signal, nextIteration.allowed must be true and nextIteration.mode must be "continuation", "repair", or "resume". A blocker, runtime limitation, failed proof, issue creation, pivot pressure, deferral, or budget boundary is not a lifecycle stop.
+Hard rule: for every classification except "closed" and an explicit "user-stopped" lifecycle control signal, nextIteration.allowed must be true and nextIteration.mode must be "fresh-unit" or "repair". A blocker, runtime limitation, failed proof, issue creation, pivot pressure, deferral, or budget boundary is not a lifecycle stop. Do not ask to resume or continue a stopped unit; the controller starts a fresh isolated unit from the living doc plus controller-approved contracts.
 
 Frozen evidence:
 ${JSON.stringify(input, null, 2)}

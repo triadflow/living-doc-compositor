@@ -300,7 +300,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Run the required pr-review policy gate and continue controller proof.',
       },
     },
@@ -356,7 +356,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Run the required pr-review policy gate before closure review.',
       },
     },
@@ -423,17 +423,72 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Resolve the blocked pr-review gate and continue controller proof.',
       },
     },
   });
   const blockedPrGateSelection = JSON.parse(await readFile(blockedPrGate.postReviewSelectionPath, 'utf8'));
-  assert.equal(blockedPrGateSelection.nextUnit.unitId, 'continuation-inference');
+  assert.equal(blockedPrGateSelection.nextUnit.unitId, 'worker');
   assert.notEqual(blockedPrGateSelection.nextUnit.unitId, 'pr-review');
-  assert.equal(blockedPrGateSelection.nextUnit.prReviewGate.status, 'blocked');
-  assert.equal(blockedPrGateSelection.nextUnit.prReviewGate.evidencePresent, false);
-  assert.ok(blockedPrGateSelection.nextUnit.requiredInputPaths.includes('inference-units/iteration-1/05-pr-review/result.json'));
+  assert.equal(blockedPrGateSelection.prReviewGate.status, 'blocked');
+  assert.equal(blockedPrGateSelection.prReviewGate.evidencePresent, false);
+  assert.ok(
+    blockedPrGateSelection.nextUnit.requiredInputPaths.includes('inference-units/iteration-1/05-pr-review/result.json')
+      || blockedPrGateSelection.nextUnit.requiredInputRefs.some((ref) => ref.relativePath === 'inference-units/iteration-1/05-pr-review/result.json')
+  );
+
+  const blockedCommitShaRun = await createHarnessRun({
+    docPath,
+    runsDir: path.join(tmp, 'blocked-commit-sha-runs'),
+    execute: false,
+    cwd: process.cwd(),
+    now: '2026-05-07T10:21:09.050Z',
+  });
+  const blockedCommitShaEvidencePath = path.join(tmp, 'blocked-commit-sha-evidence.json');
+  const blockedCommitShaTemplate = await writeIterationEvidenceTemplate({
+    runDir: blockedCommitShaRun.runDir,
+    outPath: blockedCommitShaEvidencePath,
+    tracePaths: [tracePath],
+    stageAfter: 'commit-intent-blocked-with-sha',
+    acceptanceCriteriaSatisfied: 'fail',
+    closureAllowed: false,
+    filesChanged: ['docs/living-doc-inference-unit-type-system.json'],
+    now: '2026-05-07T10:21:09.100Z',
+  });
+  blockedCommitShaTemplate.evidence.sourceFilesChanged = true;
+  blockedCommitShaTemplate.evidence.sideEffectEvidence = {
+    commit: {
+      required: true,
+      source: 'commit-intent-output-contract',
+      status: 'blocked',
+      approved: false,
+      blocked: true,
+      sha: 'abc1234',
+      resultPath: 'inference-units/iteration-1/04-commit-intent/result.json',
+      validationPath: 'inference-units/iteration-1/04-commit-intent/validation.json',
+      reasonCode: 'git-commit-contained-unapproved-files',
+      changedFiles: ['docs/living-doc-inference-unit-type-system.json'],
+    },
+  };
+  await writeFile(blockedCommitShaEvidencePath, `${JSON.stringify(blockedCommitShaTemplate.evidence, null, 2)}\n`, 'utf8');
+  const blockedCommitSha = await finalizeHarnessIteration({
+    runDir: blockedCommitShaRun.runDir,
+    evidencePath: blockedCommitShaEvidencePath,
+    livingDocPath: docPath,
+    afterDocPath: docPath,
+    iteration: 1,
+    now: '2026-05-07T10:21:09.150Z',
+    evidenceDir: path.join(tmp, 'blocked-commit-sha-evidence-bundles'),
+    dashboardPath: path.join(tmp, 'blocked-commit-sha-dashboard.html'),
+    reviewerVerdict: reviewerVerdict('repairable', {
+      reasonCode: 'commit-intent-output-blocked',
+    }),
+  });
+  const blockedCommitShaSelection = JSON.parse(await readFile(blockedCommitSha.postReviewSelectionPath, 'utf8'));
+  assert.equal(blockedCommitShaSelection.nextUnit.unitId, 'worker');
+  assert.equal(blockedCommitShaSelection.commitGate.status, 'blocked');
+  assert.equal(blockedCommitShaSelection.commitGate.evidencePresent, false);
 
   const prUrlOnlyRun = await createHarnessRun({
     docPath,
@@ -665,7 +720,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Continue under the controller lifecycle: run the controller-owned closure review against recorded commit evidence, then produce dashboard artifacts and post-flight summary if closure is approved.',
         mustNotDo: [],
       },
@@ -717,7 +772,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Continue until post-flight summary can run after closure.',
         mustNotDo: [],
       },
@@ -767,7 +822,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'resume',
+        mode: 'fresh-unit',
         instruction: 'Resume the harness after the controller-owned routing fix, rerun the objective proof path, and continue until post-flight summary can run after closure.',
         mustNotDo: [],
       },
@@ -821,7 +876,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Continue by producing fresh current-run commit evidence, then run closure review and post-flight summary only after acceptance criteria pass.',
         mustNotDo: [],
       },
@@ -946,7 +1001,7 @@ try {
       },
       nextIteration: {
         allowed: true,
-        mode: 'continuation',
+        mode: 'fresh-unit',
         instruction: 'Continue through controller rerun and commit-intent gates, then closure review and post-flight summary.',
         mustNotDo: [],
       },

@@ -101,8 +101,8 @@ function terminalVerdict(evidence) {
   if (!signal || !CONTINUATION_SIGNAL_KINDS.has(signal.kind)) return null;
 
   const basis = [
-    `Continuation signal ${signal.kind} was supplied by the harness evidence.`,
-    ...(arr(signal.basis).length ? arr(signal.basis) : ['Terminal signal requires an outside state change before continuation.']),
+    `Fresh-unit signal ${signal.kind} was supplied by the harness evidence.`,
+    ...(arr(signal.basis).length ? arr(signal.basis) : ['Terminal signal requires an outside state change before the next unit.']),
   ];
   return baseVerdict({
     classification: signal.kind,
@@ -111,8 +111,8 @@ function terminalVerdict(evidence) {
     basis,
     nextIteration: {
       allowed: true,
-      mode: 'continuation',
-      instruction: 'Continue through the next contract-bound inference unit; this signal is not objective closure.',
+      mode: 'fresh-unit',
+      instruction: 'Start the next fresh contract-bound inference unit; this signal is not objective closure.',
       mustNotDo: ['do not stop unless the objective is proven reached or the user explicitly stops the lifecycle'],
     },
     terminal: {
@@ -215,8 +215,8 @@ export function inferStopNegotiation(evidence) {
       basis,
       nextIteration: {
         allowed: true,
-        mode: 'resume',
-        instruction: `Resume with available next action: ${nextActions[0]}`,
+        mode: 'fresh-unit',
+        instruction: `Start a fresh unit with available next action: ${nextActions[0]}`,
         mustNotDo: ['do not ask the user before exhausting available harness actions'],
       },
       mismatch: mismatchFromWrapper(evidence, 'resumable', basis),

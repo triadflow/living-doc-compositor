@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inference Unit Chaining Test Report</title>
+<style>
+:root{--bg:#f6f8fb;--panel:#fff;--ink:#172033;--muted:#61718a;--line:#d8e1ec;--green:#166534;--green-bg:#dcfce7;--red:#b91c1c;--red-bg:#fee2e2;--blue:#2563eb;--blue-bg:#dbeafe;--amber:#9a5b05;--amber-bg:#fff3d6;--dark:#111827;--radius:8px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+.wrap{width:min(1180px,calc(100% - 40px));margin:0 auto}
+header{padding:32px 0 24px;border-bottom:1px solid var(--line);background:#fff}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.mark{width:32px;height:32px;display:grid;place-items:center;border-radius:7px;background:var(--dark);color:#fff;font-weight:900}
+.pill{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:850;border:1px solid var(--line)}
+.pill.pass{background:var(--green-bg);color:var(--green);border-color:#bbf7d0}.pill.fail{background:var(--red-bg);color:var(--red);border-color:#fecaca}.pill.info{background:var(--blue-bg);color:#1e40af;border-color:#bfdbfe}.pill.warn{background:var(--amber-bg);color:var(--amber);border-color:#f5d08c}
+h1{margin:0;max-width:900px;font-size:clamp(30px,4vw,46px);line-height:1.08;font-weight:900;letter-spacing:0}
+.lede{max-width:860px;margin:12px 0 0;color:var(--muted);font-size:16px}
+.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.card strong{display:block;font-size:28px;line-height:1;margin-bottom:6px}.card span{color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+main{padding:24px 0 64px}
+section{padding:26px 0;border-bottom:1px solid var(--line)}section:last-child{border-bottom:0}
+.section-head{display:grid;grid-template-columns:280px 1fr;gap:24px;margin-bottom:16px;align-items:start}
+h2{margin:0;font-size:28px;line-height:1.15}.copy{color:var(--muted)}
+.suite{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+.suite-head{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;padding:16px;border-bottom:1px solid var(--line);background:#eef3f8}
+.suite h3{margin:0 0 6px;font-size:18px}.cmd{color:var(--muted);overflow-wrap:anywhere}
+.suite-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.suite-body>div{padding:16px}.suite-body>div+div{border-left:1px solid var(--line)}
+.test-list{display:grid;gap:10px}
+.test-case{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px}
+.test-case-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}.test-case h4{margin:0;font-size:15px}.test-source{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.chain{display:grid;gap:12px}
+.chain-step{display:grid;grid-template-columns:72px 1fr 1fr;gap:12px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px}
+.chain-step h4{margin:0 0 4px;font-size:16px}.chain-step .seq{font-size:28px;font-weight:900;line-height:1;color:var(--blue)}
+.path-list{display:grid;gap:4px;margin-top:8px}.path-list code{display:block;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:#f8fafc;overflow-wrap:anywhere}
+.gate-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.gate-box{border:1px solid var(--line);border-radius:7px;padding:8px}.gate-box strong{display:block;margin-bottom:4px}
+.negative-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.negative-case{border:1px solid var(--line);border-radius:7px;padding:8px;background:#fff}
+.test-table{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.test-row{display:grid;grid-template-columns:1.15fr 1.8fr .6fr .7fr .7fr .55fr .7fr;gap:12px;align-items:start;padding:12px 14px;border-top:1px solid var(--line)}
+.test-row:first-child{border-top:0}.test-row.head{background:#eef3f8;color:var(--muted);font-size:12px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}.test-row b{display:block}.test-row .muted{color:var(--muted)}
+ul{margin:8px 0 0;padding-left:18px;color:var(--muted)}li+li{margin-top:5px}
+pre{margin:0;padding:13px 14px;border-radius:var(--radius);background:var(--dark);color:#e5eefc;line-height:1.45;font-size:12.5px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.stdout{margin-top:10px}.stderr{margin-top:10px;border:1px solid #fecaca}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.meta div{border:1px solid var(--line);border-radius:7px;padding:8px;color:var(--muted);font-size:13px}.meta b{display:block;color:var(--ink)}
+.coverage{margin-top:12px}.coverage h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.json-link{display:inline-flex;margin-top:10px;color:var(--blue);font-weight:800;text-decoration:none}
+@media(max-width:1000px){.test-row{grid-template-columns:1fr}.test-row.head{display:none}}
+@media(max-width:900px){.wrap{width:min(100% - 28px,1180px)}.cards,.section-head,.suite-body,.chain-step,.gate-grid,.negative-grid{grid-template-columns:1fr}.suite-body>div+div{border-left:0;border-top:1px solid var(--line)}.meta{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><div class="mark">LD</div> Generated Test Report</div>
+      <div class="pill pass">All suites passed</div>
+    </div>
+    <h1>Inference-unit chaining test report</h1>
+    <p class="lede">Generated from a real test run. This report is intentionally narrow: commands, timings, exit codes, captured output, and exercised mock/fake-headless coverage.</p>
+    <div class="cards">
+      <div class="card"><strong>5</strong><span>suites run</span></div>
+      <div class="card"><strong>26</strong><span>tests run</span></div>
+      <div class="card"><strong>1</strong><span>tests skipped</span></div>
+      <div class="card"><strong>39</strong><span>coverage checks</span></div>
+      <div class="card"><strong>9</strong><span>chain steps</span></div>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <section>
+    <div class="section-head">
+      <h2>Run Metadata</h2>
+      <div class="copy">
+        <p><strong>Generated at:</strong> <code>2026-05-14T12:27:06.290Z</code></p>
+        <p><strong>Commit:</strong> <code>8d01f2660e50cb01debcf2fc4cfee58781817bf8</code></p>
+        <p><strong>Total test time:</strong> <code>3596 ms</code></p>
+        <p><strong>Runtime:</strong> <code>v24.13.0</code> on <code>darwin/arm64</code></p>
+        <p><strong>Workflow use:</strong> the deploy smoke action should run this same generator and upload both HTML and JSON artifacts.</p>
+        <a class="json-link" href="./inference-unit-chaining-test-report.json">Open JSON evidence</a>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Maximal Chain Timeline</h2>
+      <p class="copy">Generated from the maximal-chain test artifact. This is the composed lifecycle path, including selected next units, gate transitions, and unit artifact paths.</p>
+    </div>
+    
+    <div class="chain">
+      <div class="suite">
+        <div class="suite-head">
+          <div>
+            <h3>maximal-controller-owned-chain</h3>
+            <div class="cmd">Run dir: <code>/Users/rene/projects/living-doc-compositor/docs/inference-unit-chaining-maximal-chain-run/maximal-controller-owned-chain</code></div>
+            <div class="cmd">Terminal state: <code>terminal/iteration-1-closed.json</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+      </div>
+      
+      <article class="chain-step">
+        <div>
+          <div class="seq">1</div>
+          <span class="pill info">finished</span>
+        </div>
+        <div>
+          <h4>worker</h4>
+          <div class="cmd">Selected next: <code>reviewer-inference</code></div>
+          <div class="cmd">Reason: <code>worker-output-requires-review</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/01-worker/input-contract.json</code>
+            <code>result: inference-units/iteration-1/01-worker/result.json</code>
+            <code>validation: inference-units/iteration-1/01-worker/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-01.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;objectiveState&quot;: &quot;unresolved&quot;
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;reviewRequired&quot;: true
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: /Users/rene/projects/living-doc-compositor/docs/inference-unit-chaining-maximal-chain-run/maximal-controller-owned-chain/doc.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">2</div>
+          <span class="pill info">repairable</span>
+        </div>
+        <div>
+          <h4>reviewer-inference</h4>
+          <div class="cmd">Selected next: <code>living-doc-balance-scan</code></div>
+          <div class="cmd">Reason: <code>repairable-verdict-selects-balance-scan</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/02-reviewer-inference/input-contract.json</code>
+            <code>result: inference-units/iteration-1/02-reviewer-inference/result.json</code>
+            <code>validation: inference-units/iteration-1/02-reviewer-inference/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-02.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;repairRequired&quot;: false
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;repairRequired&quot;: true
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/01-worker/result.json, artifacts/maximal-chain-selection-01.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/01-worker/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-01.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">3</div>
+          <span class="pill info">ordered</span>
+        </div>
+        <div>
+          <h4>living-doc-balance-scan</h4>
+          <div class="cmd">Selected next: <code>repair-skill</code></div>
+          <div class="cmd">Reason: <code>balance-scan-orders-repair-skill</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/03-living-doc-balance-scan/input-contract.json</code>
+            <code>result: inference-units/iteration-1/03-living-doc-balance-scan/result.json</code>
+            <code>validation: inference-units/iteration-1/03-living-doc-balance-scan/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-03.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;orderedSkills&quot;: []
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;orderedSkills&quot;: [
+    &quot;objective-conservation-audit&quot;
+  ]
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/02-reviewer-inference/result.json, artifacts/maximal-chain-selection-02.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/02-reviewer-inference/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-02.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">4</div>
+          <span class="pill info">repaired</span>
+        </div>
+        <div>
+          <h4>repair-skill</h4>
+          <div class="cmd">Selected next: <code>worker</code></div>
+          <div class="cmd">Reason: <code>repair-output-routes-back-to-worker</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/04-repair-skill/input-contract.json</code>
+            <code>result: inference-units/iteration-1/04-repair-skill/result.json</code>
+            <code>validation: inference-units/iteration-1/04-repair-skill/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-04.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;repairedStateObserved&quot;: false
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;repairedStateObserved&quot;: true
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/03-living-doc-balance-scan/result.json, artifacts/maximal-chain-selection-03.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/03-living-doc-balance-scan/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-03.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">5</div>
+          <span class="pill info">finished</span>
+        </div>
+        <div>
+          <h4>worker</h4>
+          <div class="cmd">Selected next: <code>reviewer-inference</code></div>
+          <div class="cmd">Reason: <code>worker-reentry-after-repair</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/05-worker/input-contract.json</code>
+            <code>result: inference-units/iteration-1/05-worker/result.json</code>
+            <code>validation: inference-units/iteration-1/05-worker/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-05.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;repairOutputConsumed&quot;: false
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;repairOutputConsumed&quot;: true
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: /Users/rene/projects/living-doc-compositor/docs/inference-unit-chaining-maximal-chain-run/maximal-controller-owned-chain/doc.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/04-repair-skill/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-04.json</li><li><code>consumedRepairResultPath</code>: inference-units/iteration-1/04-repair-skill/result.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">6</div>
+          <span class="pill info">closed</span>
+        </div>
+        <div>
+          <h4>reviewer-inference</h4>
+          <div class="cmd">Selected next: <code>commit-intent</code></div>
+          <div class="cmd">Reason: <code>missing-commit-evidence-selects-commit-intent</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/06-reviewer-inference/input-contract.json</code>
+            <code>result: inference-units/iteration-1/06-reviewer-inference/result.json</code>
+            <code>validation: inference-units/iteration-1/06-reviewer-inference/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-06.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;commitEvidence&quot;: &quot;missing&quot;,
+  &quot;prReviewEvidence&quot;: &quot;missing&quot;
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;commitGate&quot;: &quot;blocked&quot;,
+  &quot;selectedGateUnit&quot;: &quot;commit-intent&quot;
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/05-worker/result.json, artifacts/maximal-chain-selection-05.json, inference-units/iteration-1/04-repair-skill/result.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/05-worker/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-05.json</li><li><code>consumedRepairResultPath</code>: inference-units/iteration-1/04-repair-skill/result.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">7</div>
+          <span class="pill info">approved</span>
+        </div>
+        <div>
+          <h4>commit-intent</h4>
+          <div class="cmd">Selected next: <code>pr-review</code></div>
+          <div class="cmd">Reason: <code>commit-evidence-present-selects-pr-review</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/07-commit-intent/input-contract.json</code>
+            <code>result: inference-units/iteration-1/07-commit-intent/result.json</code>
+            <code>validation: inference-units/iteration-1/07-commit-intent/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-07.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;commitEvidence&quot;: &quot;missing&quot;,
+  &quot;prReviewEvidence&quot;: &quot;missing&quot;
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;commitEvidence&quot;: &quot;present&quot;,
+  &quot;prReviewGate&quot;: &quot;blocked&quot;
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/06-reviewer-inference/result.json, artifacts/maximal-chain-selection-06.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/06-reviewer-inference/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-06.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">8</div>
+          <span class="pill info">approved</span>
+        </div>
+        <div>
+          <h4>pr-review</h4>
+          <div class="cmd">Selected next: <code>closure-review</code></div>
+          <div class="cmd">Reason: <code>pr-review-approved-selects-closure-review</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/08-pr-review/input-contract.json</code>
+            <code>result: inference-units/iteration-1/08-pr-review/result.json</code>
+            <code>validation: inference-units/iteration-1/08-pr-review/validation.json</code>
+            <code>selection: artifacts/maximal-chain-selection-08.json</code>
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;commitEvidence&quot;: &quot;present&quot;,
+  &quot;prReviewEvidence&quot;: &quot;missing&quot;
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;commitEvidence&quot;: &quot;present&quot;,
+  &quot;prReviewEvidence&quot;: &quot;approved&quot;
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/07-commit-intent/result.json, artifacts/maximal-chain-selection-07.json, inference-units/iteration-1/06-reviewer-inference/result.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/07-commit-intent/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-07.json</li><li><code>consumedCommitResultPath</code>: inference-units/iteration-1/07-commit-intent/result.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <article class="chain-step">
+        <div>
+          <div class="seq">9</div>
+          <span class="pill info">approved</span>
+        </div>
+        <div>
+          <h4>closure-review</h4>
+          <div class="cmd">Selected next: <code>terminal</code></div>
+          <div class="cmd">Reason: <code>closure-review-approves-terminal-closure</code></div>
+          <div class="path-list">
+            <code>input: inference-units/iteration-1/09-closure-review/input-contract.json</code>
+            <code>result: inference-units/iteration-1/09-closure-review/result.json</code>
+            <code>validation: inference-units/iteration-1/09-closure-review/validation.json</code>
+            
+          </div>
+        </div>
+        <div>
+          <div class="gate-grid">
+            <div class="gate-box"><strong>Gate before</strong><pre>{
+  &quot;commitEvidence&quot;: &quot;present&quot;,
+  &quot;prReviewEvidence&quot;: &quot;approved&quot;,
+  &quot;terminalAllowed&quot;: false
+}</pre></div>
+            <div class="gate-box"><strong>Gate after</strong><pre>{
+  &quot;terminalAllowed&quot;: true
+}</pre></div>
+          </div>
+          <div class="coverage">
+            <h4>Input carryover</h4>
+            <ul><li><code>requiredInspectionPaths</code>: inference-units/iteration-1/08-pr-review/result.json, artifacts/maximal-chain-selection-08.json, inference-units/iteration-1/07-commit-intent/result.json</li><li><code>previousUnitResultPath</code>: inference-units/iteration-1/08-pr-review/result.json</li><li><code>previousSelectionPath</code>: artifacts/maximal-chain-selection-08.json</li><li><code>consumedCommitResultPath</code>: inference-units/iteration-1/07-commit-intent/result.json</li><li><code>consumedPrReviewResultPath</code>: inference-units/iteration-1/08-pr-review/result.json</li></ul>
+          </div>
+        </div>
+      </article>
+      <div class="coverage">
+        <h4>Negative breakpoint matrix</h4>
+        <div class="negative-grid"><div class="negative-case"><strong>commit-evidence-missing</strong><div class="cmd">Recovery unit: <code>commit-intent</code></div></div><div class="negative-case"><strong>commit-evidence-outside-allowed-scope</strong><div class="cmd">Recovery unit: <code>worker</code></div></div><div class="negative-case"><strong>pr-review-evidence-missing</strong><div class="cmd">Recovery unit: <code>pr-review</code></div></div><div class="negative-case"><strong>pr-review-evidence-blocked</strong><div class="cmd">Recovery unit: <code>worker</code></div></div><div class="negative-case"><strong>closure-review-denied</strong><div class="cmd">Recovery unit: <code>worker</code></div></div><div class="negative-case"><strong>repair-skill-no-op-objective-unresolved</strong><div class="cmd">Recovery unit: <code>worker</code></div></div><div class="negative-case"><strong>invalid-next-unit-selected</strong><div class="cmd">Recovery unit: <code>reviewer-inference</code></div></div><div class="negative-case"><strong>stale-or-mismatched-iteration-evidence</strong><div class="cmd">Recovery unit: <code>worker</code></div></div></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Test Overview</h2>
+      <p class="copy">One row per executed suite. Test count is the number of concrete named test cases represented by the assertion script.</p>
+    </div>
+    <div class="test-table">
+      <div class="test-row head">
+        <div>Suite</div>
+        <div>Purpose</div>
+        <div>Tests</div>
+        <div>Coverage</div>
+        <div>Time</div>
+        <div>Exit</div>
+        <div>Status</div>
+      </div>
+      
+      <div class="test-row">
+        <div><b>Contract Artifact Chain</b><span class="muted"><code>contract-artifact-chain</code></span></div>
+        <div>Mock unit instances write the same prompt, input, result, validation, and chain artifacts as real unit runs.</div>
+        <div><b>8</b><span class="muted">run</span></div>
+        <div><b>10</b><span class="muted">checks</span></div>
+        <div><b>107 ms</b></div>
+        <div><b>0</b></div>
+        <div><span class="pill pass">passed</span></div>
+      </div>
+      <div class="test-row">
+        <div><b>Controller-Selected Chain</b><span class="muted"><code>controller-selected-chain</code></span></div>
+        <div>Controller finalization selects the next unit from frozen evidence, run policy, and gate state.</div>
+        <div><b>11</b><span class="muted">run</span></div>
+        <div><b>8</b><span class="muted">checks</span></div>
+        <div><b>1637 ms</b></div>
+        <div><b>0</b></div>
+        <div><span class="pill pass">passed</span></div>
+      </div>
+      <div class="test-row">
+        <div><b>System Invariants</b><span class="muted"><code>system-invariants</code></span></div>
+        <div>Runs a mocked lifecycle and audits the produced artifact graph for policy-owned routing, artifact-ref continuity, stale-blocker override, and no preplanned unit chain.</div>
+        <div><b>2</b><span class="muted">run</span></div>
+        <div><b>6</b><span class="muted">checks</span></div>
+        <div><b>763 ms</b></div>
+        <div><b>0</b></div>
+        <div><span class="pill pass">passed</span></div>
+      </div>
+      <div class="test-row">
+        <div><b>Maximal Lifecycle Chain</b><span class="muted"><code>maximal-chain</code></span></div>
+        <div>Runs one composed controller-owned chain through repair, worker re-entry, commit-intent, PR-review, closure-review, and terminal closure.</div>
+        <div><b>2</b><span class="muted">run</span></div>
+        <div><b>8</b><span class="muted">checks</span></div>
+        <div><b>111 ms</b></div>
+        <div><b>0</b></div>
+        <div><span class="pill pass">passed</span></div>
+      </div>
+      <div class="test-row">
+        <div><b>Headless Calibration</b><span class="muted"><code>headless-calibration</code></span></div>
+        <div>The execute:true process seam runs through a fake Codex binary while preserving the real artifact contract.</div>
+        <div><b>3</b><span class="muted">+ 1 skipped</span></div>
+        <div><b>7</b><span class="muted">checks</span></div>
+        <div><b>928 ms</b></div>
+        <div><b>0</b></div>
+        <div><span class="pill pass">passed</span></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Tests Executed</h2>
+      <p class="copy">These are the concrete test cases represented inside the assertion scripts. Each passed case ran against the same command, source file, and artifacts shown below.</p>
+    </div>
+    <div class="test-list">
+      
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>closed-through-closure-review</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>worker -&gt; reviewer-inference -&gt; closure-review is registry-legal</li><li>reviewer closure claim does not authorize terminal state</li><li>closure-review approval writes closed terminal state</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>commit-intent-before-closure-review</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>source changes route through commit-intent before closure-review</li><li>commit-intent receives changed files and required hard facts</li><li>mock commit-intent does not execute a side effect</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>pr-review-before-closure-review</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>required PR policy routes through pr-review before closure-review</li><li>pr-review input carries required policy and required flag</li><li>mock pr-review does not execute a side effect</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>repair-chain-returns-to-worker</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>repairable reviewer verdict routes to balance scan</li><li>balance scan routes to repair-skill</li><li>repair-skill routes back to worker</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>continuation-returns-to-worker</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>true-block reviewer verdict routes to worker</li><li>worker routes back to worker</li><li>terminal state remains continuation-required, not closed</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>closure-review-blocked-continues</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>closure-review denial routes to worker</li><li>terminalAllowed=false is preserved in the closure-review contract</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>invalid-transition-rejected</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>worker cannot select pr-review directly</li><li>contract validation reports selected-unit-type-not-allowed-by-current-contract</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>run-allowed-unit-type-rejected</h4>
+            <div class="test-source">Contract Artifact Chain · <code>tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>reviewer-inference cannot select pr-review when the run disallows pr-review</li><li>contract validation reports selected-unit-type-not-allowed-for-run</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>closed-no-gates</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>closed reviewer verdict selects closure-review</li><li>auto closure-review artifact is written</li><li>terminal action is closed</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>source-change-selects-commit-intent</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>changed source evidence blocks closure</li><li>controller selects commit-intent</li><li>closure-review is not run before commit evidence exists</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>pr-policy-selects-pr-review</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>required PR-review policy blocks closure</li><li>controller selects pr-review</li><li>PR-review gate status is missing</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>blocked-pr-evidence-selects-continuation</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>blocked PR-review evidence prevents closure</li><li>controller selects worker</li><li>continuation input includes blocked PR-review result path</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>repair-selects-balance-scan</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>repairable verdict with repair mode selects living-doc-balance-scan</li><li>repair skill chain result is written</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>non-terminal-true-block</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>true-block verdict remains continuation-required</li><li>controller selects worker</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>non-terminal-pivot</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>pivot verdict remains continuation-required</li><li>controller selects worker</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>non-terminal-deferred</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>deferred verdict remains continuation-required</li><li>controller selects worker</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>non-terminal-budget-exhausted</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>budget-exhausted verdict remains continuation-required</li><li>controller selects worker</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>closure-review-denial-selects-continuation</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>executed closure-review denial normalizes classification to true-block</li><li>terminal kind is continuation-required</li><li>controller selects worker with denial reason</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>pr-review-disallowed-reroutes-continuation</h4>
+            <div class="test-source">Controller-Selected Chain · <code>tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>required pr-review is blocked by run allowed-unit policy</li><li>controller selects worker</li><li>terminal kind is continuation-required</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>policy-table-routing-authority</h4>
+            <div class="test-source">System Invariants · <code>tests/contract/living-doc-harness-system-invariants.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>commit-intent, pr-review, closure-review, continuation, balance-scan, and terminal routes come from the policy table</li><li>selected units are registered and valid next units for the source unit contract</li><li>same-reason continuation loops are blocked before repeating continuation</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>runtime-handoff-invariant-audit</h4>
+            <div class="test-source">System Invariants · <code>tests/contract/living-doc-harness-system-invariants.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>representative lifecycle output-input artifacts use living-doc-artifact-ref/v1 for every path/ref handoff pair</li><li>selected next units cite a routing policy rule and route authority</li><li>new continuation output overrides an older blocked commit condition</li><li>runtime artifacts do not contain a pre-planned unit chain</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>maximal-controller-owned-chain</h4>
+            <div class="test-source">Maximal Lifecycle Chain · <code>tests/contract/living-doc-harness-maximal-chain.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>one chain contains worker, reviewer, balance scan, repair skill, worker re-entry, reviewer, commit-intent, PR-review, closure-review, and terminal closed</li><li>every unit writes prompt, input, result, validation, output, and runtime artifacts</li><li>selection artifacts record controller-owned next-unit choice and gate before/after state</li><li>later input contracts consume earlier repair, commit, and PR-review result paths</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>negative-breakpoint-matrix</h4>
+            <div class="test-source">Maximal Lifecycle Chain · <code>tests/contract/living-doc-harness-maximal-chain.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>commit evidence missing and bad commit scope route to recovery gates</li><li>PR-review missing and blocked states route to recovery gates</li><li>closure denial, ineffective repair, invalid next unit, and stale evidence are represented as deterministic breakpoints</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>fake-live-controller-chain</h4>
+            <div class="test-source">Headless Calibration · <code>tests/calibration/living-doc-harness-live-inference-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>fake Codex reviewer runs through execute:true and emits closed verdict</li><li>fake Codex closure-review runs through execute:true and approves closure</li><li>codex-events.jsonl records required inspection commands</li><li>proof records closure-review as selected next unit</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>missing-required-inspection-fails</h4>
+            <div class="test-source">Headless Calibration · <code>tests/calibration/living-doc-harness-live-inference-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>execute:true unit rejects output when required path inspection is missing</li><li>failure matches did-not-inspect-required-path validation</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>non-verdict-live-output-normalizes</h4>
+            <div class="test-source">Headless Calibration · <code>tests/calibration/living-doc-harness-live-inference-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill pass">passed</span>
+        </div>
+        
+        <ul><li>malformed historical PR-review output runs through execute:true</li><li>unit result normalizes to blocked</li><li>reasonCode is pr-review-non-verdict-output</li></ul>
+      </article>
+      <article class="test-case">
+        <div class="test-case-head">
+          <div>
+            <h4>real-codex-smoke</h4>
+            <div class="test-source">Headless Calibration · <code>tests/calibration/living-doc-harness-live-inference-chaining.spec.mjs</code></div>
+          </div>
+          <span class="pill warn">skipped</span>
+        </div>
+        <div class="copy">Skipped unless <code>LIVING_DOC_RUN_REAL_CODEX=1</code>.</div>
+        <ul><li>real codex binary can satisfy worker output contract</li></ul>
+      </article>
+    </div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Suite Evidence</h2>
+      <p class="copy">Command lines, timestamps, explicit coverage items, and captured output from the same run shown in the overview.</p>
+    </div>
+    
+    <article class="suite">
+      <div class="suite-head">
+        <div>
+          <h3>Contract Artifact Chain</h3>
+          <div class="cmd">Mock unit instances write the same prompt, input, result, validation, and chain artifacts as real unit runs.</div>
+          <div class="cmd"><code>node tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs</code></div>
+        </div>
+        <div class="pill pass">passed · exit 0</div>
+      </div>
+      <div class="suite-body">
+        <div>
+          <div class="meta">
+            <div><b>107 ms</b>duration</div>
+            <div><b>2026-05-14T12:27:06.291Z</b>started</div>
+            <div><b>2026-05-14T12:27:06.398Z</b>ended</div>
+          </div>
+          <div class="coverage">
+            <h4>Coverage exercised</h4>
+            <ul><li>worker -&gt; reviewer-inference -&gt; closure-review -&gt; closed</li><li>worker -&gt; reviewer-inference -&gt; commit-intent -&gt; closure-review</li><li>worker -&gt; reviewer-inference -&gt; pr-review -&gt; closure-review</li><li>worker -&gt; reviewer-inference -&gt; living-doc-balance-scan -&gt; repair-skill -&gt; worker</li><li>worker -&gt; reviewer-inference -&gt; worker -&gt; worker</li><li>reviewer-inference -&gt; closure-review blocked -&gt; worker</li><li>invalid transition rejection</li><li>run-allowed unit type rejection</li><li>reviewer claim cannot authorize terminal closure</li><li>non-terminal blocker cannot become closed</li></ul>
+          </div>
+        </div>
+        <div>
+          <strong>stdout</strong>
+          <pre class="stdout">living-doc harness inference unit chaining spec: all assertions passed
+</pre>
+          
+        </div>
+      </div>
+    </article>
+    <article class="suite">
+      <div class="suite-head">
+        <div>
+          <h3>Controller-Selected Chain</h3>
+          <div class="cmd">Controller finalization selects the next unit from frozen evidence, run policy, and gate state.</div>
+          <div class="cmd"><code>node tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs</code></div>
+        </div>
+        <div class="pill pass">passed · exit 0</div>
+      </div>
+      <div class="suite-body">
+        <div>
+          <div class="meta">
+            <div><b>1637 ms</b>duration</div>
+            <div><b>2026-05-14T12:27:06.398Z</b>started</div>
+            <div><b>2026-05-14T12:27:08.035Z</b>ended</div>
+          </div>
+          <div class="coverage">
+            <h4>Coverage exercised</h4>
+            <ul><li>closed reviewer verdict selects closure-review</li><li>source changes without commit evidence select commit-intent</li><li>required PR policy without PR evidence selects pr-review</li><li>blocked PR-review evidence selects continuation</li><li>repairable verdict selects balance scan and repair chain</li><li>true-block, pivot, deferred, and budget-exhausted remain non-closed</li><li>closure-review denial selects continuation</li><li>run config disallowing PR-review blocks closure</li></ul>
+          </div>
+        </div>
+        <div>
+          <strong>stdout</strong>
+          <pre class="stdout">living-doc harness controller-selected chaining spec: all assertions passed
+</pre>
+          
+        </div>
+      </div>
+    </article>
+    <article class="suite">
+      <div class="suite-head">
+        <div>
+          <h3>System Invariants</h3>
+          <div class="cmd">Runs a mocked lifecycle and audits the produced artifact graph for policy-owned routing, artifact-ref continuity, stale-blocker override, and no preplanned unit chain.</div>
+          <div class="cmd"><code>node tests/contract/living-doc-harness-system-invariants.spec.mjs</code></div>
+        </div>
+        <div class="pill pass">passed · exit 0</div>
+      </div>
+      <div class="suite-body">
+        <div>
+          <div class="meta">
+            <div><b>763 ms</b>duration</div>
+            <div><b>2026-05-14T12:27:08.035Z</b>started</div>
+            <div><b>2026-05-14T12:27:08.798Z</b>ended</div>
+          </div>
+          <div class="coverage">
+            <h4>Coverage exercised</h4>
+            <ul><li>policy table integration for decision-capable unit routing</li><li>runtime artifact-ref invariant across lifecycle result and output-input handoffs</li><li>selected next unit is registered and transition-valid</li><li>latest unit recommendation wins over stale blocker state</li><li>same-reason continuation loop blocks instead of self-repeating</li><li>no generated artifact may carry a pre-planned unit sequence</li></ul>
+          </div>
+        </div>
+        <div>
+          <strong>stdout</strong>
+          <pre class="stdout">living-doc harness system invariant contract spec: all assertions passed
+</pre>
+          
+        </div>
+      </div>
+    </article>
+    <article class="suite">
+      <div class="suite-head">
+        <div>
+          <h3>Maximal Lifecycle Chain</h3>
+          <div class="cmd">Runs one composed controller-owned chain through repair, worker re-entry, commit-intent, PR-review, closure-review, and terminal closure.</div>
+          <div class="cmd"><code>node tests/contract/living-doc-harness-maximal-chain.spec.mjs</code></div>
+        </div>
+        <div class="pill pass">passed · exit 0</div>
+      </div>
+      <div class="suite-body">
+        <div>
+          <div class="meta">
+            <div><b>111 ms</b>duration</div>
+            <div><b>2026-05-14T12:27:08.798Z</b>started</div>
+            <div><b>2026-05-14T12:27:08.909Z</b>ended</div>
+          </div>
+          <div class="coverage">
+            <h4>Coverage exercised</h4>
+            <ul><li>maximal composed chain with 9 unit steps</li><li>repair loop re-entry</li><li>commit gate blocked then unblocked</li><li>PR-review gate blocked then unblocked</li><li>closure-review-only terminal authority</li><li>artifact continuity between unit outputs and later inputs</li><li>controller selection artifacts for every transition</li><li>8 negative breakpoint checks</li></ul>
+          </div>
+        </div>
+        <div>
+          <strong>stdout</strong>
+          <pre class="stdout">living-doc harness maximal inference unit chain spec: 9 timeline steps, 8 negative breakpoints passed
+</pre>
+          
+        </div>
+      </div>
+    </article>
+    <article class="suite">
+      <div class="suite-head">
+        <div>
+          <h3>Headless Calibration</h3>
+          <div class="cmd">The execute:true process seam runs through a fake Codex binary while preserving the real artifact contract.</div>
+          <div class="cmd"><code>npm run test:harness-live-calibration</code></div>
+        </div>
+        <div class="pill pass">passed · exit 0</div>
+      </div>
+      <div class="suite-body">
+        <div>
+          <div class="meta">
+            <div><b>928 ms</b>duration</div>
+            <div><b>2026-05-14T12:27:08.909Z</b>started</div>
+            <div><b>2026-05-14T12:27:09.837Z</b>ended</div>
+          </div>
+          <div class="coverage">
+            <h4>Coverage exercised</h4>
+            <ul><li>execute:true reviewer run through fake headless Codex process</li><li>execute:true closure-review run consumed by controller finalizer</li><li>required inspection pass recorded in codex-events.jsonl</li><li>required inspection miss rejects the unit run</li><li>non-verdict PR-review output normalizes to blocked</li><li>tool profile metadata recorded on live unit result</li><li>optional real Codex smoke path behind LIVING_DOC_RUN_REAL_CODEX=1</li></ul>
+          </div>
+        </div>
+        <div>
+          <strong>stdout</strong>
+          <pre class="stdout">
+&gt; living-doc-compositor@0.1.0 test:harness-live-calibration
+&gt; node tests/calibration/living-doc-harness-live-inference-chaining.spec.mjs
+
+living-doc harness live inference chaining calibration spec: all assertions passed
+</pre>
+          
+        </div>
+      </div>
+    </article>
+  </section>
+</main>
+</body>
+</html>

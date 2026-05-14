@@ -286,23 +286,6 @@ function normalizePrReviewOutputContract({ output, mode }) {
   };
 }
 
-function normalizeContinuationOutputContract({ output, mode }) {
-  if (modeAllowsLifecycleStatus(mode)) return output;
-  const allowedStatuses = getInferenceUnitType('continuation-inference').outputVerdicts;
-  if (allowedStatuses.includes(output?.status)) return output;
-  const reasonCode = output?.reasonCode || 'continuation-non-verdict-output';
-  return {
-    ...output,
-    schema: 'living-doc-continuation-result/v1',
-    status: 'blocked',
-    reasonCode,
-    basis: arr(output?.basis).length
-      ? output.basis
-      : ['Continuation inference completed without emitting continuation-required, blocked, or ready.'],
-    nextRecommendedUnitType: output?.nextRecommendedUnitType || 'worker',
-  };
-}
-
 function normalizeClosureReviewOutputContract({ output, mode }) {
   if (modeAllowsLifecycleStatus(mode)) return output;
   const allowedStatuses = getInferenceUnitType('closure-review').outputVerdicts;
@@ -347,10 +330,6 @@ function normalizeOutputContract({ rawResult, unitTypeId, inputContract, mode })
 
   if (unitTypeId === 'pr-review') {
     return normalizePrReviewOutputContract({ output, mode });
-  }
-
-  if (unitTypeId === 'continuation-inference') {
-    return normalizeContinuationOutputContract({ output, mode });
   }
 
   if (unitTypeId === 'closure-review') {

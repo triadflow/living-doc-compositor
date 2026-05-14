@@ -1,0 +1,121 @@
+{
+  "schema": "living-doc-worker-inference-input/v1",
+  "runId": "fixture-maximal-controller-owned-chain",
+  "runConfig": {
+    "schema": "living-doc-harness-run-config/v1",
+    "allowedInferenceUnitTypes": [
+      "worker",
+      "reviewer-inference",
+      "closure-review",
+      "living-doc-balance-scan",
+      "repair-skill",
+      "commit-intent",
+      "pr-review",
+      "post-flight-summary"
+    ],
+    "prReviewPolicy": {
+      "schema": "living-doc-harness-pr-review-policy/v1",
+      "mode": "disabled"
+    }
+  },
+  "livingDocPath": "/Users/rene/projects/living-doc-compositor/docs/inference-unit-chaining-maximal-chain-run/maximal-controller-owned-chain/doc.json",
+  "objective": "Prove deterministic inference unit chaining.",
+  "successCondition": "The chain records valid artifacts, legal transitions, and authority boundaries.",
+  "requiredInspectionPaths": [
+    "/Users/rene/projects/living-doc-compositor/docs/inference-unit-chaining-maximal-chain-run/maximal-controller-owned-chain/doc.json"
+  ],
+  "unitType": {
+    "schema": "living-doc-harness-inference-unit-type-ref/v1",
+    "unitTypeId": "worker",
+    "role": "worker",
+    "inputContractSchema": "living-doc-worker-inference-input/v1",
+    "promptContract": {
+      "template": "living-doc-harness-worker-prompt/v1",
+      "requiresObjective": true,
+      "requiresSuccessCondition": true,
+      "requiredRules": [
+        "living-doc-json-is-source-state",
+        "worker-must-not-run-controller-commands"
+      ]
+    },
+    "requiredEvidence": [
+      "livingDocPath"
+    ],
+    "outputContractSchema": "living-doc-worker-output/v1",
+    "outputVerdicts": [
+      "prepared",
+      "starting",
+      "running",
+      "finished",
+      "failed"
+    ],
+    "allowedNextUnitTypes": [
+      "reviewer-inference"
+    ],
+    "deterministicSideEffects": [],
+    "dashboard": {
+      "role": "worker",
+      "label": "Worker",
+      "showContracts": true,
+      "showLogs": true
+    },
+    "closureImplications": {
+      "mayClose": false,
+      "contributesEvidence": [
+        "nativeTraceRefs",
+        "filesChanged"
+      ]
+    }
+  },
+  "allowedUnitTypes": [
+    "worker",
+    "reviewer-inference",
+    "closure-review",
+    "living-doc-balance-scan",
+    "repair-skill",
+    "commit-intent",
+    "pr-review",
+    "post-flight-summary"
+  ],
+  "toolProfile": {
+    "schema": "living-doc-inference-tool-profile/v1",
+    "name": "local-harness",
+    "isolation": "ignore-user-config",
+    "sandboxMode": "danger-full-access",
+    "mcpMode": "allowlist",
+    "mcpAllowlist": [
+      "living_doc_compositor"
+    ],
+    "mcpDenylist": [
+      "figma",
+      "projectgraph",
+      "gtd",
+      "threadc",
+      "oauth-connectors",
+      "remote-apps",
+      "ambient-plugins"
+    ],
+    "pluginDenylist": [
+      "github@openai-curated",
+      "computer-use@openai-bundled",
+      "browser-use@openai-bundled",
+      "documents@openai-primary-runtime",
+      "spreadsheets@openai-primary-runtime",
+      "presentations@openai-primary-runtime"
+    ],
+    "basis": [
+      "Starts Codex with --ignore-user-config so ambient OAuth-backed MCPs and plugins are not inherited.",
+      "Passes --sandbox danger-full-access explicitly so standalone worker units can perform the repo writes required by the living-doc objective.",
+      "Adds back only the local living_doc_compositor MCP server needed by harness-aware units."
+    ],
+    "codexArgs": [
+      "--ignore-user-config",
+      "--sandbox",
+      "danger-full-access",
+      "-c",
+      "mcp_servers.living_doc_compositor.command=\"/Users/rene/.nvm/versions/node/v24.13.0/bin/node\"",
+      "-c",
+      "mcp_servers.living_doc_compositor.args=[\"/Users/rene/projects/living-doc-compositor/scripts/living-doc-mcp-server.mjs\"]"
+    ]
+  }
+}

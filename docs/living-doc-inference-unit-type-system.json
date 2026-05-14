@@ -5,28 +5,50 @@
   "brand": "LD",
   "scope": "Standalone living-doc harness inference unit type registry, run config, routing contracts, deterministic side effects, dashboard observability, commit discipline, PR review, and post-flight summaries.",
   "owner": "Living Docs",
-  "version": "closed",
+  "version": "reopened",
   "canonicalOrigin": "docs/living-doc-inference-unit-type-system.json",
   "sourceCoverage": "Created from GitHub epic #224 and subtickets #218-#223, #235, and #236 after the realtime dashboard run exposed that closure can currently happen without git commit discipline.",
-  "updated": "2026-05-11T11:44:30.000Z",
-  "objective": "Implement a contract-bound inference unit type system for the standalone living-doc harness so lifecycle decisions are no longer hard-coded as a fixed sequence of worker, reviewer, repair, and closure steps, but are selected from an explicit registry of allowed inference unit types. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve deterministic hard facts about worktree state, living-doc state, traces, artifacts, side effects, and controller source state as controller-owned evidence snapshots, then use those contracts and snapshots to route work until the living doc objective is proven or the user explicitly stops the run.",
-  "successCondition": "A standalone living-doc harness run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types through validated input and output contracts, route dynamically from inference verdicts, write controller-owned evidence snapshots before reviewer and side-effect routing, execute deterministic side effects only from approved contracts, show every unit and handoff in the dashboard, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove the full path with contract and E2E tests covering direct closure, repair routing, commit-intent gating, and PR-review routing.",
+  "updated": "2026-05-14T12:55:00.000Z",
+  "objective": "Solve the lifecycle-routing problem that the matrix policy table and contract-bound inference-unit primitive were introduced for: the standalone living-doc harness must not fall back to hard-coded sequences, stale blocker rules, repeated same-reason loops, cross-unit output recovery, or continuation/resume semantics when deciding what happens next. The system must make the matrix policy table the executable bridge between inference judgment and deterministic control: every decision-capable inference unit emits a typed output contract, the controller validates that output against the registered unit-type transition matrix, controller-owned hard facts, and the run-scoped allowed unit set, and the next lifecycle step either follows the validated recommendation or records a contract-visible rejection/blocker reason. Worker units are not route authority; they produce work evidence for reviewer/controller judgment. A stopped unit is historical evidence only and is never resumed, continued, or treated as a fallback output source. Each unit type must define its input contract, prompt contract, required evidence, output verdicts, allowed next unit types, deterministic side effects, dashboard representation, and closure implications. The controller must preserve worktree, living-doc, trace, artifact, side-effect, and controller-source facts as evidence snapshots, then start fresh isolated units until the living doc objective is proven or the user explicitly stops the run.",
+  "successCondition": "The objective is closed only when the matrix policy table and inference-unit isolation model demonstrably prevent the class of failures they were created to solve: no hard-coded worker/reviewer/repair sequence can override registered unit transitions, no stale blocker condition can override a newer valid decision-capable inference-unit recommendation, no worker output can become route authority, no same-reason loop can repeat against unchanged evidence, no prior unit or previous-run result can satisfy the current unit output contract, every accepted or rejected route is visible in contracts and the dashboard graph, and cross-run evidence handoffs use resolvable artifact-reference contracts rather than loose run-local paths. A standalone lifecycle run can initialize from an allowed inference-unit-type configuration, invoke only registered unit types, route from decision-capable verdicts and recommendations through the policy matrix, execute deterministic side effects only from approved contracts, require commit evidence when source files changed, route PR-review work through explicit contracts when configured, run post-flight summary after closure, and prove direct closure, repair routing, commit-intent gating, PR-review routing, fresh-worker rerouting, same-reason loop prevention, current-unit-only output recovery, and cross-run artifact resolution with contract and E2E tests.",
   "runState": {
-    "currentPhase": "closed",
+    "currentPhase": "cross-run-artifact-ref-owner-normalization-source-fixed",
     "documentReady": true,
-    "objectiveReady": true,
-    "nextObjectiveAction": "Objective closed by standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system after six contract-bound iterations.",
+    "objectiveReady": false,
+    "nextObjectiveAction": "Run a fresh dashboard-backed standalone lifecycle for issue #302 so cross-run commit-intent artifact refs are proven in the live harness path with the producing run as owner, then close #295/#302 if no new blocker appears.",
     "repairState": {
-      "status": "closed",
-      "nearestHonestStage": "objective-closed-by-standalone-lifecycle",
-      "updated": "2026-05-11T11:44:30.000Z",
+      "status": "repairable-live-proof-pending-after-302-source-fix",
+      "nearestHonestStage": "source-and-contract-proof-produced-live-proof-pending",
+      "updated": "2026-05-14T07:11:43.000Z",
       "basis": [
-        "Standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system reached finalState.kind closed after six iterations and persisted lifecycle-result.json.",
-        "Final run ldh-20260511T112534Z-doc-living-doc-inference-unit-type-system had reviewer classification closed with reasonCode objective-proven-with-raw-log-proof and closure-review approval with reasonCode closure-proof-satisfied.",
-        "Controller evidence reported unresolvedObjectiveTerms 0, unprovenAcceptanceCriteria 0, proofValid true, and side-effect evidence for commit 3e8203bf40bddbd5e66924923f44676e49b7c222.",
-        "Post-flight summary ran after closure from lifecycle-result.json at .living-doc-runs/ldh-20260511T112534Z-doc-living-doc-inference-unit-type-system/artifacts/iteration-6-post-flight-summary.md."
+        "Contract proof passed on 2026-05-13: npm run test:contract, including focused lifecycle-controller regression for continuation -> living-doc-balance-scan after git-head-unchanged.",
+        "Source-level repair for issue #294 implemented on 2026-05-13: routing policy now consumes latest continuation output recommendations before stale blocker rules, lifecycle evidence carries initial inference-unit output contracts, and routeAuthority metadata records the accepted recommendation.",
+        "Objective refocused on 2026-05-13: the matrix policy table exists to solve stale or hard-coded lifecycle routing, not merely to catalog unit types.",
+        "New standalone lifecycle ldhl-20260513T092000Z-living-doc-dashboard-log-reader-scroll-stability exposed a routing gap after the earlier closure proof.",
+        "Iteration 3 continuation-inference recommended nextRecommendedUnitType living-doc-balance-scan after commit-intent blocked on git-head-unchanged.",
+        "Post-review routing selected continuation-inference again via blocked-commit-intent-gate-needs-continuation instead of honoring or contractually rejecting the recommendation.",
+        "This proves the previous objective was under-specified: it required validated routing, but did not explicitly make the latest inference-unit output contract the next policy input.",
+        "Live lifecycle ldhl-20260513T104000Z-living-doc-dashboard-log-reader-scroll-stability proved issue #294 route authority: iteration 3 accepted continuation-inference output via latest-unit-output-recommendation and selected living-doc-balance-scan.",
+        "The same run exposed issue #295: later handoff contracts carried initial-inference-units/iteration-2 commit-intent paths that were not resolvable from the receiving run directory, causing continuation around a controller-owned evidence path mismatch.",
+        "The lifecycle was stopped after iteration 4 because balance-scan and reviewer evidence showed a repeatable contract/handoff blocker, not a dashboard product-code failure.",
+        "Issue #296 implementation added living-doc-artifact-ref/v1 as a portable artifact-reference contract primitive.",
+        "Artifact refs are now carried system-wide through selected next-unit contracts, output-input previousOutput, nextInput, runner input contracts, runner prompts, closure-review inputs, post-flight inputs, lifecycle-result iteration records, controller-source restart handoffs, side-effect evidence, and dashboard policy inspection.",
+        "Receiving unit input contracts include requiredInputRefs and resolvedRequiredInputRefs so evidence can be resolved from the producing run without global search.",
+        "Focused contract proofs pass: node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, node tests/contract/living-doc-harness-runner.spec.mjs, and node tests/contract/living-doc-harness-dashboard-server.spec.mjs. The lifecycle-controller proof now asserts output-input refs, nextInput refs, lifecycle-result refs, post-flight input refs, and prompt-visible artifact refs.",
+        "Full proof gates passed on 2026-05-14T03:07Z: npm run test:contract and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs.",
+        "Live standalone rerun is still required before closing issue #295 because the original blocker was discovered only in a live lifecycle loop.",
+        "Fresh lifecycle ldhl-20260514T063555Z-living-doc-dashboard-log-reader-scroll-stability proved that requiredInputRefs are present and consumed across several handoffs, including iteration 3 continuation and repair routing.",
+        "The same lifecycle exposed issue #302: two commit-intent refs carried from an older run into iteration 5 were encoded as current-run relative paths that climbed out with ../, resolving outside .living-doc-runs.",
+        "Issue #302 source repair changes scripts/living-doc-harness-artifact-ref.mjs so artifacts under .living-doc-runs/<run-id> are owned by their producing runDir and structured refs owned by a lifecycle run reject relativePath values that escape with ../.",
+        "Regression coverage now proves sibling-run commit-intent refs are emitted as runDir .living-doc-runs/<producing-run> plus an internal relativePath, and malformed escaping lifecycle refs fail validation.",
+        "Focused contract proofs and npm run test:contract passed on 2026-05-14T07:11:43Z after the #302 source repair.",
+        "Issue #290 is source-fixed in the current runner: a headless Codex child that emits no codex-events, stderr, last-message, or native trace evidence inside the startup window is terminated and recorded as process-defect instead of staying as a fake running inference unit.",
+        "This worker corrected a stale dashboard graph contract fixture that still displayed worker output as accepted routeAuthority. The dashboard proof now uses reviewer-inference as the decision-capable source for a latest-unit-output route to living-doc-balance-scan, preserving the invariant that worker output is evidence only.",
+        "Focused non-controller proof passed on 2026-05-14T12:55Z: node tests/contract/living-doc-harness-dashboard-server.spec.mjs, node tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs, and node tests/contract/living-doc-harness-inference-unit.spec.mjs."
       ],
-      "unprovenAcceptanceCriteria": []
+      "unprovenAcceptanceCriteria": [
+        "criterion-cross-run-artifact-path-resolution-live-proof"
+      ]
     },
     "proofRoutes": [
       {
@@ -57,9 +79,26 @@
           "criterion-four-route-proofs",
           "criterion-selection-validation",
           "criterion-side-effect-contracts",
-          "criterion-dashboard-artifacts"
+          "criterion-dashboard-artifacts",
+          "criterion-unit-output-route-authority"
         ],
         "description": "Focused E2E proof for direct closure, repair routing, commit-intent gating, and PR-review routing through registered inference unit contracts."
+      },
+      {
+        "id": "unit-output-route-authority-regression",
+        "kind": "command",
+        "command": "node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs && node tests/contract/living-doc-harness-dashboard-server.spec.mjs",
+        "required": true,
+        "timeoutMs": 120000,
+        "acceptanceCriteria": [
+          "criterion-unit-output-route-authority",
+          "criterion-selection-validation",
+          "criterion-dashboard-artifacts",
+          "criterion-stale-blocker-cannot-override-latest-output",
+          "criterion-same-reason-loop-prevention",
+          "criterion-route-decision-observability"
+        ],
+        "description": "Regression proof for issue #294: continuation recommendations must become route inputs, same-reason continuation loops are blocked, and dashboard graph handoffs expose the selected reroute or rejection."
       }
     ]
   },
@@ -108,6 +147,11 @@
       "id": "post-flight-summary",
       "name": "Post-flight summary",
       "description": "A post-flight unit can explain a closed run from artifacts without changing closure."
+    },
+    {
+      "id": "unit-output-route-authority",
+      "name": "Unit output route authority",
+      "description": "Decision-capable inference-unit output contracts become first-class routing inputs that the controller must honor through a valid transition or reject with contract-visible evidence."
     }
   ],
   "coverage": [
@@ -155,6 +199,36 @@
       "facetId": "post-flight-summary",
       "sectionId": "acceptance-criteria",
       "cardId": "criterion-post-flight-summary"
+    },
+    {
+      "facetId": "unit-output-route-authority",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-unit-output-route-authority"
+    },
+    {
+      "facetId": "unit-output-route-authority",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-stale-blocker-cannot-override-latest-output"
+    },
+    {
+      "facetId": "unit-output-route-authority",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-same-reason-loop-prevention"
+    },
+    {
+      "facetId": "unit-output-route-authority",
+      "sectionId": "acceptance-criteria",
+      "cardId": "criterion-route-decision-observability"
+    },
+    {
+      "facetId": "unit-output-route-authority",
+      "sectionId": "issue-spine",
+      "cardId": "issue-294"
+    },
+    {
+      "facetId": "unit-output-route-authority",
+      "sectionId": "proof-ladder",
+      "cardId": "rung-unit-output-route-authority"
     }
   ],
   "invariants": [
@@ -205,9 +279,18 @@
       "guards": [
         "closure-contract"
       ]
+    },
+    {
+      "id": "unit-output-recommendations-are-route-inputs",
+      "statement": "When an inference unit emits a valid verdict or recommended next unit, the next routing decision must consume that output contract as current policy input; the controller may not silently fall back to an older blocker rule or repeat the same unit for the same reason against unchanged evidence.",
+      "guards": [
+        "validated-routing",
+        "unit-output-route-authority",
+        "controller-hard-facts"
+      ]
     }
   ],
-  "metaFingerprint": "sha256:320119353c5d73f8acfb191e1839342e84b34d9c49cc58e96e54c34b3349fe96",
+  "metaFingerprint": "sha256:2d6efb5b2ef6f56453354b7af27d3737a315f442bb407afee11204026f46d60a",
   "sections": [
     {
       "id": "status",
@@ -217,14 +300,14 @@
       "updated": "2026-05-11T11:44:30.000Z",
       "data": [
         {
-          "id": "objective-closed-by-standalone-lifecycle",
-          "name": "Objective closed by standalone lifecycle",
-          "status": "closed",
-          "updated": "2026-05-11T11:44:30.000Z",
-          "summary": "Standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system closed the objective after six contract-bound iterations. The final reviewer classified the objective as closed from raw-log proof, closure-review approved terminal closure, proofValid was true, all nine acceptance criteria were proven, commit evidence was present for 3e8203bf40bddbd5e66924923f44676e49b7c222, and post-flight summary ran from durable lifecycle-result evidence.",
+          "id": "objective-reopened-by-route-authority-gap",
+          "name": "Objective refocused on matrix policy problem",
+          "status": "source-proof-green-live-proof-pending",
+          "updated": "2026-05-14T12:55:00.000Z",
+          "summary": "Issue #308 refines the primitive: lifecycle state is passed by living doc plus controller-approved input/output contracts, not by resuming stopped units or peeking into prior inference folders. Source implementation removed continuation-inference from the registry, removed previous-run selected-unit output recovery, routes follow-up work as fresh isolated units, ignores worker route recommendations, keeps prior artifacts as explicit historical evidence only, and now aligns the dashboard route-authority fixture with the worker-not-authority invariant.",
           "documentReady": true,
-          "objectiveReady": true,
-          "nextStep": "No objective work remains for this living doc unless new evidence reopens it."
+          "objectiveReady": false,
+          "nextStep": "Run a fresh dashboard-backed standalone lifecycle to prove the source-fixed isolation model under live harness conditions before reclaiming objective closure."
         }
       ]
     },
@@ -233,7 +316,7 @@
       "title": "Acceptance Criteria",
       "convergenceType": "acceptance-criteria",
       "rationale": "Defines objective-tight closure gates. Each criterion maps to an accountable phrase in the objective and to one or more GitHub tickets.",
-      "updated": "2026-05-11T11:44:30.000Z",
+      "updated": "2026-05-13T10:32:00.000Z",
       "data": [
         {
           "id": "criterion-type-registry",
@@ -312,8 +395,8 @@
         {
           "id": "criterion-selection-validation",
           "name": "Routing selections are validated",
-          "status": "satisfied-controller-proof-green",
-          "updated": "2026-05-11T11:44:30.000Z",
+          "status": "satisfied-baseline-reopened-by-route-authority-gap",
+          "updated": "2026-05-13T10:05:00.000Z",
           "facetIds": [
             "validated-routing"
           ],
@@ -321,7 +404,7 @@
           "criterion": "Decision-making inference units can only select next unit types from the allowed set declared by their type contract and the run config.",
           "proofRequired": "Controller validation rejects invalid next-unit selections and records the rejection as continuation or blocker evidence.",
           "acceptanceTest": "A fixture reviewer selects an invalid unit type; the lifecycle records validation failure and does not invoke that unit.",
-          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. Issue #250 regression coverage proves repairable source-change states with missing commit evidence select commit-intent before balance-scan, repair, or worker continuation. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z. Issue #252 adds a typed controller-source restart route: when the worker changes controller-owned harness source, the lifecycle records controller-source-changed-restart-required and does not continue to reviewer or closure under the stale controller process. Closed lifecycle ldhl-20260511T111532Z provides final standalone proof for this criterion: worker verification passed, reviewer classified closed, closure-review approved objective-proven gates, and post-flight summary ran after lifecycle-result.json was durable. This repair iteration ldh-20260511T112122Z reran the full contract proof gate with `npm run test:contract` and the focused route E2E with `npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs`; both passed on 2026-05-11T11:36Z. The focused E2E covers direct closure, repair routing, commit-intent gating, and PR-review routing through registered unit contracts.",
+          "repairEvidence": "Invalid next-unit selections are rejected and recorded as continuation evidence by proof-route/controller tests; issue #239 regression coverage proves the controller-evidence-pending shape selects closure-review rather than worker before the generic continuation fallback. Issue #242 regression coverage proves a reviewer repairable -> balance-scan ordered path continues into the ordered repair unit when live inference emits shorthand JSON. Issue #243 regression coverage proves closure-candidate and resumable reviewer verdicts with controller-owned commit gates select commit-intent rather than another worker. Issue #247 regression coverage proves that once commit-intent is selected, the next standalone run preserves that unit identity instead of re-entering as worker. Issue #248 regression coverage proves a closure-candidate verdict that asks for closure-review but incorrectly carries closureAllowed true is normalized and routed to closure-review instead of becoming a process defect. Issue #250 regression coverage proves repairable source-change states with missing commit evidence select commit-intent before balance-scan, repair, or worker continuation. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and node tests/contract/living-doc-harness-runner.spec.mjs passed on 2026-05-11T09:46Z. Issue #252 adds a typed controller-source restart route: when the worker changes controller-owned harness source, the lifecycle records controller-source-changed-restart-required and does not continue to reviewer or closure under the stale controller process. Closed lifecycle ldhl-20260511T111532Z provides final standalone proof for this criterion: worker verification passed, reviewer classified closed, closure-review approved objective-proven gates, and post-flight summary ran after lifecycle-result.json was durable. This repair iteration ldh-20260511T112122Z reran the full contract proof gate with `npm run test:contract` and the focused route E2E with `npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs`; both passed on 2026-05-11T11:36Z. The focused E2E covers direct closure, repair routing, commit-intent gating, and PR-review routing through registered unit contracts. New evidence from lifecycle ldhl-20260513T092000Z-living-doc-dashboard-log-reader-scroll-stability reopens the routing surface with issue #294: allowed-set validation was not enough because the router repeated continuation-inference from an older git-head-unchanged blocker after continuation-inference recommended living-doc-balance-scan. The new criterion-unit-output-route-authority now carries this missing invariant explicitly.",
           "ticketIds": [
             {
               "issueNumber": "222",
@@ -352,10 +435,15 @@
               "issueNumber": "252",
               "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/252",
               "title": "Process defect: controller source changes force generic lifecycle stop"
+            },
+            {
+              "issueNumber": "294",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/294",
+              "title": "Lifecycle repeats continuation-inference instead of honoring reroute recommendation"
             }
           ],
           "repairStatus": "closed-by-controller",
-          "remainingProof": "Closed by standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system: final reviewer classified closed, closure-review approved terminalAllowed true, proof gates passed, and post-flight summary ran from lifecycle-result.json."
+          "remainingProof": "Baseline selection validation remains implemented, but closure is reopened until issue #294 proves latest-unit-output route authority and same-reason loop prevention."
         },
         {
           "id": "criterion-side-effect-contracts",
@@ -420,7 +508,7 @@
           "id": "criterion-closure-gates",
           "name": "Closure uses type-system proof gates",
           "status": "satisfied-controller-proof-green",
-          "updated": "2026-05-11T11:44:30.000Z",
+          "updated": "2026-05-14T07:11:43.000Z",
           "facetIds": [
             "closure-contract"
           ],
@@ -428,7 +516,7 @@
           "criterion": "Closure cannot occur unless the closure-review unit receives passing proof gates, valid source state, required side-effect evidence such as commit SHA when files changed, and no unresolved objective terms or unproven acceptance criteria.",
           "proofRequired": "Closure artifacts include reviewer verdict, closure-review verdict, proof gates, source state, commit/PR evidence when required, and explicit no-next-iteration output.",
           "acceptanceTest": "A run with source changes but no commit SHA remains open; a run with commit SHA and passing gates can close.",
-          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun. Issue #251 makes broad local commits invalid closure evidence: closure-review may consume commit evidence only when the commit-intent result approves the exact scoped file set and reports no extraCommittedFiles or forbiddenCommittedFiles. This worker tightened closure-review's registered input contract so it cannot validate without evidenceSnapshotPath and requiredHardFacts; runClosureReviewUnit now includes both fields, and finalizeHarnessIteration backfills a controller-owned snapshot for older supplied evidence before reviewer, side-effect, or closure routing. node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T10:52Z. Issue #252 prevents stale-controller closure: controller-owned source mutation now stops before reviewer/closure with a typed restart handoff and requires a clean restart from the committed controller version. Closed lifecycle ldhl-20260511T111532Z provides final standalone proof for this criterion: worker verification passed, reviewer classified closed, closure-review approved objective-proven gates, and post-flight summary ran after lifecycle-result.json was durable. This repair iteration ldh-20260511T112122Z reran the full contract proof gate with `npm run test:contract` and the focused route E2E with `npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs`; both passed on 2026-05-11T11:36Z. The focused E2E covers direct closure, repair routing, commit-intent gating, and PR-review routing through registered unit contracts.",
+          "repairEvidence": "Closure gates remain implemented and test-green. Lifecycle controller exceptions now persist process-defect lifecycle results instead of silently leaving active-lifecycle running. The acceptanceCriteriaSatisfied gate now passes when the living doc has acceptance criteria, no incomplete criteria, and no unproven criteria, even when objectiveReady and closureAllowed remain false for controller-owned side-effect evidence. Issue #248 is fixed in source: non-closed reviewer classifications cannot carry terminal closure permission, and a closure-candidate that asks for closure-review is routed to the registered closure-review unit once commit evidence is not pending. node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, and npm run test:contract passed on 2026-05-11T07:19Z. Terminal closure remains controller-owned and should occur only after consuming fresh committed evidence in the standalone lifecycle rerun. Issue #251 makes broad local commits invalid closure evidence: closure-review may consume commit evidence only when the commit-intent result approves the exact scoped file set and reports no extraCommittedFiles or forbiddenCommittedFiles. This worker tightened closure-review's registered input contract so it cannot validate without evidenceSnapshotPath and requiredHardFacts; runClosureReviewUnit now includes both fields, and finalizeHarnessIteration backfills a controller-owned snapshot for older supplied evidence before reviewer, side-effect, or closure routing. node tests/contract/living-doc-harness-inference-unit.spec.mjs, node tests/contract/living-doc-harness-iteration.spec.mjs, npm run test:contract, and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs passed on 2026-05-11T10:52Z. Issue #252 prevents stale-controller closure: controller-owned source mutation now stops before reviewer/closure with a typed restart handoff and requires a clean restart from the committed controller version. Closed lifecycle ldhl-20260511T111532Z provides final standalone proof for this criterion: worker verification passed, reviewer classified closed, closure-review approved objective-proven gates, and post-flight summary ran after lifecycle-result.json was durable. This repair iteration ldh-20260511T112122Z reran the full contract proof gate with `npm run test:contract` and the focused route E2E with `npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs`; both passed on 2026-05-11T11:36Z. The focused E2E covers direct closure, repair routing, commit-intent gating, and PR-review routing through registered unit contracts. Issue #290 hardens the process-defect boundary: a silent headless child with zero native event output is now converted into a process-defect result, and lifecycle-controller coverage proves the finalState becomes process-defect instead of silently remaining active.",
           "ticketIds": [
             {
               "issueNumber": "235",
@@ -523,6 +611,201 @@
           ],
           "repairStatus": "closed-by-controller",
           "remainingProof": "Closed by standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system: final reviewer classified closed, closure-review approved terminalAllowed true, proof gates passed, and post-flight summary ran from lifecycle-result.json."
+        },
+        {
+          "id": "criterion-unit-output-route-authority",
+          "name": "Decision-capable unit output can route; worker output cannot",
+          "status": "source-proof-green-live-proof-pending",
+          "updated": "2026-05-14T12:24:32.000Z",
+          "facetIds": [
+            "validated-routing",
+            "unit-output-route-authority",
+            "controller-hard-facts",
+            "unit-isolation"
+          ],
+          "objectiveTerm": "every decision-capable inference unit emits a typed output contract, and worker units are not route authority",
+          "criterion": "The matrix policy table may consume route recommendations only from decision-capable inference-unit output contracts whose registered transition allows the selected next unit. Worker output is evidence for reviewer/controller judgment and cannot choose living-doc-balance-scan, repair-skill, commit-intent, PR-review, closure-review, or another worker directly.",
+          "proofRequired": "A regression fixture must show a worker output carrying nextRecommendedUnitType living-doc-balance-scan is ignored as route authority and the controller instead selects the policy-owned fresh worker route with visible gate evidence. Separate positive routing proofs still cover registered decision routes such as reviewer repair to balance-scan, commit-intent gates, PR-review gates, closure-review, and post-flight.",
+          "acceptanceTest": "tests/contract/living-doc-harness-system-invariants.spec.mjs, tests/contract/living-doc-harness-lifecycle-controller.spec.mjs, and scripts/living-doc-harness-monkey.mjs fail if worker output is accepted as latest-unit-output route authority.",
+          "ticketIds": [
+            {
+              "issueNumber": "308",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/308",
+              "title": "Investigate and remove cross-unit continuation and artifact peeking from lifecycle harness"
+            }
+          ],
+          "repairStatus": "source-implemented-contract-green-live-proof-pending",
+          "remainingProof": "This criterion is no longer the active blocker; issue #295 now blocks objective closure because cross-run artifact paths are not portable.",
+          "repairEvidence": "Implemented on 2026-05-14: latestUnitRouteInput ignores worker source units, monkey routing cases now prove worker recommendations are ignored, and full npm run test:contract passed. Historical #294 continuation-inference route authority is superseded by the stricter #308 isolation model."
+        },
+        {
+          "id": "criterion-stale-blocker-cannot-override-latest-output",
+          "name": "Stale blocker rules cannot override latest output",
+          "status": "source-and-live-route-proof-pass",
+          "updated": "2026-05-14T12:55:00.000Z",
+          "facetIds": [
+            "validated-routing",
+            "unit-output-route-authority",
+            "controller-hard-facts"
+          ],
+          "objectiveTerm": "must not fall back to stale blocker rules when inference units have produced newer contract evidence",
+          "criterion": "When a newer inference-unit output contract recommends or implies a next unit, older blocker state may remain part of the evidence but cannot be the sole route selector. If the controller rejects the newer recommendation because of the older blocker, it must write a rejection contract that names the older blocker, the rejected recommendation, the policy rule, and the evidence that made rejection valid.",
+          "proofRequired": "The #294 fixture proves that `git-head-unchanged` remains visible as blocker evidence while the continuation recommendation is still consumed as the current route input. The resulting selection artifact must show either the recommended unit or a rejection record that names both facts.",
+          "acceptanceTest": "A lifecycle-controller regression fails if route selection reads the old `git-head-unchanged` gate and selects continuation again without recording the continuation recommendation and rejection basis.",
+          "ticketIds": [
+            {
+              "issueNumber": "294",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/294",
+              "title": "Lifecycle repeats continuation-inference instead of honoring reroute recommendation"
+            }
+          ],
+          "repairStatus": "open",
+          "remainingProof": "This criterion is no longer the active blocker; issue #295 now blocks objective closure because cross-run artifact paths are not portable.",
+          "repairEvidence": "Source repair implemented: scripts/living-doc-harness-routing-policy.mjs prioritizes latest-unit-output-recommendation before stale commit/PR blocker rules for decision-capable sources, while scripts/living-doc-harness-iteration.mjs rejects worker output as route input. npm run test:contract passed on 2026-05-13 for the original #294 path. After #308 removed continuation-inference, this worker corrected tests/contract/living-doc-harness-dashboard-server.spec.mjs so accepted dashboard routeAuthority evidence comes from reviewer-inference, not worker. Focused proof passed on 2026-05-14T12:55Z: node tests/contract/living-doc-harness-dashboard-server.spec.mjs."
+        },
+        {
+          "id": "criterion-same-reason-loop-prevention",
+          "name": "Same-reason continuation loops are blocked",
+          "status": "source-and-live-route-proof-pass",
+          "updated": "2026-05-13T12:15:00.000Z",
+          "facetIds": [
+            "validated-routing",
+            "unit-output-route-authority",
+            "controller-hard-facts"
+          ],
+          "objectiveTerm": "must not repeat same-reason continuation loops against unchanged evidence",
+          "criterion": "The controller must detect when the same unit type would be selected again for the same reason code against unchanged controller-owned evidence. In that case it must select a different valid unit, honor a valid recommendation, or escalate to a process-defect/blocker contract; it must not keep launching continuation-inference as a loop.",
+          "proofRequired": "The #294 route has a regression where continuation-inference after `git-head-unchanged` cannot be selected again for the same `git-head-unchanged` reason unless the evidence snapshot changed or a rejection contract explains the repeated selection.",
+          "acceptanceTest": "A focused test fails if two consecutive continuation-inference selections have the same reason code and unchanged evidence hash without a process-defect/blocker result.",
+          "ticketIds": [
+            {
+              "issueNumber": "294",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/294",
+              "title": "Lifecycle repeats continuation-inference instead of honoring reroute recommendation"
+            }
+          ],
+          "repairStatus": "open",
+          "remainingProof": "This criterion is no longer the active blocker; issue #295 now blocks objective closure because cross-run artifact paths are not portable.",
+          "repairEvidence": "Source repair implemented: scripts/living-doc-harness-routing-policy.mjs now prioritizes latest-unit-output-recommendation before stale commit/PR blocker rules; scripts/living-doc-harness-lifecycle.mjs records initialInferenceUnit output evidence; scripts/living-doc-harness-iteration.mjs converts continuation output into routeAuthority metadata and validates the selected transition from the source decision unit. npm run test:contract passed on 2026-05-13, including a #294 lifecycle-controller fixture where continuation-inference recommends living-doc-balance-scan after git-head-unchanged and routing selects living-doc-balance-scan. Live lifecycle ldhl-20260513T104000Z proved the #294 path: iteration 3 post-review selection used policyRuleId latest-unit-output-recommendation, selectedBy latest-unit-output-contract, sourceUnitType continuation-inference, and recommendedUnitType living-doc-balance-scan."
+        },
+        {
+          "id": "criterion-route-decision-observability",
+          "name": "Accepted and rejected routes are visible",
+          "status": "source-and-live-route-proof-pass",
+          "updated": "2026-05-13T12:15:00.000Z",
+          "facetIds": [
+            "dashboard-observability",
+            "unit-output-route-authority",
+            "validated-routing"
+          ],
+          "objectiveTerm": "every accepted or rejected route is visible in contracts and the dashboard graph",
+          "criterion": "The output-input contract, post-review selection artifact, lifecycle events, and dashboard graph must show the inference-unit recommendation, the policy matrix rule applied, the selected next unit, and any rejection reason. A human operator must be able to see whether the controller honored the unit output or rejected it, without reading private prompts or relying on supervising chat memory.",
+          "proofRequired": "Dashboard graph and artifact tests cover the route-authority path and show either a valid handoff from a decision-capable unit such as reviewer-inference to living-doc-balance-scan or an explicit rejection/blocker edge with label and contract paths.",
+          "acceptanceTest": "Dashboard server/graph tests fail if route recommendations, selected units, or rejection reasons are absent from graph nodes, arrows, side pane artifact paths, or lifecycle events.",
+          "ticketIds": [
+            {
+              "issueNumber": "294",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/294",
+              "title": "Lifecycle repeats continuation-inference instead of honoring reroute recommendation"
+            }
+          ],
+          "repairStatus": "open",
+          "remainingProof": "This criterion is no longer the active blocker; issue #295 now blocks objective closure because cross-run artifact paths are not portable.",
+          "repairEvidence": "Source repair implemented: scripts/living-doc-harness-routing-policy.mjs now prioritizes latest-unit-output-recommendation before stale commit/PR blocker rules; scripts/living-doc-harness-lifecycle.mjs records initialInferenceUnit output evidence; scripts/living-doc-harness-iteration.mjs converts continuation output into routeAuthority metadata and validates the selected transition from the source decision unit. npm run test:contract passed on 2026-05-13, including a #294 lifecycle-controller fixture where continuation-inference recommends living-doc-balance-scan after git-head-unchanged and routing selects living-doc-balance-scan. Live lifecycle ldhl-20260513T104000Z proved the #294 path: iteration 3 post-review selection used policyRuleId latest-unit-output-recommendation, selectedBy latest-unit-output-contract, sourceUnitType continuation-inference, and recommendedUnitType living-doc-balance-scan."
+        },
+        {
+          "id": "criterion-cross-run-artifact-path-resolution",
+          "name": "Cross-run artifact references are resolvable by receiving units",
+          "status": "source-and-contract-proof-pass-live-proof-pending",
+          "updated": "2026-05-14T07:11:43.000Z",
+          "objectiveTerm": "contract-bound inference units pass contracts around the lifecycle without relying on hidden run context",
+          "criterion": "When a selected inference unit in run N hands required evidence to a unit in run N+1 or later, every artifact reference is resolvable from the receiving unit contract without global search, chat memory, or guessing previous run directories.",
+          "proofRequired": "A regression must reproduce the #295/#302 path where commit-intent evidence is produced under one run and later consumed by another; the receiving prompt and wrapper-owned output paths must agree, the artifact ref must name the producing run as owner, and the lifecycle must not loop continuation because evidence paths are missing from the current run directory.",
+          "issues": [
+            {
+              "issueNumber": "295",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/295"
+            },
+            {
+              "issueNumber": "296",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/296"
+            },
+            {
+              "issueNumber": "302",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/302"
+            }
+          ],
+          "repairEvidence": "Implemented portable artifact refs in scripts/living-doc-harness-artifact-ref.mjs. The system now carries living-doc-artifact-ref/v1 objects through selected nextUnit.requiredInputRefs, output-input previousOutput refs, nextInput refs, runner input contracts, prompt-visible resolved refs, closure-review inputs, post-flight inputs, lifecycle-result iteration records, controller-source restart handoffs, side-effect evidence, and dashboard policy inspection. Legacy string paths remain as display/compatibility fields, but receiving units prefer refs and resolve them from the producing runDir. Focused harness contract tests passed on 2026-05-14, including lifecycle-controller assertions for output-input refs, nextInput refs, lifecycle-result refs, post-flight input refs, and prompt-visible artifact refs. Full proof gates passed on 2026-05-14T03:07Z: npm run test:contract and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs. GitHub issue #296 is source-implemented; live proof remains tracked by #295. Issue #302 repaired the remaining sibling-run ownership gap: artifactRefFromPath now resolves parent-relative paths against the current run, detects when the target artifact lives under .living-doc-runs/<run-id>, and emits the producing run as runDir with an internal relativePath. validateArtifactRef now rejects structured lifecycle refs whose relativePath escapes a .living-doc-runs owner. Focused proofs passed on 2026-05-14T07:11:43Z: node tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs, node tests/contract/living-doc-harness-system-invariants.spec.mjs, and node tests/contract/living-doc-harness-lifecycle-controller.spec.mjs. Full proof passed: npm run test:contract.",
+          "remainingProof": "Run a fresh standalone lifecycle again on the dashboard log-reader living doc and verify the #302 path no longer emits current-run refs with ../ for older commit-intent artifacts."
+        },
+        {
+          "id": "criterion-cross-run-artifact-path-resolution-live-proof",
+          "name": "Live lifecycle proves portable refs end to end",
+          "status": "source-fixed-live-proof-pending",
+          "updated": "2026-05-14T07:11:43.000Z",
+          "objectiveTerm": "the lifecycle harness can continue across runs until the living doc objective is reached",
+          "criterion": "A fresh dashboard-backed standalone lifecycle run consumes cross-run requiredInputRefs in receiving units, emits older commit-intent artifacts with their producing run as owner, and does not repeat continuation because commit-intent evidence is missing from the current run directory.",
+          "proofRequired": "Lifecycle graph, output-input contracts, selected-unit input contracts, reviewer evidence, and raw artifact refs show portable refs being consumed; no live contract may contain a .living-doc-runs-owned relativePath that climbs out of its runDir with ../.",
+          "issues": [
+            {
+              "issueNumber": "295",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/295"
+            },
+            {
+              "issueNumber": "302",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/302"
+            }
+          ],
+          "repairEvidence": "Live lifecycle ldhl-20260514T063555Z proved the system could carry and resolve several cross-run refs, then exposed issue #302 in iteration 5: older commit-intent result/validation refs were owned by the receiving run and escaped with ../. Source repair and full contract proof now pass; live rerun proof remains required.",
+          "remainingProof": "Start a fresh dashboard-backed standalone lifecycle and inspect iteration input contracts plus reviewer raw-log evidence until the previous #302 artifact-ref shape is absent."
+        },
+        {
+          "id": "criterion-current-unit-only-output-recovery",
+          "name": "Current unit only output recovery",
+          "status": "source-proof-green-live-proof-pending",
+          "updated": "2026-05-14T12:24:32.000Z",
+          "facetIds": [
+            "unit-isolation",
+            "artifact-ref-continuity",
+            "validated-routing"
+          ],
+          "objectiveTerm": "a stopped unit is historical evidence only and is never resumed, continued, or treated as a fallback output source",
+          "criterion": "The runner may recover output only from the current unit declared output path or its own last message. A previous run, selected-unit handoff, sibling inference folder, or stopped unit result may be passed forward only as an explicit requiredInputRef/historical evidence item in the current input contract; it must never satisfy the current unit output contract.",
+          "proofRequired": "A regression must create a prior selected-unit result that looks valid while the current PR-review output is non-verdict. The current unit must block with pr-review-non-verdict-output and must not emit selected-unit-handoff-artifact or self-authored recovery events from the prior result.",
+          "acceptanceTest": "tests/contract/living-doc-harness-runner.spec.mjs fails if previous selected-unit handoff artifacts can satisfy the current unit output contract. tests/contract/living-doc-harness-inference-unit.spec.mjs fails if the removed continuation-inference unit can be invoked.",
+          "ticketIds": [
+            {
+              "issueNumber": "308",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/308",
+              "title": "Investigate and remove cross-unit continuation and artifact peeking from lifecycle harness"
+            }
+          ],
+          "repairStatus": "source-implemented-contract-green-live-proof-pending",
+          "repairEvidence": "Removed readSelectedUnitHandoffResult recovery from scripts/living-doc-harness-runner.mjs and added contract proof that prior selected-unit artifacts no longer satisfy the active unit output. Full npm run test:contract passed on 2026-05-14."
+        },
+        {
+          "id": "criterion-fresh-unit-instead-of-continuation",
+          "name": "Fresh unit replaces continuation and resume",
+          "status": "source-proof-green-live-proof-pending",
+          "updated": "2026-05-14T12:24:32.000Z",
+          "facetIds": [
+            "unit-isolation",
+            "validated-routing",
+            "controller-hard-facts"
+          ],
+          "objectiveTerm": "if the system needs another reasoning step, the controller starts a new inference unit with a fresh input contract",
+          "criterion": "Continuation/resume language must not be an executable unit route. Non-terminal follow-up work is represented as mode fresh-unit and a registered next unit. The registry must not contain continuation-inference, lifecycle output-input must use start-next-* actions, prompts must tell the unit not to resume or return to a previous unit, and dashboard/evidence recommendations must say fresh-unit instead of resume/continuation for non-terminal follow-up.",
+          "proofRequired": "Registry, prompt, lifecycle, terminal-state, evidence-dashboard, runner, and live-calibration tests prove the removed continuation unit cannot be invoked and that follow-up routing creates fresh worker or selected-unit contracts.",
+          "acceptanceTest": "npm run test:contract and npm run test:harness-chaining-report fail if continuation-inference is registered, if prompts ask to resume prior units, or if lifecycle output-input uses continue-with-* actions for selected units.",
+          "ticketIds": [
+            {
+              "issueNumber": "308",
+              "issueUrl": "https://github.com/triadflow/living-doc-compositor/issues/308",
+              "title": "Investigate and remove cross-unit continuation and artifact peeking from lifecycle harness"
+            }
+          ],
+          "repairStatus": "source-implemented-contract-green-live-proof-pending",
+          "repairEvidence": "Removed continuation-inference from HARNESS_INFERENCE_UNIT_REGISTRY and required lifecycle core types, changed non-terminal modes to fresh-unit, updated prompt doctrine, terminal-state, skill-router, evidence-dashboard, lifecycle, calibration, monkey, and chaining tests. Full npm run test:contract passed on 2026-05-14."
         }
       ]
     },
@@ -695,6 +978,56 @@
           "url": "https://github.com/triadflow/living-doc-compositor/issues/252",
           "relationship": "defect-repair",
           "relevance": "Covers the harness-on-harness defect where a worker legitimately changes controller-owned harness source during a lifecycle. The controller must stop before reviewer/closure, preserve a typed restart handoff with worker evidence and commit scope, and allow a clean restart after the controller source change is committed."
+        },
+        {
+          "id": "issue-294",
+          "name": "Lifecycle repeats continuation-inference instead of honoring reroute recommendation",
+          "status": "live-proof-pass",
+          "updated": "2026-05-13T12:15:00.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/294",
+          "relationship": "defect-repair",
+          "relevance": "Live lifecycle ldhl-20260513T104000Z proved the route-authority repair: continuation-inference recommended living-doc-balance-scan and iteration 3 selected it through latest-unit-output-contract. The remaining blocker moved to issue #295."
+        },
+        {
+          "id": "issue-295",
+          "name": "Cross-run artifact paths in handoff contracts",
+          "status": "open-live-proof-pending",
+          "updated": "2026-05-14T00:20:00.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/295",
+          "relevance": "Original live-run blocker. Source and contract repair exist via #296, but this issue remains open until a fresh lifecycle proves the evidence-path-mismatch is gone."
+        },
+        {
+          "id": "issue-296",
+          "name": "Portable artifact-reference contracts",
+          "status": "closed-source-implementation-complete",
+          "updated": "2026-05-14T00:28:00.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/296",
+          "relevance": "Implemented and closed after npm run test:contract passed. Live lifecycle validation remains tracked by issue #295."
+        },
+        {
+          "id": "issue-302",
+          "name": "Cross-run commit-intent artifact refs escape .living-doc-runs in continuation handoff",
+          "status": "source-fixed-live-proof-pending",
+          "updated": "2026-05-14T07:11:43.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/302",
+          "relevance": "Fresh live lifecycle proof found that older commit-intent artifacts were carried into a later continuation as current-run refs with ../ relative paths. Source and contract repair now force the producing run to own the ref and reject escaping lifecycle refs; live rerun proof is still required before closing the cross-run artifact objective."
+        },
+        {
+          "id": "issue-290",
+          "name": "Headless worker starts but produces no native event output under local-harness",
+          "status": "source-fixed-live-proof-pending",
+          "updated": "2026-05-14T07:11:43.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/290",
+          "relevance": "A worker process must not be allowed to look alive while producing zero inspectable inference evidence. The runner now has a startup evidence watchdog that writes a process-defect artifact with empty file sizes and terminates the silent child; live dashboard-backed proof remains required."
+        },
+        {
+          "id": "issue-308",
+          "name": "Investigate and remove cross-unit continuation and artifact peeking from lifecycle harness",
+          "status": "source-implemented-contract-green-live-proof-pending",
+          "updated": "2026-05-14T12:24:32.000Z",
+          "url": "https://github.com/triadflow/living-doc-compositor/issues/308",
+          "relationship": "defect-repair",
+          "relevance": "Owns the primitive isolation repair: no continuation-inference route, no previous-run selected-unit output recovery, no worker route authority, and no stopped unit resume. Current proof is source/contract green; live dashboard-backed lifecycle proof remains the next closure gate."
         }
       ]
     },
@@ -880,10 +1213,42 @@
         {
           "id": "rung-objective-closure",
           "name": "Objective closure",
-          "status": "closed",
-          "updated": "2026-05-11T11:44:30.000Z",
-          "evidence": "Standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system reached finalState.kind closed after six iterations. Final run ldh-20260511T112534Z-doc-living-doc-inference-unit-type-system recorded reviewer classification closed, closure-review approval, proofValid true, unresolvedObjectiveTerms 0, unprovenAcceptanceCriteria 0, side-effect commit evidence for 3e8203bf40bddbd5e66924923f44676e49b7c222, and post-flight summary output.",
-          "nextStep": "Closed; reopen only if new evidence invalidates the closure proof."
+          "status": "reopened-by-new-evidence",
+          "updated": "2026-05-13T10:05:00.000Z",
+          "evidence": "Standalone lifecycle ldhl-20260511T112528Z-living-doc-inference-unit-type-system reached finalState.kind closed after six iterations. Final run ldh-20260511T112534Z-doc-living-doc-inference-unit-type-system recorded reviewer classification closed, closure-review approval, proofValid true, unresolvedObjectiveTerms 0, unprovenAcceptanceCriteria 0, side-effect commit evidence for 3e8203bf40bddbd5e66924923f44676e49b7c222, and post-flight summary output. Reopened on 2026-05-13 by issue #294: later standalone lifecycle evidence showed route authority was under-specified, so the previous closure is historical baseline proof rather than current objective closure.",
+          "nextStep": "Reclaim closure only after #294 is fixed and a new standalone lifecycle proves latest-output route authority."
+        },
+        {
+          "id": "rung-unit-output-route-authority",
+          "name": "Latest output route authority proof",
+          "status": "live-proof-pass-new-blocker-found",
+          "updated": "2026-05-13T12:15:00.000Z",
+          "evidence": "Source repair implemented: scripts/living-doc-harness-routing-policy.mjs now prioritizes latest-unit-output-recommendation before stale commit/PR blocker rules; scripts/living-doc-harness-lifecycle.mjs records initialInferenceUnit output evidence; scripts/living-doc-harness-iteration.mjs converts continuation output into routeAuthority metadata and validates the selected transition from the source decision unit. npm run test:contract passed on 2026-05-13, including a #294 lifecycle-controller fixture where continuation-inference recommends living-doc-balance-scan after git-head-unchanged and routing selects living-doc-balance-scan. Live lifecycle ldhl-20260513T104000Z confirmed route authority in iteration 3: latest-unit-output-recommendation selected living-doc-balance-scan from continuation-inference output.",
+          "nextStep": "Address #295 before reclaiming full objective closure."
+        },
+        {
+          "id": "rung-cross-run-artifact-paths",
+          "name": "Cross-run artifact handoff proof",
+          "status": "blocked-live-run",
+          "updated": "2026-05-13T12:15:00.000Z",
+          "evidence": "Live lifecycle ldhl-20260513T104000Z exposed evidence-path-mismatch in iteration 4 balance-scan and stale initial-inference-units/iteration-2 commit-intent paths in iteration 4 post-review selection.",
+          "nextStep": "Implement #295 and rerun the lifecycle until receiving units can resolve required artifact refs without search."
+        },
+        {
+          "id": "rung-portable-artifact-ref-contract",
+          "name": "Portable artifact-reference contract proof",
+          "status": "source-and-contract-proof-pass-live-proof-pending",
+          "updated": "2026-05-14T07:11:43.000Z",
+          "evidence": "Added scripts/living-doc-harness-artifact-ref.mjs and carried living-doc-artifact-ref/v1 through selected next units, output-input, nextInput, runner contracts and prompts, closure-review, post-flight, lifecycle-result, restart handoffs, side-effect evidence, and dashboard policy inspection. Focused tests passed: lifecycle-controller, iteration, runner, and dashboard-server contract specs. The lifecycle-controller spec verifies commit-intent resultRef resolves from its owning run when consumed from a later run, selected-unit input contracts receive requiredInputRefs/resolvedRequiredInputRefs, output-input and nextInput carry refs, lifecycle-result iteration records carry refs, post-flight input carries refs, and the receiving prompt exposes contract-bound refs. Full proof gates passed on 2026-05-14T03:07Z: npm run test:contract and npx playwright test tests/e2e/harness-inference-unit-routing.spec.mjs. Issue #302 adds owner-normalization proof for sibling-run artifacts: commit-intent refs produced in an older .living-doc-runs/<run-id> directory are emitted with that producer runDir and an internal relativePath, while malformed .living-doc-runs-owned refs that climb with ../ are rejected. npm run test:contract passed on 2026-05-14T07:11:43Z.",
+          "nextStep": "Rerun the live dashboard-backed lifecycle and verify the #302 sibling-run commit-intent ref shape is gone before claiming closure."
+        },
+        {
+          "id": "rung-unit-isolation-no-peeking",
+          "name": "Unit isolation and no-peeking proof",
+          "status": "source-contract-and-report-proof-pass-live-proof-pending",
+          "updated": "2026-05-14T12:55:00.000Z",
+          "evidence": "Issue #308 source repair removed continuation-inference from the registry, removed selected-unit handoff result recovery, changed non-terminal handoff mode to fresh-unit, made worker output non-authoritative for route selection, and kept prior artifacts as explicit input refs only. Proof passed on 2026-05-14: npm run test:contract, npm run test:harness-live-calibration, and npm run test:harness-chaining-report. This worker also corrected the dashboard graph contract fixture so an accepted latest-unit-output route is sourced from reviewer-inference rather than worker, then passed node tests/contract/living-doc-harness-dashboard-server.spec.mjs, node tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs, and node tests/contract/living-doc-harness-inference-unit.spec.mjs.",
+          "nextStep": "Run a fresh standalone lifecycle with dashboard inspection to prove the isolation model in a live objective run."
         }
       ]
     }

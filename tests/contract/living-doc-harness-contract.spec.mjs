@@ -93,7 +93,7 @@ function validContinuation(classification) {
     },
     nextIteration: {
       allowed: true,
-      mode: 'continuation',
+      mode: 'fresh-unit',
       instruction: `Continue after ${classification}; it is not objective closure.`,
       mustNotDo: ['do not stop unless the objective is proven reached or the user explicitly stops'],
     },
@@ -124,7 +124,7 @@ assert.equal(schema.title, 'living-doc-harness-iteration-proof/v1');
     },
     nextIteration: {
       allowed: true,
-      mode: 'resume',
+      mode: 'fresh-unit',
       instruction: 'Resume the worker with the unresolved objective terms from this handover.',
       mustNotDo: ['do not ask the user before exhausting available sources'],
     },
@@ -267,7 +267,7 @@ for (const continuation of [
     'repair-skill',
     'commit-intent',
     'pr-review',
-    'continuation-inference',
+    'worker',
     'post-flight-summary',
   ];
   const result = validateRegistryCompleteness(HARNESS_INFERENCE_UNIT_REGISTRY);
@@ -298,7 +298,7 @@ for (const continuation of [
   assert.equal(validateNextUnitSelection({
     currentUnitTypeId: 'reviewer-inference',
     selectedUnitTypeId: 'commit-intent',
-    allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'continuation-inference'],
+    allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'worker'],
   }).reasonCode, 'selected-unit-type-not-allowed-for-run');
   assert.equal(validateNextUnitSelection({
     currentUnitTypeId: 'reviewer-inference',
@@ -314,10 +314,6 @@ for (const continuation of [
     allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review'],
   });
   assert.equal(invalidRunConfig.ok, false);
-  assert.ok(invalidRunConfig.violations.some((violation) => (
-    violation.reasonCode === 'required-lifecycle-unit-type-missing'
-    && violation.unitTypeId === 'continuation-inference'
-  )));
   assert.ok(invalidRunConfig.violations.some((violation) => (
     violation.reasonCode === 'required-lifecycle-unit-type-missing'
     && violation.unitTypeId === 'post-flight-summary'

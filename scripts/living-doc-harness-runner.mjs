@@ -46,6 +46,29 @@ function arr(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function renderedHtmlSiblingForLivingDoc(docPath) {
+  if (!docPath || path.extname(docPath) !== '.json') return null;
+  return `${docPath.slice(0, -'.json'.length)}.html`;
+}
+
+function livingDocStateCommitScope({ files, forbiddenFiles = [], livingDocPath, renderedHtmlPath }) {
+  const baseFiles = unique(arr(files));
+  const docPath = livingDocPath || null;
+  const htmlPath = renderedHtmlPath || renderedHtmlSiblingForLivingDoc(docPath);
+  const allowed = [...baseFiles];
+  if (docPath && htmlPath && baseFiles.includes(docPath) && !allowed.includes(htmlPath)) {
+    allowed.push(htmlPath);
+  }
+  const allowedSet = new Set(allowed);
+  return {
+    allowedCommitFiles: unique(allowed),
+    forbiddenCommitFiles: unique(arr(forbiddenFiles)).filter((filePath) => !allowedSet.has(filePath)),
+    livingDocStateFiles: [docPath, htmlPath].filter(Boolean),
+    livingDocPath: docPath,
+    renderedHtmlPath: htmlPath,
+  };
+}
+
 function extractJson(text) {
   const value = String(text || '').trim();
   if (!value) return null;
@@ -127,21 +150,6 @@ async function readSelfAuthoredUnitResult({ runDir, artifact, unitTypeId }) {
   if (!artifact?.result) return null;
   return readValidatedUnitResultAtPath({
     resultPath: path.join(runDir, artifact.result),
-    unitTypeId,
-    allowFixture: false,
-  });
-}
-
-async function readSelectedUnitHandoffResult({ cwd, runsDir, lifecycleInput, unitTypeId }) {
-  const resultPath = lifecycleInput?.nextUnit?.resultPath;
-  const previousRunId = lifecycleInput?.previousRunId;
-  if (!resultPath || !previousRunId) return null;
-  const previousRunDir = path.resolve(cwd, runsDir, previousRunId);
-  const absoluteResultPath = path.resolve(previousRunDir, resultPath);
-  const relativeFromPreviousRun = path.relative(previousRunDir, absoluteResultPath);
-  if (relativeFromPreviousRun.startsWith('..') || path.isAbsolute(relativeFromPreviousRun)) return null;
-  return readValidatedUnitResultAtPath({
-    resultPath: absoluteResultPath,
     unitTypeId,
     allowFixture: false,
   });
@@ -261,7 +269,6 @@ function sequenceForUnit(unitTypeId) {
     'commit-intent': 4,
     'pr-review': 5,
     'repair-skill': 6,
-    'continuation-inference': 7,
     'post-flight-summary': 8,
   }[unitTypeId] || 1;
 }
@@ -431,6 +438,8 @@ function initialUnitWorkInstruction(unitId) {
       'Scan-only role boundary:',
       '- Inspect the living doc, reviewer verdict, handover, required evidence paths, and raw/log summary paths named in the input contract.',
       '- Return imbalance classification, basis, ordered unit types, blockers, and next routing recommendation only.',
+      '- Use balance-scan only for a structural living-doc imbalance; do not turn ordinary incomplete worker progress into a scan detour.',
+      '- Route back toward worker progress after the narrow imbalance is diagnosed or after a named repair unit is ordered.',
       '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or run artifacts.',
       '- Do not render the living doc, run implementation proof tests, commit, or run lifecycle/reviewer/finalizer/dashboard/proof-route commands.',
       '- If source changes or proof execution are needed, return blocked or order the next unit type; do not perform that work from balance-scan.',
@@ -440,26 +449,26 @@ function initialUnitWorkInstruction(unitId) {
     return [
       'PR-review role boundary:',
       '- This unit is read-only over the repository source tree. Inspect evidence and return approved, not-required, blocked, or failed.',
+      '- Treat PR review as an evidence gate, not an objective-progress engine. Do not solve the living-doc objective from this unit.',
+      '- If PR evidence is missing or blocked, name the concrete gate condition so the controller can route back to productive work.',
       '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or commits from this unit. If a defect needs source changes, return blocked with the required follow-up unit instead.',
-    ];
-  }
-  if (unitId === 'continuation-inference') {
-    return [
-      'Continuation role boundary:',
-      '- Inspect the prior output/input contract and decide the next executable unit type.',
-      '- Do not perform the implementation work yourself unless the selected unit contract explicitly grants that role.',
     ];
   }
   if (unitId === 'closure-review') {
     return [
       'Closure-review role boundary:',
       '- Inspect proof, acceptance criteria, reviewer verdicts, PR-review evidence, and controller hard facts.',
+      '- Act only as the terminal guard. If closure is denied, return a concrete denial reason that can route to continuation or worker.',
       '- Return a closure verdict only; do not edit source files, living docs, rendered HTML, tests, scripts, or commits.',
     ];
   }
   return [
     'Worker role boundary:',
-    '- Work from the living doc objective and produce concrete source-system changes or a clear blocker.',
+    '- You are the primary actuator of objective progress in this lifecycle.',
+    '- If the next honest source-system or living-doc move is knowable and allowed, do it.',
+    '- Keep the living doc and source system aligned: when source state changes, update the living doc truth or name the exact follow-up needed.',
+    '- Only return a blocker after making the concrete local moves available to you, then name the exact missing evidence, decision, permission, or source-system condition.',
+    '- Do not outsource solvable work to reviewer, balance-scan, repair, continuation, or gates.',
   ];
 }
 
@@ -477,6 +486,9 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
     '',
     'Rules:',
     '- Treat the living doc JSON as the source of objective state.',
+    '- Treat the living doc as the active working surface: it keeps the objective, source-system state, evidence, unresolved decisions, acceptance criteria, and current truth aligned.',
+    '- Real progress means a concrete source-system change, a truthful living-doc update, satisfied gate evidence, or a named missing condition that could not be resolved locally.',
+    '- Progress-shaped artifacts are invalid when they only create scans, summaries, blocker labels, report polish, or route churn without moving the objective or exposing a real missing condition.',
     '- Do not claim closure unless acceptance criteria and proof gates are satisfied.',
     '- If blocked, make the blocker explicit with required evidence or decision.',
     '- Do not run harness finalizer, reviewer, evidence-dashboard, or lifecycle-control commands from inside this inference unit; the lifecycle controller owns review, transition, proof, dashboard, and next-iteration decisions after the unit exits.',
@@ -500,7 +512,7 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
       `- outputInputPath: ${lifecycleInput.outputInputPath || 'none'}`,
       `- selectedUnitType: ${lifecycleInput.selectedUnitType || lifecycleInput.nextUnit?.unitId || 'none'}`,
       '',
-      'Use this lifecycle input as the next controlled input. Continue while the lifecycle input is actionable.',
+      'Use this controller handoff as historical evidence and current contract input. Do not resume or return to a previous unit; this is a fresh isolated unit.',
     );
     if (lifecycleInput.nextUnit) {
       lines.push(
@@ -758,16 +770,27 @@ async function buildInitialInputContract({
   if (initialUnit.unitId === 'commit-intent') {
     const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
     const commitScope = commitScopeFromPreviousEvidence(previous);
-    const changedFiles = unique([...arr(commitScope.allowedCommitFiles), ...arr(nextUnit.changedFiles)]);
+    const rawChangedFiles = unique([...arr(commitScope.allowedCommitFiles), ...arr(nextUnit.changedFiles)]);
+    const livingDocStateScope = livingDocStateCommitScope({
+      files: rawChangedFiles,
+      forbiddenFiles: commitScope.forbiddenCommitFiles,
+      livingDocPath: docPath,
+      renderedHtmlPath: renderedHtmlSiblingForLivingDoc(docPath),
+    });
+    const changedFiles = rawChangedFiles;
+    const allowedCommitFiles = livingDocStateScope.allowedCommitFiles;
+    const forbiddenCommitFiles = livingDocStateScope.forbiddenCommitFiles;
     return {
       schema: 'living-doc-harness-commit-intent-input/v1',
       runId,
       iteration,
+      livingDocPath: livingDocStateScope.livingDocPath,
+      renderedHtmlPath: livingDocStateScope.renderedHtmlPath,
       changedFiles,
       currentRunChangedFiles: commitScope.currentRunChangedFiles,
       preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
-      allowedCommitFiles: changedFiles,
-      forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
+      allowedCommitFiles,
+      forbiddenCommitFiles,
       evidenceSnapshotPath,
       evidenceSnapshotRef,
       requiredHardFacts: previous.evidence?.requiredHardFacts || null,
@@ -779,33 +802,23 @@ async function buildInitialInputContract({
         }),
         currentRunChangedFiles: commitScope.currentRunChangedFiles,
         preExistingDirtyFiles: commitScope.preExistingDirtyFiles,
-        allowedCommitFiles: changedFiles,
-        forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
+        allowedCommitFiles,
+        forbiddenCommitFiles,
+        livingDocPath: livingDocStateScope.livingDocPath,
+        renderedHtmlPath: livingDocStateScope.renderedHtmlPath,
       },
       commitScope: {
         ...commitScope,
-        allowedCommitFiles: changedFiles,
+        allowedCommitFiles,
+        forbiddenCommitFiles,
+        livingDocStateFiles: livingDocStateScope.livingDocStateFiles,
       },
       commitPolicy: {
         exactFilesOnly: true,
         forbidPreExistingDirtyFiles: true,
+        allowRenderedLivingDocSibling: true,
         reason: 'Commit-intent may only approve files scoped to the current objective run.',
       },
-      lifecycleInput,
-      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
-      evidenceRef: previous.evidenceRef || null,
-      requiredInspectionPaths,
-      requiredInputRefs: arr(nextUnit.requiredInputRefs),
-      resolvedRequiredInputRefs: requiredInputRefResolutions,
-    };
-  }
-
-  if (initialUnit.unitId === 'continuation-inference') {
-    return {
-      schema: 'living-doc-continuation-input/v1',
-      runId,
-      iteration,
-      reasonCode: nextUnit.reasonCode || previous.outputInput?.previousOutput?.classification || 'continuation-required',
       lifecycleInput,
       outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
       evidenceRef: previous.evidenceRef || null,
@@ -937,14 +950,6 @@ function preparedOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       sideEffect: { type: 'github-pr-review', executed: false, reasonCode: 'unit-not-finalized' },
     };
   }
-  if (unitTypeId === 'continuation-inference') {
-    return {
-      schema: 'living-doc-continuation-result/v1',
-      status,
-      basis: [`${unitTypeId} unit ${status}.`],
-      nextRecommendedUnitType: 'worker',
-    };
-  }
   if (unitTypeId === 'living-doc-balance-scan') {
     return {
       schema: 'living-doc-balance-scan-result/v1',
@@ -1052,28 +1057,6 @@ function balanceScanRoleBoundaryOutputContract({ base, violation, exitCode, path
   };
 }
 
-function normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs }) {
-  const allowedStatuses = getInferenceUnitType('continuation-inference').outputVerdicts;
-  const base = {
-    ...(output && typeof output === 'object' ? output : {}),
-    exitCode,
-    ...paths,
-    nativeTraceRefs: traceRefs,
-  };
-  if (allowedStatuses.includes(base.status)) return base;
-  const reasonCode = base.reasonCode || 'continuation-non-verdict-output';
-  return {
-    ...base,
-    schema: 'living-doc-continuation-result/v1',
-    status: 'blocked',
-    reasonCode,
-    basis: arr(base.basis).length
-      ? base.basis
-      : ['Continuation headless process exited without emitting continuation-required, blocked, or ready.'],
-    nextRecommendedUnitType: base.nextRecommendedUnitType || 'worker',
-  };
-}
-
 function normalizeBalanceScanExternalOutputContract({ output, exitCode, paths, traceRefs, roleBoundaryViolation = null }) {
   const allowedStatuses = getInferenceUnitType('living-doc-balance-scan').outputVerdicts;
   const base = {
@@ -1141,21 +1124,37 @@ async function gitCommitEvidence(cwd, sha) {
 }
 
 function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
-  const changedFiles = unique(arr(inputContract.allowedCommitFiles).length
+  const changedFiles = unique(arr(inputContract.changedFiles).length
+    ? arr(inputContract.changedFiles)
+    : arr(inputContract.allowedCommitFiles));
+  const rawAllowedFiles = unique(arr(inputContract.allowedCommitFiles).length
     ? arr(inputContract.allowedCommitFiles)
-    : arr(inputContract.changedFiles));
-  const forbiddenCommitFiles = unique([
-    ...arr(inputContract.forbiddenCommitFiles),
-    ...arr(inputContract.commitIntent?.forbiddenCommitFiles),
-  ]);
+    : changedFiles);
+  const livingDocStateScope = livingDocStateCommitScope({
+    files: rawAllowedFiles,
+    forbiddenFiles: [
+      ...arr(inputContract.forbiddenCommitFiles),
+      ...arr(inputContract.commitIntent?.forbiddenCommitFiles),
+    ],
+    livingDocPath: inputContract.livingDocPath || inputContract.commitIntent?.livingDocPath || null,
+    renderedHtmlPath: inputContract.renderedHtmlPath || inputContract.commitIntent?.renderedHtmlPath || null,
+  });
+  const allowedCommitFiles = livingDocStateScope.allowedCommitFiles;
+  const forbiddenCommitFiles = livingDocStateScope.forbiddenCommitFiles;
   if (commitEvidence?.sha && commitBefore && commitAfter && commitBefore !== commitAfter) {
     const committedFiles = arr(commitEvidence.files);
     const committedSet = new Set(committedFiles);
-    const allowedSet = new Set(changedFiles);
+    const allowedSet = new Set(allowedCommitFiles);
     const forbiddenSet = new Set(forbiddenCommitFiles);
+    const livingDocStateSet = new Set(livingDocStateScope.livingDocStateFiles);
     const missingChangedFiles = changedFiles.filter((filePath) => !committedSet.has(filePath));
     const extraCommittedFiles = committedFiles.filter((filePath) => !allowedSet.has(filePath));
     const forbiddenCommittedFiles = committedFiles.filter((filePath) => forbiddenSet.has(filePath));
+    const livingDocStateCommittedFiles = committedFiles.filter((filePath) => livingDocStateSet.has(filePath));
+    const nonLivingDocStateCommittedFiles = committedFiles.filter((filePath) => !livingDocStateSet.has(filePath));
+    const commitKind = livingDocStateCommittedFiles.length > 0 && nonLivingDocStateCommittedFiles.length === 0
+      ? 'living-doc-state'
+      : 'objective-scope';
     const approved = missingChangedFiles.length === 0
       && extraCommittedFiles.length === 0
       && forbiddenCommittedFiles.length === 0;
@@ -1163,6 +1162,7 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       schema: 'living-doc-harness-commit-intent-result/v1',
       approved,
       status: approved ? 'approved' : 'blocked',
+      commitKind,
       changedFiles,
       message: commitEvidence.subject || inputContract.commitIntent?.message || 'Harness-managed commit-intent side effect.',
       sideEffect: {
@@ -1177,7 +1177,11 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
         beforeSha: commitBefore,
         committedAt: commitEvidence.committedAt,
         committedFiles,
+        livingDocStateFiles: livingDocStateScope.livingDocStateFiles,
+        livingDocStateCommittedFiles,
+        nonLivingDocStateCommittedFiles,
         requiredChangedFiles: changedFiles,
+        allowedCommitFiles,
         missingChangedFiles,
         extraCommittedFiles,
         forbiddenCommittedFiles,
@@ -1258,26 +1262,6 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       });
     }
     return normalized;
-  }
-  if (unitTypeId === 'continuation-inference') {
-    const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
-      ? rawResult.outputContract
-      : rawResult;
-    if (output?.schema === 'living-doc-continuation-result/v1') {
-      return normalizeContinuationExternalOutputContract({ output, exitCode, paths, traceRefs });
-    }
-    return normalizeContinuationExternalOutputContract({
-      output: preparedOutputContract({
-        unitTypeId,
-        runId,
-        docPath,
-        inputContract,
-        status,
-      }),
-      exitCode,
-      paths,
-      traceRefs,
-    });
   }
   if (unitTypeId === 'living-doc-balance-scan') {
     const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
@@ -1917,23 +1901,15 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     artifact: initialUnitArtifact,
     unitTypeId: initialUnit.unitId,
   });
-  const selectedUnitHandoffResult = await readSelectedUnitHandoffResult({
-    cwd,
-    runsDir,
-    lifecycleInput,
-    unitTypeId: initialUnit.unitId,
-  });
   const rawUnitResult = outputHasRegisteredVerdict({
     rawResult: rawLastMessageResult,
     unitTypeId: initialUnit.unitId,
   })
     ? rawLastMessageResult
-    : selfAuthoredUnitResult?.result || selectedUnitHandoffResult?.result || rawLastMessageResult;
+    : selfAuthoredUnitResult?.result || rawLastMessageResult;
   const recoveredUnitResult = rawUnitResult === selfAuthoredUnitResult?.result
     ? { ...selfAuthoredUnitResult, source: 'current-initial-unit-artifact' }
-    : rawUnitResult === selectedUnitHandoffResult?.result
-      ? { ...selectedUnitHandoffResult, source: 'selected-unit-handoff-artifact' }
-      : null;
+    : null;
   if (recoveredUnitResult) {
     await appendJsonl(path.join(runDir, 'events.jsonl'), {
       event: 'self-authored-inference-unit-result-recovered',
@@ -1979,10 +1955,10 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       lastMessagePath,
     },
     mode: 'external-headless-codex',
-    status: ['commit-intent', 'pr-review', 'continuation-inference', 'living-doc-balance-scan'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
+    status: ['commit-intent', 'pr-review', 'living-doc-balance-scan'].includes(initialUnit.unitId) ? finalOutputContract.status : finalContract.status,
     basis: [
       `${initialUnit.unitId} headless Codex process exited with code ${exitCode}.`,
-      'Reviewer inference remains the authority for closure, repair, resume, or block decisions.',
+      'Reviewer inference remains the authority for closure, repair, fresh follow-up, or block decisions.',
     ],
     outputContract: finalOutputContract,
     now: finishedAt,

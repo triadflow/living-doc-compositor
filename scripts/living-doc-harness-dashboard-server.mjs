@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createHarnessRun } from './living-doc-harness-runner.mjs';
 import { collectRunEvidence, writeEvidenceBundle } from './living-doc-harness-evidence-dashboard.mjs';
+import { resolveArtifactRef as resolveHarnessArtifactRef } from './living-doc-harness-artifact-ref.mjs';
 import { DEFAULT_PR_REVIEW_POLICY, normalizePrReviewPolicy } from './living-doc-harness-inference-unit-types.mjs';
 import { INFERENCE_TOOL_PROFILE_NAMES, resolveInferenceToolProfile } from './living-doc-harness-tool-profile.mjs';
 
@@ -594,6 +595,9 @@ function commitIntentForDashboard({ unit, chainSkillResult = null, changedFiles 
 
 function resolveArtifactRef({ cwd, baseDir, ref }) {
   if (!ref) return null;
+  if (typeof ref === 'object') {
+    return resolveHarnessArtifactRef({ cwd, currentRunDir: baseDir || cwd, ref });
+  }
   if (path.isAbsolute(ref)) return ref;
   if (String(ref).startsWith('.')) return path.resolve(cwd, ref);
   return path.resolve(baseDir || cwd, ref);
@@ -661,7 +665,9 @@ function summarizePolicySelection(selection) {
     dashboardLabel: source.dashboardLabel || nextUnit?.unitId || terminalAction?.kind || null,
     handoffInstruction: source.handoffInstruction || null,
     requiredInputPaths: arr(nextUnit?.requiredInputPaths),
+    requiredInputRefs: arr(nextUnit?.requiredInputRefs),
     expectedOutputSchema: nextUnit?.expectedOutputSchema || null,
+    routeAuthority: nextUnit?.routeAuthority || terminalAction?.routeAuthority || null,
     status: source.status || selection.contractValidation?.reasonCode || null,
     contractValidation: selection.contractValidation || null,
   };
@@ -1107,7 +1113,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
           resultPath: unit.paths.resultPath,
           validationPath: unit.paths.validationPath,
           codexEventsPath: unit.paths.codexEventsPath,
-          ...(role === 'balance-scan' && policySelection?.selectedUnitType === 'living-doc-balance-scan'
+          ...((role === 'balance-scan' || unit.sequence === 1) && policySelection?.selectedUnitType === 'living-doc-balance-scan'
             ? { policySelection }
             : {}),
         },
@@ -1468,7 +1474,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
           resultPath: unit.paths.resultPath,
           validationPath: unit.paths.validationPath,
           codexEventsPath: unit.paths.codexEventsPath,
-          ...(role === 'balance-scan' && policySelection?.selectedUnitType === 'living-doc-balance-scan'
+          ...((role === 'balance-scan' || unit.sequence === 1) && policySelection?.selectedUnitType === 'living-doc-balance-scan'
             ? { policySelection }
             : {}),
         },
@@ -1756,7 +1762,6 @@ function inferenceUnitSequence(unitId) {
     'closure-review': 3,
     'commit-intent': 4,
     'pr-review': 5,
-    'continuation-inference': 6,
     'post-flight-summary': 7,
   };
   return sequenceByUnit[unitId] || 1;
@@ -2929,8 +2934,19 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           ['Label', selection.dashboardLabel || 'none'],
           ['Status', selection.status || 'unknown'],
         ]) +
+        (selection.routeAuthority ? '<h3>Route Authority</h3>' + inspectorFields([
+          ['Source unit', selection.routeAuthority.sourceUnitType || 'none'],
+          ['Recommended unit', selection.routeAuthority.recommendedUnitType || 'none'],
+          ['Accepted', selection.routeAuthority.accepted === true ? 'true' : 'false'],
+          ['Source result', selection.routeAuthority.resultPath || 'none'],
+        ]) : '') +
         '<h3>Handoff</h3><p class="muted">' + esc(selection.handoffInstruction || 'No handoff instruction recorded.') + '</p>' +
-        '<h3>Required Inputs</h3>' + listItems(selection.requiredInputPaths || [], (item) => '<code>' + esc(item) + '</code>') +
+        '<h3>Required Inputs</h3>' + listItems(selection.requiredInputRefs?.length ? selection.requiredInputRefs : (selection.requiredInputPaths || []), (item) => {
+          if (item && typeof item === 'object') {
+            return '<code>' + esc([item.kind || 'artifact', item.runId || 'run', item.relativePath || 'path'].join(' · ')) + '</code>';
+          }
+          return '<code>' + esc(item) + '</code>';
+        }) +
       '</section>';
     }
 

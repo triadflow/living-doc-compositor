@@ -120,7 +120,7 @@ function contractWith(verdict, evidence = baseEvidence()) {
   const verdict = inferStopNegotiation(evidence);
   assert.equal(verdict.stopVerdict.classification, 'resumable');
   assert.equal(verdict.stopVerdict.reasonCode, 'premature-handoff');
-  assert.equal(verdict.nextIteration.mode, 'resume');
+  assert.equal(verdict.nextIteration.mode, 'fresh-unit');
   assert.match(verdict.nextIteration.instruction, /objective-execution-readiness/);
   assert.equal(validateHarnessContract(contractWith(verdict, evidence)).ok, true);
 }
@@ -151,7 +151,7 @@ function contractWith(verdict, evidence = baseEvidence()) {
   assert.equal(validateHarnessContract(contractWith(verdict, evidence)).ok, true);
 }
 
-// True block is continuation evidence and cannot stop the lifecycle.
+// True block is fresh-unit evidence and cannot stop the lifecycle.
 {
   const evidence = baseEvidence({
     terminalSignal: {
@@ -166,7 +166,7 @@ function contractWith(verdict, evidence = baseEvidence()) {
   const verdict = inferStopNegotiation(evidence);
   assert.equal(verdict.stopVerdict.classification, 'true-block');
   assert.equal(verdict.nextIteration.allowed, true);
-  assert.equal(verdict.nextIteration.mode, 'continuation');
+  assert.equal(verdict.nextIteration.mode, 'fresh-unit');
   assert.equal(validateHarnessContract(contractWith(verdict, evidence)).ok, true);
 }
 

@@ -1,0 +1,676 @@
+{
+  "docId": "doc:living-doc-harness-governed-monkey-testing",
+  "title": "Governed Harness Monkey Testing",
+  "subtitle": "Seeded perturbation for contract and concept hardening",
+  "brand": "LD",
+  "scope": "Seeded monkey-test pattern for living-doc harness contracts, lifecycle routing, artifact references, and concept-level invariants.",
+  "owner": "Living Docs",
+  "version": "draft",
+  "canonicalOrigin": "docs/living-doc-harness-governed-monkey-testing.json",
+  "sourceCoverage": "Session-derived objective shaped from the harness chaining proof work, existing contract suite surfaces, and the desired monkey-test pattern.",
+  "updated": "2026-05-14T07:47:24.000Z",
+  "objective": "Create a governed monkey-test pattern for the living-doc harness that uses seeded, bounded perturbations to stress inference-unit contracts, artifact references, routing policy, lifecycle gate states, and concept-level invariants. The pattern must expose under-tested assumptions without creating flaky CI: every generated case must be reproducible from a seed, checked against named harness invariants, able to emit replay artifacts on failure, and connected back to the concept or contract it hardens.",
+  "successCondition": "The objective is met only when the harness has a CI-safe seeded monkey-test surface that can generate bounded valid and invalid lifecycle cases, reject contract and routing violations deterministically, write replay artifacts for failures, map each generated case to a named concept or invariant, and promote any failure into a normal deterministic regression test. Random noise, unreplayable fuzzing, report-only output, or tests that merely exercise happy-path examples cannot satisfy closure.",
+  "objectiveFacets": [
+    {
+      "id": "seeded-replayable-generation",
+      "label": "Seeded replayable generation",
+      "description": "Every monkey run is deterministic from an explicit seed and can be replayed from saved artifacts."
+    },
+    {
+      "id": "bounded-perturbation-surface",
+      "label": "Bounded perturbation surface",
+      "description": "Mutations are limited to approved harness inputs such as contracts, artifact references, route recommendations, gate states, timestamps, iteration ids, allowed unit sets, and fixture evidence."
+    },
+    {
+      "id": "contract-and-lifecycle-invariants",
+      "label": "Contract and lifecycle invariants",
+      "description": "Generated cases are judged by named invariants, not by random execution success."
+    },
+    {
+      "id": "concept-hardening",
+      "label": "Concept hardening",
+      "description": "Each case explains which system concept it pressures, such as controller-owned routing, artifact-ref continuity, side-effect gates, closure authority, or evidence freshness."
+    },
+    {
+      "id": "ci-safe-monkey-pattern",
+      "label": "CI-safe monkey pattern",
+      "description": "The default suite is deterministic, bounded, offline, and timeout-limited so it strengthens CI without introducing flaky behavior."
+    }
+  ],
+  "coverage": [
+    {
+      "facetId": "seeded-replayable-generation",
+      "sectionId": "acceptance-criteria",
+      "itemIds": [
+        "criterion-seeded-runner",
+        "criterion-replay-artifact",
+        "criterion-regression-promotion"
+      ]
+    },
+    {
+      "facetId": "bounded-perturbation-surface",
+      "sectionId": "mutation-boundaries",
+      "itemIds": [
+        "surface-inference-unit-output",
+        "surface-artifact-ref",
+        "surface-routing-policy",
+        "surface-lifecycle-gates",
+        "surface-evidence-freshness"
+      ]
+    },
+    {
+      "facetId": "contract-and-lifecycle-invariants",
+      "sectionId": "acceptance-criteria",
+      "itemIds": [
+        "criterion-contract-violations",
+        "criterion-lifecycle-invariants"
+      ]
+    },
+    {
+      "facetId": "concept-hardening",
+      "sectionId": "concept-hardening-map",
+      "itemIds": [
+        "concept-controller-owned-routing",
+        "concept-artifact-ref-continuity",
+        "concept-closure-authority",
+        "concept-evidence-freshness"
+      ]
+    },
+    {
+      "facetId": "ci-safe-monkey-pattern",
+      "sectionId": "acceptance-criteria",
+      "itemIds": [
+        "criterion-ci-safe",
+        "criterion-report-surface"
+      ]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "monkey-runs-must-be-replayable",
+      "statement": "No monkey failure counts as actionable unless the seed, generated case, mutation list, expected invariant, actual result, and replay command are saved."
+    },
+    {
+      "id": "monkey-runs-must-be-bounded",
+      "statement": "The monkey runner must not mutate arbitrary files, call real network services, invoke real Codex execution, or perform external side effects in the default contract path."
+    },
+    {
+      "id": "randomness-is-not-proof",
+      "statement": "A monkey pass proves only that named invariants survived the generated cases; it does not replace maximal-chain proof, production replay, or objective closure review."
+    },
+    {
+      "id": "concepts-must-fail-when-violated",
+      "statement": "A concept is not hardened until at least one generated case fails if that concept's rule is broken."
+    }
+  ],
+  "metaFingerprint": "",
+  "sections": [
+    {
+      "id": "status-snapshot",
+      "title": "Current State",
+      "convergenceType": "status-snapshot",
+      "summary": "The objective is shaped and ready to drive implementation; the monkey runner and replay artifacts do not exist yet.",
+      "data": [
+        {
+          "id": "snapshot-objective-shaped",
+          "title": "Objective shaped",
+          "status": "ready",
+          "label": "Objective and acceptance criteria",
+          "notes": [
+            "The monkey pattern is defined as governed, seeded, bounded, replayable, and invariant-driven.",
+            "The living doc does not claim the suite is implemented."
+          ]
+        },
+        {
+          "id": "snapshot-implementation-missing",
+          "title": "First contract implementation exists",
+          "status": "implemented",
+          "label": "Runner, contract spec, and report",
+          "notes": [
+            "scripts/living-doc-harness-monkey.mjs implements seeded generation, replay loading, and failure replay artifacts.",
+            "tests/contract/living-doc-harness-monkey.spec.mjs verifies deterministic generation, replay report loading, failure artifact shape, concept mapping, and default CI-safe execution.",
+            "docs/living-doc-harness-monkey-test-report.json records 48 passing generated cases for seed 20260514."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "title": "Acceptance Criteria",
+      "convergenceType": "acceptance-criteria",
+      "summary": "Closure gates for a governed monkey-test pattern.",
+      "data": [
+        {
+          "id": "criterion-seeded-runner",
+          "title": "Seeded harness monkey runner",
+          "status": "ready",
+          "objectiveTerm": "seeded, bounded perturbations",
+          "criterion": "A harness monkey test runner exists for seeded runs and reproduces the same generated cases from the same seed.",
+          "proofRequired": "A command such as `node tests/contract/living-doc-harness-monkey.spec.mjs --seed <seed>` or an equivalent npm script executes deterministic generated cases.",
+          "acceptanceTest": "Running the same seed twice produces the same case ids, mutation list, expected invariants, and pass/fail results.",
+          "facetIds": [
+            "seeded-replayable-generation"
+          ],
+          "proofObserved": "npm run test:harness-monkey passes with seed 20260514 and 48 deterministic generated cases."
+        },
+        {
+          "id": "criterion-bounded-surfaces",
+          "title": "Approved mutation surfaces only",
+          "status": "ready",
+          "objectiveTerm": "bounded perturbations",
+          "criterion": "Monkey cases are limited to approved harness surfaces and cannot mutate arbitrary repository files or execute external side effects.",
+          "proofRequired": "The generator declares its mutation domains and tests reject mutation requests outside those domains.",
+          "acceptanceTest": "Attempts to mutate arbitrary files, network behavior, real Codex execution, or non-fixture source files are rejected before case execution.",
+          "facetIds": [
+            "bounded-perturbation-surface"
+          ],
+          "proofObserved": "The generated report touches only inference-unit-output, artifact-ref, routing-policy, lifecycle-gates, and evidence-freshness surfaces."
+        },
+        {
+          "id": "criterion-contract-violations",
+          "title": "Contract violations rejected deterministically",
+          "status": "ready",
+          "objectiveTerm": "inference-unit contracts, artifact references, routing policy",
+          "criterion": "Generated invalid contracts are rejected deterministically with precise reason codes.",
+          "proofRequired": "Monkey cases cover invalid transitions, missing artifact references, malformed references, stale iteration references, disallowed unit types, and mismatched evidence.",
+          "acceptanceTest": "The suite fails if any generated invalid contract is accepted by routing, artifact-ref validation, or lifecycle finalization.",
+          "facetIds": [
+            "contract-and-lifecycle-invariants"
+          ],
+          "proofObserved": "Generated cases reject invalid output contracts, invalid transitions, disallowed unit selections, malformed artifact refs, stale/escaping refs, and mismatched routing expectations."
+        },
+        {
+          "id": "criterion-lifecycle-invariants",
+          "title": "Lifecycle invariants survive generated chains",
+          "status": "ready",
+          "objectiveTerm": "lifecycle gate states and concept-level invariants",
+          "criterion": "Randomized valid and invalid lifecycle chains preserve the core lifecycle authority rules.",
+          "proofRequired": "Generated chains assert that reviewer output cannot directly close terminal state, closure-review remains required, commit evidence gates source changes, PR-review gates configured PR policy, and same-reason continuation cannot loop indefinitely.",
+          "acceptanceTest": "The suite fails if a generated chain bypasses closure-review, skips a required side-effect gate, accepts stale evidence, or repeats the same unresolved continuation reason beyond the configured bound.",
+          "facetIds": [
+            "contract-and-lifecycle-invariants",
+            "concept-hardening"
+          ],
+          "proofObserved": "Generated routing and closure-authority cases preserve closure-review authority, commit/PR gates, continuation loop blocking, and latest-evidence route selection."
+        },
+        {
+          "id": "criterion-replay-artifact",
+          "title": "Failure output is replayable",
+          "status": "ready",
+          "objectiveTerm": "able to emit replay artifacts on failure",
+          "criterion": "Any failing generated case writes a replay artifact that is sufficient to rerun or inspect the exact failure.",
+          "proofRequired": "Failure artifacts include seed, case id, generated chain, mutation list, expected invariant, actual result, reason codes, artifact paths, and minimal reproduction command.",
+          "acceptanceTest": "A saved replay artifact can drive the same failure without relying on the original random generator state.",
+          "facetIds": [
+            "seeded-replayable-generation"
+          ],
+          "proofObserved": "The contract spec intentionally runs a tampered case with throwOnFailure false and verifies the emitted living-doc-harness-monkey-replay/v1 artifact shape."
+        },
+        {
+          "id": "criterion-concept-map",
+          "title": "Cases map to hardened concepts",
+          "status": "ready",
+          "objectiveTerm": "connected back to the concept or contract it hardens",
+          "criterion": "Every generated case declares which named concept, invariant, or contract rule it pressures.",
+          "proofRequired": "Runner output or report JSON lists concept ids for each case.",
+          "acceptanceTest": "The suite fails if a generated case has no concept or invariant mapping.",
+          "facetIds": [
+            "concept-hardening"
+          ],
+          "proofObserved": "Every generated case declares concept ids, and the report summary touches controller-owned-routing, artifact-ref-continuity, closure-authority, evidence-freshness, and side-effect-gates."
+        },
+        {
+          "id": "criterion-ci-safe",
+          "title": "CI-safe default run",
+          "status": "ready",
+          "objectiveTerm": "without creating flaky CI",
+          "criterion": "The default monkey test configuration is deterministic, bounded, offline, and timeout-limited.",
+          "proofRequired": "The default command uses a fixed seed set, bounded case count, deterministic timeout, and no real network or Codex dependency.",
+          "acceptanceTest": "The test suite remains stable under repeated local runs and in `npm run test:contract` if added to the contract path.",
+          "facetIds": [
+            "ci-safe-monkey-pattern"
+          ],
+          "proofObserved": "The monkey spec is in npm run test:contract; the full contract suite passed locally after adding the runner."
+        },
+        {
+          "id": "criterion-regression-promotion",
+          "title": "Failures promote to normal regressions",
+          "status": "partial",
+          "objectiveTerm": "concept hardening",
+          "criterion": "A failing monkey case can be promoted into a fixed deterministic fixture or named contract test.",
+          "proofRequired": "A replay artifact schema and fixture-loading path exist.",
+          "acceptanceTest": "At least one seeded replay fixture is exercised as a named deterministic regression test.",
+          "facetIds": [
+            "seeded-replayable-generation",
+            "concept-hardening"
+          ],
+          "proofObserved": "Replay artifacts can rerun a failing generated case, but no real monkey-discovered production failure has been promoted into a permanent fixture yet."
+        },
+        {
+          "id": "criterion-report-surface",
+          "title": "Report shows what was hardened",
+          "status": "ready",
+          "objectiveTerm": "checked against named harness invariants",
+          "criterion": "The monkey output reports seed, case count, generated cases, pass/fail invariants, concepts touched, and replay artifact paths.",
+          "proofRequired": "Generated JSON and, if useful, HTML report output exists for the monkey run.",
+          "acceptanceTest": "A reviewer can identify which concepts were stressed and which invariant would have failed from the report alone.",
+          "facetIds": [
+            "ci-safe-monkey-pattern",
+            "concept-hardening"
+          ],
+          "proofObserved": "docs/living-doc-harness-monkey-test-report.json lists seed, case count, cases, results, mutation surfaces, concepts touched, and replay artifact paths."
+        }
+      ]
+    },
+    {
+      "id": "mutation-boundaries",
+      "title": "Mutation Boundaries",
+      "convergenceType": "regression-boundary",
+      "summary": "Allowed surfaces for monkey perturbation. Anything outside this list is out of scope for the default CI-safe runner.",
+      "data": [
+        {
+          "id": "surface-inference-unit-output",
+          "title": "Inference-unit output contracts",
+          "status": "implemented",
+          "allowedMutations": [
+            "status and verdict combinations",
+            "nextRecommendedUnitType",
+            "reasonCode",
+            "required input refs",
+            "claimed closure or blocker state"
+          ],
+          "mustReject": [
+            "unknown schemas",
+            "missing required verdict fields",
+            "unit recommendations disallowed by the transition matrix"
+          ]
+        },
+        {
+          "id": "surface-artifact-ref",
+          "title": "Artifact references",
+          "status": "implemented",
+          "allowedMutations": [
+            "missing refs",
+            "malformed refs",
+            "wrong artifact type",
+            "stale iteration id",
+            "path/ref mismatch"
+          ],
+          "mustReject": [
+            "loose run-local paths where artifact refs are required",
+            "references that resolve outside the run evidence boundary",
+            "references that do not match the expected unit or iteration"
+          ]
+        },
+        {
+          "id": "surface-routing-policy",
+          "title": "Routing policy and allowed unit set",
+          "status": "implemented",
+          "allowedMutations": [
+            "allowed unit type subsets",
+            "invalid next unit recommendations",
+            "repair/continuation/closure route pressure",
+            "policy table edge cases"
+          ],
+          "mustReject": [
+            "route recommendations not accepted by the controller",
+            "hard-coded sequences that bypass the matrix policy table",
+            "unit-owned next-unit invocation"
+          ]
+        },
+        {
+          "id": "surface-lifecycle-gates",
+          "title": "Lifecycle gate states",
+          "status": "implemented",
+          "allowedMutations": [
+            "commit evidence missing or present",
+            "PR-review required, missing, approved, or blocked",
+            "closure-review approval or denial",
+            "repair output effective or no-op",
+            "continuation reason repeated or changed"
+          ],
+          "mustReject": [
+            "terminal closure without closure-review approval",
+            "closure while required commit evidence is missing",
+            "closure while required PR-review evidence is missing or blocked",
+            "unbounded same-reason continuation loops"
+          ]
+        },
+        {
+          "id": "surface-evidence-freshness",
+          "title": "Evidence freshness",
+          "status": "implemented",
+          "allowedMutations": [
+            "timestamp order",
+            "iteration id",
+            "previous unit output ref",
+            "stale selection artifact",
+            "mismatched source state"
+          ],
+          "mustReject": [
+            "newer valid unit recommendation overridden by stale blocker facts",
+            "evidence from a different iteration treated as current",
+            "same-reason continuation accepted against unchanged evidence"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "concept-hardening-map",
+      "title": "Concept Hardening Map",
+      "convergenceType": "relationship-map",
+      "summary": "Concepts that must become executable invariants rather than explanatory language.",
+      "data": [
+        {
+          "id": "concept-controller-owned-routing",
+          "title": "Controller-owned routing",
+          "status": "implemented",
+          "claim": "Inference units emit typed claims and recommendations; the lifecycle controller validates and selects the next unit.",
+          "failureQuestion": "Can a generated case make a unit directly authorize the next lifecycle step without controller validation?",
+          "expectedFailureMode": "The route is rejected with a contract-visible reason code.",
+          "criterionIds": [
+            "criterion-contract-violations",
+            "criterion-lifecycle-invariants"
+          ]
+        },
+        {
+          "id": "concept-artifact-ref-continuity",
+          "title": "Artifact-ref continuity",
+          "status": "implemented",
+          "claim": "Cross-unit handoffs must use resolvable artifact references that preserve run, unit, iteration, and artifact identity.",
+          "failureQuestion": "Can a generated case replace a required artifact ref with a loose path, stale ref, or mismatched unit artifact?",
+          "expectedFailureMode": "The handoff is rejected before the next unit consumes it.",
+          "criterionIds": [
+            "criterion-contract-violations",
+            "criterion-replay-artifact"
+          ]
+        },
+        {
+          "id": "concept-closure-authority",
+          "title": "Closure authority",
+          "status": "implemented",
+          "claim": "Reviewer closure claims are not terminal authority; closure-review approval plus controller persistence is required.",
+          "failureQuestion": "Can a generated case close terminal state directly from reviewer output?",
+          "expectedFailureMode": "Terminal closure is blocked and rerouted or marked continuation-required.",
+          "criterionIds": [
+            "criterion-lifecycle-invariants"
+          ]
+        },
+        {
+          "id": "concept-evidence-freshness",
+          "title": "Evidence freshness",
+          "status": "implemented",
+          "claim": "Latest valid unit evidence must control route selection over stale blocker facts or unchanged continuation reasons.",
+          "failureQuestion": "Can a generated case let stale evidence override newer valid route authority?",
+          "expectedFailureMode": "The stale evidence is rejected or recorded as a blocker instead of silently driving the route.",
+          "criterionIds": [
+            "criterion-contract-violations",
+            "criterion-lifecycle-invariants"
+          ]
+        },
+        {
+          "id": "map-monkey-control-loop",
+          "title": "Governed monkey control loop",
+          "status": "current",
+          "claim": "Monkey testing is useful only when the random generator is subordinate to deterministic contracts, invariant oracles, and replay artifacts.",
+          "semanticRole": "execution-guiding",
+          "validationQuestion": "Does every generated case have a seed, bounded mutation surface, invariant oracle, concept mapping, and replay path?",
+          "diagrams": [
+            {
+              "title": "Governed monkey pattern",
+              "role": "control-model",
+              "text": "flowchart LR\n  Seed[seed and fixed config] --> Gen[bounded case generator]\n  Gen --> Case[generated lifecycle or contract case]\n  Case --> Oracle[named invariant oracle]\n  Oracle --> Pass[pass with concept coverage]\n  Oracle --> Fail[failure with reason code]\n  Fail --> Replay[replay artifact]\n  Replay --> Regression[promoted deterministic regression]\n  Concepts[concept map] -. labels cases .-> Case\n  Bounds[mutation boundaries] -. constrain generator .-> Gen"
+            }
+          ],
+          "criterionIds": [
+            "criterion-seeded-runner",
+            "criterion-bounded-surfaces",
+            "criterion-replay-artifact",
+            "criterion-concept-map"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof-ladder",
+      "title": "Proof Ladder",
+      "convergenceType": "proof-ladder",
+      "summary": "The proof should move from example-based contract coverage to seeded generated pressure with replayable failures.",
+      "data": [
+        {
+          "id": "rung-existing-contract-suite",
+          "title": "Existing contract suite",
+          "status": "current",
+          "notes": [
+            "`npm run test:contract` already covers many deterministic harness contracts and lifecycle edges.",
+            "This is the base layer the monkey pattern must not weaken."
+          ],
+          "nextStrongerProof": "Seeded generated cases that stress the same contracts with varied states and invalid combinations."
+        },
+        {
+          "id": "rung-seeded-monkey-generator",
+          "title": "Seeded monkey generator",
+          "status": "ready",
+          "notes": [
+            "A default fixed seed set and bounded case count should be enough for CI.",
+            "A developer mode may allow ad hoc seeds without changing CI behavior."
+          ],
+          "nextStrongerProof": "Replay artifacts for generated failures."
+        },
+        {
+          "id": "rung-replay-artifact",
+          "title": "Replay artifact path",
+          "status": "ready",
+          "notes": [
+            "Failures must write enough structure to reproduce the case deterministically.",
+            "Replay artifacts should become fixtures when they reveal a real system gap."
+          ],
+          "nextStrongerProof": "Promoted regression cases that stay in the normal contract suite."
+        },
+        {
+          "id": "rung-concept-coverage",
+          "title": "Concept coverage",
+          "status": "ready",
+          "notes": [
+            "The report should show which concepts were pressured by each generated case.",
+            "A concept with no failing mutation pressure remains explanatory, not hardened.",
+            "The current report shows concept coverage; permanent regression promotion remains the next stronger proof after a real generated failure."
+          ],
+          "nextStrongerProof": "A stable concept coverage report that shows hardened concepts and known gaps."
+        }
+      ]
+    },
+    {
+      "id": "verification-surface",
+      "title": "Verification Surface",
+      "convergenceType": "verification-surface",
+      "summary": "Commands and artifacts expected to prove the objective.",
+      "data": [
+        {
+          "id": "verify-monkey-contract-command",
+          "title": "Monkey contract command",
+          "status": "ready",
+          "priority": "high",
+          "currentCoverage": "npm run test:harness-monkey runs 48 seeded generated cases by default through the contract spec.",
+          "nextStep": "Add a seeded monkey spec and, if needed, an npm script for the default CI-safe seed set.",
+          "expectedCommand": "node tests/contract/living-doc-harness-monkey.spec.mjs --seed <seed>",
+          "proofPaths": [
+            "scripts/living-doc-harness-monkey.mjs",
+            "tests/contract/living-doc-harness-monkey.spec.mjs"
+          ]
+        },
+        {
+          "id": "verify-replay-artifacts",
+          "title": "Replay artifacts",
+          "status": "ready",
+          "priority": "high",
+          "currentCoverage": "The contract spec verifies living-doc-harness-monkey-replay/v1 output for a tampered failing generated case.",
+          "nextStep": "Define a replay JSON shape and write failures into a gitignored run directory or temporary test artifact directory.",
+          "expectedArtifactShape": [
+            "seed",
+            "caseId",
+            "mutationList",
+            "generatedChain",
+            "expectedInvariant",
+            "actualResult",
+            "reasonCodes",
+            "replayCommand"
+          ]
+        },
+        {
+          "id": "verify-report-output",
+          "title": "Monkey report output",
+          "status": "ready",
+          "priority": "medium",
+          "currentCoverage": "docs/living-doc-harness-monkey-test-report.json records the seeded run, generated cases, invariant outcomes, concepts touched, mutation surfaces touched, and replay artifact paths.",
+          "nextStep": "Decide whether the monkey run should join the chaining report or write a separate JSON/HTML report.",
+          "relatedPaths": [
+            "scripts/living-doc-harness-monkey.mjs",
+            "docs/living-doc-harness-monkey-test-report.json"
+          ]
+        },
+        {
+          "id": "verify-contract-suite-placement",
+          "title": "Contract suite placement",
+          "status": "ready",
+          "priority": "medium",
+          "currentCoverage": "npm run test:contract includes tests/contract/living-doc-harness-monkey.spec.mjs and passed locally.",
+          "nextStep": "Add the default deterministic monkey run to the contract suite only after it is stable, bounded, and fast enough."
+        }
+      ]
+    },
+    {
+      "id": "code-anchors",
+      "title": "Code Anchors",
+      "convergenceType": "code-anchor",
+      "summary": "Source surfaces likely to implement or validate the monkey pattern.",
+      "data": [
+        {
+          "id": "anchor-inference-unit-chaining-spec",
+          "title": "Inference-unit chaining contract tests",
+          "status": "current",
+          "path": "tests/contract/living-doc-harness-inference-unit-chaining.spec.mjs",
+          "range": "whole file",
+          "what_it_does": "Exercises contract-shaped inference-unit chains and transition rejection behavior.",
+          "why_it_matters": [
+            "Provides the first generator target for valid and invalid unit-output combinations."
+          ]
+        },
+        {
+          "id": "anchor-controller-selected-chaining-spec",
+          "title": "Controller-selected chaining tests",
+          "status": "current",
+          "path": "tests/contract/living-doc-harness-controller-selected-chaining.spec.mjs",
+          "range": "whole file",
+          "what_it_does": "Validates controller route selection from evidence, policy, and gate state.",
+          "why_it_matters": [
+            "Provides lifecycle gate invariants for randomized chain cases."
+          ]
+        },
+        {
+          "id": "anchor-system-invariants-spec",
+          "title": "System invariants tests",
+          "status": "current",
+          "path": "tests/contract/living-doc-harness-system-invariants.spec.mjs",
+          "range": "whole file",
+          "what_it_does": "Asserts cross-surface invariants for route authority, artifact refs, and closure boundaries.",
+          "why_it_matters": [
+            "Should become the oracle vocabulary for monkey-generated cases."
+          ]
+        },
+        {
+          "id": "anchor-artifact-ref",
+          "title": "Artifact reference validation",
+          "status": "current",
+          "path": "scripts/living-doc-harness-artifact-ref.mjs",
+          "range": "whole file",
+          "what_it_does": "Defines artifact-reference creation and validation behavior.",
+          "why_it_matters": [
+            "Artifact refs are one of the safest first mutation surfaces because invalid cases should be rejected deterministically."
+          ]
+        },
+        {
+          "id": "anchor-chaining-report",
+          "title": "Chaining report generator",
+          "status": "current",
+          "path": "scripts/render-inference-unit-chaining-test-report.mjs",
+          "range": "whole file",
+          "what_it_does": "Runs chaining suites and writes generated HTML/JSON proof.",
+          "why_it_matters": [
+            "Provides a report pattern for monkey seed, case, invariant, concept, and replay output."
+          ]
+        },
+        {
+          "id": "anchor-monkey-runner",
+          "title": "Governed monkey runner",
+          "status": "current",
+          "path": "scripts/living-doc-harness-monkey.mjs",
+          "range": "whole file",
+          "what_it_does": "Generates seeded bounded harness cases, validates them against contract and lifecycle invariants, writes JSON reports, and emits replay artifacts for failures.",
+          "why_it_matters": [
+            "This is the implementation surface for the governed monkey pattern."
+          ]
+        },
+        {
+          "id": "anchor-monkey-contract-spec",
+          "title": "Monkey contract spec",
+          "status": "current",
+          "path": "tests/contract/living-doc-harness-monkey.spec.mjs",
+          "range": "whole file",
+          "what_it_does": "Verifies deterministic generation, default seeded execution, report replay, failure replay artifact shape, and concept mapping.",
+          "why_it_matters": [
+            "Keeps the monkey pattern CI-safe and regression-oriented."
+          ]
+        },
+        {
+          "id": "anchor-monkey-report",
+          "title": "Monkey test report",
+          "status": "current",
+          "path": "docs/living-doc-harness-monkey-test-report.json",
+          "range": "whole file",
+          "what_it_does": "Records the latest 48-case seeded monkey run for seed 20260514.",
+          "why_it_matters": [
+            "Provides generated evidence for what concepts and mutation surfaces were hardened."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scope-boundaries",
+      "title": "Out Of Scope",
+      "convergenceType": "decision-record",
+      "summary": "Boundaries that keep the first monkey pattern useful rather than noisy.",
+      "data": [
+        {
+          "id": "scope-no-pure-random-fuzzing",
+          "title": "No pure random fuzzing",
+          "status": "accepted",
+          "decision": "The first version must be seeded, bounded, and replayable.",
+          "rationale": "Unreplayable failures do not harden the harness because they cannot become regression tests."
+        },
+        {
+          "id": "scope-no-real-codex-network",
+          "title": "No real Codex or network dependency",
+          "status": "accepted",
+          "decision": "The default monkey suite must use mocks, fixtures, or fake headless surfaces only.",
+          "rationale": "The objective is CI-safe contract hardening, not production execution proof."
+        },
+        {
+          "id": "scope-no-load-testing",
+          "title": "No load or performance stress testing",
+          "status": "accepted",
+          "decision": "Performance stress, concurrency load, and long-running soak tests are outside this objective.",
+          "rationale": "The first target is contract and concept validity under varied generated states."
+        },
+        {
+          "id": "scope-no-closure-substitution",
+          "title": "Monkey pass does not equal harness closure",
+          "status": "accepted",
+          "decision": "A monkey-test pass cannot replace maximal-chain proof, production replay, or objective closure review.",
+          "rationale": "The pattern is a pressure tool for assumptions, not a universal proof of the harness."
+        }
+      ]
+    }
+  ]
+}

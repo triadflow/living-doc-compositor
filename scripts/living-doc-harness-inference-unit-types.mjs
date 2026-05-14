@@ -65,7 +65,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('stopVerdict', 'nextIteration'),
       },
       outputVerdicts: ['closed', 'user-stopped', 'repairable', 'resumable', 'closure-candidate', 'true-block', 'pivot', 'deferred', 'budget-exhausted'],
-      allowedNextUnitTypes: ['closure-review', 'commit-intent', 'pr-review', 'living-doc-balance-scan', 'repair-skill', 'continuation-inference', 'worker'],
+      allowedNextUnitTypes: ['closure-review', 'commit-intent', 'pr-review', 'living-doc-balance-scan', 'repair-skill', 'worker'],
       deterministicSideEffects: [],
       dashboard: {
         role: 'reviewer',
@@ -95,7 +95,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('approved', 'reasonCode', 'confidence', 'basis', 'terminalAllowed'),
       },
       outputVerdicts: ['approved', 'blocked'],
-      allowedNextUnitTypes: ['post-flight-summary', 'continuation-inference'],
+      allowedNextUnitTypes: ['post-flight-summary', 'worker'],
       deterministicSideEffects: [],
       dashboard: {
         role: 'closure-review',
@@ -125,7 +125,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('status', 'basis', 'orderedSkills'),
       },
       outputVerdicts: ['ordered', 'no-op', 'blocked', 'failed'],
-      allowedNextUnitTypes: ['repair-skill', 'continuation-inference', 'worker'],
+      allowedNextUnitTypes: ['repair-skill', 'worker'],
       deterministicSideEffects: [],
       dashboard: {
         role: 'balance-scan',
@@ -155,7 +155,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('skill', 'sequence', 'status', 'changedFiles', 'commitIntent'),
       },
       outputVerdicts: ['repaired', 'no-op', 'blocked', 'failed', 'aligned', 'criteria-gap', 'objective-gap', 'stale-map'],
-      allowedNextUnitTypes: ['repair-skill', 'commit-intent', 'worker', 'continuation-inference'],
+      allowedNextUnitTypes: ['repair-skill', 'commit-intent', 'worker'],
       deterministicSideEffects: [],
       dashboard: {
         role: 'repair-skill',
@@ -185,7 +185,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('approved', 'status', 'changedFiles', 'message', 'sideEffect'),
       },
       outputVerdicts: ['approved', 'not-required', 'blocked', 'failed'],
-      allowedNextUnitTypes: ['pr-review', 'closure-review', 'worker', 'continuation-inference'],
+      allowedNextUnitTypes: ['pr-review', 'closure-review', 'worker'],
       deterministicSideEffects: ['git-commit'],
       dashboard: {
         role: 'commit-intent',
@@ -215,7 +215,7 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
         requiredFields: contractFields('status', 'approvedActions', 'sideEffect'),
       },
       outputVerdicts: ['approved', 'not-required', 'blocked', 'failed'],
-      allowedNextUnitTypes: ['closure-review', 'worker', 'continuation-inference'],
+      allowedNextUnitTypes: ['closure-review', 'worker'],
       deterministicSideEffects: ['github-pr-open-or-update', 'github-pr-review-comment'],
       dashboard: {
         role: 'pr-review',
@@ -226,35 +226,6 @@ export const HARNESS_INFERENCE_UNIT_REGISTRY = {
       },
       closureImplications: {
         satisfiesPrGateWhenConfigured: true,
-      },
-    },
-    'continuation-inference': {
-      id: 'continuation-inference',
-      role: 'continuation',
-      inputContract: {
-        schema: 'living-doc-continuation-input/v1',
-        requiredFields: contractFields('runId', 'iteration', 'reasonCode', 'requiredInspectionPaths'),
-      },
-      promptContract: {
-        template: 'living-doc-continuation-prompt/v1',
-        requiresBlockerOrRepairEvidence: true,
-      },
-      requiredEvidence: ['reasonCode'],
-      outputContract: {
-        schema: 'living-doc-continuation-result/v1',
-        requiredFields: contractFields('status', 'basis', 'nextRecommendedUnitType'),
-      },
-      outputVerdicts: ['continuation-required', 'blocked', 'ready'],
-      allowedNextUnitTypes: ['worker', 'living-doc-balance-scan', 'repair-skill', 'commit-intent', 'pr-review'],
-      deterministicSideEffects: [],
-      dashboard: {
-        role: 'continuation',
-        label: 'Continuation',
-        showContracts: true,
-        showLogs: true,
-      },
-      closureImplications: {
-        mayClose: false,
       },
     },
     'post-flight-summary': {
@@ -304,7 +275,6 @@ export const REQUIRED_LIFECYCLE_CORE_UNIT_TYPES = Object.freeze([
   'worker',
   'reviewer-inference',
   'closure-review',
-  'continuation-inference',
   'post-flight-summary',
 ]);
 

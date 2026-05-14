@@ -57,9 +57,9 @@ function routeForVerdict(verdict, evidence = {}) {
   const actions = [];
 
   if (classification === 'resumable') {
-    actions.push(skillAction('reaction-path-validator', 'Validate that resuming is a valid stage transition before the next worker run.'));
-    actions.push(harnessAction('resume-worker', 'Resume because stop-negotiation found available next action without requiring user input.', {
-      mode: 'resume',
+    actions.push(skillAction('reaction-path-validator', 'Validate that a fresh next worker unit is a valid stage transition.'));
+    actions.push(harnessAction('start-fresh-worker', 'Start a fresh worker unit because stop-negotiation found available next action without requiring user input.', {
+      mode: 'fresh-unit',
       instruction: verdict.nextIteration?.instruction || '',
     }));
   } else if (classification === 'closure-candidate') {
@@ -86,18 +86,18 @@ function routeForVerdict(verdict, evidence = {}) {
     actions.push(skillAction('reaction-path-validator', 'Validate transition to closed.'));
     actions.push(harnessAction('stop-loop', 'Closure is allowed; no next worker iteration should run.', { mode: 'none' }));
   } else if (classification === 'true-block') {
-    actions.push(harnessAction('create-blocker-record', 'True block must be explicit, but it is continuation input rather than a terminal state.', { mode: 'continuation' }));
+    actions.push(harnessAction('create-blocker-record', 'True block must be explicit, but it is fresh-unit input rather than a terminal state.', { mode: 'fresh-unit' }));
     actions.push(skillAction('reaction-path-validator', 'Validate that the lifecycle remains in a continuation-required state instead of stopping.'));
-    actions.push(harnessAction('prepare-continuation-handover', 'Feed the blocker, raw logs, objective, acceptance criteria, and available surfaces into the next inference unit.', { mode: 'continuation' }));
+    actions.push(harnessAction('prepare-fresh-unit-handover', 'Feed the blocker, raw logs, objective, acceptance criteria, and available surfaces into the next fresh inference unit.', { mode: 'fresh-unit' }));
   } else if (classification === 'pivot') {
     actions.push(skillAction('reaction-path-validator', 'Validate pivot pressure without stopping the current objective loop.'));
-    actions.push(harnessAction('prepare-continuation-handover', 'Treat pivot pressure as continuation input unless the user explicitly approves a new objective.', { mode: 'continuation' }));
+    actions.push(harnessAction('prepare-fresh-unit-handover', 'Treat pivot pressure as fresh-unit input unless the user explicitly approves a new objective.', { mode: 'fresh-unit' }));
   } else if (classification === 'deferred') {
     actions.push(skillAction('reaction-path-validator', 'Validate deferral pressure without stopping the current objective loop.'));
-    actions.push(harnessAction('prepare-continuation-handover', 'Treat the deferral trigger as input for the next inference unit unless the user explicitly stops.', { mode: 'continuation' }));
+    actions.push(harnessAction('prepare-fresh-unit-handover', 'Treat the deferral trigger as input for the next fresh inference unit unless the user explicitly stops.', { mode: 'fresh-unit' }));
   } else if (classification === 'budget-exhausted') {
-    actions.push(harnessAction('prepare-continuation-handover', 'Iteration budget is a batch boundary, not objective closure; continue unless the user stops.', { mode: 'continuation' }));
-    actions.push(skillAction('reaction-path-validator', 'Validate continuation after budget pressure.'));
+    actions.push(harnessAction('prepare-fresh-unit-handover', 'Iteration budget is a batch boundary, not objective closure; start a fresh unit unless the user stops.', { mode: 'fresh-unit' }));
+    actions.push(skillAction('reaction-path-validator', 'Validate fresh-unit routing after budget pressure.'));
   } else if (classification === 'user-stopped') {
     actions.push(harnessAction('stop-loop', 'The user explicitly stopped the lifecycle.', { mode: 'user-stop' }));
   } else {
@@ -117,23 +117,23 @@ function routeForVerdict(verdict, evidence = {}) {
   };
 }
 
-function normalizeContinuationVerdict(verdict) {
+function normalizeFreshUnitVerdict(verdict) {
   const classification = verdict.stopVerdict?.classification;
   if (classification === 'closed' || classification === 'user-stopped') return verdict;
   const nextIteration = verdict.nextIteration || {};
-  const forcedContinuationModes = new Set(['true-block', 'pivot', 'deferred', 'budget-exhausted']);
-  const mode = forcedContinuationModes.has(classification)
-    ? 'continuation'
-    : nextIteration.mode && nextIteration.mode !== 'none' && nextIteration.mode !== 'user-stop'
+  const forcedFreshUnitModes = new Set(['true-block', 'pivot', 'deferred', 'budget-exhausted']);
+  const mode = forcedFreshUnitModes.has(classification)
+    ? 'fresh-unit'
+    : nextIteration.mode && !['none', 'user-stop', 'resume', 'continuation'].includes(nextIteration.mode)
     ? nextIteration.mode
-    : 'continuation';
+    : 'fresh-unit';
   return {
     ...verdict,
     nextIteration: {
       ...nextIteration,
       allowed: true,
       mode,
-      instruction: nextIteration.instruction || 'Continue through the next contract-bound inference unit until the living-doc objective is proven reached or the user explicitly stops the lifecycle.',
+      instruction: nextIteration.instruction || 'Start a fresh contract-bound inference unit until the living-doc objective is proven reached or the user explicitly stops the lifecycle.',
       mustNotDo: [
         ...arr(nextIteration.mustNotDo),
         'do not stop the lifecycle unless the objective is proven reached or the user explicitly stops it',
@@ -182,7 +182,7 @@ export async function routeStopVerdict({
 } = {}) {
   if (!verdict?.stopVerdict) throw new Error('verdict.stopVerdict is required');
   if (!runDir) throw new Error('runDir is required');
-  const routedVerdict = normalizeContinuationVerdict(verdict);
+  const routedVerdict = normalizeFreshUnitVerdict(verdict);
 
   const artifactsDir = path.join(runDir, 'artifacts');
   const handoversDir = path.join(runDir, 'handovers');

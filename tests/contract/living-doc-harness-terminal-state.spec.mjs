@@ -93,7 +93,7 @@ try {
     assert.equal(validateTerminalStateRecord(result.record).ok, true);
     const resume = await canResumeRun(run.runDir);
     assert.equal(resume.allowed, true);
-    assert.match(resume.reason, /continuation/i);
+    assert.match(resume.reason, /fresh inference unit/i);
     const blockersJsonl = await readFile(path.join(run.runDir, 'blockers.jsonl'), 'utf8');
     assert.match(blockersJsonl, new RegExp(reasonCode));
   }
@@ -191,7 +191,7 @@ try {
       encoding: 'utf8',
     });
     assert.equal(resumeResult.status, 0);
-    assert.match(resumeResult.stdout, /continuation/i);
+    assert.match(resumeResult.stdout, /fresh inference unit/i);
   }
 } finally {
   await rm(tmp, { recursive: true, force: true });

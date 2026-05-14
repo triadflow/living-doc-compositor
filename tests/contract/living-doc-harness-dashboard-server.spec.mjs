@@ -7,6 +7,7 @@ import path from 'node:path';
 
 import { createHarnessRun } from '../../scripts/living-doc-harness-runner.mjs';
 import { createDashboardServer } from '../../scripts/living-doc-harness-dashboard-server.mjs';
+import { artifactRefFromPath } from '../../scripts/living-doc-harness-artifact-ref.mjs';
 
 function request(server, pathname, { method = 'GET', headers = {}, body = null } = {}) {
   return new Promise((resolve, reject) => {
@@ -544,10 +545,45 @@ try {
       reviewerVerdictPath: 'reviewer-inference/iteration-1-verdict.json',
       terminalPath: 'terminal/iteration-1-continuation-required.json',
     },
+    postReviewSelection: {
+      nextUnit: {
+        unitId: 'living-doc-balance-scan',
+        selectedUnitType: 'living-doc-balance-scan',
+        role: 'balance-scan',
+        reasonCode: 'git-head-unchanged',
+        policyRuleId: 'latest-unit-output-recommendation',
+        selectedBy: 'latest-unit-output-contract',
+        dashboardLabel: 'balance scan',
+        handoffInstruction: 'Run the balance scan from the latest continuation recommendation.',
+        requiredInputPaths: ['artifacts/iteration-1-evidence.json'],
+        expectedOutputSchema: 'living-doc-balance-scan-result/v1',
+        status: 'selected',
+        routeAuthority: {
+          schema: 'living-doc-harness-route-authority/v1',
+          source: 'latest-unit-output-contract',
+          accepted: true,
+          sourceUnitType: 'reviewer-inference',
+          sourceUnitRole: 'reviewer',
+          sourceStatus: 'continuation-required',
+          resultPath: 'reviewer-inference/iteration-1-verdict.json',
+          validationPath: 'reviewer-inference/iteration-1-validation.json',
+          validationOk: true,
+          recommendedUnitType: 'living-doc-balance-scan',
+          recommendedUnitRole: 'balance-scan',
+          reasonCode: 'git-head-unchanged',
+          policyRuleId: 'latest-unit-output-recommendation',
+        },
+      },
+      contractValidation: {
+        ok: true,
+        reasonCode: 'selected-unit-type-valid',
+      },
+    },
     nextAction: {
-      action: 'start-next-worker-iteration',
+      action: 'continue-with-living-doc-balance-scan',
       allowed: true,
       reason: 'Graph fixture continuation state.',
+      selectedUnitType: 'living-doc-balance-scan',
     },
   }, null, 2)}\n`, 'utf8');
   const graphLifecycleId = 'ldhl-20260507T120030Z-dashboard-graph-fixture';
@@ -576,9 +612,27 @@ try {
           action: 'start-next-worker-iteration',
           allowed: true,
         },
-        outputInputPath,
-        reviewerVerdictPath,
-        repairSkillResultPath: repairChainResultPath,
+        outputInputPath: artifactRefFromPath({
+          cwd: process.cwd(),
+          runDir: prepared.runDir,
+          runId: prepared.runId,
+          filePath: outputInputPath,
+          kind: 'output-input',
+        }),
+        reviewerVerdictPath: artifactRefFromPath({
+          cwd: process.cwd(),
+          runDir: prepared.runDir,
+          runId: prepared.runId,
+          filePath: reviewerVerdictPath,
+          kind: 'reviewer-verdict',
+        }),
+        repairSkillResultPath: artifactRefFromPath({
+          cwd: process.cwd(),
+          runDir: prepared.runDir,
+          runId: prepared.runId,
+          filePath: repairChainResultPath,
+          kind: 'repair-skill-result',
+        }),
         proofValid: true,
       },
     ],
@@ -606,6 +660,12 @@ try {
   assert.equal(workerGraphNode.meta.toolProfile.sandboxMode, 'danger-full-access');
   assert.equal(graph.body.edges.some((edge) => edge.from.includes('worker') && edge.to.includes('reviewer') && edge.contract.inputContractPath && edge.contract.evidencePaths.includes('/tmp/raw-worker.jsonl')), true);
   assert.equal(graph.body.edges.some((edge) => edge.to.includes('repair') && edge.contract.codexEventsPath), true);
+  const balanceScanPolicyEdge = graph.body.edges.find((edge) => edge.to === 'iteration-1-repair-1');
+  assert.equal(balanceScanPolicyEdge.contract.policySelection.policyRuleId, 'latest-unit-output-recommendation');
+  assert.equal(balanceScanPolicyEdge.contract.policySelection.selectedBy, 'latest-unit-output-contract');
+  assert.equal(balanceScanPolicyEdge.contract.policySelection.routeAuthority.sourceUnitType, 'reviewer-inference');
+  assert.equal(balanceScanPolicyEdge.contract.policySelection.routeAuthority.recommendedUnitType, 'living-doc-balance-scan');
+  assert.equal(balanceScanPolicyEdge.contract.policySelection.routeAuthority.accepted, true);
   assert.equal(graph.body.edges.some((edge) => edge.to === 'operated-living-doc' && edge.label === 'commit abcdef1234' && edge.contract.commitSha === 'abcdef1234567890' && edge.contract.changedFiles.includes('tests/fixtures/minimal-doc.json')), true);
   const docChangeEdge = graph.body.edges.find((edge) => edge.id === 'repair-unit-to-living-doc-1-2');
   assert.equal(docChangeEdge.contract.commitIntent.source, 'repair-chain-result');

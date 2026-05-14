@@ -28,7 +28,7 @@ const CLASSIFICATIONS = new Set([
 
 const CONFIDENCE = new Set(['low', 'medium', 'high']);
 const GATE_STATUS = new Set(['pass', 'fail', 'warn', 'pending', 'not-applicable']);
-const NEXT_MODES = new Set(['resume', 'repair', 'continuation', 'close', 'user-stop', 'none']);
+const NEXT_MODES = new Set(['fresh-unit', 'resume', 'repair', 'continuation', 'close', 'user-stop', 'none']);
 const TERMINAL_CLASSIFICATIONS = new Set(['closed', 'user-stopped']);
 
 let _schema = null;

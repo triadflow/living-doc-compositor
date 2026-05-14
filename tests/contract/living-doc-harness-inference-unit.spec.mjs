@@ -9,6 +9,10 @@ import {
   validateInferenceUnitResult,
   writeContractBoundInferenceUnitSnapshot,
 } from '../../scripts/living-doc-harness-inference-unit.mjs';
+import {
+  createInferenceUnitChainContext,
+  mockInferenceUnit,
+} from '../fixtures/inference-unit-chain-fixtures.mjs';
 
 async function waitFor(predicate, { timeoutMs = 5000, intervalMs = 50 } = {}) {
   const started = Date.now();
@@ -177,6 +181,100 @@ try {
     /invalid worker input contract snapshot/,
   );
 
+  const rawBoundaryContext = await createInferenceUnitChainContext({
+    rootDir: tmp,
+    name: 'raw-boundary-fixtures',
+  });
+  const rawBoundaryCases = [
+    {
+      unitTypeId: 'reviewer-inference',
+      sequence: 1,
+      output: { classification: 'repairable', closureAllowed: false },
+      expectedStatus: 'repairable',
+      assertRaw: (raw) => {
+        assert.equal(raw.status, undefined);
+        assert.equal(raw.stopVerdict.classification, 'repairable');
+      },
+    },
+    {
+      unitTypeId: 'closure-review',
+      sequence: 2,
+      output: {
+        approved: false,
+        terminalAllowed: false,
+        reasonCode: 'fixture-closure-review-denied',
+      },
+      expectedStatus: 'blocked',
+      assertRaw: (raw) => {
+        assert.equal(raw.status, undefined);
+        assert.equal(raw.outputContract, undefined);
+        assert.equal(raw.approved, false);
+        assert.equal(raw.terminalAllowed, false);
+      },
+    },
+    {
+      unitTypeId: 'closure-review',
+      sequence: 3,
+      output: {
+        approved: true,
+        terminalAllowed: true,
+        reasonCode: 'fixture-closure-review-approved',
+      },
+      expectedStatus: 'approved',
+      assertRaw: (raw) => {
+        assert.equal(raw.status, undefined);
+        assert.equal(raw.outputContract, undefined);
+        assert.equal(raw.approved, true);
+        assert.equal(raw.terminalAllowed, true);
+      },
+    },
+    {
+      unitTypeId: 'living-doc-balance-scan',
+      sequence: 4,
+      output: { status: 'ordered', orderedSkills: ['objective-conservation-audit'] },
+      expectedStatus: 'ordered',
+    },
+    {
+      unitTypeId: 'repair-skill',
+      sequence: 5,
+      output: { status: 'repaired', changedFiles: ['docs/fixture.json'] },
+      expectedStatus: 'repaired',
+    },
+    {
+      unitTypeId: 'commit-intent',
+      sequence: 6,
+      output: { status: 'approved', changedFiles: ['docs/fixture.json'] },
+      expectedStatus: 'approved',
+    },
+    {
+      unitTypeId: 'pr-review',
+      sequence: 7,
+      output: { status: 'approved' },
+      expectedStatus: 'approved',
+    },
+    {
+      unitTypeId: 'worker',
+      sequence: 8,
+      output: { status: 'finished' },
+      expectedStatus: 'finished',
+    },
+    {
+      unitTypeId: 'post-flight-summary',
+      sequence: 9,
+      output: { status: 'written', summaryPath: 'post-flight-summary.md' },
+      expectedStatus: 'written',
+    },
+  ];
+  for (const boundaryCase of rawBoundaryCases) {
+    const unit = await mockInferenceUnit(rawBoundaryContext, boundaryCase);
+    const raw = JSON.parse(await readFile(unit.lastMessagePath, 'utf8'));
+    assert.equal(unit.validation.ok, true);
+    assert.equal(unit.result.status, boundaryCase.expectedStatus);
+    assert.equal(unit.result.outputContract.schema, raw.schema);
+    if (raw.status != null) assert.equal(unit.result.outputContract.status, raw.status);
+    if (boundaryCase.assertRaw) boundaryCase.assertRaw(raw);
+  }
+
   const nonVerdictPrReviewRun = await runContractBoundInferenceUnit({
     runDir: path.join(tmp, 'non-verdict-pr-review-run'),
     unitId: 'pr-review',
@@ -224,35 +322,173 @@ try {
   assert.equal(nonVerdictPrReviewRun.result.outputContract.reasonCode, 'pr-review-non-verdict-output');
   assert.equal(nonVerdictPrReviewRun.result.outputContract.sideEffect.reasonCode, 'pr-review-non-verdict-output');
 
-  const nonVerdictContinuationRun = await runContractBoundInferenceUnit({
-    runDir: path.join(tmp, 'non-verdict-continuation-run'),
-    unitId: 'continuation-inference',
-    role: 'continuation',
-    prompt: 'Return the historical bad continuation shape.',
+  await assert.rejects(
+    runContractBoundInferenceUnit({
+      runDir: path.join(tmp, 'removed-continuation-unit-run'),
+      unitId: 'continuation-inference',
+      role: 'removed-unit',
+      prompt: 'This removed unit type must not be invokable.',
+      inputContract: {
+        schema: 'living-doc-continuation-input/v1',
+        runId: 'run-1',
+        iteration: 1,
+        requiredInspectionPaths: [inspectedPath],
+      },
+      execute: false,
+      now: '2026-05-08T07:39:50.000Z',
+    }),
+    /unregistered inference unit type: continuation-inference/,
+  );
+
+  const rawDeniedClosureReviewRun = await runContractBoundInferenceUnit({
+    runDir: path.join(tmp, 'raw-denied-closure-review-run'),
+    unitId: 'closure-review',
+    role: 'closure-review',
+    prompt: 'Return the real closure-review contract shape without a controller verdict.',
     inputContract: {
-      schema: 'living-doc-continuation-input/v1',
+      schema: 'living-doc-harness-closure-review-input/v1',
       runId: 'run-1',
       iteration: 1,
-      reasonCode: 'pr-review-non-verdict-output',
+      evidencePath: inspectedPath,
+      reviewerVerdictPath: inspectedPath,
+      evidenceSnapshotPath: inspectedPath,
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+        sourceFilesChanged: false,
+        commitEvidencePresent: true,
+      },
+      prReviewPolicy: {
+        schema: 'living-doc-harness-pr-review-policy/v1',
+        mode: 'disabled',
+      },
+      prReviewRequired: false,
+      proofGates: {
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+      },
+      stopVerdict: {
+        classification: 'resumable',
+        closureAllowed: false,
+      },
+      requiredInspectionPaths: [inspectedPath],
+    },
+    fixtureResult: {
+      schema: 'living-doc-harness-closure-review/v1',
+      approved: false,
+      reasonCode: 'closure-forbidden-unproven-criteria',
+      confidence: 'high',
+      basis: ['Fixture matches the real closure-review denial shape without status.'],
+      terminalAllowed: false,
+    },
+    execute: false,
+    now: '2026-05-08T07:39:55.000Z',
+  });
+  assert.equal(rawDeniedClosureReviewRun.validation.ok, true);
+  assert.equal(rawDeniedClosureReviewRun.result.status, 'blocked');
+  assert.equal(rawDeniedClosureReviewRun.result.outputContract.status, 'blocked');
+  assert.equal(rawDeniedClosureReviewRun.result.outputContract.approved, false);
+  assert.equal(rawDeniedClosureReviewRun.result.outputContract.terminalAllowed, false);
+
+  const wrappedDeniedClosureReviewRun = await runContractBoundInferenceUnit({
+    runDir: path.join(tmp, 'wrapped-denied-closure-review-run'),
+    unitId: 'closure-review',
+    role: 'closure-review',
+    prompt: 'Return the historical wrapper shape from issue 303.',
+    inputContract: {
+      schema: 'living-doc-harness-closure-review-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      evidencePath: inspectedPath,
+      reviewerVerdictPath: inspectedPath,
+      evidenceSnapshotPath: inspectedPath,
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+        sourceFilesChanged: false,
+        commitEvidencePresent: true,
+      },
+      prReviewPolicy: {
+        schema: 'living-doc-harness-pr-review-policy/v1',
+        mode: 'disabled',
+      },
+      prReviewRequired: false,
+      proofGates: {
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+      },
+      stopVerdict: {
+        classification: 'resumable',
+        closureAllowed: false,
+      },
       requiredInspectionPaths: [inspectedPath],
     },
     fixtureResult: {
       status: 'finished',
-      basis: ['This is the old non-verdict continuation output.'],
+      basis: ['Closure-review wrapper process exited cleanly.'],
       outputContract: {
-        schema: 'living-doc-continuation-result/v1',
-        status: 'finished',
-        basis: ['This is the old non-verdict continuation output.'],
-        nextRecommendedUnitType: 'worker',
+        schema: 'living-doc-harness-closure-review/v1',
+        approved: false,
+        reasonCode: 'closure-forbidden-unproven-criteria',
+        confidence: 'high',
+        basis: ['The objective is not yet proven.'],
+        terminalAllowed: false,
       },
     },
     execute: false,
-    now: '2026-05-08T07:39:50.000Z',
+    now: '2026-05-08T07:39:58.000Z',
   });
-  assert.equal(nonVerdictContinuationRun.validation.ok, true);
-  assert.equal(nonVerdictContinuationRun.result.status, 'blocked');
-  assert.equal(nonVerdictContinuationRun.result.outputContract.status, 'blocked');
-  assert.equal(nonVerdictContinuationRun.result.outputContract.reasonCode, 'continuation-non-verdict-output');
+  assert.equal(wrappedDeniedClosureReviewRun.validation.ok, true);
+  assert.equal(wrappedDeniedClosureReviewRun.result.status, 'blocked');
+  assert.equal(wrappedDeniedClosureReviewRun.result.outputContract.status, 'blocked');
+  assert.equal(wrappedDeniedClosureReviewRun.result.outputContract.reasonCode, 'closure-forbidden-unproven-criteria');
+
+  const rawApprovedClosureReviewRun = await runContractBoundInferenceUnit({
+    runDir: path.join(tmp, 'raw-approved-closure-review-run'),
+    unitId: 'closure-review',
+    role: 'closure-review',
+    prompt: 'Return the real approved closure-review contract shape without a controller verdict.',
+    inputContract: {
+      schema: 'living-doc-harness-closure-review-input/v1',
+      runId: 'run-1',
+      iteration: 1,
+      evidencePath: inspectedPath,
+      reviewerVerdictPath: inspectedPath,
+      evidenceSnapshotPath: inspectedPath,
+      requiredHardFacts: {
+        schema: 'living-doc-harness-required-hard-facts/v1',
+        sourceFilesChanged: false,
+        commitEvidencePresent: true,
+      },
+      prReviewPolicy: {
+        schema: 'living-doc-harness-pr-review-policy/v1',
+        mode: 'disabled',
+      },
+      prReviewRequired: false,
+      proofGates: {
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+      },
+      stopVerdict: {
+        classification: 'closed',
+        closureAllowed: true,
+      },
+      requiredInspectionPaths: [inspectedPath],
+    },
+    fixtureResult: {
+      schema: 'living-doc-harness-closure-review/v1',
+      approved: true,
+      reasonCode: 'objective-proven',
+      confidence: 'high',
+      basis: ['Fixture matches the real closure-review approval shape without status.'],
+      terminalAllowed: true,
+    },
+    execute: false,
+    now: '2026-05-08T07:39:59.000Z',
+  });
+  assert.equal(rawApprovedClosureReviewRun.validation.ok, true);
+  assert.equal(rawApprovedClosureReviewRun.result.status, 'approved');
+  assert.equal(rawApprovedClosureReviewRun.result.outputContract.status, 'approved');
+  assert.equal(rawApprovedClosureReviewRun.result.outputContract.approved, true);
+  assert.equal(rawApprovedClosureReviewRun.result.outputContract.terminalAllowed, true);
 
   const fakeCodex = path.join(tmp, 'fake-codex.mjs');
   await writeFile(fakeCodex, `#!/usr/bin/env node
@@ -280,19 +516,15 @@ process.stdin.on('end', () => {
   }));
   setTimeout(() => {
     writeFileSync(outputPath, JSON.stringify({
-      status: 'blocked',
+      schema: 'living-doc-harness-closure-review/v1',
+      approved: false,
+      reasonCode: 'fake-streaming-proof',
+      confidence: 'high',
       basis: ['fake codex inspected the required evidence path before exit'],
-      outputContract: {
-        schema: 'living-doc-harness-closure-review/v1',
-        approved: false,
-        reasonCode: 'fake-streaming-proof',
-        confidence: 'high',
-        basis: ['fake codex inspected the required evidence path before exit'],
-        terminalAllowed: false,
-        hasIgnoreUserConfig,
-        sandboxMode,
-        hasLocalMcpOverride,
-      },
+      terminalAllowed: false,
+      hasIgnoreUserConfig,
+      sandboxMode,
+      hasLocalMcpOverride,
     }, null, 2));
     console.log(JSON.stringify({ type: 'turn.completed' }));
   }, 500);

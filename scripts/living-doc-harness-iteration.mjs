@@ -29,6 +29,10 @@ import {
   validateNextUnitSelection,
 } from './living-doc-harness-inference-unit-types.mjs';
 import { artifactRefDisplayPath, artifactRefFromPath } from './living-doc-harness-artifact-ref.mjs';
+import {
+  commitEvidenceSatisfied,
+  commitGateFromCommitEvidence,
+} from './living-doc-harness-commit-gate.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -186,7 +190,7 @@ function requiredHardFactsFromIterationEvidence(evidence) {
     documentReady: evidence?.sourceState?.documentReady === true,
     renderedHtmlExists: evidence?.sourceState?.renderedHtmlExists === true,
     closureAllowed: evidence?.proofGates?.closureAllowed === true,
-    commitEvidencePresent: Boolean(sideEffects.commit?.sha || sideEffects.commit?.exemption?.approved === true || sideEffects.commit?.notRequired === true),
+    commitEvidencePresent: commitEvidenceSatisfied(sideEffects.commit || {}),
     commitGate,
     prReviewPolicy,
     prReviewRequired,
@@ -225,46 +229,7 @@ function commitGateFromIterationEvidence(evidence) {
   const sourceChanged = evidence?.sourceFilesChanged === true
     || hardFacts.sourceFilesChanged === true
     || commit.required === true;
-  const blocked = commit.blocked === true || ['blocked', 'failed'].includes(commit.status);
-  if (blocked) {
-    return {
-      required: true,
-      status: 'blocked',
-      evidencePresent: false,
-      resultPath: commit.resultPath || null,
-      resultRef: commit.resultRef || null,
-      validationPath: commit.validationPath || null,
-      validationRef: commit.validationRef || null,
-      reasonCode: commit.reasonCode || 'commit-intent-gate-blocked',
-      basis: arr(commit.basis),
-    };
-  }
-  const satisfied = Boolean(commit.sha || commit.exemption?.approved === true || commit.notRequired === true || hardFacts.commitEvidencePresent === true);
-  if (satisfied) {
-    return {
-      required: sourceChanged,
-      status: 'satisfied',
-      evidencePresent: true,
-      resultPath: commit.resultPath || null,
-      resultRef: commit.resultRef || null,
-      validationPath: commit.validationPath || null,
-      validationRef: commit.validationRef || null,
-      reasonCode: commit.reasonCode || null,
-      basis: arr(commit.basis),
-    };
-  }
-  if (sourceChanged) {
-    return {
-      required: true,
-      status: 'missing',
-      evidencePresent: false,
-    };
-  }
-  return {
-    required: false,
-    status: 'not-required',
-    evidencePresent: false,
-  };
+  return commitGateFromCommitEvidence({ commit, hardFacts, sourceChanged });
 }
 
 function repairChainBlockedVerdict(originalVerdict, repairRun) {
@@ -288,8 +253,8 @@ function repairChainBlockedVerdict(originalVerdict, repairRun) {
     },
     nextIteration: {
       allowed: true,
-      mode: 'continuation',
-      instruction: 'Continue through a blocker-resolution inference unit; inspect the blocked repair-skill inference unit, resolve or reroute it, and feed the result into the next worker iteration.',
+      mode: 'fresh-unit',
+      instruction: 'Start a fresh worker unit from the living doc and controller-approved repair-chain evidence; resolve or reroute the blocked repair skill without resuming it.',
       mustNotDo: [
         'Do not stop the lifecycle unless the objective is closed or the user explicitly stops it.',
       ],
@@ -332,8 +297,8 @@ function closureReviewBlockedVerdict(originalVerdict, closureReview) {
     },
     nextIteration: {
       allowed: true,
-      mode: 'continuation',
-      instruction: 'Continue through a blocker-resolution inference unit; repair the proof ordering or evidence contract that caused closure review to deny terminal closure.',
+      mode: 'fresh-unit',
+      instruction: 'Start a fresh worker unit from the living doc and controller-approved closure-review evidence; repair the proof ordering or evidence contract that caused closure review to deny terminal closure.',
       mustNotDo: [
         'Do not stop the lifecycle unless the objective is closed or the user explicitly stops it.',
       ],
@@ -370,7 +335,7 @@ function continuationVerdict(verdict) {
       allowed: true,
       mode: verdict.nextIteration?.mode && !['none', 'user-stop'].includes(verdict.nextIteration.mode)
         ? verdict.nextIteration.mode
-        : 'continuation',
+        : 'fresh-unit',
       instruction: verdict.nextIteration?.instruction || 'Continue through the next contract-bound inference unit until the living-doc objective is reached.',
       mustNotDo: arr(verdict.nextIteration?.mustNotDo).length
         ? verdict.nextIteration.mustNotDo
@@ -399,10 +364,7 @@ function evidenceRequiresCommitIntent(evidence) {
     || hardFacts.sourceFilesChanged === true
     || commit.required === true;
   if (!sourceChanged) return false;
-  return !(commit.sha
-    || commit.exemption?.approved === true
-    || commit.notRequired === true
-    || hardFacts.commitEvidencePresent === true);
+  return !commitEvidenceSatisfied(commit, hardFacts);
 }
 
 function evidenceSatisfiesPrReviewPolicy(evidence, prReviewPolicy) {
@@ -432,11 +394,10 @@ function latestUnitRouteInput(evidence, currentReasonCode) {
   const recommended = output?.nextRecommendedUnitType || null;
   const sourceUnitType = unit?.unitId || null;
   if (!sourceUnitType || !recommended) return null;
+  if (sourceUnitType === 'worker') return null;
+  if (sourceUnitType === 'continuation-inference' || recommended === 'continuation-inference') return null;
   const reasonCode = output?.reasonCode || currentReasonCode || null;
-  const sameReasonContinuationLoop = sourceUnitType === 'continuation-inference'
-    && recommended === 'continuation-inference'
-    && reasonCode
-    && reasonCode === currentReasonCode;
+  const sameReasonContinuationLoop = false;
   return {
     schema: 'living-doc-harness-latest-unit-route-input/v1',
     sourceUnitType,
@@ -556,16 +517,14 @@ function controllerOwnedSelectionFromVerdict(verdict, {
     'commit-intent': 'commit intent gate',
     'pr-review': 'PR review gate',
     'closure-review': 'closure review',
-    'continuation-inference': 'continuation inference',
     'living-doc-balance-scan': 'balance scan',
-    worker: 'worker continuation',
+    worker: 'fresh worker unit',
   }[route.unitId] || route.terminalActionKind || route.policyRuleId;
   const routeHandoffInstruction = {
     'commit-intent': 'Run the commit-intent inference unit and return scoped commit evidence before PR review or closure review.',
     'pr-review': 'Run the PR-review inference unit and return read-only PR gate evidence before terminal closure review.',
     'closure-review': 'Run closure review against the controller evidence and return the terminal closure verdict.',
-    'continuation-inference': 'Run continuation inference to resolve or reroute the controller-owned blocker.',
-    'living-doc-balance-scan': 'Run the balance scan and return an ordered repair or continuation recommendation.',
+    'living-doc-balance-scan': 'Run the balance scan and return an ordered repair or fresh worker recommendation.',
     worker: 'Run the next worker iteration for the remaining living-doc objective work.',
   }[route.unitId] || 'Apply the terminal lifecycle action selected by the routing policy.';
 
@@ -597,7 +556,6 @@ function controllerOwnedSelectionFromVerdict(verdict, {
       'commit-intent': 'living-doc-harness-commit-intent-result/v1',
       'pr-review': 'living-doc-harness-pr-review-result/v1',
       'closure-review': 'living-doc-harness-closure-review/v1',
-      'continuation-inference': 'living-doc-continuation-result/v1',
       'living-doc-balance-scan': 'living-doc-balance-scan-result/v1',
       worker: 'living-doc-worker-output/v1',
     }[route.unitId],
@@ -622,7 +580,14 @@ function controllerOwnedSelectionFromVerdict(verdict, {
       policyRuleId: route.policyRuleId,
     };
   }
-  if (route.unitId === 'pr-review' || route.unitId === 'continuation-inference') {
+  if (route.unitId === 'pr-review') {
+    nextUnit.prReviewPolicy = prReviewPolicy;
+    nextUnit.prReviewGate = prReviewGate;
+    nextUnit.commitGate = commitGate;
+    nextUnit.reviewerVerdictPath = reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null;
+    nextUnit.livingDocPath = evidence?.livingDocPath || null;
+  }
+  if (route.unitId === 'worker') {
     nextUnit.prReviewPolicy = prReviewPolicy;
     nextUnit.prReviewGate = prReviewGate;
     nextUnit.commitGate = commitGate;
@@ -694,14 +659,14 @@ function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer,
   selected.contractValidation = validation;
   if (validation.ok) return selected;
   selected.nextUnit = {
-    unitId: 'continuation-inference',
-    selectedUnitType: 'continuation-inference',
-    role: 'continuation',
+    unitId: 'worker',
+    selectedUnitType: 'worker',
+    role: 'worker',
     reasonCode: validation.reasonCode,
     policyRuleId: 'contract-validation-failed',
     selectedBy: 'contract-validation',
-    dashboardLabel: 'continuation inference',
-    handoffInstruction: 'Run continuation inference to resolve the invalid controller selection contract.',
+    dashboardLabel: 'fresh worker unit',
+    handoffInstruction: 'Start a fresh worker unit from the living doc and controller-approved evidence after the invalid controller selection.',
     requiredInputPaths: [
       evidencePath ? path.relative(runDir, evidencePath) : null,
       reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
@@ -714,8 +679,10 @@ function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer,
       commitGate: null,
       prReviewGate: null,
     }),
-    expectedOutputSchema: 'living-doc-continuation-result/v1',
+    expectedOutputSchema: 'living-doc-worker-output/v1',
     status: 'selected',
+    commitGate: selected.commitGate || null,
+    prReviewGate: selected.prReviewGate || null,
   };
   selected.contractValidation = validateNextUnitSelection({
     currentUnitTypeId: 'reviewer-inference',
@@ -742,6 +709,7 @@ function buildPostReviewSelection({
   const classification = verdict?.stopVerdict?.classification || 'unknown';
   const prReviewPolicy = normalizePrReviewPolicy(evidence?.prReviewPolicy || evidence?.requiredHardFacts?.prReviewPolicy || DEFAULT_PR_REVIEW_POLICY);
   const prReviewGate = evidence?.prReviewGate || evidence?.requiredHardFacts?.prReviewGate || prReviewGateFromIterationEvidence(evidence, prReviewPolicy);
+  const commitGate = commitGateFromIterationEvidence(evidence);
   const selected = {
     schema: 'living-doc-harness-post-review-selection/v1',
     runId: verdict?.runId || reviewer?.artifact?.runId || null,
@@ -754,6 +722,7 @@ function buildPostReviewSelection({
     prReviewPolicy,
     prReviewRequired: prReviewGate.required === true,
     prReviewGate,
+    commitGate,
     selectionBasis: [
       'Only worker and reviewer are fixed bootstrap units.',
       'This selection records the post-review unit or terminal action chosen from reviewer output and proof state.',
@@ -790,18 +759,17 @@ function buildPostReviewSelection({
 
 function sideEffectGateBlockedVerdict(verdict, selection) {
   const selectedUnitId = selection?.nextUnit?.unitId;
+  const contractValidationFailed = selection?.nextUnit?.policyRuleId === 'contract-validation-failed';
   const blockedCommitGate = selection?.nextUnit?.commitGate?.status === 'blocked';
   const blockedPrReviewGate = selection?.nextUnit?.prReviewGate?.status === 'blocked';
-  const invalidClosureGateSelection = selectedUnitId === 'continuation-inference'
-    && ['selected-unit-type-not-allowed-for-run', 'selected-unit-type-not-allowed-by-current-contract', 'selected-unit-type-unregistered'].includes(selection?.nextUnit?.reasonCode);
-  const unitId = ['commit-intent', 'pr-review'].includes(selectedUnitId)
+  const unitId = contractValidationFailed
+    ? 'controller-selection'
+    : ['commit-intent', 'pr-review'].includes(selectedUnitId)
     ? selectedUnitId
     : blockedCommitGate
       ? 'commit-intent'
       : blockedPrReviewGate
         ? 'pr-review'
-        : invalidClosureGateSelection
-          ? 'controller-selection'
         : null;
   if (!['closed', 'closure-candidate'].includes(verdict?.stopVerdict?.classification) || !unitId) return null;
   const reasonCode = selection.nextUnit.reasonCode || `${unitId}-required-before-closure`;
@@ -822,8 +790,8 @@ function sideEffectGateBlockedVerdict(verdict, selection) {
     },
     nextIteration: {
       allowed: true,
-      mode: 'continuation',
-      instruction: `Continue through the ${unitId} contract and return its side-effect evidence before closure review.`,
+      mode: 'fresh-unit',
+      instruction: `Start a fresh unit for the ${unitId} contract and return its side-effect evidence before closure review.`,
       mustNotDo: [
         'Do not persist closed terminal state until side-effect contract evidence is present.',
       ],
@@ -896,7 +864,12 @@ async function runSelectedSideEffectGateUnit({
     };
     return runContractBoundInferenceUnit({
       ...common,
-      prompt: `Evaluate the commit-intent gate before closure.\n\n${JSON.stringify(input, null, 2)}`,
+      prompt: `Evaluate the commit-intent gate before closure.
+
+This is a side-effect evidence gate, not an objective-progress engine. Do not solve the living-doc objective from this unit.
+Inspect the scoped changed files and commit policy. Return commit evidence or a concrete blocked gate reason so the controller can route back to productive worker work.
+
+${JSON.stringify(input, null, 2)}`,
       inputContract: input,
       fixtureResult: {
         status: 'blocked',
@@ -937,7 +910,12 @@ async function runSelectedSideEffectGateUnit({
   };
   return runContractBoundInferenceUnit({
     ...common,
-    prompt: `Evaluate the PR-review gate before closure.\n\n${JSON.stringify(input, null, 2)}`,
+    prompt: `Evaluate the PR-review gate before closure.
+
+This is a PR evidence gate, not an objective-progress engine. Do not solve the living-doc objective from this unit.
+Inspect the PR target, commit evidence, policy, and required paths. Return approved, not-required, blocked, or failed with a concrete reason so the controller can route back to productive worker work when needed.
+
+${JSON.stringify(input, null, 2)}`,
     inputContract: input,
     fixtureResult: {
       status: 'blocked',

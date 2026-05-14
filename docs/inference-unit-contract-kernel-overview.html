@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inference Unit Contract Kernel</title>
+  <meta name="description" content="A static overview of the living-doc harness as a contract kernel for scoped inference units.">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #eef3f8;
+      --ink: #172033;
+      --muted: #627287;
+      --subtle: #92a0b3;
+      --line: #d8e1ec;
+      --line-strong: #c6d1df;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --blue-ink: #1e40af;
+      --teal: #0f766e;
+      --teal-soft: #ddf7f2;
+      --green: #166534;
+      --green-soft: #dcfce7;
+      --amber: #a16207;
+      --amber-soft: #fff4d6;
+      --rose: #be123c;
+      --rose-soft: #ffe4e9;
+      --violet: #6d28d9;
+      --violet-soft: #ede9fe;
+      --dark: #172033;
+      --code-bg: #101827;
+      --radius: 8px;
+      --shadow: 0 10px 28px rgba(23, 32, 51, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.58 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    a:hover { color: var(--blue); text-decoration: underline; }
+    code, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12.5px;
+    }
+    h1, h2, h3, p { margin: 0; }
+    p + p { margin-top: 10px; }
+    .wrap { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--line);
+      background: rgba(246, 248, 251, .9);
+      backdrop-filter: blur(10px);
+    }
+    .top-inner {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--dark);
+      color: white;
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: .04em;
+      flex: 0 0 auto;
+    }
+    .brand-text {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .nav a {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .nav a:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    header.hero {
+      padding: 58px 0 38px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0) 72%);
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--blue);
+      font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .eyebrow .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--teal);
+    }
+    h1 {
+      max-width: 960px;
+      font-size: clamp(38px, 6vw, 72px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      font-weight: 900;
+    }
+    .lede {
+      max-width: 820px;
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 22px);
+      line-height: 1.48;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 18px;
+      align-items: stretch;
+      margin-top: 28px;
+    }
+    .thesis {
+      background: var(--dark);
+      color: #f8fafc;
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .thesis .label {
+      color: #93c5fd;
+      font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .thesis p {
+      max-width: 760px;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .thesis strong { color: #ffffff; }
+    .source-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .source-pill {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 10px 12px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .source-pill code { color: var(--ink); }
+
+    main { padding: 24px 0 64px; }
+    section.band {
+      padding: 34px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    section.band:last-child { border-bottom: 0; }
+    .section-head {
+      display: grid;
+      grid-template-columns: .72fr 1fr;
+      gap: 28px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    h2 {
+      font-size: clamp(24px, 3vw, 36px);
+      line-height: 1.12;
+      letter-spacing: 0;
+      font-weight: 850;
+    }
+    .section-copy {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.58;
+    }
+
+    .claim-authority {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .claim-column {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .claim-column header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 48px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    .claim-column header h3 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .claim-column header span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+      min-height: 72px;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row .k {
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .row .v {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .row .v code {
+      color: var(--blue-ink);
+      background: var(--blue-soft);
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(138px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+      padding: 3px 0 8px;
+    }
+    .node {
+      position: relative;
+      min-height: 148px;
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 13px;
+    }
+    .node:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -9px;
+      width: 8px;
+      border-top: 2px solid var(--line-strong);
+    }
+    .node .step {
+      color: var(--subtle);
+      font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .node h3 {
+      font-size: 15px;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+    .node p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .node.teal { border-top-color: var(--teal); }
+    .node.green { border-top-color: var(--green); }
+    .node.amber { border-top-color: var(--amber); }
+    .node.rose { border-top-color: var(--rose); }
+    .node.violet { border-top-color: var(--violet); }
+    .node.dark { border-top-color: var(--dark); }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 190px repeat(5, minmax(150px, 1fr));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: auto;
+    }
+    .cell {
+      min-height: 66px;
+      padding: 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .cell:nth-child(6n) { border-right: 0; }
+    .cell.head {
+      min-height: 44px;
+      background: var(--surface-2);
+      color: var(--ink);
+      font-weight: 800;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .cell.rowhead {
+      background: #fbfcfe;
+      color: var(--ink);
+      font-weight: 850;
+    }
+    .cell code {
+      display: inline-block;
+      margin-top: 3px;
+      color: var(--blue-ink);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 800;
+      margin: 2px 2px 0 0;
+      overflow-wrap: anywhere;
+    }
+    .badge.blue { color: var(--blue-ink); background: var(--blue-soft); border-color: #bfdbfe; }
+    .badge.teal { color: var(--teal); background: var(--teal-soft); border-color: #a7e3d6; }
+    .badge.green { color: var(--green); background: var(--green-soft); border-color: #bbf7d0; }
+    .badge.amber { color: var(--amber); background: var(--amber-soft); border-color: #f5d08c; }
+    .badge.rose { color: var(--rose); background: var(--rose-soft); border-color: #fecdd3; }
+    .badge.violet { color: var(--violet); background: var(--violet-soft); border-color: #ddd6fe; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 16px;
+    }
+    .panel h3 {
+      font-size: 15px;
+      margin-bottom: 9px;
+    }
+    .panel p, .panel li {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .panel ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+    .panel li + li { margin-top: 5px; }
+    .panel.accent-blue { border-left: 4px solid var(--blue); }
+    .panel.accent-teal { border-left: 4px solid var(--teal); }
+    .panel.accent-amber { border-left: 4px solid var(--amber); }
+    .panel.accent-rose { border-left: 4px solid var(--rose); }
+    .panel.accent-violet { border-left: 4px solid var(--violet); }
+    .panel.accent-green { border-left: 4px solid var(--green); }
+
+    .code-map {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 210px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .code-map div {
+      padding: 11px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 58px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .code-map div:nth-child(3n) { border-right: 0; }
+    .code-map div:nth-last-child(-n+3) { border-bottom: 0; }
+    .code-map .head {
+      background: var(--surface-2);
+      color: var(--ink);
+      min-height: 42px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .code-map .file {
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .pressure {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .pressure-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 15px;
+      min-height: 176px;
+    }
+    .pressure-card .rank {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 10px;
+      border-radius: 7px;
+      background: var(--dark);
+      color: white;
+      font: 900 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .pressure-card h3 {
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+    .pressure-card p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .callout {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--green);
+      border-radius: var(--radius);
+      background: #f7fffb;
+      padding: 15px 16px;
+      color: var(--ink);
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+    .callout p {
+      color: var(--muted);
+      max-width: 900px;
+    }
+    pre {
+      margin: 0;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: #e5eefc;
+      line-height: 1.48;
+      font-size: 12.5px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 28px 0 56px;
+    }
+
+    @media (max-width: 980px) {
+      .wrap { width: min(100% - 28px, 1180px); }
+      .nav { display: none; }
+      .hero-grid,
+      .section-head,
+      .claim-authority,
+      .two-col,
+      .pressure {
+        grid-template-columns: 1fr;
+      }
+      .source-strip { grid-template-columns: 1fr; }
+      .code-map { grid-template-columns: 1fr; }
+      .code-map div,
+      .code-map div:nth-child(3n) {
+        border-right: 0;
+      }
+      .code-map div:nth-last-child(-n+3) {
+        border-bottom: 1px solid var(--line);
+      }
+      .code-map div:last-child { border-bottom: 0; }
+      .matrix { grid-template-columns: 160px repeat(5, minmax(170px, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      header.hero { padding-top: 34px; }
+      .row { grid-template-columns: 1fr; min-height: auto; }
+      .flow { grid-template-columns: repeat(7, 170px); }
+      .top-inner { min-height: 48px; }
+      .brand-text { max-width: 230px; }
+    }
+    @media print {
+      .top { position: static; }
+      body { background: white; }
+      .wrap { width: 100%; padding: 0 18px; }
+      .node, .panel, .claim-column, .pressure-card, .source-pill { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="wrap top-inner">
+      <div class="brand">
+        <div class="mark">LD</div>
+        <div class="brand-text">Inference Unit Contract Kernel</div>
+      </div>
+      <nav class="nav" aria-label="Page sections">
+        <a href="#authority">Authority</a>
+        <a href="#flow">Flow</a>
+        <a href="#registry">Registry</a>
+        <a href="#code">Code Map</a>
+        <a href="#future">Future Work</a>
+      </nav>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="wrap">
+      <div class="eyebrow"><span class="dot"></span> Architecture overview</div>
+      <h1>A contract kernel for scoped inference units</h1>
+      <p class="lede">The useful idea is not that the harness is vaguely like an operating system. The useful idea is that the harness separates model claims from lifecycle authority, then makes that separation explicit enough to guide implementation.</p>
+      <div class="hero-grid">
+        <div class="thesis">
+          <div class="label">Core rule</div>
+          <p><strong>An inference unit may produce claims. The harness must produce authority.</strong> A unit can say it changed files, recommends repair, approves closure, or needs continuation. The controller validates contracts, snapshots evidence, checks gates, chooses the next unit, and writes terminal state.</p>
+        </div>
+        <div class="source-strip" aria-label="Grounding source files">
+          <div class="source-pill"><code>living-doc-harness-inference-unit-types.mjs</code></div>
+          <div class="source-pill"><code>living-doc-harness-inference-unit.mjs</code></div>
+          <div class="source-pill"><code>living-doc-harness-lifecycle.mjs</code></div>
+          <div class="source-pill"><code>living-doc-harness-iteration.mjs</code></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="band" id="authority">
+      <div class="section-head">
+        <h2>The real boundary is claim versus authority</h2>
+        <div class="section-copy">
+          <p>The microkernel language is useful only if it preserves this boundary. The model-facing unit is allowed to reason inside a role. The harness is the authority that decides what counts, whether the next transition is legal, and whether the lifecycle can stop.</p>
+        </div>
+      </div>
+
+      <div class="claim-authority">
+        <div class="claim-column">
+          <header>
+            <h3>Unit-space claim</h3>
+            <span>model output</span>
+          </header>
+          <div class="row">
+            <div class="k">Work happened</div>
+            <div class="v">Worker claims progress, changed files, test results, blockers, or readiness.</div>
+          </div>
+          <div class="row">
+            <div class="k">Closure seems valid</div>
+            <div class="v">Reviewer emits a <code>closed</code> or <code>closure-candidate</code> verdict.</div>
+          </div>
+          <div class="row">
+            <div class="k">Side effect is allowed</div>
+            <div class="v">Commit-intent or PR-review emits an output contract describing approval, exemption, block, or failure.</div>
+          </div>
+          <div class="row">
+            <div class="k">Continue this way</div>
+            <div class="v">Continuation or repair units recommend another unit type or a repair sequence.</div>
+          </div>
+        </div>
+
+        <div class="claim-column">
+          <header>
+            <h3>Kernel authority</h3>
+            <span>controller decision</span>
+          </header>
+          <div class="row">
+            <div class="k">Evidence snapshot</div>
+            <div class="v">Controller records git state, required hard facts, proof gates, artifacts, and trace references.</div>
+          </div>
+          <div class="row">
+            <div class="k">Closure permission</div>
+            <div class="v">Closure-review plus proof gates authorize terminal closure; the controller writes terminal state.</div>
+          </div>
+          <div class="row">
+            <div class="k">Side-effect gate</div>
+            <div class="v">Source changes require commit evidence. Configured PR policy requires PR-review evidence before closure.</div>
+          </div>
+          <div class="row">
+            <div class="k">Next scheduled unit</div>
+            <div class="v">The selected unit must be registered, allowed for the run, and legal after the current unit.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="flow">
+      <div class="section-head">
+        <h2>The lifecycle is message passing, not direct agent chaining</h2>
+        <div class="section-copy">
+          <p>A unit does not own the next call. It emits a typed result. The harness turns that result and the frozen evidence into the next controlled input. That makes every transition visible, replayable, and testable.</p>
+        </div>
+      </div>
+
+      <div class="flow" aria-label="Contract kernel lifecycle flow">
+        <div class="node dark">
+          <div class="step">01 input</div>
+          <h3>Objective state</h3>
+          <p>Living doc path, objective, success condition, required inspection paths, and run policy.</p>
+        </div>
+        <div class="node violet">
+          <div class="step">02 unit</div>
+          <h3>Scoped inference</h3>
+          <p>Worker, reviewer, repair, continuation, commit-intent, PR-review, or closure-review.</p>
+        </div>
+        <div class="node blue">
+          <div class="step">03 contract</div>
+          <h3>Typed output</h3>
+          <p>Result schema, verdict, basis, artifacts, side-effect intent, and next recommendation.</p>
+        </div>
+        <div class="node teal">
+          <div class="step">04 validate</div>
+          <h3>Kernel validation</h3>
+          <p>Input and output contracts, allowed verdicts, required fields, and required inspections.</p>
+        </div>
+        <div class="node green">
+          <div class="step">05 evidence</div>
+          <h3>Controller facts</h3>
+          <p>Git state, proof gates, changed files, PR policy, trace refs, and hard facts snapshot.</p>
+        </div>
+        <div class="node amber">
+          <div class="step">06 schedule</div>
+          <h3>Next unit</h3>
+          <p>Selection is checked against the registry and run-allowed unit set before execution.</p>
+        </div>
+        <div class="node rose">
+          <div class="step">07 terminal</div>
+          <h3>Closure or continue</h3>
+          <p>Only the closure path can authorize final terminal state. Other outcomes route onward.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>Why this guides future work</strong>
+        <p>Any new capability should enter as a registered unit, a gate, or a controller-owned evidence detector. If it bypasses those surfaces, it is probably weakening the architecture.</p>
+      </div>
+    </section>
+
+    <section class="band" id="registry">
+      <div class="section-head">
+        <h2>The registry is policy, not decoration</h2>
+        <div class="section-copy">
+          <p>The registry defines the process table and the permission model. It gives each unit a role, contracts, valid verdicts, legal successors, deterministic side effects, and closure implications.</p>
+        </div>
+      </div>
+
+      <div class="matrix" aria-label="Unit registry policy matrix">
+        <div class="cell head">Unit type</div>
+        <div class="cell head">Main authority</div>
+        <div class="cell head">Valid outputs</div>
+        <div class="cell head">Legal next units</div>
+        <div class="cell head">Side effects</div>
+        <div class="cell head">Closure role</div>
+
+        <div class="cell rowhead">worker</div>
+        <div class="cell">Do objective work inside the living-doc task.</div>
+        <div class="cell"><span class="badge violet">prepared</span><span class="badge violet">running</span><span class="badge violet">finished</span><span class="badge rose">failed</span></div>
+        <div class="cell"><span class="badge blue">reviewer-inference</span></div>
+        <div class="cell">None declared by registry.</div>
+        <div class="cell">Cannot close. Contributes evidence.</div>
+
+        <div class="cell rowhead">reviewer-inference</div>
+        <div class="cell">Judge worker evidence and stop negotiation.</div>
+        <div class="cell"><span class="badge green">closed</span><span class="badge amber">repairable</span><span class="badge blue">resumable</span><span class="badge rose">true-block</span></div>
+        <div class="cell"><span class="badge blue">closure-review</span><span class="badge amber">commit-intent</span><span class="badge violet">repair-skill</span><span class="badge teal">continuation</span></div>
+        <div class="cell">None declared by registry.</div>
+        <div class="cell">May recommend closure, cannot persist it.</div>
+
+        <div class="cell rowhead">closure-review</div>
+        <div class="cell">Authorize or block terminal closure.</div>
+        <div class="cell"><span class="badge green">approved</span><span class="badge rose">blocked</span></div>
+        <div class="cell"><span class="badge teal">post-flight-summary</span><span class="badge teal">continuation</span></div>
+        <div class="cell">None declared by registry.</div>
+        <div class="cell">May permit terminal closure when gates pass.</div>
+
+        <div class="cell rowhead">commit-intent</div>
+        <div class="cell">Produce or approve scoped commit evidence.</div>
+        <div class="cell"><span class="badge green">approved</span><span class="badge blue">not-required</span><span class="badge rose">blocked</span><span class="badge rose">failed</span></div>
+        <div class="cell"><span class="badge blue">pr-review</span><span class="badge green">closure-review</span><span class="badge violet">worker</span><span class="badge teal">continuation</span></div>
+        <div class="cell"><span class="badge amber">git-commit</span></div>
+        <div class="cell">Satisfies source-change commit gate.</div>
+
+        <div class="cell rowhead">pr-review</div>
+        <div class="cell">Satisfy configured PR review policy.</div>
+        <div class="cell"><span class="badge green">approved</span><span class="badge blue">not-required</span><span class="badge rose">blocked</span><span class="badge rose">failed</span></div>
+        <div class="cell"><span class="badge green">closure-review</span><span class="badge violet">worker</span><span class="badge teal">continuation</span></div>
+        <div class="cell"><span class="badge amber">github-pr-open-or-update</span><span class="badge amber">github-pr-review-comment</span></div>
+        <div class="cell">Satisfies PR gate when configured.</div>
+
+        <div class="cell rowhead">continuation-inference</div>
+        <div class="cell">Resolve ambiguous non-terminal states.</div>
+        <div class="cell"><span class="badge blue">continuation-required</span><span class="badge rose">blocked</span><span class="badge green">ready</span></div>
+        <div class="cell"><span class="badge violet">worker</span><span class="badge violet">repair-skill</span><span class="badge amber">commit-intent</span><span class="badge blue">pr-review</span></div>
+        <div class="cell">None declared by registry.</div>
+        <div class="cell">Cannot close.</div>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="section-head">
+        <h2>What makes this stronger than a big agent loop</h2>
+        <div class="section-copy">
+          <p>The strength is operational. Failures can be localized to a contract, gate, artifact, scheduler decision, or terminal authorization path instead of being collapsed into "the agent decided wrong."</p>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel accent-blue">
+          <h3>Separation of powers</h3>
+          <p>Worker does work. Reviewer judges evidence. Closure-review authorizes final closure. The controller persists terminal state. Each role is narrow enough to inspect and replace.</p>
+        </div>
+        <div class="panel accent-teal">
+          <h3>Replayable proof surface</h3>
+          <p>The harness writes prompts, input contracts, raw JSONL events, result artifacts, validation artifacts, evidence bundles, and terminal state. The run is not just a transcript.</p>
+        </div>
+        <div class="panel accent-amber">
+          <h3>Policy before persuasion</h3>
+          <p>The next unit cannot be chosen only because a model asks for it. It must be registered, allowed by run config, and legal after the current unit type.</p>
+        </div>
+        <div class="panel accent-green">
+          <h3>Closure is explicit</h3>
+          <p>A closure-sounding reviewer verdict is not enough. Terminal closure requires the closure path, side-effect gates, hard facts, and terminal-state write.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="code">
+      <div class="section-head">
+        <h2>Current code map</h2>
+        <div class="section-copy">
+          <p>The kernel is currently distributed across a few files. This is acceptable, but the map below shows where future extraction pressure will show up.</p>
+        </div>
+      </div>
+
+      <div class="code-map" aria-label="Harness code map">
+        <div class="head">File</div>
+        <div class="head">Kernel responsibility</div>
+        <div class="head">Future extraction pressure</div>
+
+        <div class="file"><code>scripts/living-doc-harness-inference-unit-types.mjs</code></div>
+        <div>Registry of unit types, contracts, verdicts, allowed transitions, side effects, run-allowed validation, PR policy normalization, and registry completeness checks.</div>
+        <div><span class="badge green">stable kernel API</span></div>
+
+        <div class="file"><code>scripts/living-doc-harness-inference-unit.mjs</code></div>
+        <div>Wraps Codex execution, writes prompts and contracts, validates unit input and output, normalizes output contracts, checks required path inspection, and persists artifacts.</div>
+        <div><span class="badge blue">execution wrapper</span></div>
+
+        <div class="file"><code>scripts/living-doc-harness-lifecycle.mjs</code></div>
+        <div>Owns the lifecycle loop, creates controlled inputs, carries side-effect evidence across runs, starts the selected unit, and invokes iteration finalization.</div>
+        <div><span class="badge teal">scheduler loop</span></div>
+
+        <div class="file"><code>scripts/living-doc-harness-iteration.mjs</code></div>
+        <div>Finalizes one iteration: evidence snapshot, hard facts, PR and commit gates, post-review selection, repair routing, closure review, terminal state, proof, dashboard.</div>
+        <div><span class="badge amber">split candidate</span></div>
+
+        <div class="file"><code>scripts/living-doc-harness-terminal-state.mjs</code></div>
+        <div>Writes the durable terminal artifact after the authority path resolves.</div>
+        <div><span class="badge green">authority primitive</span></div>
+
+        <div class="file"><code>scripts/living-doc-harness-evidence-dashboard.mjs</code></div>
+        <div>Publishes evidence bundle and dashboard observation surfaces after controller decisions are made.</div>
+        <div><span class="badge violet">observation layer</span></div>
+      </div>
+    </section>
+
+    <section class="band" id="future">
+      <div class="section-head">
+        <h2>How this should guide future work</h2>
+        <div class="section-copy">
+          <p>The architecture gives a practical test for every proposed feature. Decide whether it belongs in a unit, a gate, an evidence detector, a scheduler rule, or an observation surface.</p>
+        </div>
+      </div>
+
+      <div class="pressure">
+        <div class="pressure-card">
+          <div class="rank">1</div>
+          <h3>Add behavior as units when it reasons</h3>
+          <p>If the new behavior interprets evidence or makes a judgment, register a unit with a narrow role, typed input, typed output, allowed verdicts, and legal next units.</p>
+        </div>
+        <div class="pressure-card">
+          <div class="rank">2</div>
+          <h3>Add gates when it grants authority</h3>
+          <p>If the behavior decides whether closure, commit, PR review, or lifecycle continuation is allowed, make it a controller-owned gate with inspectable evidence.</p>
+        </div>
+        <div class="pressure-card">
+          <div class="rank">3</div>
+          <h3>Add detectors when it records facts</h3>
+          <p>If the behavior captures git state, proof routes, rendered artifacts, trace refs, file existence, or policy state, keep it outside the model and snapshot it.</p>
+        </div>
+        <div class="pressure-card">
+          <div class="rank">4</div>
+          <h3>Split iteration by authority surface</h3>
+          <p>When <code>living-doc-harness-iteration.mjs</code> grows, extract by kernel service: gate evaluator, next-unit selector, side-effect gate runner, proof builder, evidence publisher.</p>
+        </div>
+        <div class="pressure-card">
+          <div class="rank">5</div>
+          <h3>Keep dashboards observational</h3>
+          <p>The dashboard should display contracts, artifacts, graph state, and terminal results. It should not become a hidden decision-maker or a second lifecycle controller.</p>
+        </div>
+        <div class="pressure-card">
+          <div class="rank">6</div>
+          <h3>Treat bypasses as design smells</h3>
+          <p>A unit directly invoking the next unit, persisting closure, or making unvalidated side effects is a breach of the kernel boundary unless explicitly modeled.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="section-head">
+        <h2>A sharper vocabulary</h2>
+        <div class="section-copy">
+          <p>"Microkernel" is a good shorthand, but the implementation vocabulary should be more precise when you are designing code.</p>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel accent-violet">
+          <h3>Use this phrase publicly</h3>
+          <pre>The harness is a contract kernel for inference units.
+
+Units run in scoped roles, emit typed outputs, and may only recommend transitions.
+The kernel validates contracts, records evidence, evaluates gates, schedules
+the next unit, and owns terminal lifecycle state.</pre>
+        </div>
+        <div class="panel accent-rose">
+          <h3>Use this test internally</h3>
+          <ul>
+            <li>Can this claim be verified without trusting the model?</li>
+            <li>Which artifact proves it?</li>
+            <li>Which contract accepts it?</li>
+            <li>Which gate turns it into authority?</li>
+            <li>Which scheduler rule decides what runs next?</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    Static overview for the Living Doc Compositor harness. This page is intentionally standalone and grounded in the current contract-bound inference unit files.
+  </footer>
+</body>
+</html>
