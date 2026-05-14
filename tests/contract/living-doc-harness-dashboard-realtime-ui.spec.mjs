@@ -146,6 +146,9 @@ class FakeElement {
     this.style = {};
     this.children = [];
     this.parentElement = null;
+    this.scrollTop = 0;
+    this.scrollHeight = 900;
+    this.clientHeight = 180;
     this._innerHTML = '';
     this._textContent = '';
     this.classList = new FakeClassList(this);
@@ -271,8 +274,11 @@ class FakeDocument {
   }
 
   querySelectorAll(selector, root = null) {
+    const rootChildren = root?.id === 'graphBoard' && this.elements.get('graphUnits')
+      ? [...root.children, ...this.elements.get('graphUnits').children]
+      : (root?.children || []);
     const candidates = root
-      ? [root, ...root.children]
+      ? [root, ...rootChildren]
       : [...this.elements.values()].flatMap((element) => [element, ...element.children]);
     const unique = new Map();
     for (const element of candidates) {
@@ -500,6 +506,54 @@ assert.equal(fetchCalls.some((call) => call.endsWith('/api/lifecycles/ldhl-realt
 assert.match(document.getElementById('graphInspector').innerHTML, /lifecycle_snapshot/);
 assert.match(document.getElementById('graphInspector').innerHTML, /contract_handoff/);
 
+document.getElementById('graphTailBox').scrollTop = 96;
+document.getElementById('graphTailButton').listeners.click[0]();
+await flushMicrotasks();
+assert.equal(document.getElementById('graphTailBox').scrollTop, 96);
+globalThis.__dashboardSocket.sendEvent({
+  schema: 'living-doc-harness-dashboard-event/v1',
+  eventId: 'worker-log-append-preserve-scroll',
+  type: 'log_append',
+  at: '2026-05-10T06:30:00.500Z',
+  source: 'local-log-tail',
+  payload: {
+    resultId: 'ldhl-realtime-fixture',
+    nodeId: 'iteration-1-worker',
+    role: 'worker',
+    kind: 'codexEvents',
+    path: '.living-doc-runs/ldh-worker/codex-turns/codex-events.jsonl',
+    lines: ['WORKER-ONLY-MARKER streamed while manually scrolled'],
+  },
+  privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+});
+await flushMicrotasks();
+assert.equal(document.getElementById('graphTailBox').scrollTop, 96);
+assert.equal(document.getElementById('graphTailFollowLatest').getAttribute('aria-pressed'), 'false');
+
+document.getElementById('graphTailFollowLatest').listeners.click[0]();
+await flushMicrotasks();
+assert.equal(document.getElementById('graphTailFollowLatest').getAttribute('aria-pressed'), 'true');
+assert.equal(document.getElementById('graphTailBox').scrollTop, 720);
+globalThis.__dashboardSocket.sendEvent({
+  schema: 'living-doc-harness-dashboard-event/v1',
+  eventId: 'worker-log-append-follow-latest',
+  type: 'log_append',
+  at: '2026-05-10T06:30:00.700Z',
+  source: 'local-log-tail',
+  payload: {
+    resultId: 'ldhl-realtime-fixture',
+    nodeId: 'iteration-1-worker',
+    role: 'worker',
+    kind: 'codexEvents',
+    path: '.living-doc-runs/ldh-worker/codex-turns/codex-events.jsonl',
+    lines: ['WORKER-ONLY-MARKER latest followed'],
+  },
+  privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+});
+await flushMicrotasks();
+assert.equal(document.getElementById('graphTailFollowLatest').getAttribute('aria-pressed'), 'true');
+assert.equal(document.getElementById('graphTailBox').scrollTop, 720);
+
 globalThis.__dashboardSocket.sendEvent({
   schema: 'living-doc-harness-dashboard-event/v1',
   eventId: 'graph-update-reviewer',
@@ -562,7 +616,36 @@ assert.match(document.getElementById('graphUnits').innerHTML, /data-graph-node-i
 assert.match(document.getElementById('graphInspector').innerHTML, /Terminal decision/);
 assert.match(document.getElementById('graphInspector').innerHTML, /blocked/);
 assert.doesNotMatch(document.getElementById('graphInspector').innerHTML, /REVIEWER-ONLY-MARKER/);
+
+const workerCard = document.getElementById('graphBoard').querySelectorAll('[data-graph-node-id]').find((item) => item.dataset.graphNodeId === 'iteration-1-worker');
+assert.ok(workerCard, 'worker card must be selectable for pinned selection proof');
+workerCard.listeners.click[0]();
+await flushMicrotasks();
+if (document.getElementById('graphTailFollowLatest').getAttribute('aria-pressed') === 'true') {
+  document.getElementById('graphTailFollowLatest').listeners.click[0]();
+  await flushMicrotasks();
+}
+document.getElementById('graphTailBox').scrollTop = 132;
+globalThis.__dashboardSocket.sendEvent({
+  schema: 'living-doc-harness-dashboard-event/v1',
+  eventId: 'graph-update-terminal-preserve-pinned-worker',
+  type: 'graph_update',
+  at: '2026-05-10T06:30:04.000Z',
+  source: 'artifact-derived-graph',
+  payload: {
+    resultId: 'ldhl-realtime-fixture',
+    activeInferenceUnitId: null,
+    nodeCount: terminalGraph.nodeCount,
+    edgeCount: terminalGraph.edgeCount,
+    graph: terminalGraph,
+  },
+  privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+});
+await flushMicrotasks();
+assert.match(document.getElementById('graphInspector').innerHTML, /ldh-worker\/contract\.json/);
+assert.equal(document.getElementById('graphTailBox').scrollTop, 132);
+
 assert.equal(reloadCount, 0);
-assert.equal(socketMessages.length, 3);
+assert.equal(socketMessages.length, 6);
 
 console.log('living-doc harness dashboard realtime UI contract spec: all assertions passed');

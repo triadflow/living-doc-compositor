@@ -2408,6 +2408,10 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
     .inspector-list li:first-child { border-top:0; padding-top:0; }
     .inspector-list strong { color:var(--slate); font-size:11px; }
     .inspector-list code { color:#41516a; font-size:11px; }
+    .tail-controls { display:flex; gap:8px; align-items:center; margin-top:2px; }
+    .tail-controls .inspector-action { flex:1 1 auto; width:auto; margin-top:0; }
+    .tail-controls .follow-latest { flex:0 0 auto; border-color:#cbd5e1; background:#fff; color:#41516a; font-weight:800; }
+    .tail-controls .follow-latest[aria-pressed="true"] { border-color:#9dd6c8; background:#ecfdf5; color:#047857; }
     .inspector-action { width:100%; margin-top:2px; border-color:#b8cbff; background:#eef6ff; color:var(--blue); font-weight:800; }
     #graphTailBox { margin:8px 0 0; max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:7px; padding:10px; background:#17202a; color:#eef3f8; font-size:11px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
     .graph-path-list { margin:8px 0 0; padding-left:18px; }
@@ -2477,7 +2481,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
     </section>
   </main>
   <script>
-    const state = { runs: [], lifecycles: [], lifecycleGraph: null, selectedLifecycleId: null, selectedGraphNodeId: null, selectedGraphEdgeId: null, selectedRunId: null, selectedRepairUnitKey: null, graphPositionOverrides: {}, graphDrag: null, graphClickSuppressedNodeId: null, loading: false, streamSocket: null, streamLifecycleId: null, streamEvents: [], graphNodeTails: {}, selectedTailNodeId: null };
+    const state = { runs: [], lifecycles: [], lifecycleGraph: null, selectedLifecycleId: null, selectedGraphNodeId: null, selectedGraphEdgeId: null, selectedRunId: null, selectedRepairUnitKey: null, graphPositionOverrides: {}, graphDrag: null, graphClickSuppressedNodeId: null, graphSelectionPinned: false, loading: false, streamSocket: null, streamLifecycleId: null, streamEvents: [], graphNodeTails: {}, selectedTailNodeId: null, graphTailFollowLatest: false, suppressTailScrollHandler: false };
     const el = (id) => document.getElementById(id);
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
     const listItems = (items, render = (x) => esc(x)) => items?.length ? '<ul>' + items.map((item) => '<li>' + render(item) + '</li>').join('') + '</ul>' : '<span class="muted">none</span>';
@@ -2533,6 +2537,8 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       const selectedEdgeExists = edges.some((edge) => edge.id === state.selectedGraphEdgeId);
       if (state.selectedGraphEdgeId && selectedEdgeExists) return;
       if (state.selectedGraphEdgeId && !selectedEdgeExists) state.selectedGraphEdgeId = null;
+      if (state.graphSelectionPinned && state.selectedGraphNodeId && selectedNodeExists) return;
+      if (state.graphSelectionPinned && state.selectedGraphNodeId && !selectedNodeExists) state.graphSelectionPinned = false;
       if (activeId && (!state.selectedGraphNodeId || state.selectedGraphNodeId === previousActive || !selectedNodeExists)) {
         state.selectedGraphNodeId = activeId;
         state.selectedGraphEdgeId = null;
@@ -2948,11 +2954,67 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       return sections.map(([name, lines]) => '## ' + name + '\\n' + (lines?.length ? lines.join('\\n') : '(empty)')).join('\\n\\n');
     }
 
+    function captureGraphTailScroll(nodeId) {
+      const box = document.getElementById('graphTailBox');
+      if (!box || !nodeId || state.selectedGraphNodeId !== nodeId) return null;
+      return {
+        nodeId,
+        scrollTop: box.scrollTop || 0,
+        distanceFromBottom: Math.max(0, (box.scrollHeight || 0) - (box.clientHeight || 0) - (box.scrollTop || 0)),
+      };
+    }
+
+    function applyGraphTailScroll(scrollState, { followLatest = state.graphTailFollowLatest } = {}) {
+      const box = document.getElementById('graphTailBox');
+      if (!box) return;
+      const maxTop = Math.max(0, (box.scrollHeight || 0) - (box.clientHeight || 0));
+      state.suppressTailScrollHandler = true;
+      if (followLatest) {
+        box.scrollTop = maxTop;
+      } else if (scrollState && scrollState.nodeId === state.selectedGraphNodeId) {
+        box.scrollTop = Math.min(maxTop, Math.max(0, scrollState.scrollTop || 0));
+      }
+      queueMicrotask(() => {
+        state.suppressTailScrollHandler = false;
+      });
+    }
+
+    function bindGraphTailControls(nodeId, scrollState = null) {
+      const button = document.getElementById('graphTailButton');
+      if (button) button.addEventListener('click', () => refreshGraphNodeTail(nodeId));
+      const followButton = document.getElementById('graphTailFollowLatest');
+      if (followButton) {
+        followButton.addEventListener('click', () => {
+          state.graphTailFollowLatest = !state.graphTailFollowLatest;
+          followButton.setAttribute('aria-pressed', state.graphTailFollowLatest ? 'true' : 'false');
+          followButton.textContent = state.graphTailFollowLatest ? 'Following latest' : 'Follow latest';
+          applyGraphTailScroll(null, { followLatest: state.graphTailFollowLatest });
+        });
+      }
+      const box = document.getElementById('graphTailBox');
+      if (box) {
+        box.addEventListener('scroll', () => {
+          if (state.suppressTailScrollHandler || !state.graphTailFollowLatest) return;
+          const distanceFromBottom = Math.max(0, (box.scrollHeight || 0) - (box.clientHeight || 0) - (box.scrollTop || 0));
+          if (distanceFromBottom > 24) {
+            state.graphTailFollowLatest = false;
+            const currentFollowButton = document.getElementById('graphTailFollowLatest');
+            if (currentFollowButton) {
+              currentFollowButton.setAttribute('aria-pressed', 'false');
+              currentFollowButton.textContent = 'Follow latest';
+            }
+          }
+        }, { passive: true });
+      }
+      applyGraphTailScroll(scrollState);
+    }
+
     function renderGraphInspector() {
       const target = el('graphInspector');
       if (!target) return;
       const edge = state.selectedGraphEdgeId ? graphEdgeById(state.selectedGraphEdgeId) : null;
       const node = !edge && state.selectedGraphNodeId ? graphNodeById(state.selectedGraphNodeId) : null;
+      const tailScrollState = node ? captureGraphTailScroll(node.id) : null;
       if (edge) {
         const contractRows = Object.entries(edge.contract || {}).filter(([, value]) => value !== null && value !== undefined && value !== '');
         const commitIntent = edge.contract?.commitIntent || null;
@@ -2981,7 +3043,9 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         const metaRows = Object.entries(node.meta || {}).filter(([, value]) => value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && !value.length));
         const policySelection = node.meta?.policySelection || null;
         const hasTail = Boolean(node.artifactPaths?.codexEventsPath || node.artifactPaths?.stderrPath || node.artifactPaths?.lastMessagePath || node.artifactPaths?.resultPath || node.artifactPaths?.validationPath);
-        const tailBox = hasTail ? '<button id="graphTailButton" class="inspector-action">Refresh selected unit log</button><pre id="graphTailBox">' + esc(renderTailSectionsForNode(node)) + '</pre>' : '';
+        const tailBox = hasTail
+          ? '<div class="tail-controls"><button id="graphTailButton" class="inspector-action">Refresh selected unit log</button><button id="graphTailFollowLatest" class="follow-latest" aria-pressed="' + (state.graphTailFollowLatest ? 'true' : 'false') + '">' + (state.graphTailFollowLatest ? 'Following latest' : 'Follow latest') + '</button></div><pre id="graphTailBox">' + esc(renderTailSectionsForNode(node)) + '</pre>'
+          : '';
         target.innerHTML = '<div class="inspector-header">' +
           '<div class="inspector-kicker">' + esc(graphRole(node) === 'living-doc' ? 'Operated living doc' : 'Inference unit') + '</div>' +
           '<div class="inspector-title-row"><div class="inspector-title">' + esc(graphNodeTitle(node)) + '</div><span class="graph-status ' + esc(graphStatusClass(node.status)) + '">' + esc(node.status || 'unknown') + '</span></div>' +
@@ -3001,8 +3065,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           tailBox +
           renderEventStreamSection() +
         '</div>';
-        const button = document.getElementById('graphTailButton');
-        if (button) button.addEventListener('click', () => refreshGraphNodeTail(node.id));
+        bindGraphTailControls(node.id, tailScrollState);
         if (hasTail && state.selectedTailNodeId !== node.id) refreshGraphNodeTail(node.id);
         return;
       }
@@ -3013,6 +3076,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
       if (!state.selectedLifecycleId || !nodeId) return;
       state.selectedTailNodeId = nodeId;
       const box = document.getElementById('graphTailBox');
+      const scrollState = captureGraphTailScroll(nodeId);
       if (box) box.style.display = 'block';
       try {
         const response = await fetch('/api/lifecycles/' + encodeURIComponent(state.selectedLifecycleId) + '/nodes/' + encodeURIComponent(nodeId) + '/tail?lines=80');
@@ -3025,7 +3089,10 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           result: payload.result || [],
           validation: payload.validation || []
         };
-        if (box && state.selectedGraphNodeId === nodeId) box.textContent = renderTailSectionsForNode({ id: nodeId });
+        if (box && state.selectedGraphNodeId === nodeId) {
+          box.textContent = renderTailSectionsForNode({ id: nodeId });
+          applyGraphTailScroll(scrollState);
+        }
       } catch (err) {
         if (box) box.textContent = String(err.message || err);
       }
@@ -3151,6 +3218,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           }
           state.selectedGraphNodeId = button.dataset.graphNodeId;
           state.selectedGraphEdgeId = null;
+          state.graphSelectionPinned = true;
           renderGraph();
         });
       }
@@ -3158,6 +3226,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
         button.addEventListener('click', () => {
           state.selectedGraphEdgeId = button.dataset.graphEdgeId;
           state.selectedGraphNodeId = null;
+          state.graphSelectionPinned = false;
           renderGraph();
         });
       }
@@ -3241,6 +3310,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
           state.selectedLifecycleId = button.dataset.lifecycleId;
           state.selectedGraphNodeId = null;
           state.selectedGraphEdgeId = null;
+          state.graphSelectionPinned = false;
           renderLifecycles();
           loadSelectedGraph();
         });

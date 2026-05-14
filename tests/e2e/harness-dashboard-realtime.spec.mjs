@@ -127,7 +127,7 @@ test('dashboard applies streamed graph and log events without reload', async ({ 
           schema: 'living-doc-harness-graph-node-tail/v1',
           nodeId: 'iteration-1-worker',
           privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false },
-          codexEvents: ['WORKER-ONLY-MARKER selected worker log'],
+          codexEvents: Array.from({ length: 120 }, (_, index) => `WORKER-ONLY-MARKER selected worker log line ${index + 1}`),
           stderr: [],
           lastMessage: [],
           result: [],
@@ -251,6 +251,58 @@ test('dashboard applies streamed graph and log events without reload', async ({ 
   await expect(page.locator('#graphInspector')).toContainText('lifecycle_snapshot');
   await expect(page.locator('#graphInspector')).toContainText('contract_handoff');
 
+  const preservedScrollTop = await page.locator('#graphTailBox').evaluate((box) => {
+    box.scrollTop = 90;
+    return box.scrollTop;
+  });
+  await page.locator('#graphTailButton').click();
+  await expect.poll(() => page.locator('#graphTailBox').evaluate((box) => box.scrollTop)).toBe(preservedScrollTop);
+  await page.evaluate(() => {
+    window.__dashboardSocket.sendEvent({
+      schema: 'living-doc-harness-dashboard-event/v1',
+      eventId: 'worker-log-preserve-scroll',
+      type: 'log_append',
+      at: '2026-05-10T06:30:00.500Z',
+      source: 'local-log-tail',
+      payload: {
+        resultId: 'ldhl-realtime-fixture',
+        nodeId: 'iteration-1-worker',
+        role: 'worker',
+        kind: 'codexEvents',
+        path: '.living-doc-runs/ldh-worker/codex-turns/codex-events.jsonl',
+        lines: Array.from({ length: 120 }, (_, index) => `WORKER preserve-position streamed log line ${index + 1}`),
+      },
+      privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+    });
+  });
+  await expect.poll(() => page.locator('#graphTailBox').evaluate((box) => box.scrollTop)).toBe(preservedScrollTop);
+  await expect(page.locator('#graphTailFollowLatest')).toHaveAttribute('aria-pressed', 'false');
+
+  await page.locator('#graphTailFollowLatest').click();
+  await expect(page.locator('#graphTailFollowLatest')).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => {
+    window.__dashboardSocket.sendEvent({
+      schema: 'living-doc-harness-dashboard-event/v1',
+      eventId: 'worker-log-follow-latest',
+      type: 'log_append',
+      at: '2026-05-10T06:30:00.700Z',
+      source: 'local-log-tail',
+      payload: {
+        resultId: 'ldhl-realtime-fixture',
+        nodeId: 'iteration-1-worker',
+        role: 'worker',
+        kind: 'codexEvents',
+        path: '.living-doc-runs/ldh-worker/codex-turns/codex-events.jsonl',
+        lines: Array.from({ length: 121 }, (_, index) => index === 120 ? 'WORKER-LATEST-MARKER followed newest entry' : `WORKER follow-latest streamed log line ${index + 1}`),
+      },
+      privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+    });
+  });
+  await expect.poll(() => page.locator('#graphTailBox').evaluate((box) =>
+    Math.max(0, box.scrollHeight - box.clientHeight - box.scrollTop)
+  )).toBeLessThanOrEqual(4);
+  await expect(page.locator('#graphTailBox')).toContainText('WORKER-LATEST-MARKER');
+
   await page.evaluate((reviewerGraph) => {
     window.__dashboardSocket.sendEvent({
       schema: 'living-doc-harness-dashboard-event/v1',
@@ -292,4 +344,31 @@ test('dashboard applies streamed graph and log events without reload', async ({ 
   await expect(page.locator('#graphTailBox')).not.toContainText('WORKER-ONLY-MARKER');
   await expect(page.locator('#graphInspector')).toContainText('graph_update');
   await expect.poll(() => page.evaluate(() => window.__reloadCount)).toBe(0);
+
+  await page.locator('#graphTailFollowLatest[aria-pressed="true"]').click();
+  await page.locator('[data-graph-node-id="iteration-1-worker"]').click();
+  await expect(page.locator('#graphInspector')).toContainText('.living-doc-runs/ldh-worker/contract.json');
+  const pinnedScrollTop = await page.locator('#graphTailBox').evaluate((box) => {
+    box.scrollTop = 110;
+    return box.scrollTop;
+  });
+  await page.evaluate((reviewerGraph) => {
+    window.__dashboardSocket.sendEvent({
+      schema: 'living-doc-harness-dashboard-event/v1',
+      eventId: 'graph-update-preserve-pinned-worker',
+      type: 'graph_update',
+      at: '2026-05-10T06:30:03.000Z',
+      source: 'artifact-derived-graph',
+      payload: {
+        resultId: 'ldhl-realtime-fixture',
+        activeInferenceUnitId: 'iteration-1-reviewer',
+        nodeCount: reviewerGraph.nodeCount,
+        edgeCount: reviewerGraph.edgeCount,
+        graph: reviewerGraph,
+      },
+      privacy: { localOperatorOnly: true, rawPromptIncluded: false, rawNativeTraceIncluded: false, supervisingChatStateIncluded: false },
+    });
+  }, reviewerGraph);
+  await expect(page.locator('#graphInspector')).toContainText('.living-doc-runs/ldh-worker/contract.json');
+  await expect.poll(() => page.locator('#graphTailBox').evaluate((box) => box.scrollTop)).toBe(pinnedScrollTop);
 });
