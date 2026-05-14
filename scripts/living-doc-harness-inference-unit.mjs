@@ -303,6 +303,17 @@ function normalizeContinuationOutputContract({ output, mode }) {
   };
 }
 
+function normalizeClosureReviewOutputContract({ output, mode }) {
+  if (modeAllowsLifecycleStatus(mode)) return output;
+  const allowedStatuses = getInferenceUnitType('closure-review').outputVerdicts;
+  if (allowedStatuses.includes(output?.status)) return output;
+  const status = output?.approved === true && output?.terminalAllowed === true ? 'approved' : 'blocked';
+  return {
+    ...output,
+    status,
+  };
+}
+
 function normalizeOutputContract({ rawResult, unitTypeId, inputContract, mode }) {
   const type = getInferenceUnitType(unitTypeId);
   const output = {
@@ -340,6 +351,10 @@ function normalizeOutputContract({ rawResult, unitTypeId, inputContract, mode })
 
   if (unitTypeId === 'continuation-inference') {
     return normalizeContinuationOutputContract({ output, mode });
+  }
+
+  if (unitTypeId === 'closure-review') {
+    return normalizeClosureReviewOutputContract({ output, mode });
   }
 
   return output;
