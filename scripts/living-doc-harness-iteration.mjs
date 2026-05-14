@@ -23,10 +23,12 @@ import { selectLifecycleRoute } from './living-doc-harness-routing-policy.mjs';
 import {
   DEFAULT_ALLOWED_INFERENCE_UNIT_TYPES,
   DEFAULT_PR_REVIEW_POLICY,
+  getInferenceUnitType,
   normalizePrReviewPolicy,
   prReviewRequiredForEvidence,
   validateNextUnitSelection,
 } from './living-doc-harness-inference-unit-types.mjs';
+import { artifactRefDisplayPath, artifactRefFromPath } from './living-doc-harness-artifact-ref.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -49,6 +51,47 @@ async function appendJsonl(filePath, event) {
 function runRef(runDir, filePath) {
   if (!filePath) return null;
   return path.isAbsolute(filePath) ? path.relative(runDir, filePath) : filePath;
+}
+
+function inputArtifactRef({ runDir, runId, filePath, kind }) {
+  return artifactRefFromPath({
+    cwd: process.cwd(),
+    runId,
+    runDir,
+    filePath,
+    kind,
+  });
+}
+
+function requiredInputRefEntries({ runDir, runId, evidencePath, reviewer, commitGate, prReviewGate }) {
+  return [
+    evidencePath ? inputArtifactRef({ runDir, runId, filePath: evidencePath, kind: 'iteration-evidence' }) : null,
+    reviewer?.artifactPath ? inputArtifactRef({ runDir, runId, filePath: reviewer.artifactPath, kind: 'reviewer-verdict' }) : null,
+    reviewer?.artifact?.inferenceUnitResultPath
+      ? inputArtifactRef({ runDir, runId, filePath: reviewer.artifact.inferenceUnitResultPath, kind: 'reviewer-result' })
+      : null,
+    reviewer?.artifact?.inferenceUnitValidationPath
+      ? inputArtifactRef({ runDir, runId, filePath: reviewer.artifact.inferenceUnitValidationPath, kind: 'reviewer-validation' })
+      : null,
+    commitGate?.resultRef || (commitGate?.resultPath
+      ? inputArtifactRef({ runDir, runId, filePath: commitGate.resultPath, kind: 'commit-intent-result' })
+      : null),
+    commitGate?.validationRef || (commitGate?.validationPath
+      ? inputArtifactRef({ runDir, runId, filePath: commitGate.validationPath, kind: 'commit-intent-validation' })
+      : null),
+    prReviewGate?.resultRef || (prReviewGate?.resultPath
+      ? inputArtifactRef({ runDir, runId, filePath: prReviewGate.resultPath, kind: 'pr-review-result' })
+      : null),
+    prReviewGate?.validationRef || (prReviewGate?.validationPath
+      ? inputArtifactRef({ runDir, runId, filePath: prReviewGate.validationPath, kind: 'pr-review-validation' })
+      : null),
+  ].filter(Boolean);
+}
+
+function requiredInputPathsFromRefs({ refs, runDir }) {
+  return refs
+    .map((ref) => artifactRefDisplayPath({ cwd: process.cwd(), currentRunDir: runDir, ref }))
+    .filter(Boolean);
 }
 
 async function fileHash(filePath, fallback = null) {
@@ -109,7 +152,9 @@ function prReviewGateFromIterationEvidence(evidence, prReviewPolicy = null) {
       status: satisfied ? 'satisfied' : blocked ? 'blocked' : 'requested',
       evidencePresent: satisfied,
       resultPath: prReview.resultPath,
+      resultRef: prReview.resultRef || null,
       validationPath: prReview.validationPath || null,
+      validationRef: prReview.validationRef || null,
       reasonCode: prReview.reasonCode || null,
       basis: arr(prReview.basis),
     };
@@ -187,7 +232,9 @@ function commitGateFromIterationEvidence(evidence) {
       status: 'blocked',
       evidencePresent: false,
       resultPath: commit.resultPath || null,
+      resultRef: commit.resultRef || null,
       validationPath: commit.validationPath || null,
+      validationRef: commit.validationRef || null,
       reasonCode: commit.reasonCode || 'commit-intent-gate-blocked',
       basis: arr(commit.basis),
     };
@@ -199,7 +246,9 @@ function commitGateFromIterationEvidence(evidence) {
       status: 'satisfied',
       evidencePresent: true,
       resultPath: commit.resultPath || null,
+      resultRef: commit.resultRef || null,
       validationPath: commit.validationPath || null,
+      validationRef: commit.validationRef || null,
       reasonCode: commit.reasonCode || null,
       basis: arr(commit.basis),
     };
@@ -369,6 +418,42 @@ function controllerOwnedClosureCriteriaPending(evidence) {
   return unproven.some((criterion) => /standalone[-_ ]?lifecycle|lifecycle[-_ ]?closes|lifecycle[-_ ]?closure|terminal[-_ ]?lifecycle/i.test(String(criterion || '')));
 }
 
+function unitRole(unitTypeId) {
+  try {
+    return getInferenceUnitType(unitTypeId).role || unitTypeId;
+  } catch {
+    return unitTypeId;
+  }
+}
+
+function latestUnitRouteInput(evidence, currentReasonCode) {
+  const unit = evidence?.initialInferenceUnit;
+  const output = unit?.outputContract;
+  const recommended = output?.nextRecommendedUnitType || null;
+  const sourceUnitType = unit?.unitId || null;
+  if (!sourceUnitType || !recommended) return null;
+  const reasonCode = output?.reasonCode || currentReasonCode || null;
+  const sameReasonContinuationLoop = sourceUnitType === 'continuation-inference'
+    && recommended === 'continuation-inference'
+    && reasonCode
+    && reasonCode === currentReasonCode;
+  return {
+    schema: 'living-doc-harness-latest-unit-route-input/v1',
+    sourceUnitType,
+    sourceUnitRole: unit.role || unitRole(sourceUnitType),
+    sourceStatus: unit.status || output?.status || null,
+    resultPath: unit.resultPath || null,
+    validationPath: unit.validationPath || null,
+    resultRef: unit.resultRef || null,
+    validationRef: unit.validationRef || null,
+    validationOk: unit.validationOk === true,
+    reasonCode,
+    recommendedUnitType: recommended,
+    recommendedUnitRole: unitRole(recommended),
+    sameReasonContinuationLoop,
+  };
+}
+
 function controllerOwnedSelectionFromVerdict(verdict, {
   evidencePath,
   evidence,
@@ -413,7 +498,7 @@ function controllerOwnedSelectionFromVerdict(verdict, {
     || /commit[- ]?(intent|evidence|sha)[^\n.]{0,80}(pending|missing|required before|before closure)/.test(text)
     || /side[- ]effect[^\n.]{0,80}(pending|missing|produce|producing)/.test(text)
     || /criteria[- ]?pending|acceptance[^\n.]{0,80}pending/.test(text);
-  const requiredInputPaths = [
+  const legacyRequiredInputPaths = [
     evidencePath ? path.relative(runDir, evidencePath) : null,
     reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
     reviewer?.artifact?.inferenceUnitResultPath || null,
@@ -423,10 +508,27 @@ function controllerOwnedSelectionFromVerdict(verdict, {
     prReviewGate.resultPath || null,
     prReviewGate.validationPath || null,
   ].filter(Boolean);
+  const requiredInputRefs = requiredInputRefEntries({
+    runDir,
+    runId: evidence?.runId,
+    evidencePath,
+    reviewer,
+    commitGate,
+    prReviewGate,
+  });
+  const requiredInputPaths = requiredInputRefs.length
+    ? requiredInputPathsFromRefs({ refs: requiredInputRefs, runDir })
+    : legacyRequiredInputPaths;
+  const latestRecommendation = latestUnitRouteInput(evidence, reasonCode);
 
   const route = selectLifecycleRoute({
     classification,
     reasonCode,
+    latestRecommendation,
+    latestRecommendedUnitType: latestRecommendation?.recommendedUnitType || null,
+    latestRecommendedUnitRole: latestRecommendation?.recommendedUnitRole || null,
+    latestRecommendationReasonCode: latestRecommendation?.reasonCode || null,
+    sameReasonContinuationLoop: latestRecommendation?.sameReasonContinuationLoop === true,
     commitBlocked,
     commitGate,
     commitRequired: commitRequiredByEvidence,
@@ -490,6 +592,7 @@ function controllerOwnedSelectionFromVerdict(verdict, {
     dashboardLabel: routeDashboardLabel,
     handoffInstruction: routeHandoffInstruction,
     requiredInputPaths,
+    requiredInputRefs,
     expectedOutputSchema: {
       'commit-intent': 'living-doc-harness-commit-intent-result/v1',
       'pr-review': 'living-doc-harness-pr-review-result/v1',
@@ -500,6 +603,25 @@ function controllerOwnedSelectionFromVerdict(verdict, {
     }[route.unitId],
     status: 'selected',
   };
+  if (route.latestRecommendation) {
+    nextUnit.routeAuthority = {
+      schema: 'living-doc-harness-route-authority/v1',
+      source: 'latest-unit-output-contract',
+      accepted: route.policyRuleId === 'latest-unit-output-recommendation',
+      sourceUnitType: route.latestRecommendation.sourceUnitType,
+      sourceUnitRole: route.latestRecommendation.sourceUnitRole,
+      sourceStatus: route.latestRecommendation.sourceStatus,
+      resultPath: route.latestRecommendation.resultPath,
+      validationPath: route.latestRecommendation.validationPath,
+      resultRef: route.latestRecommendation.resultRef || null,
+      validationRef: route.latestRecommendation.validationRef || null,
+      validationOk: route.latestRecommendation.validationOk,
+      recommendedUnitType: route.latestRecommendation.recommendedUnitType,
+      recommendedUnitRole: route.latestRecommendation.recommendedUnitRole,
+      reasonCode: route.latestRecommendation.reasonCode,
+      policyRuleId: route.policyRuleId,
+    };
+  }
   if (route.unitId === 'pr-review' || route.unitId === 'continuation-inference') {
     nextUnit.prReviewPolicy = prReviewPolicy;
     nextUnit.prReviewGate = prReviewGate;
@@ -509,11 +631,35 @@ function controllerOwnedSelectionFromVerdict(verdict, {
   }
   if (route.unitId === 'living-doc-balance-scan') {
     nextUnit.resultPath = repairRun?.chainPath ? path.relative(runDir, repairRun.chainPath) : null;
+    nextUnit.resultRef = repairRun?.chainPath
+      ? inputArtifactRef({
+        runDir,
+        runId: evidence?.runId,
+        filePath: repairRun.chainPath,
+        kind: 'repair-skill-chain-result',
+      })
+      : null;
     nextUnit.status = repairRun?.chain?.status || 'selected';
   }
   if (route.unitId === 'closure-review') {
     nextUnit.resultPath = closureReview?.unit?.resultPath ? path.relative(runDir, closureReview.unit.resultPath) : null;
+    nextUnit.resultRef = closureReview?.unit?.resultPath
+      ? inputArtifactRef({
+        runDir,
+        runId: evidence?.runId,
+        filePath: closureReview.unit.resultPath,
+        kind: 'closure-review-result',
+      })
+      : null;
     nextUnit.validationPath = closureReview?.unit?.validationPath ? path.relative(runDir, closureReview.unit.validationPath) : null;
+    nextUnit.validationRef = closureReview?.unit?.validationPath
+      ? inputArtifactRef({
+        runDir,
+        runId: evidence?.runId,
+        filePath: closureReview.unit.validationPath,
+        kind: 'closure-review-validation',
+      })
+      : null;
     nextUnit.status = closureReview ? (closureReview.review.terminalAllowed ? 'approved' : 'blocked') : 'selected';
   }
   return {
@@ -541,7 +687,7 @@ function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer,
     return selected;
   }
   const validation = validateNextUnitSelection({
-    currentUnitTypeId: 'reviewer-inference',
+    currentUnitTypeId: selected.nextUnit.routeAuthority?.sourceUnitType || 'reviewer-inference',
     selectedUnitTypeId: selected.nextUnit.unitId,
     allowedUnitTypes,
   });
@@ -560,6 +706,14 @@ function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer,
       evidencePath ? path.relative(runDir, evidencePath) : null,
       reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
     ].filter(Boolean),
+    requiredInputRefs: requiredInputRefEntries({
+      runDir,
+      runId: null,
+      evidencePath,
+      reviewer,
+      commitGate: null,
+      prReviewGate: null,
+    }),
     expectedOutputSchema: 'living-doc-continuation-result/v1',
     status: 'selected',
   };
@@ -638,15 +792,22 @@ function sideEffectGateBlockedVerdict(verdict, selection) {
   const selectedUnitId = selection?.nextUnit?.unitId;
   const blockedCommitGate = selection?.nextUnit?.commitGate?.status === 'blocked';
   const blockedPrReviewGate = selection?.nextUnit?.prReviewGate?.status === 'blocked';
+  const invalidClosureGateSelection = selectedUnitId === 'continuation-inference'
+    && ['selected-unit-type-not-allowed-for-run', 'selected-unit-type-not-allowed-by-current-contract', 'selected-unit-type-unregistered'].includes(selection?.nextUnit?.reasonCode);
   const unitId = ['commit-intent', 'pr-review'].includes(selectedUnitId)
     ? selectedUnitId
     : blockedCommitGate
       ? 'commit-intent'
       : blockedPrReviewGate
         ? 'pr-review'
+        : invalidClosureGateSelection
+          ? 'controller-selection'
         : null;
   if (!['closed', 'closure-candidate'].includes(verdict?.stopVerdict?.classification) || !unitId) return null;
   const reasonCode = selection.nextUnit.reasonCode || `${unitId}-required-before-closure`;
+  const requiredProof = unitId === 'controller-selection'
+    ? reasonCode
+    : selection.nextUnit.expectedOutputSchema;
   return {
     schema: 'living-doc-harness-stop-verdict/v1',
     stopVerdict: {
@@ -671,10 +832,14 @@ function sideEffectGateBlockedVerdict(verdict, selection) {
       kind: 'true-block',
       reasonCode,
       owningLayer: unitId,
-      requiredDecision: `Execute or exempt the ${unitId} contract evidence required for closure.`,
-      requiredProof: selection.nextUnit.expectedOutputSchema,
+      requiredDecision: unitId === 'controller-selection'
+        ? 'Repair the run policy or routing contract before terminal closure may be persisted.'
+        : `Execute or exempt the ${unitId} contract evidence required for closure.`,
+      requiredProof,
       unblockCriteria: [
-        `${unitId} result artifact exists and validates against its registered output contract.`,
+        unitId === 'controller-selection'
+          ? 'The controller-selected next unit is registered, allowed for the run, and legal after the reviewer contract.'
+          : `${unitId} result artifact exists and validates against its registered output contract.`,
         'Closure review receives sideEffectEvidence satisfying the configured gate.',
       ],
       basis: [`Missing ${unitId} contract evidence.`],
@@ -693,6 +858,7 @@ async function runSelectedSideEffectGateUnit({
   const unitId = selection?.nextUnit?.unitId;
   if (!['commit-intent', 'pr-review'].includes(unitId)) return null;
   const requiredInspectionPaths = arr(selection.nextUnit.requiredInputPaths);
+  const requiredInputRefs = arr(selection.nextUnit.requiredInputRefs);
   const changedFiles = arr(evidence?.workerEvidence?.filesChanged);
   const common = {
     runDir,
@@ -726,6 +892,7 @@ async function runSelectedSideEffectGateUnit({
         reason: 'Commit-intent may only approve files scoped by controller-owned evidence.',
       },
       requiredInspectionPaths,
+      requiredInputRefs,
     };
     return runContractBoundInferenceUnit({
       ...common,
@@ -766,6 +933,7 @@ async function runSelectedSideEffectGateUnit({
       : arr(evidence?.workerEvidence?.filesChanged),
     commitEvidence: evidence?.sideEffectEvidence?.commit || null,
     requiredInspectionPaths,
+    requiredInputRefs,
   };
   return runContractBoundInferenceUnit({
     ...common,
@@ -905,24 +1073,49 @@ async function buildIterationProof({ runDir, evidence, verdict, reviewer, closur
     workerEvidence: evidence.workerEvidence,
     reviewerInference: {
       verdictPath: reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
+      verdictRef: reviewer?.artifactPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: reviewer.artifactPath, kind: 'reviewer-verdict' })
+        : null,
       inputPath: reviewer?.inputPath ? path.relative(runDir, reviewer.inputPath) : null,
+      inputRef: reviewer?.inputPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: reviewer.inputPath, kind: 'reviewer-input' })
+        : null,
       mode: reviewer?.artifact?.mode || null,
       inferenceUnitResultPath: reviewer?.artifact?.inferenceUnitResultPath || null,
+      inferenceUnitResultRef: reviewer?.artifact?.inferenceUnitResultPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: reviewer.artifact.inferenceUnitResultPath, kind: 'reviewer-result' })
+        : null,
       inferenceUnitValidationPath: reviewer?.artifact?.inferenceUnitValidationPath || null,
+      inferenceUnitValidationRef: reviewer?.artifact?.inferenceUnitValidationPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: reviewer.artifact.inferenceUnitValidationPath, kind: 'reviewer-validation' })
+        : null,
       inferenceUnitInputContractPath: reviewer?.artifact?.inferenceUnitInputContractPath || null,
+      inferenceUnitInputContractRef: reviewer?.artifact?.inferenceUnitInputContractPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: reviewer.artifact.inferenceUnitInputContractPath, kind: 'reviewer-input-contract' })
+        : null,
       inferenceUnitPromptPath: reviewer?.artifact?.inferenceUnitPromptPath || null,
+      inferenceUnitPromptRef: reviewer?.artifact?.inferenceUnitPromptPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: reviewer.artifact.inferenceUnitPromptPath, kind: 'reviewer-prompt' })
+        : null,
     },
     closureReview: closureReview ? {
       approved: closureReview.review.approved,
       terminalAllowed: closureReview.review.terminalAllowed,
       reasonCode: closureReview.review.reasonCode,
       inferenceUnitResultPath: path.relative(runDir, closureReview.unit.resultPath),
+      inferenceUnitResultRef: inputArtifactRef({ runDir, runId: evidence?.runId, filePath: closureReview.unit.resultPath, kind: 'closure-review-result' }),
       inferenceUnitValidationPath: path.relative(runDir, closureReview.unit.validationPath),
+      inferenceUnitValidationRef: inputArtifactRef({ runDir, runId: evidence?.runId, filePath: closureReview.unit.validationPath, kind: 'closure-review-validation' }),
       inferenceUnitInputContractPath: path.relative(runDir, closureReview.unit.inputContractPath),
+      inferenceUnitInputContractRef: inputArtifactRef({ runDir, runId: evidence?.runId, filePath: closureReview.unit.inputContractPath, kind: 'closure-review-input-contract' }),
       inferenceUnitPromptPath: path.relative(runDir, closureReview.unit.promptPath),
+      inferenceUnitPromptRef: inputArtifactRef({ runDir, runId: evidence?.runId, filePath: closureReview.unit.promptPath, kind: 'closure-review-prompt' }),
     } : null,
     postReviewSelection: postReviewSelection ? {
       selectionPath: postReviewSelection.selectionPath ? path.relative(runDir, postReviewSelection.selectionPath) : null,
+      selectionRef: postReviewSelection.selectionPath
+        ? inputArtifactRef({ runDir, runId: evidence?.runId, filePath: postReviewSelection.selectionPath, kind: 'post-review-selection' })
+        : null,
       prReviewPolicy: postReviewSelection.artifact.prReviewPolicy || null,
       prReviewRequired: postReviewSelection.artifact.prReviewRequired === true,
       prReviewGate: postReviewSelection.artifact.prReviewGate || null,
@@ -932,6 +1125,7 @@ async function buildIterationProof({ runDir, evidence, verdict, reviewer, closur
     stopVerdict: verdict.stopVerdict,
     skillsApplied: skillsAppliedFromRouting(routing, repairRun),
     controllerEvidenceSnapshotPath: evidence.controllerEvidenceSnapshotPath || null,
+    controllerEvidenceSnapshotRef: evidence.controllerEvidenceSnapshotRef || evidence.controllerEvidence?.snapshotRef || null,
     requiredHardFacts: evidence.requiredHardFacts || null,
     prReviewPolicy: evidence.prReviewPolicy || evidence.requiredHardFacts?.prReviewPolicy || null,
     prReviewRequired: evidence.prReviewRequired === true || evidence.requiredHardFacts?.prReviewRequired === true,
@@ -1106,7 +1300,19 @@ export async function finalizeHarnessIteration({
     postReviewSelectionArtifact.nextUnit = {
       ...postReviewSelectionArtifact.nextUnit,
       resultPath: path.relative(runDir, selectedSideEffectGateUnit.resultPath),
+      resultRef: inputArtifactRef({
+        runDir,
+        runId: evidence?.runId,
+        filePath: selectedSideEffectGateUnit.resultPath,
+        kind: `${selectedSideEffectGateUnit.result.unitId}-result`,
+      }),
       validationPath: path.relative(runDir, selectedSideEffectGateUnit.validationPath),
+      validationRef: inputArtifactRef({
+        runDir,
+        runId: evidence?.runId,
+        filePath: selectedSideEffectGateUnit.validationPath,
+        kind: `${selectedSideEffectGateUnit.result.unitId}-validation`,
+      }),
       inputContractPath: path.relative(runDir, selectedSideEffectGateUnit.inputContractPath),
       promptPath: path.relative(runDir, selectedSideEffectGateUnit.promptPath),
       codexEventsPath: path.relative(runDir, selectedSideEffectGateUnit.codexEventsPath),

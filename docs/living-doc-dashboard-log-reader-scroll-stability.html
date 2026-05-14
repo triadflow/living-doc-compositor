@@ -746,7 +746,7 @@
       "Making the dashboard production-hosted or multi-user."
     ]
   },
-  "updated": "2026-05-14T07:20:57.000Z",
+  "updated": "2026-05-14T07:33:00.000Z",
   "canonicalOrigin": {
     "repo": "triadflow/living-doc-compositor",
     "sourcePath": "docs/living-doc-dashboard-log-reader-scroll-stability.json",
@@ -756,10 +756,10 @@
   "successCondition": "The objective is closed only when the dashboard log/tail reader preserves manual scroll position across live updates and selected-node tail refreshes, an explicit follow-latest control or state exists and works, automated tests prove both preserve-position and follow-latest behavior, the relevant living doc is re-rendered, and the standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions with proof artifacts and dashboard graph evidence.",
   "metaFingerprint": "sha256:3655ee459cc5b8f709f1b5fc597a20639fb0f4650a686eade7c2a7c28bde512d",
   "runState": {
-    "currentPhase": "lifecycle-blocked-by-cross-run-handoff-contract",
+    "currentPhase": "lifecycle-handoff-contract-repaired-awaiting-controller-rerun",
     "documentReady": true,
     "objectiveReady": false,
-    "nextObjectiveAction": "Fix issue #295 in the harness handoff contract layer, then rerun this living doc in the standalone lifecycle until closure or a new traceable blocker. Iteration 3 repair evidence keeps the document open because closureAllowed=false, acceptanceCriteriaSatisfied=false, and the standalone lifecycle closure criterion remains unproven.",
+    "nextObjectiveAction": "Controller should rerun this living doc in the standalone lifecycle. Worker repaired issue #295 by making selected-unit handoffs prefer structured artifact refs over legacy cross-run path strings, but only the lifecycle controller may prove criterion-standalone-lifecycle-closes.",
     "proofRoutes": [
       {
         "id": "dashboard-realtime-ui-contract",
@@ -836,12 +836,12 @@
         {
           "id": "fresh-test-doc",
           "name": "Fresh realistic harness test doc",
-          "status": "blocked-by-harness-contract",
-          "updated": "2026-05-14T06:45:53.000Z",
-          "summary": "The dashboard log-reader implementation proof is green, but the standalone lifecycle cannot close this living doc yet. Iteration 3 reviewer and repair evidence keep closure disallowed because criterion-living-doc-updated and criterion-standalone-lifecycle-closes remain unproven while the cross-run artifact path contract defect is tracked as issue #295.",
+          "status": "awaiting-controller-rerun",
+          "updated": "2026-05-14T07:33:00.000Z",
+          "summary": "The dashboard log-reader implementation proof is green. Worker repaired the issue #295 handoff defect by normalizing selected-unit requiredInputPaths from living-doc-artifact-ref/v1 entries and making the runner ignore legacy requiredInputPaths when structured refs exist; standalone lifecycle closure still requires a controller-owned rerun.",
           "documentReady": true,
           "objectiveReady": false,
-          "nextStep": "Fix #295, then rerun the standalone dashboard-backed lifecycle until the controller proves closure or records a new traceable blocker."
+          "nextStep": "Rerun the standalone dashboard-backed lifecycle until the controller proves closure or records a new traceable blocker."
         }
       ]
     },
@@ -905,21 +905,21 @@
           "id": "criterion-living-doc-updated",
           "name": "Living doc evidence is updated and rendered",
           "status": "blocked",
-          "updated": "2026-05-14T06:48:59.000Z",
+          "updated": "2026-05-14T07:33:00.000Z",
           "objectiveTerm": "relevant living doc is re-rendered",
           "criterion": "This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.",
           "proofRequired": "Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.",
-          "acceptanceTest": "Worker updated and rendered this living doc again at 2026-05-14T07:20:57.000Z after rerunning dashboard source, contract, and browser proofs. Iteration 3 reviewer evidence for run ldh-20260514T063558Z classified the state as repairable with closureAllowed=false, acceptanceCriteriaSatisfied=false, objectiveReady=false, and commitGate blocked by git-head-unchanged. Live lifecycle ldhl-20260513T104000Z added controller-owned evidence through iteration 4, but closure is blocked by #295 before final lifecycle evidence can be recorded."
+          "acceptanceTest": "Worker updated and rendered this living doc again at 2026-05-14T07:33:00.000Z after rerunning dashboard source, contract, browser, and focused artifact-ref proofs. Issue #295 source repair is implemented in scripts/living-doc-harness-iteration.mjs, scripts/living-doc-harness-runner.mjs, and tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs. Final lifecycle evidence is still controller-owned and must come from the next standalone lifecycle rerun."
         },
         {
           "id": "criterion-standalone-lifecycle-closes",
           "name": "Standalone lifecycle closes or creates a traceable blocker",
           "status": "blocked",
-          "updated": "2026-05-14T06:48:59.000Z",
+          "updated": "2026-05-14T07:33:00.000Z",
           "objectiveTerm": "standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions",
           "criterion": "The lifecycle result reaches closed only with objective proof, or otherwise stops only as a traceable blocker/process-defect issue with raw-log and contract evidence.",
           "proofRequired": "Lifecycle-result.json, output-input contracts, reviewer/closure-review artifacts, graph policy edges, and post-flight summary if closed.",
-          "acceptanceTest": "Standalone lifecycle ldhl-20260513T104000Z ran through worker, reviewer, commit-intent, continuation, balance-scan, and reviewer units. It did not close: iteration 4 balance-scan reported evidence-path-mismatch and issue #295 was opened. Iteration 3 repair evidence for run ldh-20260514T063558Z confirms the nearest honest state is repaired-and-blocked, not closure, because the controller still reports closureAllowed=false and acceptanceCriteriaSatisfied=false. The lifecycle is stopped to avoid repeating continuation around the same handoff blocker."
+          "acceptanceTest": "Standalone lifecycle ldhl-20260513T104000Z ran through worker, reviewer, commit-intent, continuation, balance-scan, and reviewer units. It did not close: iteration 4 balance-scan reported evidence-path-mismatch and issue #295 was opened. This worker repaired the issue #295 source defect and proved the handoff normalization with node tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs, but closure remains pending until the lifecycle controller reruns and records closureAllowed=true or a new traceable blocker."
         }
       ]
     },
@@ -967,6 +967,19 @@
           "codePath": "tests/e2e/harness-dashboard-realtime.spec.mjs",
           "responsibility": "Provides browser-level proof that streamed dashboard events update the inspector and selected logs correctly.",
           "nextStep": "Extend if DOM-level proof is insufficient for scroll behavior."
+        },
+        {
+          "id": "artifact-ref-handoff-normalization",
+          "name": "Cross-run handoff artifact-ref normalization",
+          "status": "current",
+          "updated": "2026-05-14T07:33:00.000Z",
+          "path": "scripts/living-doc-harness-iteration.mjs; scripts/living-doc-harness-runner.mjs; tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs",
+          "range": "selected-unit requiredInputPaths and requiredInputRefs",
+          "revision": "current worktree",
+          "what_it_does": "Prevents later worker runs from inheriting unresolved ../ cross-run requiredInputPaths when structured living-doc-artifact-ref/v1 evidence refs exist.",
+          "codePath": "scripts/living-doc-harness-runner.mjs",
+          "responsibility": "Keeps lifecycle handoff evidence addressable across run directories without weakening local artifact boundaries.",
+          "nextStep": "Let the lifecycle controller rerun the doc and consume the repaired handoff contract."
         }
       ]
     },
@@ -997,13 +1010,13 @@
         {
           "id": "proof-lifecycle",
           "name": "Standalone lifecycle proof",
-          "status": "blocked",
-          "updated": "2026-05-14T06:48:59.000Z",
+          "status": "ready-for-controller-rerun",
+          "updated": "2026-05-14T07:33:00.000Z",
           "claim": "The harness can carry this realistic dashboard objective to closure or traceable blocker.",
           "evidenceRequired": "Lifecycle-result.json, output-input contracts, reviewer and closure-review artifacts, graph policy edges, and post-flight summary if closed.",
           "closureRelevance": "This is the actual harness-hardening test.",
-          "evidence": "Lifecycle ldhl-20260513T104000Z proved dashboard implementation tests and route-authority routing, then blocked at issue #295: cross-run artifact paths in selected-unit contracts were not resolvable by later runs. Iteration 3 reviewer and repair artifacts preserve that block: closureAllowed=false, acceptanceCriteriaSatisfied=false, objectiveReady=false, and criterion-living-doc-updated plus criterion-standalone-lifecycle-closes are still unproven.",
-          "nextStep": "Fix #295 and rerun the lifecycle."
+          "evidence": "Lifecycle ldhl-20260513T104000Z proved dashboard implementation tests and route-authority routing, then blocked at issue #295. Worker repaired that source defect at 2026-05-14T07:33:00.000Z: selected-unit requiredInputPaths are now derived from structured artifact refs, and runner requiredInspectionPaths prefer requiredInputRefs over legacy paths. Focused artifact-ref contract proof passed, but controller-owned lifecycle closure remains unproven.",
+          "nextStep": "Rerun the lifecycle through the controller."
         }
       ]
     },
@@ -1036,10 +1049,10 @@
         {
           "id": "issue-295",
           "name": "Cross-run artifact paths block lifecycle closure",
-          "status": "open-active",
-          "updated": "2026-05-13T12:15:00.000Z",
+          "status": "repair-implemented",
+          "updated": "2026-05-14T07:33:00.000Z",
           "url": "https://github.com/triadflow/living-doc-compositor/issues/295",
-          "relevance": "Blocks this living doc from reaching standalone lifecycle closure even though dashboard implementation proof routes pass."
+          "relevance": "Previously blocked this living doc from reaching standalone lifecycle closure even though dashboard implementation proof routes passed. Source repair is implemented; controller rerun must now prove whether the blocker is cleared."
         }
       ]
     }
@@ -42324,7 +42337,7 @@ ${tmplLine}
 
     <div class="snapshot-item">
       <span class="snapshot-label">Generated</span>
-      <span class="snapshot-value"><time datetime="2026-05-14T07:23:53.651Z" title="2026-05-14T07:23:53.651Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-14T07:23:53.651Z</time></span>
+      <span class="snapshot-value"><time datetime="2026-05-14T07:33:48.403Z" title="2026-05-14T07:33:48.403Z" data-snapshot-anchor="generated-at" id="snapshot-generated-at">2026-05-14T07:33:48.403Z</time></span>
     </div>
 
     <div class="snapshot-item">
@@ -42382,7 +42395,7 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Fresh realistic harness test doc</h3>
-          <div class="meta-row"><span><time datetime="2026-05-14T06:45:53Z" title="2026-05-14T06:45:53Z" data-relative-to-snapshot="true">2026-05-14T06:45:53Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-14T07:33:00Z" title="2026-05-14T07:33:00Z" data-relative-to-snapshot="true">2026-05-14T07:33:00Z</time></span></div>
         </div>
         <div class="badge-row"></div>
       </header>
@@ -42471,26 +42484,26 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Living doc evidence is updated and rendered</h3>
-          <div class="meta-row"><span><time datetime="2026-05-14T06:48:59Z" title="2026-05-14T06:48:59Z" data-relative-to-snapshot="true">2026-05-14T06:48:59Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-14T07:33:00Z" title="2026-05-14T07:33:00Z" data-relative-to-snapshot="true">2026-05-14T07:33:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-negative">Blocked</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> relevant living doc is re-rendered</p><p class="code-refs"><strong>Criterion</strong> This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.</p><p class="code-refs"><strong>Proof required</strong> Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.</p><p class="code-refs"><strong>Acceptance test</strong> Worker updated and rendered this living doc again at 2026-05-14T07:20:57.000Z after rerunning dashboard source, contract, and browser proofs. Iteration 3 reviewer evidence for run ldh-20260514T063558Z classified the state as repairable with closureAllowed=false, acceptanceCriteriaSatisfied=false, objectiveReady=false, and commitGate blocked by git-head-unchanged. Live lifecycle ldhl-20260513T104000Z added controller-owned evidence through iteration 4, but closure is blocked by #295 before final lifecycle evidence can be recorded.</p>
+      <p class="code-refs"><strong>Objective term</strong> relevant living doc is re-rendered</p><p class="code-refs"><strong>Criterion</strong> This living doc records the implementation evidence, lifecycle run result, proof artifacts, and final objective state, and the rendered HTML is current with the JSON.</p><p class="code-refs"><strong>Proof required</strong> Source JSON and rendered HTML timestamps and proof entries reference the closing lifecycle artifacts.</p><p class="code-refs"><strong>Acceptance test</strong> Worker updated and rendered this living doc again at 2026-05-14T07:33:00.000Z after rerunning dashboard source, contract, browser, and focused artifact-ref proofs. Issue #295 source repair is implemented in scripts/living-doc-harness-iteration.mjs, scripts/living-doc-harness-runner.mjs, and tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs. Final lifecycle evidence is still controller-owned and must come from the next standalone lifecycle rerun.</p>
 
     </article>
     <article class="flow-card" id="criterion-standalone-lifecycle-closes" data-section-id="acceptance-criteria" data-card-key="criterion-standalone-lifecycle-closes">
       <header class="flow-card-header">
         <div>
           <h3>Standalone lifecycle closes or creates a traceable blocker</h3>
-          <div class="meta-row"><span><time datetime="2026-05-14T06:48:59Z" title="2026-05-14T06:48:59Z" data-relative-to-snapshot="true">2026-05-14T06:48:59Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-14T07:33:00Z" title="2026-05-14T07:33:00Z" data-relative-to-snapshot="true">2026-05-14T07:33:00Z</time></span></div>
         </div>
         <div class="badge-row"><span class="badge badge-negative">Blocked</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>Objective term</strong> standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions</p><p class="code-refs"><strong>Criterion</strong> The lifecycle result reaches closed only with objective proof, or otherwise stops only as a traceable blocker/process-defect issue with raw-log and contract evidence.</p><p class="code-refs"><strong>Proof required</strong> Lifecycle-result.json, output-input contracts, reviewer/closure-review artifacts, graph policy edges, and post-flight summary if closed.</p><p class="code-refs"><strong>Acceptance test</strong> Standalone lifecycle ldhl-20260513T104000Z ran through worker, reviewer, commit-intent, continuation, balance-scan, and reviewer units. It did not close: iteration 4 balance-scan reported evidence-path-mismatch and issue #295 was opened. Iteration 3 repair evidence for run ldh-20260514T063558Z confirms the nearest honest state is repaired-and-blocked, not closure, because the controller still reports closureAllowed=false and acceptanceCriteriaSatisfied=false. The lifecycle is stopped to avoid repeating continuation around the same handoff blocker.</p>
+      <p class="code-refs"><strong>Objective term</strong> standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions</p><p class="code-refs"><strong>Criterion</strong> The lifecycle result reaches closed only with objective proof, or otherwise stops only as a traceable blocker/process-defect issue with raw-log and contract evidence.</p><p class="code-refs"><strong>Proof required</strong> Lifecycle-result.json, output-input contracts, reviewer/closure-review artifacts, graph policy edges, and post-flight summary if closed.</p><p class="code-refs"><strong>Acceptance test</strong> Standalone lifecycle ldhl-20260513T104000Z ran through worker, reviewer, commit-intent, continuation, balance-scan, and reviewer units. It did not close: iteration 4 balance-scan reported evidence-path-mismatch and issue #295 was opened. This worker repaired the issue #295 source defect and proved the handoff normalization with node tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs, but closure remains pending until the lifecycle controller reruns and records closureAllowed=true or a new traceable blocker.</p>
 
     </article></div>
       </div>
@@ -42542,6 +42555,19 @@ ${tmplLine}
 
       <p class="code-refs"><strong>Path</strong> tests/e2e/harness-dashboard-realtime.spec.mjs</p><p class="code-refs"><strong>Line</strong> dashboard realtime browser E2E</p><p class="code-refs"><strong>Revision</strong> current worktree</p><p class="code-refs"><strong>What it does</strong> Provides browser-level proof that streamed dashboard events update the inspector and selected logs correctly.</p>
 
+    </article>
+    <article class="flow-card" id="artifact-ref-handoff-normalization" data-section-id="implementation-surfaces" data-card-key="artifact-ref-handoff-normalization">
+      <header class="flow-card-header">
+        <div>
+          <h3>Cross-run handoff artifact-ref normalization</h3>
+          <div class="meta-row"><span><time datetime="2026-05-14T07:33:00Z" title="2026-05-14T07:33:00Z" data-relative-to-snapshot="true">2026-05-14T07:33:00Z</time></span></div>
+        </div>
+        <div class="badge-row"><span class="badge badge-positive">Current</span></div>
+      </header>
+
+
+      <p class="code-refs"><strong>Path</strong> scripts/living-doc-harness-iteration.mjs; scripts/living-doc-harness-runner.mjs; tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs</p><p class="code-refs"><strong>Line</strong> selected-unit requiredInputPaths and requiredInputRefs</p><p class="code-refs"><strong>Revision</strong> current worktree</p><p class="code-refs"><strong>What it does</strong> Prevents later worker runs from inheriting unresolved ../ cross-run requiredInputPaths when structured living-doc-artifact-ref/v1 evidence refs exist.</p>
+
     </article></div>
       </div>
     </section>
@@ -42584,9 +42610,9 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Standalone lifecycle proof</h3>
-          <div class="meta-row"><span><time datetime="2026-05-14T06:48:59Z" title="2026-05-14T06:48:59Z" data-relative-to-snapshot="true">2026-05-14T06:48:59Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-14T07:33:00Z" title="2026-05-14T07:33:00Z" data-relative-to-snapshot="true">2026-05-14T07:33:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-negative">Blocked</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Ready For Controller Rerun</span></div>
       </header>
 
 
@@ -42632,20 +42658,20 @@ ${tmplLine}
       <header class="flow-card-header">
         <div>
           <h3>Cross-run artifact paths block lifecycle closure</h3>
-          <div class="meta-row"><span><time datetime="2026-05-13T12:15:00Z" title="2026-05-13T12:15:00Z" data-relative-to-snapshot="true">2026-05-13T12:15:00Z</time></span></div>
+          <div class="meta-row"><span><time datetime="2026-05-14T07:33:00Z" title="2026-05-14T07:33:00Z" data-relative-to-snapshot="true">2026-05-14T07:33:00Z</time></span></div>
         </div>
-        <div class="badge-row"><span class="badge badge-warning">Open Active</span></div>
+        <div class="badge-row"><span class="badge badge-neutral">Repair Implemented</span></div>
       </header>
 
 
-      <p class="code-refs"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/295</p><p class="code-refs"><strong>Relevance</strong> Blocks this living doc from reaching standalone lifecycle closure even though dashboard implementation proof routes pass.</p>
+      <p class="code-refs"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/295</p><p class="code-refs"><strong>Relevance</strong> Previously blocked this living doc from reaching standalone lifecycle closure even though dashboard implementation proof routes passed. Source repair is implemented; controller rerun must now prove whether the blocker is cleared.</p>
 
     </article></div>
       </div>
     </section>
 
 
-          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-78b0f4b2 (2026-05-14)</p>
+          <p class="footnote" style="margin-top:40px">Living Doc Compositor v0.1.0-f958ef23 (2026-05-14)</p>
         </div>
 
     <section id="board-view" class="view-panel board-view" data-view-panel="board" hidden>
@@ -42779,7 +42805,7 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Current</span>
-        <span class="board-count">3</span>
+        <span class="board-count">4</span>
       </header>
       <div class="board-lane-cards">
 
@@ -42802,6 +42828,13 @@ ${tmplLine}
       <h3>Dashboard realtime browser E2E</h3>
       <div class="badge-row"><span class="badge badge-positive">Current</span></div>
       <p class="board-card-note"><strong>Path</strong> tests/e2e/harness-dashboard-realtime.spec.mjs</p>
+
+    </article>
+    <article class="board-card" data-section-id="implementation-surfaces">
+      <div class="board-card-kicker">Implementation Surfaces · Code Anchor</div>
+      <h3>Cross-run handoff artifact-ref normalization</h3>
+      <div class="badge-row"><span class="badge badge-positive">Current</span></div>
+      <p class="board-card-note"><strong>Path</strong> scripts/living-doc-harness-iteration.mjs; scripts/living-doc-harness-runner.mjs; tests/contract/living-doc-harness-artifact-ref-surfaces.spec.mjs</p>
 
     </article>
       </div>
@@ -42879,6 +42912,15 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Blocked</span>
+        <span class="board-count">0</span>
+      </header>
+      <div class="board-lane-cards">
+        <div class="board-empty">No items</div>
+      </div>
+    </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
         <span class="board-count">1</span>
       </header>
       <div class="board-lane-cards">
@@ -42886,7 +42928,7 @@ ${tmplLine}
     <article class="board-card" data-section-id="proof-ladder">
       <div class="board-card-kicker">Proof Ladder · Proof Ladder</div>
       <h3>Standalone lifecycle proof</h3>
-      <div class="badge-row"><span class="badge badge-negative">Blocked</span></div>
+      <div class="badge-row"><span class="badge badge-neutral">Ready For Controller Rerun</span></div>
 
 
     </article>
@@ -43005,17 +43047,10 @@ ${tmplLine}
     <section class="board-lane">
       <header class="board-lane-header">
         <span>Open Active</span>
-        <span class="board-count">1</span>
+        <span class="board-count">0</span>
       </header>
       <div class="board-lane-cards">
-
-    <article class="board-card" data-section-id="issue-spine">
-      <div class="board-card-kicker">Issue Spine · Issue Orbit</div>
-      <h3>Cross-run artifact paths block lifecycle closure</h3>
-      <div class="badge-row"><span class="badge badge-warning">Open Active</span></div>
-      <p class="board-card-note"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/295</p>
-
-    </article>
+        <div class="board-empty">No items</div>
       </div>
     </section>
     <section class="board-lane">
@@ -43025,6 +43060,22 @@ ${tmplLine}
       </header>
       <div class="board-lane-cards">
         <div class="board-empty">No items</div>
+      </div>
+    </section>
+    <section class="board-lane">
+      <header class="board-lane-header">
+        <span>Other / missing</span>
+        <span class="board-count">1</span>
+      </header>
+      <div class="board-lane-cards">
+
+    <article class="board-card" data-section-id="issue-spine">
+      <div class="board-card-kicker">Issue Spine · Issue Orbit</div>
+      <h3>Cross-run artifact paths block lifecycle closure</h3>
+      <div class="badge-row"><span class="badge badge-neutral">Repair Implemented</span></div>
+      <p class="board-card-note"><strong>URL</strong> https://github.com/triadflow/living-doc-compositor/issues/295</p>
+
+    </article>
       </div>
     </section>
           </div>
@@ -43043,7 +43094,7 @@ ${tmplLine}
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="section" style="--toggle-color: #7c3aed; border-color: #7c3aed; background: #7c3aed;">
             <span class="shape-icon" aria-hidden="true"></span>Sections (6)
           </button><button class="type-toggle active" type="button" data-graph-type-toggle="card" style="--toggle-color: #64748b; border-color: #64748b; background: #64748b;">
-            <span class="shape-icon" aria-hidden="true"></span>Cards (16)
+            <span class="shape-icon" aria-hidden="true"></span>Cards (17)
           </button>
         </div>
         <div class="toolbar-section toolbar-controls">
@@ -43101,13 +43152,16 @@ ${tmplLine}
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 984.2487113059643 974 L 1310.7402885326976 1162.5"><title>section</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-dashboard-server" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1353.6643374275532 1169.3926953637626 L 1574.9680483738282 1111.0608575093536"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1353.4446240382297 1168.6170775496496 L 1577.6131992129963 1100.6551229659372"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-dashboard-realtime-contract" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1351.4434825105664 1186 L 1556.6915032074783 1304.5"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1353.6520145434038 1180.6538494017386 L 1588.4283327652429 1243.0866733598014"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-dashboard-realtime-e2e" data-graph-edge-label="card">
-    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1341.1592358676978 1195.1771331079278 L 1474.8381105093558 1502.7912295743467"><title>card</title></path>
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1348.3314710646448 1190.1624189164538 L 1565.9401812680558 1397.1486869190971"><title>card</title></path>
+
+  </g><g class="json-graph-edge-group" data-graph-edge-from="graph-section-implementation-surfaces" data-graph-edge-to="graph-card-implementation-surfaces-artifact-ref-handoff-normalization" data-graph-edge-label="card">
+    <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 1337.3900008403796 1196.4245006246997 L 1390.6175092674239 1424.5411587480658"><title>card</title></path>
 
   </g><g class="json-graph-edge-group" data-graph-edge-from="graph-doc-root" data-graph-edge-to="graph-section-proof-ladder" data-graph-edge-label="section">
     <path class="json-graph-edge" marker-end="url(#json-graph-arrow)" d="M 960 988 L 960 1365"><title>section</title></path>
@@ -43145,8 +43199,8 @@ ${tmplLine}
       data-graph-home-x="960"
       data-graph-home-y="960"
       data-graph-size="24"
-      data-graph-label="dashboard log reader scroll stability 6 sections · 16 cards $"
-      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Dashboard Log Reader Scroll Stability&quot;,&quot;sections&quot;:6,&quot;cards&quot;:16,&quot;objective&quot;:&quot;Make the living-doc harness dashboard log reader stable during live updates: when an operator has selected an inference-unit card and scrolled within its log/tail output to inspect earlier evidence, incoming live events, graph refreshes, or tail refreshes must not force that reader back to the top or otherwise move the viewport away from the inspected lines. The dashboard must still provide an explicit follow-latest behavior for operators who want the selected log to stay near the newest entries. The change must be implemented in the real dashboard source, proven by automated contract or browser tests, and visible in the rendered dashboard without weakening the lifecycle harness, policy routing, or local-only evidence boundaries.&quot;,&quot;successCondition&quot;:&quot;The objective is closed only when the dashboard log/tail reader preserves manual scroll position across live updates and selected-node tail refreshes, an explicit follow-latest control or state exists and works, automated tests prove both preserve-position and follow-latest behavior, the relevant living doc is re-rendered, and the standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions with proof artifacts and dashboard graph evidence.&quot;}"
+      data-graph-label="dashboard log reader scroll stability 6 sections · 17 cards $"
+      data-graph-details="{&quot;type&quot;:&quot;document&quot;,&quot;path&quot;:&quot;$&quot;,&quot;title&quot;:&quot;Dashboard Log Reader Scroll Stability&quot;,&quot;sections&quot;:6,&quot;cards&quot;:17,&quot;objective&quot;:&quot;Make the living-doc harness dashboard log reader stable during live updates: when an operator has selected an inference-unit card and scrolled within its log/tail output to inspect earlier evidence, incoming live events, graph refreshes, or tail refreshes must not force that reader back to the top or otherwise move the viewport away from the inspected lines. The dashboard must still provide an explicit follow-latest behavior for operators who want the selected log to stay near the newest entries. The change must be implemented in the real dashboard source, proven by automated contract or browser tests, and visible in the rendered dashboard without weakening the lifecycle harness, policy routing, or local-only evidence boundaries.&quot;,&quot;successCondition&quot;:&quot;The objective is closed only when the dashboard log/tail reader preserves manual scroll position across live updates and selected-node tail refreshes, an explicit follow-latest control or state exists and works, automated tests prove both preserve-position and follow-latest behavior, the relevant living doc is re-rendered, and the standalone lifecycle harness closes this living doc through policy-owned inference-unit decisions with proof artifacts and dashboard graph evidence.&quot;}"
       transform="translate(960, 960)">
       <title>Dashboard Log Reader Scroll Stability · $</title>
       <circle class="json-graph-node-hit" r="42"></circle>
@@ -43154,7 +43208,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="40" text-anchor="middle">
         <tspan x="0" dy="0">Dashboard Log Reader</tspan><tspan x="0" dy="12">Scroll Stability</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">6 sections · 16 cards</text>
+      <text class="json-graph-node-meta" x="0" y="70" text-anchor="middle">6 sections · 17 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-governance" tabindex="0" role="button"
       data-graph-node="graph-governance-objective"
@@ -43392,8 +43446,8 @@ ${tmplLine}
       data-graph-home-x="1332.3909236273087"
       data-graph-home-y="1175"
       data-graph-size="18"
-      data-graph-label="implementation surfaces code anchor · 3 cards $.sections[2]"
-      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[2]&quot;,&quot;id&quot;:&quot;implementation-surfaces&quot;,&quot;title&quot;:&quot;Implementation Surfaces&quot;,&quot;convergenceType&quot;:&quot;code-anchor&quot;,&quot;cards&quot;:3}"
+      data-graph-label="implementation surfaces code anchor · 4 cards $.sections[2]"
+      data-graph-details="{&quot;type&quot;:&quot;section&quot;,&quot;path&quot;:&quot;$.sections[2]&quot;,&quot;id&quot;:&quot;implementation-surfaces&quot;,&quot;title&quot;:&quot;Implementation Surfaces&quot;,&quot;convergenceType&quot;:&quot;code-anchor&quot;,&quot;cards&quot;:4}"
       transform="translate(1332.3909236273087, 1175)">
       <title>Implementation Surfaces · $.sections[2]</title>
       <circle class="json-graph-node-hit" r="36"></circle>
@@ -43401,19 +43455,19 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="34" text-anchor="middle">
         <tspan x="0" dy="0">Implementation</tspan><tspan x="0" dy="12">Surfaces</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="64" text-anchor="middle">Code Anchor · 3 cards</text>
+      <text class="json-graph-node-meta" x="0" y="64" text-anchor="middle">Code Anchor · 4 cards</text>
     </g>
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-implementation-surfaces-dashboard-server"
       data-graph-type="card"
-      data-graph-x="1593.340542110403"
-      data-graph-y="1106.2181853235122"
-      data-graph-home-x="1593.340542110403"
-      data-graph-home-y="1106.2181853235122"
+      data-graph-x="1595.7959404769736"
+      data-graph-y="1095.1425990315436"
+      data-graph-home-x="1595.7959404769736"
+      data-graph-home-y="1095.1425990315436"
       data-graph-size="12"
       data-graph-label="dashboard backend and embedded ui source status: current $.sections[2].data[0]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[0]&quot;,&quot;id&quot;:&quot;dashboard-server&quot;,&quot;title&quot;:&quot;Dashboard backend and embedded UI source&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1593.340542110403, 1106.2181853235122)">
+      transform="translate(1595.7959404769736, 1095.1425990315436)">
       <title>Dashboard backend and embedded UI source · $.sections[2].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43425,14 +43479,14 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-implementation-surfaces-dashboard-realtime-contract"
       data-graph-type="card"
-      data-graph-x="1573.1459858793826"
-      data-graph-y="1314"
-      data-graph-home-x="1573.1459858793826"
-      data-graph-home-y="1314"
+      data-graph-x="1606.7901840109614"
+      data-graph-y="1247.9695432976664"
+      data-graph-home-x="1606.7901840109614"
+      data-graph-home-y="1247.9695432976664"
       data-graph-size="12"
       data-graph-label="dashboard realtime ui contract tests status: current $.sections[2].data[1]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[1]&quot;,&quot;id&quot;:&quot;dashboard-realtime-contract&quot;,&quot;title&quot;:&quot;Dashboard realtime UI contract tests&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1573.1459858793826, 1314)">
+      transform="translate(1606.7901840109614, 1247.9695432976664)">
       <title>Dashboard realtime UI contract tests · $.sections[2].data[1]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
@@ -43444,19 +43498,38 @@ ${tmplLine}
     <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
       data-graph-node="graph-card-implementation-surfaces-dashboard-realtime-e2e"
       data-graph-type="card"
-      data-graph-x="1482.4107438078738"
-      data-graph-y="1520.2169354402845"
-      data-graph-home-x="1482.4107438078738"
-      data-graph-home-y="1520.2169354402845"
+      data-graph-x="1579.7070176912098"
+      data-graph-y="1410.2435032560345"
+      data-graph-home-x="1579.7070176912098"
+      data-graph-home-y="1410.2435032560345"
       data-graph-size="12"
       data-graph-label="dashboard realtime browser e2e status: current $.sections[2].data[2]"
       data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[2]&quot;,&quot;id&quot;:&quot;dashboard-realtime-e2e&quot;,&quot;title&quot;:&quot;Dashboard realtime browser E2E&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
-      transform="translate(1482.4107438078738, 1520.2169354402845)">
+      transform="translate(1579.7070176912098, 1410.2435032560345)">
       <title>Dashboard realtime browser E2E · $.sections[2].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
       <circle class="json-graph-node-dot" r="12"></circle>
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Dashboard realtime</tspan><tspan x="0" dy="12">browser E2E</tspan>
+      </text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Current</text>
+    </g>
+    <g class="json-graph-node json-graph-node-card" tabindex="0" role="button"
+      data-graph-node="graph-card-implementation-surfaces-artifact-ref-handoff-normalization"
+      data-graph-type="card"
+      data-graph-x="1394.9348941332578"
+      data-graph-y="1443.0441365603062"
+      data-graph-home-x="1394.9348941332578"
+      data-graph-home-y="1443.0441365603062"
+      data-graph-size="12"
+      data-graph-label="cross-run handoff artifact-ref normalization status: current $.sections[2].data[3]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[2].data[3]&quot;,&quot;id&quot;:&quot;artifact-ref-handoff-normalization&quot;,&quot;title&quot;:&quot;Cross-run handoff artifact-ref normalization&quot;,&quot;section&quot;:&quot;Implementation Surfaces&quot;,&quot;statuses&quot;:[&quot;Status: Current&quot;]}"
+      transform="translate(1394.9348941332578, 1443.0441365603062)">
+      <title>Cross-run handoff artifact-ref normalization · $.sections[2].data[3]</title>
+      <circle class="json-graph-node-hit" r="30"></circle>
+      <circle class="json-graph-node-dot" r="12"></circle>
+      <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
+        <tspan x="0" dy="0">Cross-run handoff</tspan><tspan x="0" dy="12">artifact-ref</tspan>
       </text>
       <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Current</text>
     </g>
@@ -43525,8 +43598,8 @@ ${tmplLine}
       data-graph-home-x="736.0432741823837"
       data-graph-home-y="1692.5294430676852"
       data-graph-size="12"
-      data-graph-label="standalone lifecycle proof status: blocked $.sections[3].data[2]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[2]&quot;,&quot;id&quot;:&quot;proof-lifecycle&quot;,&quot;title&quot;:&quot;Standalone lifecycle proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Blocked&quot;]}"
+      data-graph-label="standalone lifecycle proof status: ready for controller rerun $.sections[3].data[2]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[3].data[2]&quot;,&quot;id&quot;:&quot;proof-lifecycle&quot;,&quot;title&quot;:&quot;Standalone lifecycle proof&quot;,&quot;section&quot;:&quot;Proof Ladder&quot;,&quot;statuses&quot;:[&quot;Status: Ready For Controller Rerun&quot;]}"
       transform="translate(736.0432741823837, 1692.5294430676852)">
       <title>Standalone lifecycle proof · $.sections[3].data[2]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43534,7 +43607,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Standalone lifecycle</tspan><tspan x="0" dy="12">proof</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Blocked</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Ready For Control...</text>
     </g>
     <g class="json-graph-node json-graph-node-section" tabindex="0" role="button"
       data-graph-node="graph-section-relationship-maps"
@@ -43601,8 +43674,8 @@ ${tmplLine}
       data-graph-home-x="397.0834875401149"
       data-graph-home-y="635"
       data-graph-size="12"
-      data-graph-label="cross-run artifact paths block lifecycle closure status: open active $.sections[5].data[0]"
-      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[0]&quot;,&quot;id&quot;:&quot;issue-295&quot;,&quot;title&quot;:&quot;Cross-run artifact paths block lifecycle closure&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Open Active&quot;]}"
+      data-graph-label="cross-run artifact paths block lifecycle closure status: repair implemented $.sections[5].data[0]"
+      data-graph-details="{&quot;type&quot;:&quot;card&quot;,&quot;path&quot;:&quot;$.sections[5].data[0]&quot;,&quot;id&quot;:&quot;issue-295&quot;,&quot;title&quot;:&quot;Cross-run artifact paths block lifecycle closure&quot;,&quot;section&quot;:&quot;Issue Spine&quot;,&quot;statuses&quot;:[&quot;Status: Repair Implemented&quot;]}"
       transform="translate(397.0834875401149, 635)">
       <title>Cross-run artifact paths block lifecycle closure · $.sections[5].data[0]</title>
       <circle class="json-graph-node-hit" r="30"></circle>
@@ -43610,7 +43683,7 @@ ${tmplLine}
       <text class="json-graph-node-label" x="0" y="28" text-anchor="middle">
         <tspan x="0" dy="0">Cross-run artifact</tspan><tspan x="0" dy="12">paths block</tspan>
       </text>
-      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Open Active</text>
+      <text class="json-graph-node-meta" x="0" y="58" text-anchor="middle">Status: Repair Implemented</text>
     </g>
             </g>
           </svg>
@@ -43624,7 +43697,7 @@ ${tmplLine}
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="graph-info" data-graph-info>25 nodes · 24 edges · 100%</div>
+          <div class="graph-info" data-graph-info>26 nodes · 25 edges · 100%</div>
         </div>
         <aside class="json-graph-inspector" aria-live="polite">
           <span class="json-graph-inspector-kicker">Selected node</span>

@@ -28,6 +28,12 @@ import {
   prReviewRequiredForEvidence,
   validateAllowedInferenceUnitRunConfig,
 } from './living-doc-harness-inference-unit-types.mjs';
+import {
+  artifactRefDisplayPath,
+  artifactRefFromPath,
+  resolveArtifactRef,
+  validateArtifactRef,
+} from './living-doc-harness-artifact-ref.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const execFileAsync = promisify(execFile);
@@ -74,6 +80,27 @@ function outputHasRegisteredVerdict({ rawResult, unitTypeId }) {
     ? rawResult.outputContract
     : rawResult;
   return output?.schema === type.outputContract.schema && type.outputVerdicts.includes(output?.status);
+}
+
+function unitArtifactFromSnapshot({ runId, runDir, unitId, role, snapshot }) {
+  return {
+    unitId,
+    role,
+    result: path.relative(runDir, snapshot.resultPath),
+    resultRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.resultPath, kind: `${unitId}-result` }),
+    validation: path.relative(runDir, snapshot.validationPath),
+    validationRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.validationPath, kind: `${unitId}-validation` }),
+    inputContract: path.relative(runDir, snapshot.inputContractPath),
+    inputContractRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.inputContractPath, kind: `${unitId}-input-contract` }),
+    prompt: path.relative(runDir, snapshot.promptPath),
+    promptRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.promptPath, kind: `${unitId}-prompt` }),
+    codexEvents: path.relative(runDir, snapshot.codexEventsPath),
+    codexEventsRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.codexEventsPath, kind: `${unitId}-codex-events` }),
+    lastMessage: path.relative(runDir, snapshot.lastMessagePath),
+    lastMessageRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.lastMessagePath, kind: `${unitId}-last-message` }),
+    stderr: path.relative(runDir, snapshot.stderrPath),
+    stderrRef: artifactRefFromPath({ runId, runDir, filePath: snapshot.stderrPath, kind: `${unitId}-stderr` }),
+  };
 }
 
 async function readValidatedUnitResultAtPath({ resultPath, unitTypeId, allowFixture = true }) {
@@ -486,6 +513,20 @@ function buildPrompt(doc, { docPath, runId, lifecycleInput = null, initialUnit }
   return lines.join('\n');
 }
 
+function appendInputContractToPrompt(prompt, inputContract) {
+  const refs = arr(inputContract?.requiredInputRefs);
+  const resolutions = arr(inputContract?.resolvedRequiredInputRefs);
+  if (!refs.length && !resolutions.length) return prompt;
+  return `${prompt}
+
+Resolved contract-bound evidence refs:
+${JSON.stringify({
+    requiredInputRefs: refs,
+    resolvedRequiredInputRefs: resolutions,
+  }, null, 2)}
+`;
+}
+
 async function codexEventBoundaryViolations(filePath, unitTypeId) {
   if (unitTypeId !== 'living-doc-balance-scan') return [];
   let content = '';
@@ -560,7 +601,9 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, 
       previousIteration: lifecycleInput.previousIteration || null,
       instruction: lifecycleInput.instruction || null,
       handoverPath: lifecycleInput.handoverPath || null,
+      handoverRef: lifecycleInput.handoverRef || null,
       outputInputPath: lifecycleInput.outputInputPath || null,
+      outputInputRef: lifecycleInput.outputInputRef || null,
       selectedUnitType: lifecycleInput.selectedUnitType || lifecycleInput.nextUnit?.unitId || null,
       nextUnit: lifecycleInput.nextUnit || null,
     } : null,
@@ -576,17 +619,35 @@ function buildWorkerInputContract({ doc, docPath, runId, lifecycleInput = null, 
 }
 
 async function previousOutputInputContext({ cwd, lifecycleInput }) {
-  const outputInputPath = lifecycleInput?.outputInputPath ? path.resolve(cwd, lifecycleInput.outputInputPath) : null;
+  const outputInputPath = lifecycleInput?.outputInputRef
+    ? resolveArtifactRef({ cwd, ref: lifecycleInput.outputInputRef })
+    : lifecycleInput?.outputInputPath
+      ? path.resolve(cwd, lifecycleInput.outputInputPath)
+      : null;
   const outputInput = outputInputPath ? await readJson(outputInputPath, null) : null;
   const previousRunDir = outputInputPath ? path.dirname(path.dirname(outputInputPath)) : null;
-  const evidencePath = outputInput?.previousOutput?.evidencePath && previousRunDir
-    ? path.resolve(previousRunDir, outputInput.previousOutput.evidencePath)
-    : null;
+  const evidencePath = outputInput?.previousOutput?.evidenceRef
+    ? resolveArtifactRef({ cwd, currentRunDir: previousRunDir, ref: outputInput.previousOutput.evidenceRef })
+    : outputInput?.previousOutput?.evidencePath && previousRunDir
+      ? path.resolve(previousRunDir, outputInput.previousOutput.evidencePath)
+      : null;
+  const outputInputRef = lifecycleInput?.outputInputRef || outputInput?.nextInput?.outputInputRef || null;
+  const evidenceRef = outputInput?.previousOutput?.evidenceRef || null;
   const evidence = evidencePath ? await readJson(evidencePath, null) : null;
-  return { outputInputPath, outputInput, previousRunDir, evidencePath, evidence };
+  return { outputInputPath, outputInputRef, outputInput, previousRunDir, evidencePath, evidenceRef, evidence };
+}
+
+function evidenceSnapshotRefFromPrevious(previous) {
+  return previous?.evidence?.controllerEvidenceSnapshotRef
+    || previous?.evidence?.controllerEvidence?.snapshotRef
+    || null;
 }
 
 function previousControllerEvidenceSnapshotPath({ previous, cwd }) {
+  const snapshotRef = evidenceSnapshotRefFromPrevious(previous);
+  if (snapshotRef) {
+    return artifactRefDisplayPath({ cwd, currentRunDir: previous?.previousRunDir || cwd, ref: snapshotRef });
+  }
   const snapshotPath = previous?.evidence?.controllerEvidenceSnapshotPath
     || previous?.evidence?.controllerEvidence?.snapshotPath
     || null;
@@ -594,14 +655,31 @@ function previousControllerEvidenceSnapshotPath({ previous, cwd }) {
   return path.relative(cwd, path.resolve(previous.previousRunDir, snapshotPath));
 }
 
-function commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd }) {
+export function commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd }) {
+  const requiredInputRefs = arr(lifecycleInput?.nextUnit?.requiredInputRefs);
+  const refDisplayPaths = requiredInputRefs
+    .map((ref) => artifactRefDisplayPath({ cwd, currentRunDir: previous?.previousRunDir || cwd, ref }));
+  const legacyRequiredInputPaths = requiredInputRefs.length
+    ? []
+    : arr(lifecycleInput?.nextUnit?.requiredInputPaths);
   return unique([
     docPath,
     lifecycleInput?.outputInputPath || null,
-    ...arr(lifecycleInput?.nextUnit?.requiredInputPaths),
+    ...refDisplayPaths,
+    ...legacyRequiredInputPaths,
     previous?.evidencePath ? path.relative(cwd, previous.evidencePath) : null,
     previousControllerEvidenceSnapshotPath({ previous, cwd }),
   ]);
+}
+
+async function resolvedRequiredInputRefs({ lifecycleInput, previous, cwd }) {
+  const currentRunDir = previous?.previousRunDir || cwd;
+  const refs = arr(lifecycleInput?.nextUnit?.requiredInputRefs);
+  const validations = [];
+  for (const ref of refs) {
+    validations.push(await validateArtifactRef({ cwd, currentRunDir, ref, mustExist: true }));
+  }
+  return validations;
 }
 
 function commitScopeFromPreviousEvidence(previous) {
@@ -658,13 +736,24 @@ async function buildInitialInputContract({
   initialUnit,
   cwd,
 }) {
-  if (initialUnit.unitId === 'worker') {
-    return buildWorkerInputContract({ doc, docPath, runId, lifecycleInput, toolProfile, allowedUnitTypes, prReviewPolicy });
-  }
-
-  const previous = await previousOutputInputContext({ cwd, lifecycleInput });
+  const previous = lifecycleInput
+    ? await previousOutputInputContext({ cwd, lifecycleInput })
+    : { outputInputPath: null, outputInputRef: null, outputInput: null, previousRunDir: null, evidencePath: null, evidenceRef: null, evidence: null };
   const requiredInspectionPaths = commonRequiredInspectionPaths({ docPath, lifecycleInput, previous, cwd });
+  const requiredInputRefResolutions = await resolvedRequiredInputRefs({ lifecycleInput, previous, cwd });
   const nextUnit = lifecycleInput?.nextUnit || {};
+  const evidenceSnapshotRef = evidenceSnapshotRefFromPrevious(previous);
+
+  if (initialUnit.unitId === 'worker') {
+    return {
+      ...buildWorkerInputContract({ doc, docPath, runId, lifecycleInput, toolProfile, allowedUnitTypes, prReviewPolicy }),
+      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
+      evidenceRef: previous.evidenceRef || null,
+      requiredInspectionPaths,
+      requiredInputRefs: arr(nextUnit.requiredInputRefs),
+      resolvedRequiredInputRefs: requiredInputRefResolutions,
+    };
+  }
 
   if (initialUnit.unitId === 'commit-intent') {
     const evidenceSnapshotPath = previousControllerEvidenceSnapshotPath({ previous, cwd });
@@ -680,6 +769,7 @@ async function buildInitialInputContract({
       allowedCommitFiles: changedFiles,
       forbiddenCommitFiles: commitScope.forbiddenCommitFiles,
       evidenceSnapshotPath,
+      evidenceSnapshotRef,
       requiredHardFacts: previous.evidence?.requiredHardFacts || null,
       prReviewPolicy,
       commitIntent: {
@@ -702,7 +792,11 @@ async function buildInitialInputContract({
         reason: 'Commit-intent may only approve files scoped to the current objective run.',
       },
       lifecycleInput,
+      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
+      evidenceRef: previous.evidenceRef || null,
       requiredInspectionPaths,
+      requiredInputRefs: arr(nextUnit.requiredInputRefs),
+      resolvedRequiredInputRefs: requiredInputRefResolutions,
     };
   }
 
@@ -713,7 +807,11 @@ async function buildInitialInputContract({
       iteration,
       reasonCode: nextUnit.reasonCode || previous.outputInput?.previousOutput?.classification || 'continuation-required',
       lifecycleInput,
+      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
+      evidenceRef: previous.evidenceRef || null,
       requiredInspectionPaths,
+      requiredInputRefs: arr(nextUnit.requiredInputRefs),
+      resolvedRequiredInputRefs: requiredInputRefResolutions,
     };
   }
 
@@ -724,9 +822,15 @@ async function buildInitialInputContract({
       iteration,
       livingDocPath: docPath,
       reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || nextUnit.reviewerVerdictPath || null,
+      reviewerVerdictRef: previous.outputInput?.previousOutput?.reviewerVerdictRef || nextUnit.reviewerVerdictRef || null,
       handoverPath: previous.outputInput?.previousOutput?.handoverPath || lifecycleInput?.handoverPath || null,
+      handoverRef: previous.outputInput?.previousOutput?.handoverRef || lifecycleInput?.handoverRef || null,
       lifecycleInput,
+      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
+      evidenceRef: previous.evidenceRef || null,
       requiredInspectionPaths,
+      requiredInputRefs: arr(nextUnit.requiredInputRefs),
+      resolvedRequiredInputRefs: requiredInputRefResolutions,
     };
   }
 
@@ -745,6 +849,7 @@ async function buildInitialInputContract({
       reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || nextUnit.reviewerVerdictPath || null,
       reviewTarget: previous.evidence?.prReview?.reviewTarget || previous.evidence?.prReview?.url || 'configured-pr-review-target',
       evidenceSnapshotPath,
+      evidenceSnapshotRef,
       requiredHardFacts: hardFacts,
       prReviewPolicy,
       prReviewRequired,
@@ -753,7 +858,11 @@ async function buildInitialInputContract({
         : arr(previous.evidence?.workerEvidence?.filesChanged),
       commitEvidence: previous.evidence?.sideEffectEvidence?.commit || null,
       lifecycleInput,
+      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
+      evidenceRef: previous.evidenceRef || null,
       requiredInspectionPaths,
+      requiredInputRefs: arr(nextUnit.requiredInputRefs),
+      resolvedRequiredInputRefs: requiredInputRefResolutions,
     };
   }
 
@@ -768,15 +877,21 @@ async function buildInitialInputContract({
       runId,
       iteration,
       evidencePath: previous.outputInput?.previousOutput?.evidencePath || null,
+      evidenceRef: previous.outputInput?.previousOutput?.evidenceRef || previous.evidenceRef || null,
       reviewerVerdictPath: previous.outputInput?.previousOutput?.reviewerVerdictPath || null,
+      reviewerVerdictRef: previous.outputInput?.previousOutput?.reviewerVerdictRef || null,
       evidenceSnapshotPath,
+      evidenceSnapshotRef,
       requiredHardFacts: previous.evidence?.requiredHardFacts || null,
       prReviewPolicy,
       prReviewRequired,
       proofGates: previous.evidence?.proofGates || {},
       stopVerdict: previous.outputInput?.previousOutput || {},
       lifecycleInput,
+      outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
       requiredInspectionPaths,
+      requiredInputRefs: arr(nextUnit.requiredInputRefs),
+      resolvedRequiredInputRefs: requiredInputRefResolutions,
     };
   }
 
@@ -785,7 +900,11 @@ async function buildInitialInputContract({
     runId,
     iteration,
     lifecycleInput,
+    outputInputRef: previous.outputInputRef || lifecycleInput?.outputInputRef || null,
+    evidenceRef: previous.evidenceRef || null,
     requiredInspectionPaths,
+    requiredInputRefs: arr(nextUnit.requiredInputRefs),
+    resolvedRequiredInputRefs: requiredInputRefResolutions,
   };
 }
 
@@ -1333,11 +1452,6 @@ export async function createHarnessRun({
   if (!runConfigValidation.ok) {
     throw new Error(`invalid harness runner inference unit run config: ${runConfigValidation.violations.map((violation) => violation.message).join('; ')}`);
   }
-  const prompt = `${buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput, initialUnit })}
-
-Harness tool profile:
-${JSON.stringify(resolvedToolProfile, null, 2)}
-`;
   const initialInputContract = await buildInitialInputContract({
     doc,
     docPath: relativeDocPath,
@@ -1350,6 +1464,14 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     initialUnit,
     cwd,
   });
+  const prompt = `${appendInputContractToPrompt(
+    buildPrompt(doc, { docPath: relativeDocPath, runId, lifecycleInput, initialUnit }),
+    initialInputContract,
+  )}
+
+Harness tool profile:
+${JSON.stringify(resolvedToolProfile, null, 2)}
+`;
   const promptPath = path.join(runDir, 'prompt.md');
   const absoluteCodexHome = path.resolve(cwd, codexHome);
   const codexCommand = buildCodexCommand({ cwd, lastMessagePath, codexBin, toolProfile: resolvedToolProfile });
@@ -1401,13 +1523,20 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     },
     artifacts: {
       state: 'state.json',
+      stateRef: artifactRefFromPath({ runId, runDir, filePath: path.join(runDir, 'state.json'), kind: 'run-state' }),
       events: 'events.jsonl',
+      eventsRef: artifactRefFromPath({ runId, runDir, filePath: path.join(runDir, 'events.jsonl'), kind: 'run-events' }),
       prompt: 'prompt.md',
+      promptRef: artifactRefFromPath({ runId, runDir, filePath: promptPath, kind: 'runner-prompt' }),
       codexEvents: path.relative(runDir, codexEventsPath),
+      codexEventsRef: artifactRefFromPath({ runId, runDir, filePath: codexEventsPath, kind: 'codex-events' }),
       codexStderr: path.relative(runDir, codexStderrPath),
+      codexStderrRef: artifactRefFromPath({ runId, runDir, filePath: codexStderrPath, kind: 'codex-stderr' }),
       lastMessage: path.relative(runDir, lastMessagePath),
+      lastMessageRef: artifactRefFromPath({ runId, runDir, filePath: lastMessagePath, kind: 'last-message' }),
       nativeTraceRefs: [],
       traceDiscovery: 'trace-discovery.json',
+      traceDiscoveryRef: artifactRefFromPath({ runId, runDir, filePath: path.join(runDir, 'trace-discovery.json'), kind: 'trace-discovery' }),
     },
     lifecycleInput: lifecycleInput ? {
       mode: lifecycleInput.mode || null,
@@ -1415,7 +1544,9 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       previousIteration: lifecycleInput.previousIteration || null,
       instruction: lifecycleInput.instruction || null,
       handoverPath: lifecycleInput.handoverPath || null,
+      handoverRef: lifecycleInput.handoverRef || null,
       outputInputPath: lifecycleInput.outputInputPath || null,
+      outputInputRef: lifecycleInput.outputInputRef || null,
       selectedUnitType: lifecycleInput.selectedUnitType || lifecycleInput.nextUnit?.unitId || null,
       nextUnit: lifecycleInput.nextUnit || null,
     } : null,
@@ -1479,17 +1610,13 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     cwd,
     toolProfile: resolvedToolProfile,
   });
-  const initialUnitArtifact = {
+  const initialUnitArtifact = unitArtifactFromSnapshot({
+    runId,
+    runDir,
     unitId: initialUnit.unitId,
     role: initialUnit.role,
-    result: path.relative(runDir, initialUnitSnapshot.resultPath),
-    validation: path.relative(runDir, initialUnitSnapshot.validationPath),
-    inputContract: path.relative(runDir, initialUnitSnapshot.inputContractPath),
-    prompt: path.relative(runDir, initialUnitSnapshot.promptPath),
-    codexEvents: path.relative(runDir, initialUnitSnapshot.codexEventsPath),
-    lastMessage: path.relative(runDir, initialUnitSnapshot.lastMessagePath),
-    stderr: path.relative(runDir, initialUnitSnapshot.stderrPath),
-  };
+    snapshot: initialUnitSnapshot,
+  });
   contract.artifacts.initialInferenceUnit = initialUnitArtifact;
   contract.artifacts[unitArtifactKey(initialUnit.unitId)] = initialUnitArtifact;
   await writeJson(path.join(runDir, 'contract.json'), contract);
@@ -1653,17 +1780,13 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       cwd,
       toolProfile: resolvedToolProfile,
     });
-    const failedUnitArtifact = {
+    const failedUnitArtifact = unitArtifactFromSnapshot({
+      runId,
+      runDir,
       unitId: initialUnit.unitId,
       role: initialUnit.role,
-      result: path.relative(runDir, failedUnitSnapshot.resultPath),
-      validation: path.relative(runDir, failedUnitSnapshot.validationPath),
-      inputContract: path.relative(runDir, failedUnitSnapshot.inputContractPath),
-      prompt: path.relative(runDir, failedUnitSnapshot.promptPath),
-      codexEvents: path.relative(runDir, failedUnitSnapshot.codexEventsPath),
-      lastMessage: path.relative(runDir, failedUnitSnapshot.lastMessagePath),
-      stderr: path.relative(runDir, failedUnitSnapshot.stderrPath),
-    };
+      snapshot: failedUnitSnapshot,
+    });
     contract.artifacts.initialInferenceUnit = failedUnitArtifact;
     contract.artifacts[unitArtifactKey(initialUnit.unitId)] = failedUnitArtifact;
     await writeJson(path.join(runDir, 'contract.json'), contract);
@@ -1866,17 +1989,13 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     cwd,
     toolProfile: resolvedToolProfile,
   });
-  const finalUnitArtifact = {
+  const finalUnitArtifact = unitArtifactFromSnapshot({
+    runId,
+    runDir,
     unitId: initialUnit.unitId,
     role: initialUnit.role,
-    result: path.relative(runDir, finalUnitSnapshot.resultPath),
-    validation: path.relative(runDir, finalUnitSnapshot.validationPath),
-    inputContract: path.relative(runDir, finalUnitSnapshot.inputContractPath),
-    prompt: path.relative(runDir, finalUnitSnapshot.promptPath),
-    codexEvents: path.relative(runDir, finalUnitSnapshot.codexEventsPath),
-    lastMessage: path.relative(runDir, finalUnitSnapshot.lastMessagePath),
-    stderr: path.relative(runDir, finalUnitSnapshot.stderrPath),
-  };
+    snapshot: finalUnitSnapshot,
+  });
   finalContract.artifacts.initialInferenceUnit = finalUnitArtifact;
   finalContract.artifacts[unitArtifactKey(initialUnit.unitId)] = finalUnitArtifact;
   await writeJson(path.join(runDir, 'contract.json'), finalContract);
