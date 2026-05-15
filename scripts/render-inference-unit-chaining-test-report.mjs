@@ -553,7 +553,7 @@ pre{margin:0;padding:13px 14px;border-radius:var(--radius);background:var(--dark
   ${chainEvidence.length ? `<section>
     <div class="section-head">
       <h2>Maximal Chain Timeline</h2>
-      <p class="copy">Generated from the maximal-chain test artifact. This is the composed lifecycle path, including selected next units, gate transitions, and unit artifact paths.</p>
+      <p class="copy">Generated from the maximal-chain test artifact. This is the composed lifecycle path, including selected next units, prompt contracts, gate transitions, and unit artifact paths.</p>
     </div>
     ${chainEvidence.map((evidence) => `
     <div class="chain">
@@ -578,6 +578,7 @@ pre{margin:0;padding:13px 14px;border-radius:var(--radius);background:var(--dark
           <div class="cmd">Selected next: <code>${esc(step.selectedNextUnit || 'terminal')}</code></div>
           <div class="cmd">Reason: <code>${esc(step.reasonCode || 'none')}</code></div>
           <div class="path-list">
+            ${step.artifacts.promptContract ? `<code>prompt: ${esc(step.artifacts.promptContract.template)} · ${esc(step.artifacts.promptContract.promptSha256)}</code>` : ''}
             <code>input: ${esc(step.artifacts.inputContractPath)}</code>
             <code>result: ${esc(step.artifacts.resultPath)}</code>
             <code>validation: ${esc(step.artifacts.validationPath)}</code>

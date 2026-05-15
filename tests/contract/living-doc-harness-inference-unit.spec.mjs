@@ -317,6 +317,10 @@ try {
     now: '2026-05-08T07:39:45.000Z',
   });
   assert.equal(nonVerdictPrReviewRun.validation.ok, true);
+  assert.equal(nonVerdictPrReviewRun.result.promptContract.schema, 'living-doc-harness-prompt-contract/v1');
+  assert.equal(nonVerdictPrReviewRun.result.promptContract.template, 'living-doc-harness-pr-review-prompt/v1');
+  assert.equal(nonVerdictPrReviewRun.result.promptContract.promptPath, nonVerdictPrReviewRun.result.promptPath);
+  assert.match(nonVerdictPrReviewRun.result.promptContract.promptSha256, /^[a-f0-9]{64}$/);
   assert.equal(nonVerdictPrReviewRun.result.status, 'blocked');
   assert.equal(nonVerdictPrReviewRun.result.outputContract.status, 'blocked');
   assert.equal(nonVerdictPrReviewRun.result.outputContract.reasonCode, 'pr-review-non-verdict-output');
@@ -593,6 +597,9 @@ process.stdin.on('end', () => {
   assert.equal(result.result.toolProfile.name, 'local-harness');
   assert.equal(result.result.toolProfile.sandboxMode, 'danger-full-access');
   assert.deepEqual(result.result.toolProfile.mcpAllowlist, ['living_doc_compositor']);
+  assert.equal(result.result.promptContract.toolProfile.name, 'local-harness');
+  assert.equal(result.result.promptContract.toolProfile.sandboxMode, 'danger-full-access');
+  assert.equal(result.result.promptContract.promptBytes > 0, true);
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

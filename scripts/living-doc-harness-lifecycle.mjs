@@ -944,6 +944,23 @@ function nextInputFromFinalization({ finalization, outputInputPath }) {
   };
 }
 
+function previousRouteDecisionFromLifecycleInput(lifecycleInput) {
+  const nextUnit = lifecycleInput?.nextUnit || null;
+  if (!nextUnit?.routeLoopGuard && !nextUnit?.routeAuthority) return null;
+  return {
+    schema: 'living-doc-harness-previous-route-decision/v1',
+    previousRunId: lifecycleInput.previousRunId || null,
+    previousIteration: lifecycleInput.previousIteration || null,
+    selectedUnitType: nextUnit.unitId || lifecycleInput.selectedUnitType || null,
+    selectedUnitRole: nextUnit.role || lifecycleInput.selectedUnitRole || null,
+    reasonCode: nextUnit.reasonCode || null,
+    policyRuleId: nextUnit.policyRuleId || null,
+    selectedBy: nextUnit.selectedBy || null,
+    routeAuthority: nextUnit.routeAuthority || null,
+    routeLoopGuard: nextUnit.routeLoopGuard || null,
+  };
+}
+
 function instructionForSelectedUnit({ fallback, nextUnit }) {
   const unitId = nextUnit?.unitId || null;
   if (unitId === 'commit-intent') {
@@ -1306,6 +1323,7 @@ async function buildEvidenceFromPlan({
     controllerState,
     requiredHardFacts,
   });
+  const previousRouteDecision = previousRouteDecisionFromLifecycleInput(lifecycleInput);
 
   const evidencePath = path.join(runDir, 'artifacts', `lifecycle-iteration-${iteration}-evidence-input.json`);
   const template = await writeIterationEvidenceTemplate({
@@ -1354,6 +1372,7 @@ async function buildEvidenceFromPlan({
     } : {}),
     ...(sideEffectEvidence ? { sideEffectEvidence } : {}),
     ...(initialInferenceUnit ? { initialInferenceUnit } : {}),
+    ...(previousRouteDecision ? { previousRouteDecision } : {}),
     ...(plan.commitIntent ? { commitIntent: plan.commitIntent } : {}),
     ...(plan.prReview ? { prReview: plan.prReview } : {}),
     ...(proofRouteBundle ? {

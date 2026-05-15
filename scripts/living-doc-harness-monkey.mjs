@@ -174,6 +174,29 @@ function outputContractForValidation({ unitTypeId, status }) {
   return outputContract;
 }
 
+function promptContractForValidation({ unitTypeId, promptPath }) {
+  const type = HARNESS_INFERENCE_UNIT_REGISTRY.unitTypes[unitTypeId];
+  return {
+    schema: 'living-doc-harness-prompt-contract/v1',
+    unitTypeId,
+    role: type.role,
+    template: type.promptContract.template,
+    promptContract: type.promptContract,
+    promptPath,
+    promptSha256: '0'.repeat(64),
+    promptBytes: 42,
+    toolProfile: {
+      name: 'monkey-fixture',
+      isolation: 'fixture',
+      sandboxMode: 'fixture',
+      mcpMode: 'fixture',
+      mcpAllowlist: [],
+      mcpDenylist: [],
+      pluginDenylist: [],
+    },
+  };
+}
+
 function outputContractCase({ seed, index, random }) {
   const variant = pick(random, ['valid-output-contract', 'wrong-output-schema', 'invalid-output-status', 'missing-required-output-field']);
   const unitTypeId = pick(random, unitTypes());
@@ -185,6 +208,7 @@ function outputContractCase({ seed, index, random }) {
   if (variant === 'wrong-output-schema') outputContract.schema = 'wrong-output-contract/v1';
   if (variant === 'invalid-output-status') outputContract.status = 'not-a-registered-verdict';
   if (variant === 'missing-required-output-field') delete outputContract[missingField];
+  const promptPath = 'inference-units/iteration-1/01-monkey/prompt.md';
 
   const expectedViolationPath = {
     'valid-output-contract': null,
@@ -209,7 +233,8 @@ function outputContractCase({ seed, index, random }) {
         mode: 'fixture',
         iteration: 1,
         sequence: 1,
-        promptPath: 'inference-units/iteration-1/01-monkey/prompt.md',
+        promptPath,
+        promptContract: promptContractForValidation({ unitTypeId, promptPath }),
         inputContractPath: 'inference-units/iteration-1/01-monkey/input-contract.json',
         codexEventsPath: 'inference-units/iteration-1/01-monkey/codex-events.jsonl',
         lastMessagePath: 'inference-units/iteration-1/01-monkey/last-message.txt',

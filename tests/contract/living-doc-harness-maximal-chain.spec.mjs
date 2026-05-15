@@ -34,6 +34,13 @@ function rel(context, filePath) {
 function unitArtifactPaths(context, unit) {
   return {
     promptPath: unit.result.promptPath,
+    promptContract: {
+      schema: unit.result.promptContract.schema,
+      template: unit.result.promptContract.template,
+      promptSha256: unit.result.promptContract.promptSha256,
+      promptBytes: unit.result.promptContract.promptBytes,
+      toolProfile: unit.result.promptContract.toolProfile?.name || null,
+    },
     inputContractPath: unit.result.inputContractPath,
     resultPath: rel(context, unit.resultPath),
     validationPath: rel(context, unit.validationPath),
@@ -149,6 +156,11 @@ async function runStep(context, timeline, {
 async function assertArtifactPathsExist(context, timeline) {
   for (const step of timeline) {
     for (const [key, artifactPath] of Object.entries(step.artifacts)) {
+      if (key === 'promptContract') {
+        assert.equal(artifactPath.schema, 'living-doc-harness-prompt-contract/v1');
+        assert.match(artifactPath.promptSha256, /^[a-f0-9]{64}$/);
+        continue;
+      }
       const text = await readFile(path.join(context.runDir, artifactPath), 'utf8');
       assert.equal(typeof text, 'string', `${step.unitTypeId} ${key} exists`);
     }

@@ -1159,6 +1159,10 @@ setInterval(() => {}, 1000);
   assert.equal(silentLifecycleActive.command.cwd, process.cwd());
   const silentLifecycleDefect = JSON.parse(await readFile(path.resolve(process.cwd(), silentLifecycle.finalState.processDefectPath), 'utf8'));
   assert.equal(silentLifecycleDefect.reasonCode, 'headless-worker-no-startup-evidence');
+  assert.equal(silentLifecycleDefect.diagnostics.schema, 'living-doc-harness-startup-diagnostics/v1');
+  assert.equal(silentLifecycleDefect.diagnostics.bounded, true);
+  assert.equal(silentLifecycleDefect.diagnostics.codexExecutable.ok, false);
+  assert.equal(silentLifecycleDefect.diagnostics.classification, 'codex-cli-unresponsive');
 
   const controllerSourceCwd = path.join(tmp, 'controller-source-cwd');
   await mkdir(path.join(controllerSourceCwd, 'scripts'), { recursive: true });
@@ -1737,6 +1741,128 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.selectedBy, 'routing-policy');
   assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.routeAuthority, undefined);
   assert.equal(workerRecommendationOutputInput.postReviewSelection.nextUnit.commitGate.status, 'blocked');
+
+  const sameReasonLoopSequencePath = path.join(tmp, 'same-reason-loop-sequence.json');
+  await writeFile(sameReasonLoopSequencePath, `${JSON.stringify({
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: false,
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fixture-commit-not-required',
+            required: false,
+          },
+        },
+        traceMessage: 'First iteration selects PR-review from run policy.',
+        reviewerVerdict: reviewerVerdict('closed', {
+          reasonCode: 'fixture-pr-review-before-closure',
+          closureAllowed: true,
+        }),
+      },
+      {
+        stageAfter: 'repairable',
+        unresolvedObjectiveTerms: ['same reason route needs one closure-review check'],
+        unprovenAcceptanceCriteria: ['criterion-same-reason-loop-prevention'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: false,
+        initialInferenceUnitOutputContract: {
+          schema: 'living-doc-harness-pr-review-result/v1',
+          status: 'approved',
+          approvedActions: [],
+          sideEffect: {
+            type: 'github-pr-review',
+            executed: false,
+            reasonCode: 'fixture-no-real-pr-review',
+          },
+          reasonCode: 'same-review-needed',
+          nextRecommendedUnitType: 'closure-review',
+          basis: ['PR-review recommends closure review once.'],
+        },
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fixture-commit-not-required',
+            required: false,
+          },
+        },
+        traceMessage: 'PR-review recommends closure-review from unchanged evidence.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'same-review-needed',
+          mode: 'fresh-unit',
+          instruction: 'Follow the decision unit recommendation once.',
+        }),
+      },
+      {
+        stageAfter: 'repairable',
+        unresolvedObjectiveTerms: ['same reason route needs one closure-review check'],
+        unprovenAcceptanceCriteria: ['criterion-same-reason-loop-prevention'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: false,
+        initialInferenceUnitOutputContract: {
+          schema: 'living-doc-harness-closure-review/v1',
+          approved: false,
+          reasonCode: 'same-review-needed',
+          confidence: 'high',
+          basis: ['Closure-review repeated the same recommendation against unchanged evidence.'],
+          terminalAllowed: false,
+          nextRecommendedUnitType: 'closure-review',
+        },
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fixture-commit-not-required',
+            required: false,
+          },
+        },
+        traceMessage: 'Closure-review repeats the same recommendation and should be loop-blocked.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'same-review-needed',
+          mode: 'fresh-unit',
+          instruction: 'Do not repeat the same route against unchanged evidence.',
+        }),
+      },
+      {
+        stageAfter: 'operator-stopped-after-loop-proof',
+        unresolvedObjectiveTerms: ['same-reason loop proof captured'],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        traceMessage: 'Stop after proving same-reason loop prevention.',
+        reviewerVerdict: reviewerVerdict('user-stopped', {
+          reasonCode: 'operator-stop',
+          mode: 'user-stop',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const sameReasonLoopLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'same-reason-loop-runs'),
+    evidenceDir: path.join(tmp, 'same-reason-loop-evidence'),
+    dashboardPath: path.join(tmp, 'same-reason-loop-dashboard.html'),
+    evidenceSequencePath: sameReasonLoopSequencePath,
+    prReviewPolicy: {
+      schema: 'living-doc-harness-pr-review-policy/v1',
+      mode: 'required-before-closure',
+    },
+    now: '2026-05-07T13:06:50.000Z',
+  });
+  assert.equal(sameReasonLoopLifecycle.iterations[0].nextAction.selectedUnitType, 'pr-review');
+  assert.equal(sameReasonLoopLifecycle.iterations[1].nextAction.selectedUnitType, 'closure-review');
+  const sameReasonLoopOutputInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    sameReasonLoopLifecycle.iterations[2].outputInputPath,
+  ), 'utf8'));
+  assert.equal(sameReasonLoopOutputInput.postReviewSelection.nextUnit, null);
+  assert.equal(sameReasonLoopOutputInput.postReviewSelection.terminalAction.policyRuleId, 'same-reason-continuation-loop-blocked');
+  assert.equal(sameReasonLoopOutputInput.postReviewSelection.terminalAction.routeAuthority.accepted, false);
+  assert.equal(sameReasonLoopOutputInput.postReviewSelection.terminalAction.routeLoopGuard.unchangedEvidence, true);
 
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({

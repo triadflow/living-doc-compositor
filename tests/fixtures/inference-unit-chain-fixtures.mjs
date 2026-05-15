@@ -457,6 +457,11 @@ export async function assertUnitArtifacts(context, unit) {
   const result = await readJson(unit.resultPath);
   const validation = await readJson(unit.validationPath);
   assert.equal(result.schema, 'living-doc-contract-bound-inference-result/v1');
+  assert.equal(result.promptContract?.schema, 'living-doc-harness-prompt-contract/v1');
+  assert.equal(result.promptContract.promptPath, result.promptPath);
+  assert.match(result.promptContract.promptSha256, /^[a-f0-9]{64}$/);
+  assert.equal(result.promptContract.unitTypeId, result.unitType.unitTypeId);
+  assert.equal(result.promptContract.template, result.unitType.promptContract.template);
   assert.equal(validation.ok, true);
 }
 

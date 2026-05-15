@@ -388,6 +388,26 @@ function unitRole(unitTypeId) {
   }
 }
 
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function routeEvidenceFingerprint(evidence) {
+  return sha256(stableStringify({
+    objectiveState: evidence?.objectiveState || null,
+    requiredHardFacts: evidence?.requiredHardFacts || null,
+    sourceFilesChanged: evidence?.sourceFilesChanged === true,
+    sideEffectEvidence: evidence?.sideEffectEvidence || null,
+    commitScope: evidence?.commitScope || null,
+    prReviewPolicy: evidence?.prReviewPolicy || null,
+    prReviewRequired: evidence?.prReviewRequired === true,
+  }));
+}
+
 function latestUnitRouteInput(evidence, currentReasonCode) {
   const unit = evidence?.initialInferenceUnit;
   const output = unit?.outputContract;
@@ -397,7 +417,18 @@ function latestUnitRouteInput(evidence, currentReasonCode) {
   if (sourceUnitType === 'worker') return null;
   if (sourceUnitType === 'continuation-inference' || recommended === 'continuation-inference') return null;
   const reasonCode = output?.reasonCode || currentReasonCode || null;
-  const sameReasonContinuationLoop = false;
+  const evidenceFingerprint = routeEvidenceFingerprint(evidence);
+  const routeLoopKey = stableStringify({
+    recommendedUnitType: recommended,
+    reasonCode,
+    evidenceFingerprint,
+  });
+  const previousLoopGuard = evidence?.previousRouteDecision?.routeLoopGuard || null;
+  const sameReasonContinuationLoop = Boolean(
+    previousLoopGuard
+    && previousLoopGuard.routeLoopKey === routeLoopKey
+    && previousLoopGuard.evidenceFingerprint === evidenceFingerprint
+  );
   return {
     schema: 'living-doc-harness-latest-unit-route-input/v1',
     sourceUnitType,
@@ -412,6 +443,16 @@ function latestUnitRouteInput(evidence, currentReasonCode) {
     recommendedUnitType: recommended,
     recommendedUnitRole: unitRole(recommended),
     sameReasonContinuationLoop,
+    routeLoopGuard: {
+      schema: 'living-doc-harness-route-loop-guard/v1',
+      routeLoopKey,
+      evidenceFingerprint,
+      sourceUnitType,
+      recommendedUnitType: recommended,
+      reasonCode,
+      previousRouteLoopKey: previousLoopGuard?.routeLoopKey || null,
+      unchangedEvidence: previousLoopGuard?.evidenceFingerprint === evidenceFingerprint,
+    },
   };
 }
 
@@ -537,6 +578,26 @@ function controllerOwnedSelectionFromVerdict(verdict, {
         policyRuleId: route.policyRuleId,
         dashboardLabel: routeDashboardLabel,
         handoffInstruction: routeHandoffInstruction,
+        ...(route.latestRecommendation ? {
+          routeAuthority: {
+            schema: 'living-doc-harness-route-authority/v1',
+            source: 'latest-unit-output-contract',
+            accepted: false,
+            sourceUnitType: route.latestRecommendation.sourceUnitType,
+            sourceUnitRole: route.latestRecommendation.sourceUnitRole,
+            sourceStatus: route.latestRecommendation.sourceStatus,
+            resultPath: route.latestRecommendation.resultPath,
+            validationPath: route.latestRecommendation.validationPath,
+            resultRef: route.latestRecommendation.resultRef || null,
+            validationRef: route.latestRecommendation.validationRef || null,
+            validationOk: route.latestRecommendation.validationOk,
+            recommendedUnitType: route.latestRecommendation.recommendedUnitType,
+            recommendedUnitRole: route.latestRecommendation.recommendedUnitRole,
+            reasonCode: route.latestRecommendation.reasonCode,
+            policyRuleId: route.policyRuleId,
+          },
+          routeLoopGuard: route.latestRecommendation.routeLoopGuard || null,
+        } : {}),
       },
     };
   }
@@ -577,6 +638,14 @@ function controllerOwnedSelectionFromVerdict(verdict, {
       recommendedUnitType: route.latestRecommendation.recommendedUnitType,
       recommendedUnitRole: route.latestRecommendation.recommendedUnitRole,
       reasonCode: route.latestRecommendation.reasonCode,
+      policyRuleId: route.policyRuleId,
+    };
+  }
+  if (route.latestRecommendation?.routeLoopGuard) {
+    nextUnit.routeLoopGuard = {
+      ...route.latestRecommendation.routeLoopGuard,
+      accepted: route.policyRuleId === 'latest-unit-output-recommendation',
+      blocked: route.policyRuleId === 'same-reason-continuation-loop-blocked',
       policyRuleId: route.policyRuleId,
     };
   }

@@ -6,6 +6,7 @@
 // validation + proof log.
 
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -137,6 +138,39 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function sha256(text) {
+  return createHash('sha256').update(String(text || ''), 'utf8').digest('hex');
+}
+
+function buildPromptContractArtifact({
+  unitType,
+  unitTypeId,
+  role,
+  promptPath,
+  promptText,
+  toolProfile,
+}) {
+  return {
+    schema: 'living-doc-harness-prompt-contract/v1',
+    unitTypeId,
+    role,
+    template: unitType.promptContract?.template || null,
+    promptContract: unitType.promptContract || {},
+    promptPath,
+    promptSha256: sha256(promptText),
+    promptBytes: Buffer.byteLength(String(promptText || ''), 'utf8'),
+    toolProfile: {
+      name: toolProfile?.name || null,
+      isolation: toolProfile?.isolation || null,
+      sandboxMode: toolProfile?.sandboxMode || null,
+      mcpMode: toolProfile?.mcpMode || null,
+      mcpAllowlist: arr(toolProfile?.mcpAllowlist),
+      mcpDenylist: arr(toolProfile?.mcpDenylist),
+      pluginDenylist: arr(toolProfile?.pluginDenylist),
+    },
+  };
+}
+
 function pathWasInspected(command, targetPath) {
   const text = String(command || '');
   if (!text || !targetPath) return false;
@@ -194,6 +228,25 @@ export function validateInferenceUnitResult(result) {
   } else {
     for (const key of ['unitTypeId', 'inputContractSchema', 'outputContractSchema', 'allowedNextUnitTypes', 'deterministicSideEffects', 'dashboard', 'closureImplications']) {
       if (result.unitType[key] == null) violations.push({ path: `$.unitType.${key}`, message: `${key} is required` });
+    }
+  }
+  if (!result?.promptContract || typeof result.promptContract !== 'object') {
+    violations.push({ path: '$.promptContract', message: 'promptContract is required' });
+  } else {
+    for (const key of ['schema', 'unitTypeId', 'role', 'template', 'promptPath', 'promptSha256', 'promptBytes']) {
+      if (result.promptContract[key] == null) violations.push({ path: `$.promptContract.${key}`, message: `${key} is required` });
+    }
+    if (result.promptContract.schema !== 'living-doc-harness-prompt-contract/v1') {
+      violations.push({ path: '$.promptContract.schema', message: 'promptContract schema must be living-doc-harness-prompt-contract/v1' });
+    }
+    if (typeof result.promptContract.promptSha256 === 'string' && !/^[a-f0-9]{64}$/.test(result.promptContract.promptSha256)) {
+      violations.push({ path: '$.promptContract.promptSha256', message: 'promptSha256 must be a sha256 hex digest' });
+    }
+    if (result.promptContract.promptPath !== result?.promptPath) {
+      violations.push({ path: '$.promptContract.promptPath', message: 'promptContract promptPath must match result promptPath' });
+    }
+    if (result.promptContract.unitTypeId !== (result?.unitType?.unitTypeId || result?.unitId)) {
+      violations.push({ path: '$.promptContract.unitTypeId', message: 'promptContract unitTypeId must match result unit type' });
     }
   }
   for (const key of ['promptPath', 'inputContractPath', 'codexEventsPath', 'lastMessagePath']) {
@@ -392,6 +445,15 @@ export async function runContractBoundInferenceUnit({
 Harness tool profile:
 ${JSON.stringify(resolvedToolProfile, null, 2)}
 `;
+  const relativePromptPath = path.relative(runDir, promptPath);
+  const promptContract = buildPromptContractArtifact({
+    unitType,
+    unitTypeId,
+    role,
+    promptPath: relativePromptPath,
+    promptText: promptWithToolProfile,
+    toolProfile: resolvedToolProfile,
+  });
 
   await mkdir(unitDir, { recursive: true });
   await writeFile(promptPath, promptWithToolProfile, 'utf8');
@@ -464,7 +526,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     iteration,
     sequence,
     createdAt: now,
-    promptPath: path.relative(runDir, promptPath),
+    promptPath: relativePromptPath,
+    promptContract,
     inputContractPath: path.relative(runDir, inputContractPath),
     codexEventsPath: path.relative(runDir, codexEventsPath),
     lastMessagePath: path.relative(runDir, lastMessagePath),
@@ -569,6 +632,15 @@ export async function writeContractBoundInferenceUnitSnapshot({
 Harness tool profile:
 ${JSON.stringify(resolvedToolProfile, null, 2)}
 `;
+  const relativePromptPath = path.relative(runDir, promptPath);
+  const promptContract = buildPromptContractArtifact({
+    unitType,
+    unitTypeId,
+    role,
+    promptPath: relativePromptPath,
+    promptText: promptWithToolProfile,
+    toolProfile: resolvedToolProfile,
+  });
 
   await mkdir(unitDir, { recursive: true });
   await writeFile(promptPath, promptWithToolProfile, 'utf8');
@@ -586,7 +658,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     iteration,
     sequence,
     createdAt: now,
-    promptPath: path.relative(runDir, promptPath),
+    promptPath: relativePromptPath,
+    promptContract,
     inputContractPath: path.relative(runDir, inputContractPath),
     codexEventsPath: path.relative(runDir, codexEventsPath),
     lastMessagePath: path.relative(runDir, lastMessagePath),

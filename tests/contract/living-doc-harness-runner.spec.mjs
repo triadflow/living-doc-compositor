@@ -168,8 +168,15 @@ sleep 60
   assert.equal(silentDefect.missingEvidence.codexEventsBytes, 0);
   assert.equal(silentDefect.missingEvidence.codexStderrBytes, 0);
   assert.equal(silentDefect.missingEvidence.lastMessageBytes, 0);
+  assert.equal(silentDefect.diagnostics.schema, 'living-doc-harness-startup-diagnostics/v1');
+  assert.equal(silentDefect.diagnostics.bounded, true);
+  assert.equal(silentDefect.diagnostics.codexExecutable.ok, false);
+  assert.equal(silentDefect.diagnostics.classification, 'codex-cli-unresponsive');
+  assert.equal(typeof silentDefect.diagnostics.network.dns.ok, 'boolean');
+  assert.equal(typeof silentDefect.diagnostics.network.https.ok, 'boolean');
   const silentContract = JSON.parse(await readFile(path.join(silentError.runDir, 'contract.json'), 'utf8'));
   assert.equal(silentContract.status, 'process-defect');
+  assert.equal(silentContract.process.startupEvidence.diagnostics.schema, 'living-doc-harness-startup-diagnostics/v1');
   assert.equal(silentContract.artifacts.processDefect, 'process-defect.json');
   const silentUnit = JSON.parse(await readFile(path.join(silentError.runDir, silentContract.artifacts.workerInferenceUnit.result), 'utf8'));
   assert.equal(silentUnit.status, 'failed');
@@ -1202,15 +1209,27 @@ while [ "$#" -gt 0 ]; do
   fi
   shift || true
 done
-git add doc.json doc.html
-git -c user.name=CommitIntent -c user.email=commit-intent@example.com commit -m "commit-intent fixture commit"
 mkdir -p "$CODEX_HOME/sessions/2026/05/07"
 LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
 cat > "$CODEX_HOME/sessions/2026/05/07/rollout-commit-intent-live.jsonl" <<EOF
 {"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"commit-intent-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
-{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"commit-intent side effect completed"}]}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"commit-intent proposal completed"}]}}
 EOF
-printf 'commit-intent side effect completed\\n' > "$OUT"
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-harness-commit-intent-result/v1",
+  "approved": true,
+  "status": "approved",
+  "changedFiles": ["doc.json"],
+  "message": "commit-intent fixture commit",
+  "sideEffect": {
+    "type": "git-commit",
+    "executed": false,
+    "reasonCode": "controller-commit-required"
+  },
+  "basis": ["The commit-intent unit approved the scoped files but did not execute git."]
+}
+EOF
 printf '{"type":"done"}\\n'
 exit 0
 `, 'utf8');
@@ -1248,6 +1267,7 @@ exit 0
   assert.equal(commitIntentResult.outputContract.status, 'approved');
   assert.equal(commitIntentResult.outputContract.commitKind, 'living-doc-state');
   assert.equal(commitIntentResult.outputContract.sideEffect.executed, true);
+  assert.equal(commitIntentResult.outputContract.sideEffect.source, 'controller-deterministic-commit');
   assert.match(commitIntentResult.outputContract.sideEffect.sha, /^[a-f0-9]{40}$/);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.requiredChangedFiles, ['doc.json']);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.allowedCommitFiles, ['doc.json', 'doc.html']);
@@ -1255,6 +1275,12 @@ exit 0
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.extraCommittedFiles, []);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.forbiddenCommittedFiles, []);
   assert.deepEqual([...commitIntentResult.outputContract.sideEffect.livingDocStateCommittedFiles].sort(), ['doc.html', 'doc.json']);
+  const commitIntentPrompt = await readFile(path.join(
+    commitIntentRun.runDir,
+    commitIntentRun.contract.artifacts.commitIntentInferenceUnit.prompt,
+  ), 'utf8');
+  assert.match(commitIntentPrompt, /This unit is proposal-only/);
+  assert.match(commitIntentPrompt, /Do not run git add, git commit, git reset/);
 
   await writeFile(path.join(gitFixture, 'unrelated.md'), 'baseline unrelated\n', 'utf8');
   spawnSync('git', ['add', 'unrelated.md'], { cwd: gitFixture, stdio: 'ignore' });
@@ -1311,9 +1337,9 @@ exit 0
       classification: 'closure-candidate',
     },
   }, null, 2)}\n`, 'utf8');
-  const fakeBroadCommitCodex = path.join(tmp, 'fake-broad-commit-codex');
-  const fakeBroadCommitCodexHome = path.join(tmp, 'fake-broad-commit-codex-home');
-  await writeFile(fakeBroadCommitCodex, `#!/bin/sh
+  const fakeScopedCommitProposalCodex = path.join(tmp, 'fake-scoped-commit-proposal-codex');
+  const fakeScopedCommitProposalCodexHome = path.join(tmp, 'fake-scoped-commit-proposal-codex-home');
+  await writeFile(fakeScopedCommitProposalCodex, `#!/bin/sh
 set -eu
 OUT=""
 while [ "$#" -gt 0 ]; do
@@ -1323,28 +1349,40 @@ while [ "$#" -gt 0 ]; do
   fi
   shift || true
 done
-git add doc.json unrelated.md
-git -c user.name=CommitIntent -c user.email=commit-intent@example.com commit -m "broad commit should be blocked"
 mkdir -p "$CODEX_HOME/sessions/2026/05/07"
 LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
-cat > "$CODEX_HOME/sessions/2026/05/07/rollout-broad-commit-live.jsonl" <<EOF
-{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"broad-commit-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
-{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"broad commit side effect completed"}]}}
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-scoped-commit-proposal-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"scoped-commit-proposal-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"scoped commit proposal completed"}]}}
 EOF
-printf 'broad commit side effect completed\\n' > "$OUT"
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-harness-commit-intent-result/v1",
+  "approved": true,
+  "status": "approved",
+  "changedFiles": ["doc.json"],
+  "message": "scoped commit should be controller owned",
+  "sideEffect": {
+    "type": "git-commit",
+    "executed": false,
+    "reasonCode": "controller-commit-required"
+  },
+  "basis": ["Only the current-run changed file is approved; unrelated.md remains outside scope."]
+}
+EOF
 printf '{"type":"done"}\\n'
 exit 0
 `, 'utf8');
-  await chmod(fakeBroadCommitCodex, 0o755);
-  await mkdir(fakeBroadCommitCodexHome, { recursive: true });
-  const broadCommitRun = await createHarnessRun({
+  await chmod(fakeScopedCommitProposalCodex, 0o755);
+  await mkdir(fakeScopedCommitProposalCodexHome, { recursive: true });
+  const scopedCommitRun = await createHarnessRun({
     docPath: 'doc.json',
-    runsDir: path.join(tmp, 'broad-commit-runs'),
+    runsDir: path.join(tmp, 'scoped-commit-runs'),
     execute: true,
     cwd: gitFixture,
     now: '2026-05-07T06:33:00.000Z',
-    codexBin: fakeBroadCommitCodex,
-    codexHome: fakeBroadCommitCodexHome,
+    codexBin: fakeScopedCommitProposalCodex,
+    codexHome: fakeScopedCommitProposalCodexHome,
     iteration: 2,
     lifecycleInput: {
       mode: 'fresh-unit',
@@ -1359,18 +1397,79 @@ exit 0
       },
     },
   });
-  const broadCommitResult = JSON.parse(await readFile(path.join(
-    broadCommitRun.runDir,
-    broadCommitRun.contract.artifacts.commitIntentInferenceUnit.result,
+  const scopedCommitResult = JSON.parse(await readFile(path.join(
+    scopedCommitRun.runDir,
+    scopedCommitRun.contract.artifacts.commitIntentInferenceUnit.result,
   ), 'utf8'));
-  assert.equal(broadCommitResult.outputContract.schema, 'living-doc-harness-commit-intent-result/v1');
-  assert.equal(broadCommitResult.outputContract.approved, false);
-  assert.equal(broadCommitResult.outputContract.status, 'blocked');
-  assert.equal(broadCommitResult.outputContract.sideEffect.executed, true);
-  assert.deepEqual(broadCommitResult.outputContract.sideEffect.requiredChangedFiles, ['doc.json']);
-  assert.deepEqual(broadCommitResult.outputContract.sideEffect.missingChangedFiles, []);
-  assert.deepEqual(broadCommitResult.outputContract.sideEffect.extraCommittedFiles, ['unrelated.md']);
-  assert.deepEqual(broadCommitResult.outputContract.sideEffect.forbiddenCommittedFiles, ['unrelated.md']);
+  assert.equal(scopedCommitResult.outputContract.schema, 'living-doc-harness-commit-intent-result/v1');
+  assert.equal(scopedCommitResult.outputContract.approved, true);
+  assert.equal(scopedCommitResult.outputContract.status, 'approved');
+  assert.equal(scopedCommitResult.outputContract.sideEffect.executed, true);
+  assert.equal(scopedCommitResult.outputContract.sideEffect.source, 'controller-deterministic-commit');
+  assert.deepEqual(scopedCommitResult.outputContract.sideEffect.requiredChangedFiles, ['doc.json']);
+  assert.deepEqual(scopedCommitResult.outputContract.sideEffect.missingChangedFiles, []);
+  assert.deepEqual(scopedCommitResult.outputContract.sideEffect.extraCommittedFiles, []);
+  assert.deepEqual(scopedCommitResult.outputContract.sideEffect.forbiddenCommittedFiles, []);
+  assert.deepEqual(scopedCommitResult.outputContract.sideEffect.committedFiles, ['doc.json']);
+  const { stdout: scopedStatus } = spawnSync('git', ['status', '--short'], { cwd: gitFixture, encoding: 'utf8' });
+  assert.match(scopedStatus, / M unrelated\.md/);
+
+  const fakeMutatingCommitCodex = path.join(tmp, 'fake-mutating-commit-codex');
+  const fakeMutatingCommitCodexHome = path.join(tmp, 'fake-mutating-commit-codex-home');
+  await writeFile(commitDocPath, `${JSON.stringify({ ...changedDocForScopedCommit, updated: '2026-05-07T06:34:00.000Z' }, null, 2)}\n`, 'utf8');
+  await writeFile(fakeMutatingCommitCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+git add doc.json unrelated.md
+git -c user.name=CommitIntent -c user.email=commit-intent@example.com commit -m "unit should not commit"
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-mutating-commit-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"mutating-commit-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"mutating commit completed"}]}}
+EOF
+printf 'mutating commit completed\\n' > "$OUT"
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeMutatingCommitCodex, 0o755);
+  await mkdir(fakeMutatingCommitCodexHome, { recursive: true });
+  const mutatingCommitRun = await createHarnessRun({
+    docPath: 'doc.json',
+    runsDir: path.join(tmp, 'mutating-commit-runs'),
+    execute: true,
+    cwd: gitFixture,
+    now: '2026-05-07T06:34:00.000Z',
+    codexBin: fakeMutatingCommitCodex,
+    codexHome: fakeMutatingCommitCodexHome,
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'fresh-unit',
+      previousRunId: 'scoped-previous-run',
+      previousIteration: 1,
+      instruction: 'Run scoped commit-intent.',
+      outputInputPath: scopedOutputInputPath,
+      selectedUnitType: 'commit-intent',
+      nextUnit: {
+        unitId: 'commit-intent',
+        role: 'commit-intent',
+      },
+    },
+  });
+  const mutatingCommitResult = JSON.parse(await readFile(path.join(
+    mutatingCommitRun.runDir,
+    mutatingCommitRun.contract.artifacts.commitIntentInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(mutatingCommitResult.outputContract.approved, false);
+  assert.equal(mutatingCommitResult.outputContract.status, 'blocked');
+  assert.equal(mutatingCommitResult.outputContract.sideEffect.reasonCode, 'commit-intent-mutated-git-history');
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

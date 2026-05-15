@@ -7,6 +7,8 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
+import { lookup } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +43,8 @@ const execFileAsync = promisify(execFile);
 const DEFAULT_RUNS_DIR = '.living-doc-runs';
 const DEFAULT_STARTUP_EVIDENCE_TIMEOUT_MS = 120000;
 const STARTUP_EVIDENCE_POLL_MS = 1000;
+const STARTUP_TRACE_DISCOVERY_TIMEOUT_MS = 750;
+const STARTUP_DIAGNOSTIC_TIMEOUT_MS = 2500;
 
 function arr(value) {
   return Array.isArray(value) ? value : [];
@@ -322,6 +326,140 @@ async function fileSize(filePath) {
   }
 }
 
+async function withTimeout(promise, timeoutMs, fallback) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timeout = setTimeout(() => resolve(fallback), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function httpsProbe({ hostname = 'api.openai.com', pathName = '/', timeoutMs = STARTUP_DIAGNOSTIC_TIMEOUT_MS } = {}) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const req = httpsRequest({
+      hostname,
+      path: pathName,
+      method: 'HEAD',
+      timeout: timeoutMs,
+    }, (res) => {
+      res.resume();
+      resolve({
+        ok: true,
+        hostname,
+        statusCode: res.statusCode || null,
+        elapsedMs: Date.now() - startedAt,
+      });
+    });
+    req.on('timeout', () => {
+      req.destroy(new Error(`https probe timed out after ${timeoutMs}ms`));
+    });
+    req.on('error', (err) => {
+      resolve({
+        ok: false,
+        hostname,
+        error: err.code || err.message,
+        elapsedMs: Date.now() - startedAt,
+      });
+    });
+    req.end();
+  });
+}
+
+async function startupDiagnostics({ codexBin, cwd, absoluteCodexHome }) {
+  const diagnostics = {
+    schema: 'living-doc-harness-startup-diagnostics/v1',
+    bounded: true,
+    timeoutMs: STARTUP_DIAGNOSTIC_TIMEOUT_MS,
+    codexExecutable: null,
+    codexHome: {
+      present: false,
+      sessionsPresent: false,
+      archivedSessionsPresent: false,
+    },
+    network: {
+      dns: null,
+      https: null,
+    },
+    classification: 'startup-cause-unknown',
+  };
+  diagnostics.codexExecutable = await withTimeout(
+    execFileAsync(codexBin, ['--version'], { cwd, timeout: STARTUP_DIAGNOSTIC_TIMEOUT_MS })
+      .then(({ stdout, stderr }) => ({
+        ok: true,
+        command: codexBin,
+        version: String(stdout || stderr || '').trim().split('\n')[0] || null,
+      }))
+      .catch((err) => ({
+        ok: false,
+        command: codexBin,
+        error: err.code || err.message,
+      })),
+    STARTUP_DIAGNOSTIC_TIMEOUT_MS + 250,
+    {
+      ok: false,
+      command: codexBin,
+      error: 'codex-version-timeout',
+    },
+  );
+  try {
+    const codexHomeStat = await stat(absoluteCodexHome);
+    diagnostics.codexHome.present = codexHomeStat.isDirectory();
+  } catch {
+    diagnostics.codexHome.present = false;
+  }
+  for (const [key, dirName] of [['sessionsPresent', 'sessions'], ['archivedSessionsPresent', 'archived_sessions']]) {
+    try {
+      const info = await stat(path.join(absoluteCodexHome, dirName));
+      diagnostics.codexHome[key] = info.isDirectory();
+    } catch {
+      diagnostics.codexHome[key] = false;
+    }
+  }
+  diagnostics.network.dns = await withTimeout(
+    lookup('api.openai.com')
+      .then((result) => ({
+        ok: true,
+        hostname: 'api.openai.com',
+        family: result.family,
+      }))
+      .catch((err) => ({
+        ok: false,
+        hostname: 'api.openai.com',
+        error: err.code || err.message,
+      })),
+    STARTUP_DIAGNOSTIC_TIMEOUT_MS,
+    {
+      ok: false,
+      hostname: 'api.openai.com',
+      error: 'dns-timeout',
+    },
+  );
+  diagnostics.network.https = await withTimeout(
+    httpsProbe({ hostname: 'api.openai.com', timeoutMs: STARTUP_DIAGNOSTIC_TIMEOUT_MS }),
+    STARTUP_DIAGNOSTIC_TIMEOUT_MS + 250,
+    {
+      ok: false,
+      hostname: 'api.openai.com',
+      error: 'https-timeout',
+    },
+  );
+  if (diagnostics.codexExecutable?.ok === false) {
+    diagnostics.classification = diagnostics.codexExecutable.error === 'ENOENT'
+      ? 'codex-cli-unavailable'
+      : 'codex-cli-unresponsive';
+  } else if (diagnostics.network.dns?.ok === false || diagnostics.network.https?.ok === false) {
+    diagnostics.classification = 'network-unreachable';
+  }
+  return diagnostics;
+}
+
 async function startupEvidenceSnapshot({
   codexEventsPath,
   codexStderrPath,
@@ -337,18 +475,26 @@ async function startupEvidenceSnapshot({
   };
   const startedMs = new Date(processStartedAt).getTime() - 2000;
   let modifiedTraceCount = 0;
+  let traceDiscoveryTimedOut = false;
   try {
-    const traces = await discoverCodexTraceFiles({
-      codexHome: absoluteCodexHome,
-      limit: Math.max(1, Math.min(traceLimit, 5)),
-    });
-    modifiedTraceCount = traces.filter((trace) => new Date(trace.modifiedAt).getTime() >= startedMs && trace.sizeBytes > 0).length;
+    const traces = await withTimeout(
+      discoverCodexTraceFiles({
+        codexHome: absoluteCodexHome,
+        limit: Math.max(1, Math.min(traceLimit, 5)),
+      }),
+      STARTUP_TRACE_DISCOVERY_TIMEOUT_MS,
+      { timedOut: true, traces: [] },
+    );
+    traceDiscoveryTimedOut = traces?.timedOut === true;
+    const traceList = Array.isArray(traces) ? traces : traces.traces;
+    modifiedTraceCount = arr(traceList).filter((trace) => new Date(trace.modifiedAt).getTime() >= startedMs && trace.sizeBytes > 0).length;
   } catch {
     modifiedTraceCount = 0;
   }
   return {
     ...files,
     modifiedTraceCount,
+    traceDiscoveryTimedOut,
     hasEvidence: files.codexEventsBytes > 0
       || files.codexStderrBytes > 0
       || files.lastMessageBytes > 0
@@ -452,6 +598,17 @@ function initialUnitWorkInstruction(unitId) {
       '- Treat PR review as an evidence gate, not an objective-progress engine. Do not solve the living-doc objective from this unit.',
       '- If PR evidence is missing or blocked, name the concrete gate condition so the controller can route back to productive work.',
       '- Do not edit source files, living doc JSON, rendered HTML, tests, scripts, or commits from this unit. If a defect needs source changes, return blocked with the required follow-up unit instead.',
+    ];
+  }
+  if (unitId === 'commit-intent') {
+    return [
+      'Commit-intent role boundary:',
+      '- This unit is proposal-only. Inspect the worktree, evidence snapshot, changed-file scope, commit policy, and required input refs, then return a commit-intent output contract.',
+      '- Do not execute git commands that stage, commit, amend, reset, checkout, push, or otherwise mutate repository history or the git index.',
+      '- Do not run git add, git commit, git reset, git checkout, git restore, git push, or git stash.',
+      '- If the scoped commit should happen, return approved true, status approved, the exact changedFiles, a commit message, and sideEffect.executed false with reasonCode controller-commit-required.',
+      '- If the scope is unsafe, return blocked with the exact missing or forbidden condition.',
+      '- The lifecycle controller owns the deterministic git side effect after validating this contract.',
     ];
   }
   if (unitId === 'closure-review') {
@@ -1123,7 +1280,140 @@ async function gitCommitEvidence(cwd, sha) {
   }
 }
 
-function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
+function commitIntentProposal(rawResult) {
+  const output = rawResult?.outputContract && typeof rawResult.outputContract === 'object'
+    ? rawResult.outputContract
+    : rawResult && typeof rawResult === 'object'
+      ? rawResult
+      : {};
+  return output?.schema === 'living-doc-harness-commit-intent-result/v1' || output?.status || output?.approved != null
+    ? output
+    : {};
+}
+
+function normalizeCommitIntentMessage(value) {
+  const message = String(value || '').trim();
+  return message || 'Harness-managed commit-intent side effect.';
+}
+
+async function controllerCommitFromIntent({ cwd, inputContract, proposal, allowedCommitFiles }) {
+  if (proposal?.schema !== 'living-doc-harness-commit-intent-result/v1'
+    || proposal?.approved !== true
+    || proposal?.status !== 'approved') {
+    return {
+      attempted: false,
+      executed: false,
+      reasonCode: proposal?.reasonCode || proposal?.sideEffect?.reasonCode || 'commit-intent-not-approved',
+      message: proposal?.message || null,
+    };
+  }
+  if (proposal?.sideEffect?.executed === true) {
+    return {
+      attempted: false,
+      executed: false,
+      reasonCode: 'commit-intent-claimed-unit-side-effect',
+      message: proposal.message || null,
+    };
+  }
+  const proposedFiles = unique(arr(proposal.changedFiles).length ? arr(proposal.changedFiles) : arr(inputContract.changedFiles));
+  const allowedSet = new Set(allowedCommitFiles);
+  const forbiddenProposedFiles = proposedFiles.filter((filePath) => !allowedSet.has(filePath));
+  if (forbiddenProposedFiles.length) {
+    return {
+      attempted: false,
+      executed: false,
+      reasonCode: 'commit-intent-proposed-unapproved-files',
+      forbiddenProposedFiles,
+      message: proposal.message || null,
+    };
+  }
+  const filesToCommit = unique(allowedCommitFiles);
+  if (!filesToCommit.length) {
+    return {
+      attempted: false,
+      executed: false,
+      reasonCode: 'commit-intent-approved-empty-scope',
+      message: proposal.message || null,
+    };
+  }
+  const beforeSha = await gitHead(cwd);
+  try {
+    await execFileAsync('git', ['add', '--', ...filesToCommit], { cwd });
+    await execFileAsync('git', [
+      '-c',
+      'user.name=Living Doc Harness',
+      '-c',
+      'user.email=living-doc-harness@example.invalid',
+      'commit',
+      '-m',
+      normalizeCommitIntentMessage(proposal.message),
+      '--',
+      ...filesToCommit,
+    ], { cwd });
+  } catch (err) {
+    return {
+      attempted: true,
+      executed: false,
+      reasonCode: 'controller-git-commit-failed',
+      message: proposal.message || null,
+      error: String(err?.stderr || err?.message || err),
+      beforeSha,
+      afterSha: await gitHead(cwd),
+    };
+  }
+  const afterSha = await gitHead(cwd);
+  const evidence = await gitCommitEvidence(cwd, afterSha);
+  return {
+    attempted: true,
+    executed: Boolean(afterSha && beforeSha !== afterSha && evidence?.sha),
+    reasonCode: afterSha && beforeSha !== afterSha && evidence?.sha
+      ? 'controller-git-commit-created'
+      : 'controller-git-head-unchanged',
+    message: proposal.message || null,
+    beforeSha,
+    afterSha,
+    evidence,
+  };
+}
+
+function commitIntentRoleBoundaryOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
+  const committedFiles = arr(commitEvidence?.files);
+  return {
+    schema: 'living-doc-harness-commit-intent-result/v1',
+    approved: false,
+    status: 'blocked',
+    changedFiles: unique(arr(inputContract.changedFiles).length ? arr(inputContract.changedFiles) : arr(inputContract.allowedCommitFiles)),
+    message: 'Commit-intent unit mutated git history directly; the controller must own commit execution.',
+    sideEffect: {
+      type: 'git-commit',
+      executed: Boolean(commitAfter && commitBefore && commitBefore !== commitAfter),
+      reasonCode: 'commit-intent-mutated-git-history',
+      sha: commitEvidence?.sha || commitAfter || null,
+      beforeSha: commitBefore,
+      afterSha: commitAfter,
+      committedAt: commitEvidence?.committedAt || null,
+      committedFiles,
+      requiredChangedFiles: arr(inputContract.changedFiles),
+      allowedCommitFiles: arr(inputContract.allowedCommitFiles),
+      forbiddenCommitFiles: arr(inputContract.forbiddenCommitFiles),
+      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+    },
+    roleBoundaryViolation: {
+      schema: 'living-doc-harness-role-boundary-violation/v1',
+      reasonCode: 'commit-intent-mutated-git-history',
+      unitId: 'commit-intent',
+      headBefore: commitBefore,
+      headAfter: commitAfter,
+      headChanged: Boolean(commitAfter && commitBefore && commitBefore !== commitAfter),
+    },
+    exitCode,
+    ...paths,
+    nativeTraceRefs: traceRefs,
+  };
+}
+
+function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence, rawResult = null, controllerCommit = null }) {
   const changedFiles = unique(arr(inputContract.changedFiles).length
     ? arr(inputContract.changedFiles)
     : arr(inputContract.allowedCommitFiles));
@@ -1141,6 +1431,19 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
   });
   const allowedCommitFiles = livingDocStateScope.allowedCommitFiles;
   const forbiddenCommitFiles = livingDocStateScope.forbiddenCommitFiles;
+  const proposal = commitIntentProposal(rawResult);
+  if (commitBefore && commitAfter && commitBefore !== commitAfter && controllerCommit?.executed !== true) {
+    return commitIntentRoleBoundaryOutputContract({
+      inputContract,
+      status,
+      exitCode,
+      traceRefs,
+      paths,
+      commitBefore,
+      commitAfter,
+      commitEvidence,
+    });
+  }
   if (commitEvidence?.sha && commitBefore && commitAfter && commitBefore !== commitAfter) {
     const committedFiles = arr(commitEvidence.files);
     const committedSet = new Set(committedFiles);
@@ -1188,6 +1491,34 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
         forbiddenCommitFiles,
         currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
         preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+        source: controllerCommit?.executed === true ? 'controller-deterministic-commit' : 'commit-intent-unit-side-effect',
+      },
+      exitCode,
+      ...paths,
+      nativeTraceRefs: traceRefs,
+    };
+  }
+  if (controllerCommit?.attempted || proposal?.approved === true || proposal?.status === 'approved') {
+    return {
+      schema: 'living-doc-harness-commit-intent-result/v1',
+      approved: false,
+      status: 'blocked',
+      commitKind: 'objective-scope',
+      changedFiles,
+      message: proposal?.message || controllerCommit?.message || 'Commit-intent proposal could not be committed by the controller.',
+      sideEffect: {
+        type: 'git-commit',
+        executed: false,
+        reasonCode: controllerCommit?.reasonCode || 'controller-git-commit-not-executed',
+        beforeSha: controllerCommit?.beforeSha || commitBefore,
+        afterSha: controllerCommit?.afterSha || commitAfter,
+        requiredChangedFiles: changedFiles,
+        allowedCommitFiles,
+        forbiddenCommitFiles,
+        forbiddenProposedFiles: arr(controllerCommit?.forbiddenProposedFiles),
+        currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+        preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+        error: controllerCommit?.error || null,
       },
       exitCode,
       ...paths,
@@ -1221,7 +1552,7 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
   };
 }
 
-function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence, rawResult = null, roleBoundaryViolation = null }) {
+function externalOutputContract({ unitTypeId, runId, docPath, inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence, rawResult = null, roleBoundaryViolation = null, controllerCommit = null }) {
   if (unitTypeId === 'commit-intent') {
     return commitIntentOutputContract({
       inputContract,
@@ -1232,6 +1563,8 @@ function externalOutputContract({ unitTypeId, runId, docPath, inputContract, sta
       commitBefore,
       commitAfter,
       commitEvidence,
+      rawResult,
+      controllerCommit,
     });
   }
   if (unitTypeId === 'pr-review') {
@@ -1667,6 +2000,11 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       closeWritableStream(codexEventsStream),
       closeWritableStream(codexStderrStream),
     ]);
+    const diagnostics = await startupDiagnostics({
+      codexBin: codexCommand.command,
+      cwd,
+      absoluteCodexHome,
+    });
     const defect = {
       schema: 'living-doc-harness-process-defect/v1',
       runId,
@@ -1688,7 +2026,9 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
         lastMessagePath: path.relative(runDir, lastMessagePath),
         lastMessageBytes: startupEvidence.snapshot.lastMessageBytes,
         modifiedTraceCount: startupEvidence.snapshot.modifiedTraceCount,
+        traceDiscoveryTimedOut: startupEvidence.snapshot.traceDiscoveryTimedOut === true,
       },
+      diagnostics,
     };
     contract.status = 'process-defect';
     contract.process.exitCode = null;
@@ -1698,6 +2038,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
       elapsedMs: startupEvidence.elapsedMs,
       timeoutMs: normalizedStartupEvidenceTimeoutMs,
       snapshot: startupEvidence.snapshot,
+      diagnostics,
     };
     contract.artifacts.processDefect = 'process-defect.json';
     state.status = 'process-defect';
@@ -1852,8 +2193,8 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     await attachTraceSummaryToRun({ runDir, tracePath: trace.path, now: finishedAt });
   }
   const finalContract = JSON.parse(await readFile(path.join(runDir, 'contract.json'), 'utf8'));
-  const commitAfter = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
-  const commitEvidence = initialUnit.unitId === 'commit-intent' ? await gitCommitEvidence(cwd, commitAfter) : null;
+  let commitAfter = initialUnit.unitId === 'commit-intent' ? await gitHead(cwd) : null;
+  let commitEvidence = initialUnit.unitId === 'commit-intent' ? await gitCommitEvidence(cwd, commitAfter) : null;
   let roleBoundaryViolation = null;
   if (hasReadOnlyRoleBoundary) {
     const roleBoundaryHeadAfter = await gitHead(cwd);
@@ -1907,6 +2248,47 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   })
     ? rawLastMessageResult
     : selfAuthoredUnitResult?.result || rawLastMessageResult;
+  let controllerCommit = null;
+  if (initialUnit.unitId === 'commit-intent' && commitBefore === commitAfter) {
+    const rawAllowedFiles = unique(arr(initialInputContract.allowedCommitFiles).length
+      ? arr(initialInputContract.allowedCommitFiles)
+      : arr(initialInputContract.changedFiles));
+    const livingDocStateScope = livingDocStateCommitScope({
+      files: rawAllowedFiles,
+      forbiddenFiles: [
+        ...arr(initialInputContract.forbiddenCommitFiles),
+        ...arr(initialInputContract.commitIntent?.forbiddenCommitFiles),
+      ],
+      livingDocPath: initialInputContract.livingDocPath || initialInputContract.commitIntent?.livingDocPath || null,
+      renderedHtmlPath: initialInputContract.renderedHtmlPath || initialInputContract.commitIntent?.renderedHtmlPath || null,
+    });
+    controllerCommit = await controllerCommitFromIntent({
+      cwd,
+      inputContract: initialInputContract,
+      proposal: commitIntentProposal(rawUnitResult),
+      allowedCommitFiles: livingDocStateScope.allowedCommitFiles,
+    });
+    if (controllerCommit.executed === true) {
+      commitAfter = controllerCommit.afterSha;
+      commitEvidence = controllerCommit.evidence;
+      await appendJsonl(path.join(runDir, 'events.jsonl'), {
+        event: 'controller-deterministic-commit-created',
+        at: new Date().toISOString(),
+        runId,
+        unitId: initialUnit.unitId,
+        sha: controllerCommit.evidence?.sha || controllerCommit.afterSha,
+        committedFiles: arr(controllerCommit.evidence?.files),
+      });
+    } else if (controllerCommit.attempted || commitIntentProposal(rawUnitResult)?.approved === true) {
+      await appendJsonl(path.join(runDir, 'events.jsonl'), {
+        event: 'controller-deterministic-commit-blocked',
+        at: new Date().toISOString(),
+        runId,
+        unitId: initialUnit.unitId,
+        reasonCode: controllerCommit.reasonCode,
+      });
+    }
+  }
   const recoveredUnitResult = rawUnitResult === selfAuthoredUnitResult?.result
     ? { ...selfAuthoredUnitResult, source: 'current-initial-unit-artifact' }
     : null;
@@ -1937,6 +2319,7 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
     commitEvidence,
     rawResult: rawUnitResult,
     roleBoundaryViolation,
+    controllerCommit,
   });
   const finalUnitSnapshot = await writeContractBoundInferenceUnitSnapshot({
     runDir,
