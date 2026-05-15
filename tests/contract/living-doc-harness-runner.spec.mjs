@@ -1365,6 +1365,40 @@ cat > "$OUT" <<'EOF'
   "blockedCondition": {
     "schema": "living-doc-harness-commit-intent-blocker/v1",
     "reasonCode": "unscoped-dirty-tracked-files-present"
+  },
+  "blockedReason": {
+    "schema": "living-doc-harness-commit-intent-blocker/v1",
+    "reasonCode": "unscoped-dirty-tracked-files-present",
+    "forbiddenCommitFiles": ["unrelated.md"],
+    "nextAction": "Resolve unrelated.md outside this commit transaction before deterministic git execution."
+  },
+  "commitTransaction": {
+    "schema": "living-doc-harness-commit-transaction/v1",
+    "status": "blocked",
+    "postWorkerScope": {
+      "changedFiles": ["doc.json"],
+      "currentRunChangedFiles": ["doc.json"],
+      "allowedCommitFiles": ["doc.json"],
+      "forbiddenCommitFiles": []
+    },
+    "commitIntentVerdict": {
+      "approved": false,
+      "status": "blocked",
+      "reasonCode": "commit-scope-mismatch-unscoped-dirty-files"
+    },
+    "controllerGitExecution": {
+      "attempted": false,
+      "executed": false,
+      "reasonCode": "commit-scope-mismatch-unscoped-dirty-files"
+    },
+    "commitEvidence": null,
+    "blockedReason": {
+      "reasonCode": "commit-scope-mismatch-unscoped-dirty-files"
+    },
+    "reviewerConsumption": {
+      "gate": "blocked",
+      "closureConsumable": false
+    }
   }
 }
 EOF
@@ -1464,6 +1498,8 @@ exit 0
   assert.equal(blockedCommitResult.outputContract.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
   assert.equal(blockedCommitResult.outputContract.sideEffect.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
   assert.equal(blockedCommitResult.outputContract.sideEffect.executed, false);
+  assert.deepEqual(blockedCommitResult.outputContract.sideEffect.forbiddenCommitFiles, ['unrelated.md']);
+  assert.deepEqual(blockedCommitResult.outputContract.commitTransaction.postWorkerScope.forbiddenCommitFiles, ['unrelated.md']);
   assert.notEqual(blockedCommitResult.outputContract.sideEffect.reasonCode, 'git-head-unchanged');
   assert.equal(blockedCommitRun.contract.artifacts.commitTransaction.status, 'blocked');
   assert.equal(blockedCommitRun.contract.artifacts.commitTransaction.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
@@ -1475,6 +1511,7 @@ exit 0
   assert.equal(blockedCommitTransaction.status, 'blocked');
   assert.equal(blockedCommitTransaction.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
   assert.equal(blockedCommitTransaction.blockedCondition.reasonCode, 'unscoped-dirty-tracked-files-present');
+  assert.deepEqual(blockedCommitTransaction.scope.forbiddenCommitFiles, ['unrelated.md']);
   assert.equal(blockedCommitTransaction.intent.status, 'blocked');
   assert.equal(blockedCommitTransaction.controller.executed, false);
   const blockedSideEffectEvidence = await sideEffectEvidenceFromRun({

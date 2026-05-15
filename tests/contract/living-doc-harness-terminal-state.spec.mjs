@@ -193,6 +193,18 @@ try {
     assert.equal(resumeResult.status, 0);
     assert.match(resumeResult.stdout, /fresh inference unit/i);
   }
+
+  // Resume is not a lifecycle contract surface; stopped units are historical evidence only.
+  {
+    const run = await makeRun(tmp, '2026-05-07T09:20:00.000Z');
+    const resumeResult = spawnSync(process.execPath, ['scripts/living-doc-harness-terminal-state.mjs', 'can-resume', run.runDir], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
+    assert.equal(resumeResult.status, 2);
+    assert.match(resumeResult.stderr, /can-start-fresh-unit/);
+    assert.doesNotMatch(resumeResult.stderr, /can-resume/);
+  }
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

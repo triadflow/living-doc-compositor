@@ -1598,6 +1598,12 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
   if (proposal?.schema === 'living-doc-harness-commit-intent-result/v1'
     && ['blocked', 'failed'].includes(proposal.status)) {
     const reasonCode = proposal.sideEffect?.reasonCode || proposal.reasonCode || 'commit-intent-gate-blocked';
+    const proposedForbiddenCommitFiles = unique([
+      ...arr(proposal.sideEffect?.forbiddenCommitFiles),
+      ...arr(proposal.blockedReason?.forbiddenCommitFiles),
+      ...arr(proposal.commitTransaction?.postWorkerScope?.forbiddenCommitFiles),
+      ...arr(proposal.commitTransaction?.scope?.forbiddenCommitFiles),
+    ]);
     const sideEffect = {
       ...(proposal.sideEffect && typeof proposal.sideEffect === 'object' ? proposal.sideEffect : {}),
       type: proposal.sideEffect?.type || 'git-commit',
@@ -1611,9 +1617,9 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       allowedCommitFiles: unique(arr(proposal.sideEffect?.allowedCommitFiles).length
         ? arr(proposal.sideEffect.allowedCommitFiles)
         : allowedCommitFiles),
-      forbiddenCommitFiles: unique(arr(proposal.sideEffect?.forbiddenCommitFiles).length
-        ? arr(proposal.sideEffect.forbiddenCommitFiles)
-        : forbiddenCommitFiles),
+      forbiddenCommitFiles: proposedForbiddenCommitFiles.length
+        ? proposedForbiddenCommitFiles
+        : forbiddenCommitFiles,
       currentRunChangedFiles: arr(proposal.sideEffect?.currentRunChangedFiles).length
         ? arr(proposal.sideEffect.currentRunChangedFiles)
         : arr(inputContract.currentRunChangedFiles),
@@ -1630,7 +1636,7 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       changedFiles: unique(arr(proposal.changedFiles).length ? arr(proposal.changedFiles) : changedFiles),
       message: proposal.message || 'Commit-intent unit blocked the scoped commit.',
       sideEffect,
-      commitTransaction: proposal.commitTransaction || commitTransactionContract({ inputContract, status: proposal.status, reasonCode, sideEffect, proposal, commitKind: proposal.commitKind || 'objective-scope' }),
+      commitTransaction: commitTransactionContract({ inputContract, status: proposal.status, reasonCode, sideEffect, proposal, commitKind: proposal.commitKind || 'objective-scope' }),
       reasonCode: proposal.reasonCode || reasonCode,
       exitCode,
       ...paths,

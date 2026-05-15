@@ -225,18 +225,14 @@ export async function canStartFreshUnit(runDir) {
   return { allowed: true, reason: 'no terminal blocker present' };
 }
 
-export async function canResumeRun(runDir) {
-  return canStartFreshUnit(runDir);
-}
-
 function parseArgs(argv) {
   const args = [...argv];
   const command = args.shift();
-  if (!['write', 'can-resume', 'can-start-fresh-unit'].includes(command)) {
-    throw new Error('usage: living-doc-harness-terminal-state.mjs <write|can-start-fresh-unit|can-resume> ...');
+  if (!['write', 'can-start-fresh-unit'].includes(command)) {
+    throw new Error('usage: living-doc-harness-terminal-state.mjs <write|can-start-fresh-unit> ...');
   }
   const options = { command, runDir: null, verdictPath: null, evidencePath: null, iteration: 1 };
-  if (command === 'can-resume' || command === 'can-start-fresh-unit') {
+  if (command === 'can-start-fresh-unit') {
     options.runDir = args.shift();
     if (!options.runDir) throw new Error(`${command} requires <runDir>`);
     return options;
@@ -266,10 +262,8 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filen
 if (isDirectRun) {
   try {
     const options = parseArgs(process.argv.slice(2));
-    if (options.command === 'can-resume' || options.command === 'can-start-fresh-unit') {
-      const result = options.command === 'can-resume'
-        ? await canResumeRun(options.runDir)
-        : await canStartFreshUnit(options.runDir);
+    if (options.command === 'can-start-fresh-unit') {
+      const result = await canStartFreshUnit(options.runDir);
       console.log(JSON.stringify(result, null, 2));
       process.exit(result.allowed ? 0 : 1);
     }
