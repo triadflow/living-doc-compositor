@@ -427,9 +427,13 @@ try {
       }),
     });
     const selection = await readJson(result.postReviewSelectionPath);
-    assert.equal(selection.nextUnit.unitId, 'worker');
-    assert.equal(selection.contractValidation.ok, true);
-    assert.equal(selection.nextUnit.reasonCode, 'selected-unit-type-not-allowed-for-run');
+    assert.equal(selection.nextUnit, null);
+    assert.equal(selection.contractValidation.ok, false);
+    assert.equal(selection.contractValidation.reasonCode, 'selected-unit-type-not-allowed-for-run');
+    assert.equal(selection.rejectedNextUnit.unitId, 'pr-review');
+    assert.equal(selection.rejectedNextUnit.status, 'rejected');
+    assert.equal(selection.terminalAction.policyRuleId, 'contract-validation-rejected-route');
+    assert.equal(selection.terminalAction.rejectedNextUnit.rejection.reasonCode, 'selected-unit-type-not-allowed-for-run');
     assert.equal(result.terminalKind, 'continuation-required');
   }
 } finally {

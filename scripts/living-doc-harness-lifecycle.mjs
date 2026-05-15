@@ -1014,7 +1014,27 @@ function nextActionFromFinalization(finalization) {
   }
 
   const nextUnit = finalization.postReviewSelection?.nextUnit || null;
-  const unitId = nextUnit?.unitId || 'worker';
+  const contractValidation = finalization.postReviewSelection?.contractValidation || null;
+  if (!nextUnit) {
+    const terminalAction = finalization.postReviewSelection?.terminalAction || null;
+    return {
+      action: terminalAction?.policyRuleId === 'contract-validation-rejected-route'
+        ? 'route-contract-rejected'
+        : 'no-next-unit-selected',
+      allowed: false,
+      reason: terminalAction?.handoffInstruction
+        || terminalAction?.reasonCode
+        || 'No registered policy route selected a valid next inference unit.',
+      selectedUnitType: null,
+      selectedUnitRole: null,
+      prReviewPolicy: finalization.prReviewPolicy || finalization.postReviewSelection?.prReviewPolicy || null,
+      prReviewRequired: finalization.prReviewRequired === true || finalization.postReviewSelection?.prReviewRequired === true,
+      prReviewGate: finalization.prReviewGate || finalization.postReviewSelection?.prReviewGate || null,
+      contractValidation,
+      terminalAction,
+    };
+  }
+  const unitId = nextUnit.unitId;
   return {
     action: unitId === 'worker' ? 'start-next-worker-iteration' : `start-next-${unitId}`,
     allowed: true,
@@ -1113,6 +1133,8 @@ async function writeOutputInput({
       prReviewRequired: finalization.postReviewSelection.prReviewRequired === true,
       prReviewGate: finalization.postReviewSelection.prReviewGate || null,
       nextUnit: finalization.postReviewSelection.nextUnit || null,
+      rejectedNextUnit: finalization.postReviewSelection.rejectedNextUnit || null,
+      contractValidation: finalization.postReviewSelection.contractValidation || null,
       terminalAction: finalization.postReviewSelection.terminalAction || null,
     } : null,
     nextUnit: finalization.postReviewSelection?.nextUnit || null,
@@ -1939,6 +1961,33 @@ export async function runHarnessLifecycle({
           postFlightSummaryRef: null,
           postFlightUnitResultPath: null,
           postFlightUnitResultRef: null,
+        };
+        break;
+      }
+
+      if (!nextAction.allowed) {
+        finalState = {
+          kind: 'route-contract-rejected',
+          reasonCode: nextAction.contractValidation?.reasonCode || finalization.postReviewSelection?.terminalAction?.reasonCode || 'no-valid-policy-route',
+          reason: nextAction.reason,
+          runId: run.runId,
+          iteration,
+          postReviewSelectionPath: path.relative(cwd, finalization.postReviewSelectionPath),
+          postReviewSelectionRef: runArtifactRef({
+            cwd,
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: finalization.postReviewSelectionPath,
+            kind: 'post-review-selection',
+          }),
+          outputInputPath: path.relative(cwd, outputInput.outputInputPath),
+          outputInputRef: runArtifactRef({
+            cwd,
+            runDir: run.runDir,
+            runId: run.runId,
+            filePath: outputInput.outputInputPath,
+            kind: 'output-input',
+          }),
         };
         break;
       }

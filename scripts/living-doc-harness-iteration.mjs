@@ -727,37 +727,31 @@ function finalizePostReviewSelection({ selected, runDir, evidencePath, reviewer,
   });
   selected.contractValidation = validation;
   if (validation.ok) return selected;
-  selected.nextUnit = {
-    unitId: 'worker',
-    selectedUnitType: 'worker',
-    role: 'worker',
-    reasonCode: validation.reasonCode,
-    policyRuleId: 'contract-validation-failed',
-    selectedBy: 'contract-validation',
-    dashboardLabel: 'fresh worker unit',
-    handoffInstruction: 'Start a fresh worker unit from the living doc and controller-approved evidence after the invalid controller selection.',
-    requiredInputPaths: [
-      evidencePath ? path.relative(runDir, evidencePath) : null,
-      reviewer?.artifactPath ? path.relative(runDir, reviewer.artifactPath) : null,
-    ].filter(Boolean),
-    requiredInputRefs: requiredInputRefEntries({
-      runDir,
-      runId: null,
-      evidencePath,
-      reviewer,
-      commitGate: null,
-      prReviewGate: null,
-    }),
-    expectedOutputSchema: 'living-doc-worker-output/v1',
-    status: 'selected',
-    commitGate: selected.commitGate || null,
-    prReviewGate: selected.prReviewGate || null,
+  const rejectedNextUnit = {
+    ...selected.nextUnit,
+    status: 'rejected',
+    rejection: {
+      schema: 'living-doc-harness-route-rejection/v1',
+      reasonCode: validation.reasonCode,
+      message: validation.message || 'Selected next unit failed transition validation.',
+      currentUnitTypeId: selected.nextUnit.routeAuthority?.sourceUnitType || 'reviewer-inference',
+      selectedUnitTypeId: selected.nextUnit.unitId,
+      allowedUnitTypes: validation.allowedUnitTypes,
+      selectedBy: selected.nextUnit.selectedBy || null,
+      policyRuleId: selected.nextUnit.policyRuleId || null,
+    },
   };
-  selected.contractValidation = validateNextUnitSelection({
-    currentUnitTypeId: 'reviewer-inference',
-    selectedUnitTypeId: selected.nextUnit.unitId,
-    allowedUnitTypes,
-  });
+  selected.rejectedNextUnit = rejectedNextUnit;
+  selected.nextUnit = null;
+  selected.terminalAction = {
+    kind: 'continuation-required',
+    reasonCode: validation.reasonCode,
+    selectedBy: 'contract-validation',
+    policyRuleId: 'contract-validation-rejected-route',
+    dashboardLabel: 'route rejected',
+    handoffInstruction: validation.message || 'The controller rejected the selected route against the registered transition matrix and run allowed unit set.',
+    rejectedNextUnit,
+  };
   return selected;
 }
 
@@ -828,7 +822,7 @@ function buildPostReviewSelection({
 
 function sideEffectGateBlockedVerdict(verdict, selection) {
   const selectedUnitId = selection?.nextUnit?.unitId;
-  const contractValidationFailed = selection?.nextUnit?.policyRuleId === 'contract-validation-failed';
+  const contractValidationFailed = selection?.contractValidation?.ok === false;
   const blockedCommitGate = selection?.nextUnit?.commitGate?.status === 'blocked';
   const blockedPrReviewGate = selection?.nextUnit?.prReviewGate?.status === 'blocked';
   const unitId = contractValidationFailed
@@ -841,15 +835,20 @@ function sideEffectGateBlockedVerdict(verdict, selection) {
         ? 'pr-review'
         : null;
   if (!['closed', 'closure-candidate'].includes(verdict?.stopVerdict?.classification) || !unitId) return null;
-  const reasonCode = selection.nextUnit.reasonCode || `${unitId}-required-before-closure`;
+  const reasonCode = selection?.nextUnit?.reasonCode
+    || selection?.contractValidation?.reasonCode
+    || `${unitId}-required-before-closure`;
+  const effectiveReasonCode = contractValidationFailed
+    ? selection.contractValidation?.reasonCode || reasonCode
+    : reasonCode;
   const requiredProof = unitId === 'controller-selection'
-    ? reasonCode
+    ? effectiveReasonCode
     : selection.nextUnit.expectedOutputSchema;
   return {
     schema: 'living-doc-harness-stop-verdict/v1',
     stopVerdict: {
       classification: 'true-block',
-      reasonCode,
+      reasonCode: effectiveReasonCode,
       confidence: verdict.stopVerdict.confidence || 'high',
       closureAllowed: false,
       basis: [
@@ -867,7 +866,7 @@ function sideEffectGateBlockedVerdict(verdict, selection) {
     },
     terminal: {
       kind: 'true-block',
-      reasonCode,
+      reasonCode: effectiveReasonCode,
       owningLayer: unitId,
       requiredDecision: unitId === 'controller-selection'
         ? 'Repair the run policy or routing contract before terminal closure may be persisted.'

@@ -1864,6 +1864,86 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.equal(sameReasonLoopOutputInput.postReviewSelection.terminalAction.routeAuthority.accepted, false);
   assert.equal(sameReasonLoopOutputInput.postReviewSelection.terminalAction.routeLoopGuard.unchangedEvidence, true);
 
+  const rejectedRouteSequencePath = path.join(tmp, 'rejected-route-sequence.json');
+  await writeFile(rejectedRouteSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: true,
+        sideEffectEvidence: { commit: { sha: 'abc1234', required: true } },
+        traceMessage: 'Policy-required PR review is missing.',
+        reviewerVerdict: reviewerVerdict('closed', {
+          reasonCode: 'fixture-pr-review-before-rejected-route',
+          closureAllowed: true,
+        }),
+      },
+      {
+        stageAfter: 'repairable',
+        unresolvedObjectiveTerms: ['disallowed balance scan recommendation must be rejected'],
+        unprovenAcceptanceCriteria: ['criterion-policy-matrix-authority'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: false,
+        initialInferenceUnitOutputContract: {
+          schema: 'living-doc-harness-pr-review-result/v1',
+          status: 'approved',
+          approvedActions: [],
+          sideEffect: {
+            type: 'github-pr-review',
+            executed: false,
+            reasonCode: 'fixture-pr-review-approved',
+          },
+          reasonCode: 'disallowed-balance-scan-recommendation',
+          nextRecommendedUnitType: 'living-doc-balance-scan',
+          basis: ['PR-review recommends a unit type outside the run allowed set.'],
+        },
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fixture-commit-not-required',
+            required: false,
+          },
+        },
+        traceMessage: 'PR-review recommends a disallowed balance scan unit.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'disallowed-balance-scan-recommendation',
+          mode: 'fresh-unit',
+          instruction: 'Follow the decision unit recommendation only if the policy matrix validates it.',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const rejectedRouteLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'rejected-route-runs'),
+    evidenceDir: path.join(tmp, 'rejected-route-evidence'),
+    dashboardPath: path.join(tmp, 'rejected-route-dashboard.html'),
+    evidenceSequencePath: rejectedRouteSequencePath,
+    allowedUnitTypes: ['worker', 'reviewer-inference', 'closure-review', 'commit-intent', 'pr-review', 'post-flight-summary'],
+    prReviewPolicy: {
+      schema: 'living-doc-harness-pr-review-policy/v1',
+      mode: 'required-before-closure',
+    },
+    now: '2026-05-07T13:07:20.000Z',
+  });
+  assert.equal(rejectedRouteLifecycle.iterationCount, 2);
+  assert.equal(rejectedRouteLifecycle.finalState.kind, 'route-contract-rejected');
+  assert.equal(rejectedRouteLifecycle.finalState.reasonCode, 'selected-unit-type-not-allowed-for-run');
+  assert.equal(rejectedRouteLifecycle.iterations[1].nextAction.action, 'route-contract-rejected');
+  assert.equal(rejectedRouteLifecycle.iterations[1].nextAction.allowed, false);
+  const rejectedRouteOutputInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    rejectedRouteLifecycle.iterations[1].outputInputPath,
+  ), 'utf8'));
+  assert.equal(rejectedRouteOutputInput.postReviewSelection.nextUnit, null);
+  assert.equal(rejectedRouteOutputInput.postReviewSelection.contractValidation.ok, false);
+  assert.equal(rejectedRouteOutputInput.postReviewSelection.rejectedNextUnit.unitId, 'living-doc-balance-scan');
+  assert.equal(rejectedRouteOutputInput.postReviewSelection.terminalAction.policyRuleId, 'contract-validation-rejected-route');
+  assert.equal(rejectedRouteOutputInput.nextInput, null);
+
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({
     iterations: [
