@@ -111,7 +111,7 @@ function deriveRecommendation({ state, terminal, handover }) {
   if (stage === 'closed') return 'close';
   if (stage === 'user-stopped') return 'user-stop';
   if (stage === 'continuation-required') return 'fresh-unit';
-  if (stage === 'repair-resumed') return 'fresh-unit';
+  if (stage === 'fresh-unit-required') return 'fresh-unit';
   if (handover?.nextIteration?.mode) return handover.nextIteration.mode;
   if (state?.status === 'prepared') return 'fresh-unit';
   return 'inspect';

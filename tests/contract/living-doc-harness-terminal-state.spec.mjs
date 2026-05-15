@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHarnessRun } from '../../scripts/living-doc-harness-runner.mjs';
 import { inferStopNegotiation } from '../../scripts/living-doc-harness-stop-negotiation.mjs';
-import { canResumeRun, validateTerminalStateRecord, writeTerminalState } from '../../scripts/living-doc-harness-terminal-state.mjs';
+import { canStartFreshUnit, validateTerminalStateRecord, writeTerminalState } from '../../scripts/living-doc-harness-terminal-state.mjs';
 
 const hashC = `sha256:${'c'.repeat(64)}`;
 
@@ -91,9 +91,9 @@ try {
     assert.equal(result.blocker.dashboardVisible, true);
     assert.ok(result.blocker.unblockCriteria.length > 0);
     assert.equal(validateTerminalStateRecord(result.record).ok, true);
-    const resume = await canResumeRun(run.runDir);
-    assert.equal(resume.allowed, true);
-    assert.match(resume.reason, /fresh inference unit/i);
+    const freshUnit = await canStartFreshUnit(run.runDir);
+    assert.equal(freshUnit.allowed, true);
+    assert.match(freshUnit.reason, /fresh inference unit/i);
     const blockersJsonl = await readFile(path.join(run.runDir, 'blockers.jsonl'), 'utf8');
     assert.match(blockersJsonl, new RegExp(reasonCode));
   }
@@ -111,9 +111,9 @@ try {
     const verdict = inferStopNegotiation(ev);
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 7, now: '2026-05-07T08:21:00.000Z' });
     assert.equal(result.record.kind, 'continuation-required');
-    assert.equal(result.record.status, 'repair-resumed');
+    assert.equal(result.record.status, 'fresh-unit-required');
     assert.equal(result.record.loopMayContinue, true);
-    assert.equal((await canResumeRun(run.runDir)).allowed, true);
+    assert.equal((await canStartFreshUnit(run.runDir)).allowed, true);
   }
 
   // Pivot and deferral pressure remain continuation evidence unless the user explicitly stops.
@@ -130,7 +130,7 @@ try {
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 8, now: '2026-05-07T08:41:00.000Z' });
     assert.equal(result.record.kind, 'continuation-required');
     assert.equal(result.record.loopMayContinue, true);
-    assert.equal((await canResumeRun(run.runDir)).allowed, true);
+    assert.equal((await canStartFreshUnit(run.runDir)).allowed, true);
   }
 
   // Closed is terminal, but not a blocker.
@@ -158,21 +158,21 @@ try {
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 9, now: '2026-05-07T08:51:00.000Z' });
     assert.equal(result.record.kind, 'closed');
     assert.equal(result.blocker, null);
-    assert.equal((await canResumeRun(run.runDir)).allowed, false);
+    assert.equal((await canStartFreshUnit(run.runDir)).allowed, false);
   }
 
-  // Repair-resumed is an iteration terminal state that allows the next run.
+  // Fresh-unit-required is an iteration terminal state that allows only a new isolated unit.
   {
     const run = await makeRun(tmp, '2026-05-07T09:00:00.000Z');
     const ev = evidence();
     const verdict = inferStopNegotiation(ev);
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 10, now: '2026-05-07T09:01:00.000Z' });
-    assert.equal(result.record.kind, 'repair-resumed');
+    assert.equal(result.record.kind, 'fresh-unit-required');
     assert.equal(result.record.loopMayContinue, true);
-    assert.equal((await canResumeRun(run.runDir)).allowed, true);
+    assert.equal((await canStartFreshUnit(run.runDir)).allowed, true);
   }
 
-  // CLI can write and can-resume continues after true-block continuation evidence.
+  // CLI can write and can-start-fresh-unit continues after true-block continuation evidence.
   {
     const run = await makeRun(tmp, '2026-05-07T09:10:00.000Z');
     const ev = terminalEvidence('missing-source');
@@ -186,7 +186,7 @@ try {
       encoding: 'utf8',
     });
     assert.equal(writeResult.status, 0, writeResult.stderr);
-    const resumeResult = spawnSync(process.execPath, ['scripts/living-doc-harness-terminal-state.mjs', 'can-resume', run.runDir], {
+    const resumeResult = spawnSync(process.execPath, ['scripts/living-doc-harness-terminal-state.mjs', 'can-start-fresh-unit', run.runDir], {
       cwd: process.cwd(),
       encoding: 'utf8',
     });

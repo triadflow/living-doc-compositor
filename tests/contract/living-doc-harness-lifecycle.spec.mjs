@@ -16,7 +16,7 @@ try {
   assert.equal(result.dashboardRunCount, 2);
 
   assert.equal(result.fakeClosure.classification, 'closure-candidate');
-  assert.equal(result.fakeClosure.terminalKind, 'repair-resumed');
+  assert.equal(result.fakeClosure.terminalKind, 'fresh-unit-required');
   assert.equal(result.fakeClosure.proofValid, true);
   assert.equal(result.fakeClosure.invalidSelfReportClosureValid, false);
   assert.equal(result.fakeClosure.invalidSelfReportClosureViolations.some((message) => /acceptanceCriteriaSatisfied=pass/.test(message)), true);

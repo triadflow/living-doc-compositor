@@ -245,7 +245,7 @@ try {
   assert.match(postFlightInput.lifecycleResultPath, /lifecycle-result\.json$/);
   assert.ok(postFlightInput.requiredInspectionPaths.some((item) => item.endsWith('lifecycle-result.json')));
   assert.equal(result.iterations[0].classification, 'closure-candidate');
-  assert.equal(result.iterations[0].terminalKind, 'repair-resumed');
+  assert.equal(result.iterations[0].terminalKind, 'fresh-unit-required');
   assert.equal(result.iterations[0].nextAction.action, 'start-next-worker-iteration');
   assert.equal(result.iterations[1].classification, 'closed');
   assert.equal(result.iterations[1].terminalKind, 'closed');

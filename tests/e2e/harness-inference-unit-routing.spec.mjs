@@ -116,7 +116,7 @@ test('lifecycle routes through registered inference unit contracts', async () =>
       now: '2026-05-10T14:42:00.000Z',
     });
     const repairSelection = await readJson(path.resolve(process.cwd(), repair.iterations[0].postReviewSelectionPath));
-    expect(repair.iterations[0].terminalKind).toBe('repair-resumed');
+    expect(repair.iterations[0].terminalKind).toBe('fresh-unit-required');
     expect(repairSelection.nextUnit.unitId).toBe('worker');
     expect(repairSelection.contractValidation.ok).toBe(true);
 

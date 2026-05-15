@@ -352,7 +352,7 @@ function terminalKindFromVerdict(verdict) {
   if (classification === 'closed') return 'closed';
   if (classification === 'user-stopped') return 'user-stopped';
   if (['true-block', 'pivot', 'deferred', 'budget-exhausted'].includes(classification)) return 'continuation-required';
-  if (['repairable', 'resumable', 'closure-candidate'].includes(classification)) return 'repair-resumed';
+  if (['repairable', 'resumable', 'closure-candidate'].includes(classification)) return 'fresh-unit-required';
   return 'unknown';
 }
 

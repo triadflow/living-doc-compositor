@@ -2378,7 +2378,7 @@ export function dashboardHtml({ runsDir, evidenceDir }) {
     .lifecycle-status { flex:none; max-width:118px; border:1px solid var(--line); border-radius:999px; padding:2px 7px; background:#eef2f7; color:var(--slate); font-size:10px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .lifecycle-status.closed { color:var(--green); background:#e7f6ef; border-color:#a8dec7; }
     .lifecycle-status.continuation-required { color:var(--amber); background:#fff4dc; border-color:#ffd98c; }
-    .lifecycle-status.repair-resumed, .lifecycle-status.repairable, .lifecycle-status.running { color:var(--blue); background:#e8f0ff; border-color:#b8cbff; }
+    .lifecycle-status.fresh-unit-required, .lifecycle-status.repairable, .lifecycle-status.running { color:var(--blue); background:#e8f0ff; border-color:#b8cbff; }
     .lifecycle-chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
     .lifecycle-chip { border:1px solid #d7dfeb; border-radius:999px; padding:2px 7px; color:var(--slate); background:#f8fafc; font-size:11px; font-weight:650; }
     .lifecycle-path { margin-top:8px; color:var(--muted); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

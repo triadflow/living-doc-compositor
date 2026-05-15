@@ -199,7 +199,7 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
   await writeFile(terminalPath, `${JSON.stringify({
     id: 'blocker-graph-fixture',
     kind: 'continuation-required',
-    status: 'repair-resumed',
+    status: 'fresh-unit-required',
     reasonCode: 'graph-fixture-blocked',
     loopMayContinue: true,
     nextAction: 'continue through the next contract-bound inference unit',
@@ -207,7 +207,7 @@ export async function createDashboardGraphFixture({ cwd = process.cwd() } = {}) 
   await writeFile(path.join(prepared.runDir, 'terminal-states.jsonl'), `${JSON.stringify({
     id: 'blocker-graph-fixture',
     kind: 'continuation-required',
-    status: 'repair-resumed',
+    status: 'fresh-unit-required',
     reasonCode: 'graph-fixture-blocked',
     loopMayContinue: true,
     createdAt: '2026-05-07T12:00:20.000Z',

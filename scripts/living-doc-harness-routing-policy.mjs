@@ -161,7 +161,7 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
     id: 'reviewer-repair-routes-worker-without-repair-units',
     unitId: 'worker',
     role: 'worker',
-    reasonCode: () => 'repair-resumed-without-executed-repair-units',
+    reasonCode: () => 'fresh-unit-required-without-executed-repair-units',
     when: ({ classification, nextIterationMode, executeRepairSkills }) => (
       ['repairable', 'resumable', 'closure-candidate'].includes(classification)
       && nextIterationMode === 'repair'

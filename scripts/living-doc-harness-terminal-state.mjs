@@ -17,9 +17,9 @@ const CLASS_TO_KIND = {
   pivot: 'continuation-required',
   deferred: 'continuation-required',
   'budget-exhausted': 'continuation-required',
-  repairable: 'repair-resumed',
-  resumable: 'repair-resumed',
-  'closure-candidate': 'repair-resumed',
+  repairable: 'fresh-unit-required',
+  resumable: 'fresh-unit-required',
+  'closure-candidate': 'fresh-unit-required',
 };
 
 const BLOCK_REASON_LAYERS = {
@@ -63,18 +63,18 @@ function terminalKindFor(verdict) {
 function terminalStatusFor(kind) {
   if (kind === 'closed') return 'closed';
   if (kind === 'user-stopped') return 'user-stopped';
-  if (kind === 'repair-resumed' || kind === 'continuation-required') return 'repair-resumed';
+  if (kind === 'fresh-unit-required' || kind === 'continuation-required') return 'fresh-unit-required';
   return 'unknown';
 }
 
 function mayContinueFor(kind) {
-  return kind === 'repair-resumed' || kind === 'continuation-required';
+  return kind === 'fresh-unit-required' || kind === 'continuation-required';
 }
 
 function nextActionFor(kind, terminal = {}) {
   if (kind === 'closed') return 'no-next-iteration-objective-closed';
   if (kind === 'user-stopped') return 'no-next-iteration-user-stopped';
-  if (kind === 'repair-resumed') return 'resume-from-repair-handover';
+  if (kind === 'fresh-unit-required') return 'start-fresh-unit-from-contract-evidence';
   if (kind === 'continuation-required') return terminal.requiredDecision || terminal.resumeTrigger || 'continue through the next contract-bound inference unit';
   return 'inspect terminal-state artifact';
 }
@@ -104,7 +104,7 @@ function buildBlocker({ runId, iteration, verdict, evidence, now }) {
 
 export function validateTerminalStateRecord(record) {
   const violations = [];
-  const allowedKinds = new Set(['closed', 'user-stopped', 'continuation-required', 'repair-resumed']);
+  const allowedKinds = new Set(['closed', 'user-stopped', 'continuation-required', 'fresh-unit-required']);
   if (record?.schema !== 'living-doc-harness-terminal-state/v1') {
     violations.push({ path: '$.schema', message: 'schema must be living-doc-harness-terminal-state/v1' });
   }
@@ -114,10 +114,10 @@ export function validateTerminalStateRecord(record) {
   if (record?.stopVerdict?.classification === 'true-block' && !record.blockerRef) {
     violations.push({ path: '$.blockerRef', message: 'true-block continuation states require blockerRef' });
   }
-  if (!['repair-resumed', 'continuation-required'].includes(record?.kind) && record?.loopMayContinue !== false) {
+  if (!['fresh-unit-required', 'continuation-required'].includes(record?.kind) && record?.loopMayContinue !== false) {
     violations.push({ path: '$.loopMayContinue', message: `${record?.kind} must not allow silent continuation` });
   }
-  if (['repair-resumed', 'continuation-required'].includes(record?.kind) && record?.loopMayContinue !== true) {
+  if (['fresh-unit-required', 'continuation-required'].includes(record?.kind) && record?.loopMayContinue !== true) {
     violations.push({ path: '$.loopMayContinue', message: `${record?.kind} must allow the next contract-bound inference iteration` });
   }
   return { ok: violations.length === 0, violations };
@@ -208,10 +208,10 @@ export async function writeTerminalState({
   };
 }
 
-export async function canResumeRun(runDir) {
+export async function canStartFreshUnit(runDir) {
   const state = await readJson(path.join(runDir, 'state.json'));
-  if (state.lifecycleStage === 'repair-resumed') {
-    return { allowed: true, reason: 'repair-resumed allows the next iteration' };
+  if (state.lifecycleStage === 'fresh-unit-required') {
+    return { allowed: true, reason: 'terminal state requires a fresh inference unit from contract evidence' };
   }
   if (state.lifecycleStage === 'closed') {
     return { allowed: false, reason: 'objective is closed' };
@@ -225,16 +225,20 @@ export async function canResumeRun(runDir) {
   return { allowed: true, reason: 'no terminal blocker present' };
 }
 
+export async function canResumeRun(runDir) {
+  return canStartFreshUnit(runDir);
+}
+
 function parseArgs(argv) {
   const args = [...argv];
   const command = args.shift();
-  if (!['write', 'can-resume'].includes(command)) {
-    throw new Error('usage: living-doc-harness-terminal-state.mjs <write|can-resume> ...');
+  if (!['write', 'can-resume', 'can-start-fresh-unit'].includes(command)) {
+    throw new Error('usage: living-doc-harness-terminal-state.mjs <write|can-start-fresh-unit|can-resume> ...');
   }
   const options = { command, runDir: null, verdictPath: null, evidencePath: null, iteration: 1 };
-  if (command === 'can-resume') {
+  if (command === 'can-resume' || command === 'can-start-fresh-unit') {
     options.runDir = args.shift();
-    if (!options.runDir) throw new Error('can-resume requires <runDir>');
+    if (!options.runDir) throw new Error(`${command} requires <runDir>`);
     return options;
   }
   options.verdictPath = args.shift();
@@ -262,8 +266,10 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filen
 if (isDirectRun) {
   try {
     const options = parseArgs(process.argv.slice(2));
-    if (options.command === 'can-resume') {
-      const result = await canResumeRun(options.runDir);
+    if (options.command === 'can-resume' || options.command === 'can-start-fresh-unit') {
+      const result = options.command === 'can-resume'
+        ? await canResumeRun(options.runDir)
+        : await canStartFreshUnit(options.runDir);
       console.log(JSON.stringify(result, null, 2));
       process.exit(result.allowed ? 0 : 1);
     }
