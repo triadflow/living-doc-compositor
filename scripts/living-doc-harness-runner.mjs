@@ -1525,6 +1525,46 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       nativeTraceRefs: traceRefs,
     };
   }
+  if (proposal?.schema === 'living-doc-harness-commit-intent-result/v1'
+    && ['blocked', 'failed'].includes(proposal.status)) {
+    const reasonCode = proposal.sideEffect?.reasonCode || proposal.reasonCode || 'commit-intent-gate-blocked';
+    return {
+      ...proposal,
+      schema: 'living-doc-harness-commit-intent-result/v1',
+      approved: false,
+      status: proposal.status,
+      commitKind: proposal.commitKind || 'objective-scope',
+      changedFiles: unique(arr(proposal.changedFiles).length ? arr(proposal.changedFiles) : changedFiles),
+      message: proposal.message || 'Commit-intent unit blocked the scoped commit.',
+      sideEffect: {
+        ...(proposal.sideEffect && typeof proposal.sideEffect === 'object' ? proposal.sideEffect : {}),
+        type: proposal.sideEffect?.type || 'git-commit',
+        executed: false,
+        reasonCode,
+        beforeSha: proposal.sideEffect?.beforeSha || commitBefore,
+        afterSha: proposal.sideEffect?.afterSha || commitAfter,
+        requiredChangedFiles: unique(arr(proposal.sideEffect?.requiredChangedFiles).length
+          ? arr(proposal.sideEffect.requiredChangedFiles)
+          : changedFiles),
+        allowedCommitFiles: unique(arr(proposal.sideEffect?.allowedCommitFiles).length
+          ? arr(proposal.sideEffect.allowedCommitFiles)
+          : allowedCommitFiles),
+        forbiddenCommitFiles: unique(arr(proposal.sideEffect?.forbiddenCommitFiles).length
+          ? arr(proposal.sideEffect.forbiddenCommitFiles)
+          : forbiddenCommitFiles),
+        currentRunChangedFiles: arr(proposal.sideEffect?.currentRunChangedFiles).length
+          ? arr(proposal.sideEffect.currentRunChangedFiles)
+          : arr(inputContract.currentRunChangedFiles),
+        preExistingDirtyFiles: arr(proposal.sideEffect?.preExistingDirtyFiles).length
+          ? arr(proposal.sideEffect.preExistingDirtyFiles)
+          : arr(inputContract.preExistingDirtyFiles),
+      },
+      reasonCode: proposal.reasonCode || reasonCode,
+      exitCode,
+      ...paths,
+      nativeTraceRefs: traceRefs,
+    };
+  }
   return {
     ...preparedOutputContract({
       unitTypeId: 'commit-intent',

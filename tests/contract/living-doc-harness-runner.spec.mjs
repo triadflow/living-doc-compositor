@@ -1282,6 +1282,166 @@ exit 0
   assert.match(commitIntentPrompt, /This unit is proposal-only/);
   assert.match(commitIntentPrompt, /Do not run git add, git commit, git reset/);
 
+  const blockedCommitFixture = path.join(tmp, 'blocked-commit-intent-fixture');
+  await mkdir(blockedCommitFixture, { recursive: true });
+  await writeFile(path.join(blockedCommitFixture, 'doc.json'), `${JSON.stringify({
+    docId: 'test:blocked-commit-intent',
+    title: 'Blocked Commit Intent Fixture',
+    objective: 'Preserve a blocked commit-intent reason.',
+    successCondition: 'The controller records the unit blocker instead of replacing it with git-head-unchanged.',
+    runState: { objectiveReady: false, documentReady: true },
+    sections: [
+      {
+        id: 'acceptance-criteria',
+        convergenceType: 'acceptance-criteria',
+        data: [{ id: 'criterion', name: 'Criterion', status: 'pending' }],
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  spawnSync('git', ['init'], { cwd: blockedCommitFixture, stdio: 'ignore' });
+  spawnSync('git', ['add', 'doc.json'], { cwd: blockedCommitFixture, stdio: 'ignore' });
+  spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'initial blocked fixture'], { cwd: blockedCommitFixture, stdio: 'ignore' });
+  const blockedDoc = JSON.parse(await readFile(path.join(blockedCommitFixture, 'doc.json'), 'utf8'));
+  blockedDoc.updated = '2026-05-07T06:32:30.000Z';
+  await writeFile(path.join(blockedCommitFixture, 'doc.json'), `${JSON.stringify(blockedDoc, null, 2)}\n`, 'utf8');
+  const fakeBlockedCommitCodex = path.join(tmp, 'fake-blocked-commit-codex');
+  const fakeBlockedCommitCodexHome = path.join(tmp, 'fake-blocked-commit-codex-home');
+  await writeFile(fakeBlockedCommitCodex, `#!/bin/sh
+set -eu
+OUT=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    shift
+    OUT="$1"
+  fi
+  shift || true
+done
+mkdir -p "$CODEX_HOME/sessions/2026/05/07"
+LIVE_TS="$(node -e 'console.log(new Date().toISOString())')"
+cat > "$CODEX_HOME/sessions/2026/05/07/rollout-blocked-commit-intent-live.jsonl" <<EOF
+{"timestamp":"$LIVE_TS","type":"session_meta","payload":{"id":"blocked-commit-intent-live","source":"codex-cli","cli_version":"test","model_provider":"openai","cwd":"/private/path"}}
+{"timestamp":"$LIVE_TS","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"blocked commit-intent completed"}]}}
+EOF
+cat > "$OUT" <<'EOF'
+{
+  "schema": "living-doc-harness-commit-intent-result/v1",
+  "approved": false,
+  "status": "blocked",
+  "reasonCode": "commit-scope-mismatch-unscoped-dirty-files",
+  "changedFiles": ["doc.json"],
+  "message": "Blocked by live dirty files outside the scoped commit.",
+  "sideEffect": {
+    "type": "git-commit",
+    "executed": false,
+    "reasonCode": "commit-scope-mismatch-unscoped-dirty-files",
+    "requiredChangedFiles": ["doc.json"],
+    "allowedCommitFiles": ["doc.json"],
+    "liveDirtyTrackedFiles": ["doc.json", "unrelated.md"]
+  },
+  "blockedCondition": {
+    "schema": "living-doc-harness-commit-intent-blocker/v1",
+    "reasonCode": "unscoped-dirty-tracked-files-present"
+  }
+}
+EOF
+printf '{"type":"done"}\\n'
+exit 0
+`, 'utf8');
+  await chmod(fakeBlockedCommitCodex, 0o755);
+  await mkdir(fakeBlockedCommitCodexHome, { recursive: true });
+  const blockedPreviousRunDir = path.join(tmp, 'blocked-previous-run');
+  await mkdir(path.join(blockedPreviousRunDir, 'artifacts'), { recursive: true });
+  await mkdir(path.join(blockedPreviousRunDir, 'output-input'), { recursive: true });
+  await writeFile(path.join(blockedPreviousRunDir, 'artifacts', 'iteration-1-controller-evidence-snapshot.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-controller-evidence-snapshot/v1',
+    hardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: true,
+      dirtyTrackedFiles: ['doc.json'],
+      currentRunChangedFiles: ['doc.json'],
+      preExistingDirtyFiles: [],
+      allowedCommitFiles: ['doc.json'],
+      forbiddenCommitFiles: [],
+      commitEvidencePresent: false,
+    },
+  }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(blockedPreviousRunDir, 'artifacts', 'iteration-1-evidence.json'), `${JSON.stringify({
+    schema: 'living-doc-harness-iteration-evidence/v1',
+    controllerEvidenceSnapshotPath: 'artifacts/iteration-1-controller-evidence-snapshot.json',
+    controllerEvidenceSnapshotRef: {
+      schema: 'living-doc-artifact-ref/v1',
+      runId: 'blocked-previous-run',
+      runDir: blockedPreviousRunDir,
+      relativePath: 'artifacts/iteration-1-controller-evidence-snapshot.json',
+      kind: 'controller-evidence-snapshot',
+    },
+    requiredHardFacts: {
+      schema: 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: true,
+      dirtyTrackedFiles: ['doc.json'],
+      currentRunChangedFiles: ['doc.json'],
+      preExistingDirtyFiles: [],
+      allowedCommitFiles: ['doc.json'],
+      forbiddenCommitFiles: [],
+      commitEvidencePresent: false,
+    },
+    commitScope: {
+      schema: 'living-doc-harness-commit-scope/v1',
+      currentRunChangedFiles: ['doc.json'],
+      preExistingDirtyFiles: [],
+      allowedCommitFiles: ['doc.json'],
+      forbiddenCommitFiles: [],
+    },
+    workerEvidence: { filesChanged: ['doc.json'] },
+  }, null, 2)}\n`, 'utf8');
+  const blockedPreviousOutputInputPath = path.join(blockedPreviousRunDir, 'output-input', 'iteration-1.json');
+  await writeFile(blockedPreviousOutputInputPath, `${JSON.stringify({
+    schema: 'living-doc-harness-output-input/v1',
+    previousOutput: {
+      evidencePath: 'artifacts/iteration-1-evidence.json',
+      evidenceRef: {
+        schema: 'living-doc-artifact-ref/v1',
+        runId: 'blocked-previous-run',
+        runDir: blockedPreviousRunDir,
+        relativePath: 'artifacts/iteration-1-evidence.json',
+        kind: 'iteration-evidence',
+      },
+      classification: 'closure-candidate',
+    },
+  }, null, 2)}\n`, 'utf8');
+  const blockedCommitRun = await createHarnessRun({
+    docPath: 'doc.json',
+    runsDir: path.join(tmp, 'blocked-commit-intent-runs'),
+    execute: true,
+    cwd: blockedCommitFixture,
+    now: '2026-05-07T06:32:30.000Z',
+    codexBin: fakeBlockedCommitCodex,
+    codexHome: fakeBlockedCommitCodexHome,
+    iteration: 2,
+    lifecycleInput: {
+      mode: 'fresh-unit',
+      previousRunId: 'blocked-previous-run',
+      previousIteration: 1,
+      instruction: 'Run blocked commit-intent.',
+      outputInputPath: blockedPreviousOutputInputPath,
+      selectedUnitType: 'commit-intent',
+      nextUnit: {
+        unitId: 'commit-intent',
+        role: 'commit-intent',
+        changedFiles: ['doc.json'],
+      },
+    },
+  });
+  const blockedCommitResult = JSON.parse(await readFile(path.join(
+    blockedCommitRun.runDir,
+    blockedCommitRun.contract.artifacts.commitIntentInferenceUnit.result,
+  ), 'utf8'));
+  assert.equal(blockedCommitResult.outputContract.status, 'blocked');
+  assert.equal(blockedCommitResult.outputContract.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
+  assert.equal(blockedCommitResult.outputContract.sideEffect.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
+  assert.equal(blockedCommitResult.outputContract.sideEffect.executed, false);
+  assert.notEqual(blockedCommitResult.outputContract.sideEffect.reasonCode, 'git-head-unchanged');
+
   await writeFile(path.join(gitFixture, 'unrelated.md'), 'baseline unrelated\n', 'utf8');
   spawnSync('git', ['add', 'unrelated.md'], { cwd: gitFixture, stdio: 'ignore' });
   spawnSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'add unrelated fixture'], { cwd: gitFixture, stdio: 'ignore' });
