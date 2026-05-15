@@ -139,6 +139,63 @@ function assertPolicySelection({ facts, expectedRuleId, expectedUnitId = null, c
   return route;
 }
 
+function assertInvalidDecisionUnitRecommendationRejected({
+  sourceUnitType,
+  recommendedUnitType,
+  validationOk,
+}) {
+  const route = selectLifecycleRoute({
+    classification: 'repairable',
+    nextIterationAllowed: true,
+    latestRecommendation: {
+      sourceUnitType,
+      sourceUnitRole: sourceUnitType,
+      recommendedUnitType,
+      recommendedUnitRole: recommendedUnitType,
+      ...(validationOk === undefined ? {} : { validationOk }),
+      reasonCode: `${sourceUnitType}-invalid-output-contract`,
+    },
+    latestRecommendedUnitType: recommendedUnitType,
+    latestRecommendedUnitRole: recommendedUnitType,
+    latestRecommendationReasonCode: `${sourceUnitType}-invalid-output-contract`,
+    commitBlocked: true,
+  });
+  assert.equal(route?.policyRuleId, 'latest-unit-output-contract-invalid');
+  assert.equal(route.selectedBy, 'contract-validation');
+  assert.equal(route.terminalActionKind, 'continuation-required');
+  assert.equal(route.reasonCode, `${sourceUnitType}-invalid-output-contract`);
+  assert.equal(route.unitId, undefined);
+}
+
+function assertValidDecisionUnitRecommendationAccepted({
+  sourceUnitType,
+  recommendedUnitType,
+}) {
+  const route = assertPolicySelection({
+    facts: {
+      classification: 'repairable',
+      nextIterationAllowed: true,
+      latestRecommendation: {
+        sourceUnitType,
+        sourceUnitRole: sourceUnitType,
+        validationOk: true,
+        recommendedUnitType,
+        recommendedUnitRole: recommendedUnitType,
+        reasonCode: `${sourceUnitType}-valid-output-contract`,
+      },
+      latestRecommendedUnitType: recommendedUnitType,
+      latestRecommendedUnitRole: recommendedUnitType,
+      latestRecommendationReasonCode: `${sourceUnitType}-valid-output-contract`,
+      commitBlocked: true,
+    },
+    expectedRuleId: 'latest-unit-output-recommendation',
+    expectedUnitId: recommendedUnitType,
+    currentUnitTypeId: sourceUnitType,
+  });
+  assert.equal(route.selectedBy, 'latest-unit-output-contract');
+  assert.equal(route.latestRecommendation.validationOk, true);
+}
+
 assertPolicySelection({
   facts: {
     classification: 'closure-candidate',
@@ -225,6 +282,30 @@ assertPolicySelection({
   },
   expectedRuleId: 'same-reason-continuation-loop-blocked',
 });
+
+for (const [sourceUnitType, recommendedUnitType] of [
+  ['reviewer-inference', 'living-doc-balance-scan'],
+  ['commit-intent', 'closure-review'],
+  ['pr-review', 'closure-review'],
+  ['living-doc-balance-scan', 'repair-skill'],
+  ['repair-skill', 'commit-intent'],
+  ['closure-review', 'worker'],
+]) {
+  assertInvalidDecisionUnitRecommendationRejected({
+    sourceUnitType,
+    recommendedUnitType,
+    validationOk: false,
+  });
+  assertInvalidDecisionUnitRecommendationRejected({
+    sourceUnitType,
+    recommendedUnitType,
+    validationOk: undefined,
+  });
+  assertValidDecisionUnitRecommendationAccepted({
+    sourceUnitType,
+    recommendedUnitType,
+  });
+}
 
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-system-invariants-'));
 try {

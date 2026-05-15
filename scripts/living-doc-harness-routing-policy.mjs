@@ -31,6 +31,19 @@ export const LIFECYCLE_ROUTING_POLICY_RULES = [
     when: ({ latestRecommendedUnitType, latestRecommendation, sameReasonContinuationLoop }) => (
       Boolean(latestRecommendedUnitType)
       && latestRecommendation?.sourceUnitType !== 'worker'
+      && latestRecommendation?.validationOk === true
+      && sameReasonContinuationLoop !== true
+    ),
+  },
+  {
+    id: 'latest-unit-output-contract-invalid',
+    terminalActionKind: 'continuation-required',
+    selectedBy: 'contract-validation',
+    reasonCode: ({ latestRecommendationReasonCode }) => latestRecommendationReasonCode || 'latest-unit-output-contract-invalid',
+    when: ({ latestRecommendedUnitType, latestRecommendation, sameReasonContinuationLoop }) => (
+      Boolean(latestRecommendedUnitType)
+      && latestRecommendation?.sourceUnitType !== 'worker'
+      && latestRecommendation?.validationOk !== true
       && sameReasonContinuationLoop !== true
     ),
   },

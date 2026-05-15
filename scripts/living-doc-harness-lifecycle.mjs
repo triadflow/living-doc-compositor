@@ -245,6 +245,9 @@ async function initialInferenceUnitEvidenceFromRun({ run, runDir, plan }) {
   const plannedOutput = plan?.initialInferenceUnitOutputContract || plan?.initialUnitOutputContract || null;
   const outputContract = plannedOutput || result?.outputContract || result || null;
   if (!outputContract) return null;
+  const validationOk = hasOwn(plan, 'initialInferenceUnitValidationOk')
+    ? plan.initialInferenceUnitValidationOk === true
+    : validation?.ok === true;
   return {
     schema: 'living-doc-harness-initial-inference-unit-evidence/v1',
     unitId: initialUnit.unitId,
@@ -253,7 +256,7 @@ async function initialInferenceUnitEvidenceFromRun({ run, runDir, plan }) {
     validationPath,
     resultRef,
     validationRef,
-    validationOk: validation?.ok === true,
+    validationOk,
     status: result?.status || outputContract.status || null,
     outputContract,
   };
@@ -1968,7 +1971,7 @@ export async function runHarnessLifecycle({
       if (!nextAction.allowed) {
         finalState = {
           kind: 'route-contract-rejected',
-          reasonCode: nextAction.contractValidation?.reasonCode || finalization.postReviewSelection?.terminalAction?.reasonCode || 'no-valid-policy-route',
+          reasonCode: finalization.postReviewSelection?.terminalAction?.reasonCode || nextAction.contractValidation?.reasonCode || 'no-valid-policy-route',
           reason: nextAction.reason,
           runId: run.runId,
           iteration,

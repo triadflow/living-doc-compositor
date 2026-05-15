@@ -145,6 +145,25 @@ try {
   });
   assert.equal(sameReasonLoopRoute.policyRuleId, 'same-reason-continuation-loop-blocked');
   assert.equal(sameReasonLoopRoute.terminalActionKind, 'continuation-required');
+  const invalidLatestUnitRecommendationRoute = selectLifecycleRoute({
+    classification: 'repairable',
+    reasonCode: 'invalid-pr-review-output',
+    nextIterationAllowed: true,
+    latestRecommendation: {
+      sourceUnitType: 'pr-review',
+      sourceUnitRole: 'pr-review',
+      validationOk: false,
+      recommendedUnitType: 'closure-review',
+      recommendedUnitRole: 'closure-review',
+      reasonCode: 'invalid-pr-review-output',
+    },
+    latestRecommendedUnitType: 'closure-review',
+    latestRecommendedUnitRole: 'closure-review',
+    latestRecommendationReasonCode: 'invalid-pr-review-output',
+  });
+  assert.equal(invalidLatestUnitRecommendationRoute.policyRuleId, 'latest-unit-output-contract-invalid');
+  assert.equal(invalidLatestUnitRecommendationRoute.terminalActionKind, 'continuation-required');
+  assert.equal(invalidLatestUnitRecommendationRoute.selectedBy, 'contract-validation');
 
   const gitFixture = path.join(tmp, 'git-fixture');
   await mkdir(gitFixture, { recursive: true });
@@ -1943,6 +1962,88 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.equal(rejectedRouteOutputInput.postReviewSelection.rejectedNextUnit.unitId, 'living-doc-balance-scan');
   assert.equal(rejectedRouteOutputInput.postReviewSelection.terminalAction.policyRuleId, 'contract-validation-rejected-route');
   assert.equal(rejectedRouteOutputInput.nextInput, null);
+
+  const invalidLatestOutputSequencePath = path.join(tmp, 'invalid-latest-output-sequence.json');
+  await writeFile(invalidLatestOutputSequencePath, `${JSON.stringify({
+    iterations: [
+      {
+        stageAfter: 'closed',
+        unresolvedObjectiveTerms: [],
+        unprovenAcceptanceCriteria: [],
+        acceptanceCriteriaSatisfied: 'pass',
+        closureAllowed: true,
+        sourceFilesChanged: false,
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fixture-commit-not-required',
+            required: false,
+          },
+        },
+        traceMessage: 'First iteration selects PR-review from run policy.',
+        reviewerVerdict: reviewerVerdict('closed', {
+          reasonCode: 'fixture-pr-review-before-invalid-output',
+          closureAllowed: true,
+        }),
+      },
+      {
+        stageAfter: 'repairable',
+        unresolvedObjectiveTerms: ['invalid decision output must not select the next unit'],
+        unprovenAcceptanceCriteria: ['criterion-current-unit-only-output-recovery'],
+        acceptanceCriteriaSatisfied: 'pending',
+        closureAllowed: false,
+        sourceFilesChanged: false,
+        initialInferenceUnitOutputContract: {
+          schema: 'living-doc-harness-pr-review-result/v1',
+          status: 'approved',
+          approvedActions: [],
+          sideEffect: {
+            type: 'github-pr-review',
+            executed: false,
+            reasonCode: 'invalid-pr-review-output',
+          },
+          reasonCode: 'invalid-pr-review-output',
+          nextRecommendedUnitType: 'closure-review',
+          basis: ['This simulated PR-review recommendation is paired with a failed validation artifact.'],
+        },
+        initialInferenceUnitValidationOk: false,
+        sideEffectEvidence: {
+          commit: {
+            sha: 'fixture-commit-not-required',
+            required: false,
+          },
+        },
+        traceMessage: 'PR-review output recommends closure-review, but its validation artifact is forced to failed.',
+        reviewerVerdict: reviewerVerdict('repairable', {
+          reasonCode: 'invalid-pr-review-output',
+          mode: 'fresh-unit',
+          instruction: 'Do not route from an invalid decision-unit output contract.',
+        }),
+      },
+    ],
+  }, null, 2)}\n`, 'utf8');
+  const invalidLatestOutputLifecycle = await runHarnessLifecycle({
+    docPath,
+    runsDir: path.join(tmp, 'invalid-latest-output-runs'),
+    evidenceDir: path.join(tmp, 'invalid-latest-output-evidence'),
+    dashboardPath: path.join(tmp, 'invalid-latest-output-dashboard.html'),
+    evidenceSequencePath: invalidLatestOutputSequencePath,
+    prReviewPolicy: {
+      schema: 'living-doc-harness-pr-review-policy/v1',
+      mode: 'required-before-closure',
+    },
+    now: '2026-05-07T13:07:40.000Z',
+  });
+  assert.equal(invalidLatestOutputLifecycle.finalState.kind, 'route-contract-rejected');
+  assert.equal(invalidLatestOutputLifecycle.finalState.reasonCode, 'invalid-pr-review-output');
+  const invalidLatestOutputInput = JSON.parse(await readFile(path.resolve(
+    process.cwd(),
+    invalidLatestOutputLifecycle.iterations[1].outputInputPath,
+  ), 'utf8'));
+  assert.equal(invalidLatestOutputInput.postReviewSelection.nextUnit, null);
+  assert.equal(invalidLatestOutputInput.postReviewSelection.terminalAction.policyRuleId, 'latest-unit-output-contract-invalid');
+  assert.equal(invalidLatestOutputInput.postReviewSelection.terminalAction.routeAuthority.accepted, false);
+  assert.equal(invalidLatestOutputInput.postReviewSelection.terminalAction.routeAuthority.validationOk, false);
+  assert.equal(invalidLatestOutputInput.nextInput, null);
 
   const prPolicySequencePath = path.join(tmp, 'pr-policy-sequence.json');
   await writeFile(prPolicySequencePath, `${JSON.stringify({
