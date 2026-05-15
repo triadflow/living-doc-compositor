@@ -913,6 +913,12 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
     const initialUnitType = contract?.runConfig?.initialUnitType || contract?.artifacts?.initialInferenceUnit?.unitId || 'worker';
     const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
     const workerUnit = contract?.artifacts?.initialInferenceUnit || contract?.artifacts?.workerInferenceUnit || {};
+    const commitTransactionArtifact = contract?.artifacts?.commitTransaction || null;
+    const commitTransactionPath = commitTransactionArtifact?.ref
+      ? resolveArtifactRef({ cwd, baseDir: runDir, ref: commitTransactionArtifact.ref })
+      : commitTransactionArtifact?.path
+        ? path.resolve(runDir, commitTransactionArtifact.path)
+        : null;
     const workerId = `iteration-${iteration}-${initialUnitType}`;
     const activePostReviewSelectionPath = path.join(runDir, 'artifacts', `iteration-${iteration}-post-review-selection.json`);
     const activePostReviewSelection = await readJson(activePostReviewSelectionPath, null);
@@ -952,6 +958,7 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
         validationPath: workerUnit.validation
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
           : null,
+        commitTransactionPath: commitTransactionPath ? relativeTo(cwd, commitTransactionPath) : null,
       },
       meta: {
         runId,
@@ -960,6 +967,11 @@ async function collectActiveLifecycleGraph(lifecycleDir, { cwd, runsDir, activeP
         pid: contract?.process?.pid ?? null,
         exitCode: contract?.process?.exitCode ?? null,
         policySelection,
+        commitTransaction: commitTransactionArtifact ? {
+          status: commitTransactionArtifact.status || null,
+          reasonCode: commitTransactionArtifact.reasonCode || null,
+          path: commitTransactionPath ? relativeTo(cwd, commitTransactionPath) : null,
+        } : null,
       },
     }));
     addEdge(graphEdge(`lifecycle-to-${initialUnitType}-${iteration}`, lifecycleNodeId, workerId, {
@@ -1250,6 +1262,12 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
     const initialUnitType = contract?.runConfig?.initialUnitType || contract?.artifacts?.initialInferenceUnit?.unitId || 'worker';
     const initialUnitRole = contract?.runConfig?.initialUnitRole || contract?.artifacts?.initialInferenceUnit?.role || initialUnitType;
     const workerUnit = contract.artifacts?.initialInferenceUnit || contract.artifacts?.workerInferenceUnit || {};
+    const commitTransactionArtifact = contract?.artifacts?.commitTransaction || null;
+    const commitTransactionPath = commitTransactionArtifact?.ref
+      ? resolveArtifactRef({ cwd, baseDir: runDir, ref: commitTransactionArtifact.ref })
+      : commitTransactionArtifact?.path
+        ? path.resolve(runDir, commitTransactionArtifact.path)
+        : null;
 
     const workerId = `iteration-${iteration}-${initialUnitType}`;
     const workerResultPath = resolveInferenceUnitResultPath({ cwd, runDir, iteration, unitId: initialUnitType, unit: workerUnit });
@@ -1278,6 +1296,7 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         validationPath: workerUnit.validation
           ? relativeTo(cwd, resolveArtifactRef({ cwd, baseDir: runDir, ref: workerUnit.validation }))
           : relativeTo(cwd, path.join(runDir, 'artifacts', `iteration-${iteration}-proof-validation.json`)),
+        commitTransactionPath: commitTransactionPath ? relativeTo(cwd, commitTransactionPath) : null,
       },
       meta: {
         runId,
@@ -1296,6 +1315,11 @@ export async function collectLifecycleGraph(lifecycleDir, { cwd, runsDir }) {
         },
         policySelection,
         toolProfile: summarizeToolProfile(contract.process?.toolProfile),
+        commitTransaction: commitTransactionArtifact ? {
+          status: commitTransactionArtifact.status || null,
+          reasonCode: commitTransactionArtifact.reasonCode || null,
+          path: commitTransactionPath ? relativeTo(cwd, commitTransactionPath) : null,
+        } : null,
       },
     }));
     addEdge(graphEdge(`lifecycle-to-${initialUnitType}-${iteration}`, lifecycleNodeId, workerId, {

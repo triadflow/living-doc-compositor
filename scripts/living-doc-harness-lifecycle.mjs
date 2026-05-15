@@ -672,6 +672,14 @@ function commitGateFromEvidence({ sideEffectEvidence, sourceFilesChanged }) {
 
 export async function sideEffectEvidenceFromRun({ run, runDir }) {
   const initialUnit = run?.contract?.artifacts?.initialInferenceUnit || null;
+  const commitTransactionArtifact = run?.contract?.artifacts?.commitTransaction || null;
+  const commitTransactionRef = commitTransactionArtifact?.ref || null;
+  const commitTransactionPath = commitTransactionArtifact?.path || null;
+  const commitTransaction = commitTransactionRef
+    ? await readJson(resolveArtifactRef({ currentRunDir: runDir, ref: commitTransactionRef }), null)
+    : commitTransactionPath
+      ? await readJson(path.resolve(runDir, commitTransactionPath), null)
+      : null;
   const initialUnitResultRef = initialUnit?.unitId === 'commit-intent'
     ? run.contract.artifacts.initialInferenceUnit.result
     : null;
@@ -728,6 +736,9 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
         resultRef: commitResultArtifactRef,
         validationPath: commitValidationRef ? path.relative(runDir, path.resolve(runDir, commitValidationRef)) : null,
         validationRef: commitValidationArtifactRef,
+        commitTransactionStatus: commitTransaction?.status || null,
+        commitTransactionPath: commitTransactionPath || null,
+        commitTransactionRef: commitTransactionRef || null,
       };
     } else if (output?.schema === 'living-doc-harness-commit-intent-result/v1'
       && (['blocked', 'failed'].includes(output.status) || sideEffect.executed === true || sideEffect.sha)) {
@@ -752,6 +763,9 @@ export async function sideEffectEvidenceFromRun({ run, runDir }) {
         validationPath: commitValidationRef ? path.relative(runDir, path.resolve(runDir, commitValidationRef)) : null,
         resultRef: commitResultArtifactRef,
         validationRef: commitValidationArtifactRef,
+        commitTransactionStatus: commitTransaction?.status || null,
+        commitTransactionPath: commitTransactionPath || null,
+        commitTransactionRef: commitTransactionRef || null,
       };
     }
   }

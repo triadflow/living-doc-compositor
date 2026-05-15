@@ -35,6 +35,9 @@ export function commitGateFromCommitEvidence({ commit = {}, hardFacts = {}, sour
       resultRef: commit.resultRef || null,
       validationPath: commit.validationPath || null,
       validationRef: commit.validationRef || null,
+      commitTransactionStatus: commit.commitTransactionStatus || null,
+      commitTransactionPath: commit.commitTransactionPath || null,
+      commitTransactionRef: commit.commitTransactionRef || null,
       reasonCode: commit.reasonCode || 'commit-intent-gate-blocked',
       basis: arr(commit.basis),
     };
@@ -48,6 +51,9 @@ export function commitGateFromCommitEvidence({ commit = {}, hardFacts = {}, sour
       resultRef: commit.resultRef || null,
       validationPath: commit.validationPath || null,
       validationRef: commit.validationRef || null,
+      commitTransactionStatus: commit.commitTransactionStatus || null,
+      commitTransactionPath: commit.commitTransactionPath || null,
+      commitTransactionRef: commit.commitTransactionRef || null,
       reasonCode: commit.reasonCode || null,
       basis: arr(commit.basis),
     };

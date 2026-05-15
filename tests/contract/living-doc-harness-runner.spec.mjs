@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHarnessRun } from '../../scripts/living-doc-harness-runner.mjs';
 import { writeContractBoundInferenceUnitSnapshot } from '../../scripts/living-doc-harness-inference-unit.mjs';
+import { sideEffectEvidenceFromRun } from '../../scripts/living-doc-harness-lifecycle.mjs';
 
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-runner-'));
 
@@ -1275,6 +1276,29 @@ exit 0
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.extraCommittedFiles, []);
   assert.deepEqual(commitIntentResult.outputContract.sideEffect.forbiddenCommittedFiles, []);
   assert.deepEqual([...commitIntentResult.outputContract.sideEffect.livingDocStateCommittedFiles].sort(), ['doc.html', 'doc.json']);
+  assert.equal(commitIntentRun.contract.artifacts.commitTransaction.schema, 'living-doc-harness-commit-transaction-artifact/v1');
+  assert.equal(commitIntentRun.contract.artifacts.commitTransaction.status, 'approved-executed');
+  assert.equal(commitIntentRun.contract.artifacts.commitTransaction.reasonCode, 'git-commit-created');
+  assert.equal(commitIntentRun.contract.artifacts.commitTransaction.ref.schema, 'living-doc-artifact-ref/v1');
+  const commitTransaction = JSON.parse(await readFile(path.join(
+    commitIntentRun.runDir,
+    commitIntentRun.contract.artifacts.commitTransaction.path,
+  ), 'utf8'));
+  assert.equal(commitTransaction.schema, 'living-doc-harness-commit-transaction/v1');
+  assert.equal(commitTransaction.status, 'approved-executed');
+  assert.equal(commitTransaction.intent.approved, true);
+  assert.equal(commitTransaction.controller.executed, true);
+  assert.equal(commitTransaction.controller.source, 'controller-deterministic-commit');
+  assert.deepEqual(commitTransaction.scope.allowedCommitFiles, ['doc.json', 'doc.html']);
+  assert.deepEqual(commitTransaction.scope.forbiddenCommitFiles, []);
+  assert.match(commitTransaction.evidence.sha, /^[a-f0-9]{40}$/);
+  const commitSideEffectEvidence = await sideEffectEvidenceFromRun({
+    run: commitIntentRun,
+    runDir: commitIntentRun.runDir,
+  });
+  assert.equal(commitSideEffectEvidence.commit.commitTransactionStatus, 'approved-executed');
+  assert.equal(commitSideEffectEvidence.commit.commitTransactionPath, commitIntentRun.contract.artifacts.commitTransaction.path);
+  assert.equal(commitSideEffectEvidence.commit.commitTransactionRef.schema, 'living-doc-artifact-ref/v1');
   const commitIntentPrompt = await readFile(path.join(
     commitIntentRun.runDir,
     commitIntentRun.contract.artifacts.commitIntentInferenceUnit.prompt,
@@ -1441,6 +1465,24 @@ exit 0
   assert.equal(blockedCommitResult.outputContract.sideEffect.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
   assert.equal(blockedCommitResult.outputContract.sideEffect.executed, false);
   assert.notEqual(blockedCommitResult.outputContract.sideEffect.reasonCode, 'git-head-unchanged');
+  assert.equal(blockedCommitRun.contract.artifacts.commitTransaction.status, 'blocked');
+  assert.equal(blockedCommitRun.contract.artifacts.commitTransaction.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
+  const blockedCommitTransaction = JSON.parse(await readFile(path.join(
+    blockedCommitRun.runDir,
+    blockedCommitRun.contract.artifacts.commitTransaction.path,
+  ), 'utf8'));
+  assert.equal(blockedCommitTransaction.schema, 'living-doc-harness-commit-transaction/v1');
+  assert.equal(blockedCommitTransaction.status, 'blocked');
+  assert.equal(blockedCommitTransaction.reasonCode, 'commit-scope-mismatch-unscoped-dirty-files');
+  assert.equal(blockedCommitTransaction.blockedCondition.reasonCode, 'unscoped-dirty-tracked-files-present');
+  assert.equal(blockedCommitTransaction.intent.status, 'blocked');
+  assert.equal(blockedCommitTransaction.controller.executed, false);
+  const blockedSideEffectEvidence = await sideEffectEvidenceFromRun({
+    run: blockedCommitRun,
+    runDir: blockedCommitRun.runDir,
+  });
+  assert.equal(blockedSideEffectEvidence.commit.commitTransactionStatus, 'blocked');
+  assert.equal(blockedSideEffectEvidence.commit.commitTransactionPath, blockedCommitRun.contract.artifacts.commitTransaction.path);
 
   await writeFile(path.join(gitFixture, 'unrelated.md'), 'baseline unrelated\n', 'utf8');
   spawnSync('git', ['add', 'unrelated.md'], { cwd: gitFixture, stdio: 'ignore' });

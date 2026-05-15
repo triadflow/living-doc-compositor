@@ -45,6 +45,7 @@ for (const [pathField, refField] of [
 for (const [pathField, refField] of [
   ['postFlightSummaryPath', 'postFlightSummaryRef'],
   ['postFlightUnitResultPath', 'postFlightUnitResultRef'],
+  ['commitTransactionPath', 'commitTransactionRef'],
 ]) {
   assertSourcePair(pathField, refField);
 }

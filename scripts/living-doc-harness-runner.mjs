@@ -1378,27 +1378,29 @@ async function controllerCommitFromIntent({ cwd, inputContract, proposal, allowe
 
 function commitIntentRoleBoundaryOutputContract({ inputContract, status, exitCode, traceRefs, paths, commitBefore, commitAfter, commitEvidence }) {
   const committedFiles = arr(commitEvidence?.files);
+  const sideEffect = {
+    type: 'git-commit',
+    executed: Boolean(commitAfter && commitBefore && commitBefore !== commitAfter),
+    reasonCode: 'commit-intent-mutated-git-history',
+    sha: commitEvidence?.sha || commitAfter || null,
+    beforeSha: commitBefore,
+    afterSha: commitAfter,
+    committedAt: commitEvidence?.committedAt || null,
+    committedFiles,
+    requiredChangedFiles: arr(inputContract.changedFiles),
+    allowedCommitFiles: arr(inputContract.allowedCommitFiles),
+    forbiddenCommitFiles: arr(inputContract.forbiddenCommitFiles),
+    currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+    preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+  };
   return {
     schema: 'living-doc-harness-commit-intent-result/v1',
     approved: false,
     status: 'blocked',
     changedFiles: unique(arr(inputContract.changedFiles).length ? arr(inputContract.changedFiles) : arr(inputContract.allowedCommitFiles)),
     message: 'Commit-intent unit mutated git history directly; the controller must own commit execution.',
-    sideEffect: {
-      type: 'git-commit',
-      executed: Boolean(commitAfter && commitBefore && commitBefore !== commitAfter),
-      reasonCode: 'commit-intent-mutated-git-history',
-      sha: commitEvidence?.sha || commitAfter || null,
-      beforeSha: commitBefore,
-      afterSha: commitAfter,
-      committedAt: commitEvidence?.committedAt || null,
-      committedFiles,
-      requiredChangedFiles: arr(inputContract.changedFiles),
-      allowedCommitFiles: arr(inputContract.allowedCommitFiles),
-      forbiddenCommitFiles: arr(inputContract.forbiddenCommitFiles),
-      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
-      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
-    },
+    sideEffect,
+    commitTransaction: commitTransactionContract({ inputContract, status: 'blocked', reasonCode: 'commit-intent-mutated-git-history', sideEffect }),
     roleBoundaryViolation: {
       schema: 'living-doc-harness-role-boundary-violation/v1',
       reasonCode: 'commit-intent-mutated-git-history',
@@ -1410,6 +1412,68 @@ function commitIntentRoleBoundaryOutputContract({ inputContract, status, exitCod
     exitCode,
     ...paths,
     nativeTraceRefs: traceRefs,
+  };
+}
+
+function commitTransactionContract({ inputContract, status, reasonCode = null, sideEffect = {}, proposal = null, commitKind = null }) {
+  const executed = sideEffect.executed === true && Boolean(sideEffect.sha);
+  const blocked = status === 'blocked' || status === 'failed' || sideEffect.reasonCode?.includes('blocked') || sideEffect.reasonCode?.includes('failed');
+  const notRequired = status === 'not-required' || sideEffect.required === false;
+  return {
+    schema: 'living-doc-harness-commit-transaction/v1',
+    status: executed ? 'executed' : notRequired ? 'not-required' : blocked ? 'blocked' : status || 'pending',
+    commitKind: commitKind || null,
+    preRunWorktree: {
+      changedFiles: unique([
+        ...arr(inputContract.currentRunChangedFiles),
+        ...arr(inputContract.preExistingDirtyFiles),
+      ]),
+      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+      beforeSha: sideEffect.beforeSha || null,
+    },
+    postWorkerScope: {
+      changedFiles: arr(inputContract.changedFiles),
+      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+      allowedCommitFiles: arr(sideEffect.allowedCommitFiles).length
+        ? arr(sideEffect.allowedCommitFiles)
+        : arr(inputContract.allowedCommitFiles),
+      forbiddenCommitFiles: arr(sideEffect.forbiddenCommitFiles).length
+        ? arr(sideEffect.forbiddenCommitFiles)
+        : arr(inputContract.forbiddenCommitFiles),
+    },
+    commitIntentVerdict: {
+      approved: status === 'approved',
+      status,
+      reasonCode: reasonCode || sideEffect.reasonCode || null,
+      message: proposal?.message || null,
+    },
+    controllerGitExecution: {
+      attempted: sideEffect.executed === true || ['controller-git-commit-created', 'controller-git-commit-failed', 'controller-git-head-unchanged'].includes(sideEffect.reasonCode),
+      executed,
+      source: sideEffect.source || null,
+      reasonCode: sideEffect.reasonCode || reasonCode || null,
+      beforeSha: sideEffect.beforeSha || null,
+      afterSha: sideEffect.afterSha || sideEffect.sha || null,
+      error: sideEffect.error || null,
+    },
+    commitEvidence: executed ? {
+      sha: sideEffect.sha,
+      committedAt: sideEffect.committedAt || null,
+      committedFiles: arr(sideEffect.committedFiles),
+      missingRequiredFiles: arr(sideEffect.missingChangedFiles),
+      extraCommittedFiles: arr(sideEffect.extraCommittedFiles),
+      forbiddenCommittedFiles: arr(sideEffect.forbiddenCommittedFiles),
+    } : null,
+    blockedReason: executed || notRequired ? null : {
+      reasonCode: reasonCode || sideEffect.reasonCode || 'commit-transaction-blocked',
+      nextAction: sideEffect.error
+        ? 'Repair the controller git execution failure before retrying commit-intent.'
+        : 'Refresh the commit scope or resolve dirty worktree facts before closure.',
+    },
+    reviewerConsumption: {
+      gate: executed || notRequired ? 'satisfied' : 'blocked',
+      closureConsumable: executed || notRequired,
+    },
   };
 }
 
@@ -1461,44 +1525,62 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
     const approved = missingChangedFiles.length === 0
       && extraCommittedFiles.length === 0
       && forbiddenCommittedFiles.length === 0;
+    const resultStatus = approved ? 'approved' : 'blocked';
+    const reasonCode = approved
+      ? 'git-commit-created'
+      : extraCommittedFiles.length || forbiddenCommittedFiles.length
+        ? 'git-commit-contained-unapproved-files'
+        : 'git-commit-missing-required-files';
+    const sideEffect = {
+      type: 'git-commit',
+      executed: true,
+      reasonCode,
+      sha: commitEvidence.sha,
+      beforeSha: commitBefore,
+      committedAt: commitEvidence.committedAt,
+      committedFiles,
+      livingDocStateFiles: livingDocStateScope.livingDocStateFiles,
+      livingDocStateCommittedFiles,
+      nonLivingDocStateCommittedFiles,
+      requiredChangedFiles: changedFiles,
+      allowedCommitFiles,
+      missingChangedFiles,
+      extraCommittedFiles,
+      forbiddenCommittedFiles,
+      forbiddenCommitFiles,
+      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+      source: controllerCommit?.executed === true ? 'controller-deterministic-commit' : 'commit-intent-unit-side-effect',
+    };
     return {
       schema: 'living-doc-harness-commit-intent-result/v1',
       approved,
-      status: approved ? 'approved' : 'blocked',
+      status: resultStatus,
       commitKind,
       changedFiles,
       message: commitEvidence.subject || inputContract.commitIntent?.message || 'Harness-managed commit-intent side effect.',
-      sideEffect: {
-        type: 'git-commit',
-        executed: true,
-        reasonCode: approved
-          ? 'git-commit-created'
-          : extraCommittedFiles.length || forbiddenCommittedFiles.length
-            ? 'git-commit-contained-unapproved-files'
-            : 'git-commit-missing-required-files',
-        sha: commitEvidence.sha,
-        beforeSha: commitBefore,
-        committedAt: commitEvidence.committedAt,
-        committedFiles,
-        livingDocStateFiles: livingDocStateScope.livingDocStateFiles,
-        livingDocStateCommittedFiles,
-        nonLivingDocStateCommittedFiles,
-        requiredChangedFiles: changedFiles,
-        allowedCommitFiles,
-        missingChangedFiles,
-        extraCommittedFiles,
-        forbiddenCommittedFiles,
-        forbiddenCommitFiles,
-        currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
-        preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
-        source: controllerCommit?.executed === true ? 'controller-deterministic-commit' : 'commit-intent-unit-side-effect',
-      },
+      sideEffect,
+      commitTransaction: commitTransactionContract({ inputContract, status: resultStatus, reasonCode, sideEffect, proposal, commitKind }),
       exitCode,
       ...paths,
       nativeTraceRefs: traceRefs,
     };
   }
   if (controllerCommit?.attempted || proposal?.approved === true || proposal?.status === 'approved') {
+    const sideEffect = {
+      type: 'git-commit',
+      executed: false,
+      reasonCode: controllerCommit?.reasonCode || 'controller-git-commit-not-executed',
+      beforeSha: controllerCommit?.beforeSha || commitBefore,
+      afterSha: controllerCommit?.afterSha || commitAfter,
+      requiredChangedFiles: changedFiles,
+      allowedCommitFiles,
+      forbiddenCommitFiles,
+      forbiddenProposedFiles: arr(controllerCommit?.forbiddenProposedFiles),
+      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+      error: controllerCommit?.error || null,
+    };
     return {
       schema: 'living-doc-harness-commit-intent-result/v1',
       approved: false,
@@ -1506,20 +1588,8 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       commitKind: 'objective-scope',
       changedFiles,
       message: proposal?.message || controllerCommit?.message || 'Commit-intent proposal could not be committed by the controller.',
-      sideEffect: {
-        type: 'git-commit',
-        executed: false,
-        reasonCode: controllerCommit?.reasonCode || 'controller-git-commit-not-executed',
-        beforeSha: controllerCommit?.beforeSha || commitBefore,
-        afterSha: controllerCommit?.afterSha || commitAfter,
-        requiredChangedFiles: changedFiles,
-        allowedCommitFiles,
-        forbiddenCommitFiles,
-        forbiddenProposedFiles: arr(controllerCommit?.forbiddenProposedFiles),
-        currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
-        preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
-        error: controllerCommit?.error || null,
-      },
+      sideEffect,
+      commitTransaction: commitTransactionContract({ inputContract, status: 'blocked', reasonCode: sideEffect.reasonCode, sideEffect, proposal, commitKind: 'objective-scope' }),
       exitCode,
       ...paths,
       nativeTraceRefs: traceRefs,
@@ -1528,6 +1598,29 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
   if (proposal?.schema === 'living-doc-harness-commit-intent-result/v1'
     && ['blocked', 'failed'].includes(proposal.status)) {
     const reasonCode = proposal.sideEffect?.reasonCode || proposal.reasonCode || 'commit-intent-gate-blocked';
+    const sideEffect = {
+      ...(proposal.sideEffect && typeof proposal.sideEffect === 'object' ? proposal.sideEffect : {}),
+      type: proposal.sideEffect?.type || 'git-commit',
+      executed: false,
+      reasonCode,
+      beforeSha: proposal.sideEffect?.beforeSha || commitBefore,
+      afterSha: proposal.sideEffect?.afterSha || commitAfter,
+      requiredChangedFiles: unique(arr(proposal.sideEffect?.requiredChangedFiles).length
+        ? arr(proposal.sideEffect.requiredChangedFiles)
+        : changedFiles),
+      allowedCommitFiles: unique(arr(proposal.sideEffect?.allowedCommitFiles).length
+        ? arr(proposal.sideEffect.allowedCommitFiles)
+        : allowedCommitFiles),
+      forbiddenCommitFiles: unique(arr(proposal.sideEffect?.forbiddenCommitFiles).length
+        ? arr(proposal.sideEffect.forbiddenCommitFiles)
+        : forbiddenCommitFiles),
+      currentRunChangedFiles: arr(proposal.sideEffect?.currentRunChangedFiles).length
+        ? arr(proposal.sideEffect.currentRunChangedFiles)
+        : arr(inputContract.currentRunChangedFiles),
+      preExistingDirtyFiles: arr(proposal.sideEffect?.preExistingDirtyFiles).length
+        ? arr(proposal.sideEffect.preExistingDirtyFiles)
+        : arr(inputContract.preExistingDirtyFiles),
+    };
     return {
       ...proposal,
       schema: 'living-doc-harness-commit-intent-result/v1',
@@ -1536,35 +1629,25 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
       commitKind: proposal.commitKind || 'objective-scope',
       changedFiles: unique(arr(proposal.changedFiles).length ? arr(proposal.changedFiles) : changedFiles),
       message: proposal.message || 'Commit-intent unit blocked the scoped commit.',
-      sideEffect: {
-        ...(proposal.sideEffect && typeof proposal.sideEffect === 'object' ? proposal.sideEffect : {}),
-        type: proposal.sideEffect?.type || 'git-commit',
-        executed: false,
-        reasonCode,
-        beforeSha: proposal.sideEffect?.beforeSha || commitBefore,
-        afterSha: proposal.sideEffect?.afterSha || commitAfter,
-        requiredChangedFiles: unique(arr(proposal.sideEffect?.requiredChangedFiles).length
-          ? arr(proposal.sideEffect.requiredChangedFiles)
-          : changedFiles),
-        allowedCommitFiles: unique(arr(proposal.sideEffect?.allowedCommitFiles).length
-          ? arr(proposal.sideEffect.allowedCommitFiles)
-          : allowedCommitFiles),
-        forbiddenCommitFiles: unique(arr(proposal.sideEffect?.forbiddenCommitFiles).length
-          ? arr(proposal.sideEffect.forbiddenCommitFiles)
-          : forbiddenCommitFiles),
-        currentRunChangedFiles: arr(proposal.sideEffect?.currentRunChangedFiles).length
-          ? arr(proposal.sideEffect.currentRunChangedFiles)
-          : arr(inputContract.currentRunChangedFiles),
-        preExistingDirtyFiles: arr(proposal.sideEffect?.preExistingDirtyFiles).length
-          ? arr(proposal.sideEffect.preExistingDirtyFiles)
-          : arr(inputContract.preExistingDirtyFiles),
-      },
+      sideEffect,
+      commitTransaction: proposal.commitTransaction || commitTransactionContract({ inputContract, status: proposal.status, reasonCode, sideEffect, proposal, commitKind: proposal.commitKind || 'objective-scope' }),
       reasonCode: proposal.reasonCode || reasonCode,
       exitCode,
       ...paths,
       nativeTraceRefs: traceRefs,
     };
   }
+  const fallbackSideEffect = {
+    type: 'git-commit',
+    executed: false,
+    reasonCode: commitBefore === commitAfter ? 'git-head-unchanged' : 'git-commit-not-detected',
+    beforeSha: commitBefore,
+    afterSha: commitAfter,
+    requiredChangedFiles: changedFiles,
+    forbiddenCommitFiles,
+    currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
+    preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
+  };
   return {
     ...preparedOutputContract({
       unitTypeId: 'commit-intent',
@@ -1575,20 +1658,131 @@ function commitIntentOutputContract({ inputContract, status, exitCode, traceRefs
     }),
     status: status === 'finished' ? 'blocked' : status,
     message: 'Commit-intent unit finished without a controller-detectable git commit.',
-    sideEffect: {
-      type: 'git-commit',
-      executed: false,
-      reasonCode: commitBefore === commitAfter ? 'git-head-unchanged' : 'git-commit-not-detected',
-      beforeSha: commitBefore,
-      afterSha: commitAfter,
-      requiredChangedFiles: changedFiles,
-      forbiddenCommitFiles,
-      currentRunChangedFiles: arr(inputContract.currentRunChangedFiles),
-      preExistingDirtyFiles: arr(inputContract.preExistingDirtyFiles),
-    },
+    sideEffect: fallbackSideEffect,
+    commitTransaction: commitTransactionContract({ inputContract, status: 'blocked', reasonCode: fallbackSideEffect.reasonCode, sideEffect: fallbackSideEffect, commitKind: 'objective-scope' }),
     exitCode,
     ...paths,
     nativeTraceRefs: traceRefs,
+  };
+}
+
+function commitTransactionStatus(outputContract) {
+  const sideEffect = outputContract?.sideEffect || {};
+  if (outputContract?.approved === true
+    && outputContract?.status === 'approved'
+    && sideEffect.executed === true
+    && sideEffect.sha) {
+    return 'approved-executed';
+  }
+  if (arr(outputContract?.changedFiles).length === 0
+    && sideEffect.executed === false
+    && sideEffect.reasonCode === 'git-head-unchanged') {
+    return 'not-required';
+  }
+  if (['blocked', 'failed'].includes(outputContract?.status)) return 'blocked';
+  if (outputContract?.status === 'approved') return 'approved-pending-controller';
+  return 'unknown';
+}
+
+function commitTransactionReason(outputContract, controllerCommit = null) {
+  return outputContract?.sideEffect?.reasonCode
+    || outputContract?.reasonCode
+    || controllerCommit?.reasonCode
+    || null;
+}
+
+function buildCommitTransactionContract({
+  runId,
+  iteration,
+  createdAt,
+  inputContract,
+  outputContract,
+  controllerCommit,
+  commitBefore,
+  commitAfter,
+  resultPath,
+  resultRef,
+  validationPath,
+  validationRef,
+}) {
+  const sideEffect = outputContract?.sideEffect || {};
+  const changedFiles = unique(arr(outputContract?.changedFiles).length
+    ? arr(outputContract.changedFiles)
+    : arr(inputContract?.changedFiles));
+  const allowedCommitFiles = unique(arr(sideEffect.allowedCommitFiles).length
+    ? arr(sideEffect.allowedCommitFiles)
+    : arr(inputContract?.allowedCommitFiles));
+  const forbiddenCommitFiles = unique(arr(sideEffect.forbiddenCommitFiles).length
+    ? arr(sideEffect.forbiddenCommitFiles)
+    : arr(inputContract?.forbiddenCommitFiles));
+  const status = commitTransactionStatus(outputContract);
+  const reasonCode = commitTransactionReason(outputContract, controllerCommit);
+  return {
+    schema: 'living-doc-harness-commit-transaction/v1',
+    runId,
+    iteration,
+    unitId: 'commit-intent',
+    createdAt,
+    status,
+    reasonCode,
+    scope: {
+      schema: 'living-doc-harness-commit-scope/v1',
+      changedFiles,
+      currentRunChangedFiles: unique(arr(sideEffect.currentRunChangedFiles).length
+        ? arr(sideEffect.currentRunChangedFiles)
+        : arr(inputContract?.currentRunChangedFiles)),
+      preExistingDirtyFiles: unique(arr(sideEffect.preExistingDirtyFiles).length
+        ? arr(sideEffect.preExistingDirtyFiles)
+        : arr(inputContract?.preExistingDirtyFiles)),
+      allowedCommitFiles,
+      forbiddenCommitFiles,
+      requiredChangedFiles: unique(arr(sideEffect.requiredChangedFiles).length
+        ? arr(sideEffect.requiredChangedFiles)
+        : changedFiles),
+      missingChangedFiles: unique(arr(sideEffect.missingChangedFiles)),
+      extraCommittedFiles: unique(arr(sideEffect.extraCommittedFiles)),
+      forbiddenCommittedFiles: unique(arr(sideEffect.forbiddenCommittedFiles)),
+    },
+    intent: {
+      schema: outputContract?.schema || null,
+      approved: outputContract?.approved === true,
+      status: outputContract?.status || null,
+      reasonCode: outputContract?.reasonCode || sideEffect.reasonCode || null,
+      message: outputContract?.message || null,
+      basis: arr(outputContract?.basis),
+      resultPath,
+      resultRef,
+      validationPath,
+      validationRef,
+    },
+    controller: {
+      owner: 'lifecycle-controller',
+      attempted: controllerCommit?.attempted === true,
+      executed: controllerCommit?.executed === true,
+      reasonCode: controllerCommit?.reasonCode || null,
+      beforeSha: controllerCommit?.beforeSha || commitBefore || sideEffect.beforeSha || null,
+      afterSha: controllerCommit?.afterSha || commitAfter || sideEffect.afterSha || null,
+      source: sideEffect.source || null,
+      error: controllerCommit?.error || sideEffect.error || null,
+    },
+    evidence: {
+      type: sideEffect.type || 'git-commit',
+      executed: sideEffect.executed === true,
+      sha: sideEffect.sha || null,
+      beforeSha: sideEffect.beforeSha || commitBefore || null,
+      afterSha: sideEffect.afterSha || commitAfter || null,
+      committedAt: sideEffect.committedAt || null,
+      committedFiles: unique(arr(sideEffect.committedFiles)),
+      livingDocStateFiles: unique(arr(sideEffect.livingDocStateFiles)),
+      livingDocStateCommittedFiles: unique(arr(sideEffect.livingDocStateCommittedFiles)),
+      nonLivingDocStateCommittedFiles: unique(arr(sideEffect.nonLivingDocStateCommittedFiles)),
+    },
+    blockedCondition: outputContract?.blockedCondition || (status === 'blocked'
+      ? {
+        schema: 'living-doc-harness-commit-transaction-blocker/v1',
+        reasonCode: reasonCode || 'commit-transaction-blocked',
+      }
+      : null),
   };
 }
 
@@ -2397,6 +2591,46 @@ ${JSON.stringify(resolvedToolProfile, null, 2)}
   });
   finalContract.artifacts.initialInferenceUnit = finalUnitArtifact;
   finalContract.artifacts[unitArtifactKey(initialUnit.unitId)] = finalUnitArtifact;
+  if (initialUnit.unitId === 'commit-intent') {
+    const transactionPath = path.join(runDir, 'artifacts', `iteration-${iteration}-commit-transaction.json`);
+    const transactionRef = artifactRefFromPath({
+      runId,
+      runDir,
+      filePath: transactionPath,
+      kind: 'commit-transaction',
+    });
+    const transaction = buildCommitTransactionContract({
+      runId,
+      iteration,
+      createdAt: finishedAt,
+      inputContract: initialInputContract,
+      outputContract: finalOutputContract,
+      controllerCommit,
+      commitBefore,
+      commitAfter,
+      resultPath: finalUnitArtifact.result,
+      resultRef: finalUnitArtifact.resultRef,
+      validationPath: finalUnitArtifact.validation,
+      validationRef: finalUnitArtifact.validationRef,
+    });
+    await writeJson(transactionPath, transaction);
+    finalContract.artifacts.commitTransaction = {
+      schema: 'living-doc-harness-commit-transaction-artifact/v1',
+      path: path.relative(runDir, transactionPath),
+      ref: transactionRef,
+      status: transaction.status,
+      reasonCode: transaction.reasonCode,
+    };
+    await appendJsonl(path.join(runDir, 'events.jsonl'), {
+      event: 'commit-transaction-written',
+      at: finishedAt,
+      runId,
+      unitId: initialUnit.unitId,
+      path: path.relative(runDir, transactionPath),
+      status: transaction.status,
+      reasonCode: transaction.reasonCode,
+    });
+  }
   await writeJson(path.join(runDir, 'contract.json'), finalContract);
   const finalState = JSON.parse(await readFile(path.join(runDir, 'state.json'), 'utf8'));
   finalState.nextAction = finalContract.artifacts.nativeTraceRefs.length
