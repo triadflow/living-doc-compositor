@@ -53,6 +53,19 @@ async function writeJson(filePath, value) {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+async function writeTextIfChanged(filePath, text) {
+  try {
+    if (await readFile(filePath, 'utf8') === text) return;
+  } catch {
+    // Missing files are written below.
+  }
+  await writeFile(filePath, text, 'utf8');
+}
+
+async function writeJsonIfChanged(filePath, value) {
+  await writeTextIfChanged(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
 async function listFiles(dir, predicate = () => true) {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -268,7 +281,7 @@ export async function writeEvidenceBundle({
   const bundleDir = path.join(outDir, facts.runId);
   await mkdir(bundleDir, { recursive: true });
 
-  const bundle = {
+  let bundle = {
     schema: 'living-doc-harness-evidence-bundle/v1',
     generatedAt: now,
     runId: facts.runId,
@@ -379,10 +392,21 @@ export async function writeEvidenceBundle({
     },
   };
 
+  const bundlePath = path.join(bundleDir, 'bundle.json');
+  const summaryPath = path.join(bundleDir, 'summary.md');
+  const existingBundle = await readJson(bundlePath, null);
+  if (existingBundle?.schema === bundle.schema) {
+    const existingGeneratedAt = existingBundle.generatedAt || null;
+    const comparableExisting = { ...existingBundle, generatedAt: now };
+    if (JSON.stringify(comparableExisting) === JSON.stringify(bundle)) {
+      bundle = { ...bundle, generatedAt: existingGeneratedAt || now };
+    }
+  }
+
   const summary = [
     `# Harness Evidence Bundle: ${facts.runId}`,
     '',
-    `Generated: ${now}`,
+    `Generated: ${bundle.generatedAt}`,
     `Lifecycle stage: ${bundle.lifecycleStage}`,
     `Recommendation: ${bundle.recommendation}`,
     `PR review policy: ${bundle.prReviewPolicy?.mode || 'unknown'} (${bundle.prReviewGate.state})`,
@@ -404,10 +428,8 @@ export async function writeEvidenceBundle({
     '',
   ].join('\n');
 
-  const bundlePath = path.join(bundleDir, 'bundle.json');
-  const summaryPath = path.join(bundleDir, 'summary.md');
-  await writeJson(bundlePath, bundle);
-  await writeFile(summaryPath, summary, 'utf8');
+  await writeJsonIfChanged(bundlePath, bundle);
+  await writeTextIfChanged(summaryPath, summary);
   return { bundle, bundlePath, summaryPath };
 }
 

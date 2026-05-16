@@ -347,6 +347,59 @@ function continuationVerdict(verdict) {
   };
 }
 
+function selectedInitialUnitControllerVerdict(evidence) {
+  const unit = evidence?.initialInferenceUnit || null;
+  if (!unit?.unitId || unit.unitId === 'worker') return null;
+  const output = unit.outputContract || {};
+  const status = output.status || unit.status || 'finished';
+  const reasonCode = output.sideEffect?.reasonCode
+    || output.reasonCode
+    || `${unit.unitId}-${status}`;
+  if (unit.unitId === 'closure-review' && output.approved === true && output.terminalAllowed === true) {
+    return {
+      schema: 'living-doc-harness-stop-verdict/v1',
+      stopVerdict: {
+        classification: 'closed',
+        reasonCode: output.reasonCode || 'closure-review-approved',
+        confidence: output.confidence || 'high',
+        closureAllowed: true,
+        basis: arr(output.basis).length
+          ? arr(output.basis)
+          : ['Closure-review unit approved terminal closure from its output contract.'],
+      },
+      nextIteration: {
+        allowed: false,
+        mode: 'none',
+        instruction: 'Stop.',
+        mustNotDo: [],
+      },
+    };
+  }
+  const blocked = ['blocked', 'failed'].includes(status);
+  return {
+    schema: 'living-doc-harness-stop-verdict/v1',
+    stopVerdict: {
+      classification: blocked ? 'true-block' : 'resumable',
+      reasonCode,
+      confidence: 'high',
+      closureAllowed: false,
+      basis: [
+        `Controller routed from the selected ${unit.unitId} output contract.`,
+        ...(arr(output.basis).length ? arr(output.basis) : [`Selected unit status: ${status}.`]),
+      ],
+    },
+    nextIteration: {
+      allowed: true,
+      mode: 'fresh-unit',
+      instruction: `Route from the selected ${unit.unitId} output contract through the registered policy matrix.`,
+      mustNotDo: [
+        'Do not resume the stopped unit.',
+        'Do not fall back to a hard-coded worker iteration when the selected unit output contract recommends a registered next unit.',
+      ],
+    },
+  };
+}
+
 function terminalKindFromVerdict(verdict) {
   const classification = verdict?.stopVerdict?.classification;
   if (classification === 'closed') return 'closed';
@@ -1006,6 +1059,69 @@ function arr(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function unique(values) {
+  return [...new Set(arr(values).filter(Boolean))];
+}
+
+function addControllerGeneratedFilesToCommitScope({
+  evidence,
+  runDir,
+  evidenceDir,
+  dashboardPath,
+} = {}) {
+  const runId = evidence?.runId || path.basename(runDir || '');
+  if (!runId) return evidence;
+  const generatedFiles = [
+    path.join(evidenceDir, runId, 'bundle.json'),
+    path.join(evidenceDir, runId, 'summary.md'),
+    dashboardPath,
+  ]
+    .map((filePath) => path.relative(process.cwd(), path.resolve(filePath)))
+    .filter((filePath) => filePath && filePath !== '.' && !filePath.startsWith(`..${path.sep}`) && filePath !== '..');
+  const existingScope = evidence?.commitScope || {};
+  const existingHardFacts = evidence?.requiredHardFacts || {};
+  const currentRunChangedFiles = unique([
+    ...arr(existingScope.currentRunChangedFiles),
+    ...arr(existingHardFacts.currentRunChangedFiles),
+    ...generatedFiles,
+  ]);
+  const preExistingDirtyFiles = unique([
+    ...arr(existingScope.preExistingDirtyFiles),
+    ...arr(existingHardFacts.preExistingDirtyFiles),
+  ]);
+  const allowedCommitFiles = unique([
+    ...arr(existingScope.allowedCommitFiles),
+    ...arr(existingHardFacts.allowedCommitFiles),
+    ...currentRunChangedFiles,
+  ]);
+  const forbiddenCommitFiles = unique([
+    ...arr(existingScope.forbiddenCommitFiles),
+    ...arr(existingHardFacts.forbiddenCommitFiles),
+  ]).filter((filePath) => !allowedCommitFiles.includes(filePath));
+  return {
+    ...evidence,
+    sourceFilesChanged: evidence?.sourceFilesChanged === true || currentRunChangedFiles.length > 0,
+    commitScope: {
+      ...existingScope,
+      schema: existingScope.schema || 'living-doc-harness-commit-scope/v1',
+      currentRunChangedFiles,
+      preExistingDirtyFiles,
+      allowedCommitFiles,
+      forbiddenCommitFiles,
+      controllerGeneratedFiles: generatedFiles,
+    },
+    requiredHardFacts: {
+      ...existingHardFacts,
+      schema: existingHardFacts.schema || 'living-doc-harness-required-hard-facts/v1',
+      sourceFilesChanged: existingHardFacts.sourceFilesChanged === true || currentRunChangedFiles.length > 0,
+      currentRunChangedFiles,
+      preExistingDirtyFiles,
+      allowedCommitFiles,
+      forbiddenCommitFiles,
+    },
+  };
+}
+
 function nativeTraceRefsFromContract(contract) {
   return arr(contract.artifacts?.nativeTraceRefs)
     .map((ref) => ref.summaryPath)
@@ -1218,6 +1334,12 @@ export async function finalizeHarnessIteration({
     livingDocPath: traceEnrichedEvidence.livingDocPath || livingDocPath || afterDocPath || null,
     proofGates: proofGatesAfterBundle(traceEnrichedEvidence),
   };
+  finalEvidence = addControllerGeneratedFilesToCommitScope({
+    evidence: finalEvidence,
+    runDir,
+    evidenceDir,
+    dashboardPath,
+  });
   const artifactsDir = path.join(runDir, 'artifacts');
   await mkdir(artifactsDir, { recursive: true });
   finalEvidence = await ensureControllerEvidenceSnapshot({
@@ -1227,13 +1349,16 @@ export async function finalizeHarnessIteration({
     now,
   });
 
+  const controllerVerdict = !reviewerVerdict && !reviewerVerdictPath && !executeReviewer
+    ? selectedInitialUnitControllerVerdict(finalEvidence)
+    : null;
   const reviewer = await writeReviewerInferenceVerdict({
     runDir,
     evidence: finalEvidence,
     evidencePath,
     iteration,
     now,
-    reviewerVerdict,
+    reviewerVerdict: reviewerVerdict || controllerVerdict,
     reviewerVerdictPath,
     executeReviewer,
     codexBin,

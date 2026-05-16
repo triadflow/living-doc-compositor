@@ -1180,7 +1180,7 @@ async function buildEvidenceFromPlan({
   const gitWorktree = await deriveGitWorktreeEvidence({ cwd, gitWorktreeCwd });
   const commitScope = enforceControllerWorktreeEvidence
     ? commitScopeFromWorktree({ before: preRunGitWorktree, after: gitWorktree })
-    : commitScopeFromWorktree({ before: null, after: gitWorktree, explicitAllowedFiles: arr(plan.allowedCommitFiles) });
+    : commitScopeFromWorktree({ before: gitWorktree, after: gitWorktree, explicitAllowedFiles: arr(plan.allowedCommitFiles) });
   const controllerState = await deriveControllerSourceState({ cwd, startHashes: controllerStartFileHashes });
   const currentDocHash = await fileHash(path.resolve(cwd, docPath));
   const docChangedDuringRun = Boolean(run?.contract?.livingDoc?.sourceHash && currentDocHash && run.contract.livingDoc.sourceHash !== currentDocHash);

@@ -97,6 +97,46 @@ function reviewerVerdict(classification, {
   };
 }
 
+function rowHasCommitEvidence(row) {
+  const commit = row?.sideEffectEvidence?.commit || {};
+  return Boolean(commit.sha || commit.status === 'approved' || commit.status === 'not-required' || commit.required === false);
+}
+
+function rowHasSourceChange(row) {
+  return row?.sourceFilesChanged === true || row?.filesChanged?.length > 0;
+}
+
+function assertNoDanglingLifecycleFixture(name, iterations) {
+  const rows = Array.isArray(iterations) ? iterations : [];
+  assert.ok(rows.length > 0, `${name} must include at least one lifecycle iteration`);
+  const last = rows.at(-1);
+  const lastClassification = last?.reviewerVerdict?.stopVerdict?.classification || null;
+  const selectedUnitOutput = last?.initialInferenceUnitOutputContract || null;
+  const recommendsNextUnit = Boolean(selectedUnitOutput?.nextRecommendedUnitType);
+  assert.equal(
+    recommendsNextUnit,
+    false,
+    `${name} ends with a selected unit recommending ${selectedUnitOutput?.nextRecommendedUnitType}; add the resolving fixture row or use finalizeHarnessIteration for a one-step assertion`,
+  );
+  assert.equal(
+    lastClassification === 'closed' && rowHasSourceChange(last) && !rowHasCommitEvidence(last),
+    false,
+    `${name} ends with closure-shaped source changes but no commit evidence; add the selected commit-intent continuation row or use finalizeHarnessIteration for one-step routing`,
+  );
+  assert.ok(
+    ['closed', 'user-stopped'].includes(lastClassification),
+    `${name} must end with a terminal reviewer verdict; got ${lastClassification || 'none'}`,
+  );
+}
+
+function lifecycleFixtureSequence(name, iterations) {
+  assertNoDanglingLifecycleFixture(name, iterations);
+  return {
+    schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
+    iterations,
+  };
+}
+
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-lifecycle-controller-'));
 
 try {
@@ -203,6 +243,7 @@ try {
     }),
     /invalid lifecycle inference unit run config: .*prReviewPolicy required-before-closure requires pr-review/,
   );
+
   const sequencePath = path.join(tmp, 'evidence-sequence.json');
   await writeFile(sequencePath, `${JSON.stringify({
     schema: 'living-doc-harness-lifecycle-evidence-sequence/v1',
@@ -1386,21 +1427,63 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.deepEqual(scopedCommitEvidence.sideEffectEvidence.commit.extraCommittedFiles, []);
   assert.deepEqual(scopedCommitEvidence.sideEffectEvidence.commit.forbiddenCommittedFiles, []);
 
+  const inferredCommitFirstRow = {
+    stageAfter: 'closed',
+    unresolvedObjectiveTerms: [],
+    unprovenAcceptanceCriteria: [],
+    acceptanceCriteriaSatisfied: 'pass',
+    closureAllowed: true,
+    filesChanged: ['scripts/living-doc-harness-lifecycle.mjs'],
+    traceMessage: 'Changed source file requires commit-intent before closure.',
+    reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  };
+  assert.throws(
+    () => lifecycleFixtureSequence('dangling inferred commit gate', [inferredCommitFirstRow]),
+    /selected commit-intent continuation row/,
+  );
   const inferredCommitSequencePath = path.join(tmp, 'inferred-commit-sequence.json');
-  await writeFile(inferredCommitSequencePath, `${JSON.stringify({
-    iterations: [
-      {
-        stageAfter: 'closed',
-        unresolvedObjectiveTerms: [],
-        unprovenAcceptanceCriteria: [],
-        acceptanceCriteriaSatisfied: 'pass',
-        closureAllowed: true,
-        filesChanged: ['scripts/living-doc-harness-lifecycle.mjs'],
-        traceMessage: 'Changed source file requires commit-intent before closure.',
-        reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
+  await writeFile(inferredCommitSequencePath, `${JSON.stringify(lifecycleFixtureSequence('inferred commit gate', [
+    inferredCommitFirstRow,
+    {
+      stageAfter: 'commit-intent-blocked',
+      unresolvedObjectiveTerms: ['commit scope needs worker repair'],
+      unprovenAcceptanceCriteria: ['criterion-selected-unit-execution'],
+      acceptanceCriteriaSatisfied: 'fail',
+      closureAllowed: false,
+      traceMessage: 'Selected commit-intent returned a current output contract and recommended worker repair.',
+      initialInferenceUnitValidationOk: true,
+      initialInferenceUnitOutputContract: {
+        schema: 'living-doc-harness-commit-intent-result/v1',
+        approved: false,
+        status: 'blocked',
+        changedFiles: ['scripts/living-doc-harness-lifecycle.mjs'],
+        message: 'Commit-intent blocked because scope needs worker repair.',
+        reasonCode: 'commit-scope-needs-worker-repair',
+        nextRecommendedUnitType: 'worker',
+        sideEffect: {
+          type: 'git-commit',
+          executed: false,
+          reasonCode: 'commit-scope-needs-worker-repair',
+          requiredChangedFiles: ['scripts/living-doc-harness-lifecycle.mjs'],
+          allowedCommitFiles: ['scripts/living-doc-harness-lifecycle.mjs'],
+        },
+        basis: ['The selected commit-intent unit inspected current evidence and recommended worker repair.'],
       },
-    ],
-  }, null, 2)}\n`, 'utf8');
+    },
+    {
+      stageAfter: 'user-stopped-after-selected-unit-proof',
+      unresolvedObjectiveTerms: ['selected unit execution proof complete'],
+      unprovenAcceptanceCriteria: ['criterion-selected-unit-execution'],
+      acceptanceCriteriaSatisfied: 'fail',
+      closureAllowed: false,
+      traceMessage: 'Stop after proving the selected commit-intent unit executed and routed back to worker.',
+      reviewerVerdict: reviewerVerdict('user-stopped', {
+        reasonCode: 'selected-unit-execution-proof-complete',
+        mode: 'user-stop',
+        instruction: 'Stop.',
+      }),
+    },
+  ]), null, 2)}\n`, 'utf8');
   const inferredCommitGate = await runHarnessLifecycle({
     docPath,
     runsDir: path.join(tmp, 'inferred-commit-runs'),
@@ -1409,8 +1492,12 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
     evidenceSequencePath: inferredCommitSequencePath,
     now: '2026-05-07T13:25:00.000Z',
   });
-  assert.equal(inferredCommitGate.iterationCount, 1);
+  assert.equal(inferredCommitGate.iterationCount, 3);
   assert.equal(inferredCommitGate.iterations[0].classification, 'true-block');
+  assert.equal(inferredCommitGate.iterations[0].nextAction.selectedUnitType, 'commit-intent');
+  assert.equal(inferredCommitGate.iterations[1].nextAction.selectedUnitType, 'worker');
+  const inferredCommitRunContract = JSON.parse(await readFile(path.resolve(process.cwd(), inferredCommitGate.iterations[1].runDir, 'contract.json'), 'utf8'));
+  assert.equal(inferredCommitRunContract.runConfig.initialUnitType, 'commit-intent');
   const inferredCommitEvidence = JSON.parse(await readFile(path.resolve(
     process.cwd(),
     inferredCommitGate.iterations[0].runDir,
@@ -1420,6 +1507,10 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
   assert.equal(inferredCommitEvidence.sourceFilesChanged, true);
   const inferredCommitSelection = JSON.parse(await readFile(path.resolve(process.cwd(), inferredCommitGate.iterations[0].postReviewSelectionPath), 'utf8'));
   assert.equal(inferredCommitSelection.nextUnit.unitId, 'commit-intent');
+  const selectedCommitSelection = JSON.parse(await readFile(path.resolve(process.cwd(), inferredCommitGate.iterations[1].postReviewSelectionPath), 'utf8'));
+  assert.equal(selectedCommitSelection.nextUnit.unitId, 'worker');
+  assert.equal(selectedCommitSelection.nextUnit.policyRuleId, 'latest-unit-output-recommendation');
+  assert.equal(selectedCommitSelection.nextUnit.routeAuthority.sourceUnitType, 'commit-intent');
 
   const criteriaOnlyDocPath = path.join(tmp, 'criteria-only-doc.json');
   const criteriaOnlyHtmlPath = criteriaOnlyDocPath.replace(/\.json$/i, '.html');

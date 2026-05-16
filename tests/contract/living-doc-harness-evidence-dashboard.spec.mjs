@@ -116,6 +116,15 @@ try {
   const summary = await readFile(summaryPath, 'utf8');
   assert.equal(bundleJson.includes(privatePayload), false);
   assert.match(summary, /raw native trace included: false/);
+  await writeEvidenceBundle({
+    runDir: run.runDir,
+    outDir: evidenceDir,
+    now: '2026-05-07T09:35:30.000Z',
+  });
+  const stableBundle = JSON.parse(await readFile(bundlePath, 'utf8'));
+  const stableSummary = await readFile(summaryPath, 'utf8');
+  assert.equal(stableBundle.generatedAt, '2026-05-07T09:35:00.000Z');
+  assert.match(stableSummary, /Generated: 2026-05-07T09:35:00\.000Z/);
 
   const dashboardPath = path.join(tmp, 'dashboard.html');
   const dashboard = await renderDashboard({

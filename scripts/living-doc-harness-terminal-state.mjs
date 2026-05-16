@@ -75,7 +75,7 @@ function nextActionFor(kind, terminal = {}) {
   if (kind === 'closed') return 'no-next-iteration-objective-closed';
   if (kind === 'user-stopped') return 'no-next-iteration-user-stopped';
   if (kind === 'fresh-unit-required') return 'start-fresh-unit-from-contract-evidence';
-  if (kind === 'continuation-required') return terminal.requiredDecision || terminal.resumeTrigger || 'continue through the next contract-bound inference unit';
+  if (kind === 'continuation-required') return terminal.requiredDecision || 'start-fresh-unit-from-contract-evidence';
   return 'inspect terminal-state artifact';
 }
 

@@ -108,11 +108,18 @@ try {
         basis: ['Iteration budget was exhausted before objective proof.'],
       },
     });
-    const verdict = inferStopNegotiation(ev);
+    const verdict = {
+      ...inferStopNegotiation(ev),
+      terminal: {
+        resumeTrigger: 'resume-the-stopped-unit',
+      },
+    };
     const result = await writeTerminalState({ runDir: run.runDir, verdict, evidence: ev, iteration: 7, now: '2026-05-07T08:21:00.000Z' });
     assert.equal(result.record.kind, 'continuation-required');
     assert.equal(result.record.status, 'fresh-unit-required');
     assert.equal(result.record.loopMayContinue, true);
+    assert.equal(result.record.nextAction, 'start-fresh-unit-from-contract-evidence');
+    assert.notEqual(result.record.nextAction, 'resume-the-stopped-unit');
     assert.equal((await canStartFreshUnit(run.runDir)).allowed, true);
   }
 

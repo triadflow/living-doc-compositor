@@ -55,6 +55,7 @@ function reviewerVerdict(classification, { closureAllowed = false, reasonCode = 
 }
 
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'living-doc-harness-iteration-'));
+const repoGeneratedDir = await mkdtemp(path.join(process.cwd(), '.tmp-iteration-finalizer-scope-'));
 
 function lifecycleCommandEnv() {
   const { LIVING_DOC_HARNESS_ROLE: _role, ...env } = process.env;
@@ -116,8 +117,8 @@ try {
     afterDocPath: docPath,
     iteration: 1,
     now: '2026-05-07T10:21:00.000Z',
-    evidenceDir: path.join(tmp, 'evidence-bundles'),
-    dashboardPath: path.join(tmp, 'dashboard.html'),
+    evidenceDir: path.join(repoGeneratedDir, 'evidence-bundles'),
+    dashboardPath: path.join(repoGeneratedDir, 'dashboard.html'),
     reviewerVerdict: reviewerVerdict('closed', { closureAllowed: true }),
   });
   assert.equal(result.schema, 'living-doc-harness-iteration-finalization/v1');
@@ -133,6 +134,17 @@ try {
   assert.match(proof, /native.summary.json/);
   assert.match(proof, /inference-units\/iteration-1\/02-reviewer-inference\/result\.json/);
   assert.match(proof, /inference-units\/iteration-1\/03-closure-review\/result\.json/);
+  const scopedEvidence = JSON.parse(await readFile(result.evidencePath, 'utf8'));
+  const controllerGeneratedFiles = scopedEvidence.commitScope.controllerGeneratedFiles;
+  assert.deepEqual(controllerGeneratedFiles.sort(), [
+    path.relative(process.cwd(), path.join(repoGeneratedDir, 'dashboard.html')),
+    path.relative(process.cwd(), path.join(repoGeneratedDir, 'evidence-bundles', run.runId, 'bundle.json')),
+    path.relative(process.cwd(), path.join(repoGeneratedDir, 'evidence-bundles', run.runId, 'summary.md')),
+  ].sort());
+  assert.deepEqual(
+    controllerGeneratedFiles.filter((filePath) => scopedEvidence.requiredHardFacts.allowedCommitFiles.includes(filePath)).sort(),
+    controllerGeneratedFiles.sort(),
+  );
   const dashboard = await readFile(result.dashboardPath, 'utf8');
   assert.match(dashboard, /data-recommendation="close"/);
   assert.equal(dashboard.includes('PRIVATE_TRACE_CONTENT_SHOULD_NOT_LEAK'), false);
@@ -1213,6 +1225,7 @@ printf '{"type":"turn.completed"}\\n'
   );
 } finally {
   await rm(tmp, { recursive: true, force: true });
+  await rm(repoGeneratedDir, { recursive: true, force: true });
 }
 
 console.log('living-doc harness iteration contract spec: all assertions passed');

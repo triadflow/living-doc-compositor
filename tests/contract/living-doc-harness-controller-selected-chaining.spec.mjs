@@ -225,6 +225,128 @@ try {
   }
 
   {
+    const sourceFixture = await createFixture(tmp, 'selected-unit-router-start', {
+      filesChanged: ['docs/selected-unit-fixture.md'],
+      mutateEvidence: (evidence) => ({
+        ...evidence,
+        sourceFilesChanged: true,
+      }),
+    });
+    const sourceResult = await finalizeFixture(sourceFixture, {
+      verdict: reviewerVerdict('repairable', {
+        reasonCode: 'source-changes-require-commit-evidence',
+        closureAllowed: false,
+        mode: 'fresh-unit',
+        instruction: 'Run commit-intent before returning to worker.',
+      }),
+    });
+    const sourceOutputInputPath = path.join(sourceFixture.runDir, 'output-input', 'iteration-1.json');
+    await mkdir(path.dirname(sourceOutputInputPath), { recursive: true });
+    await writeJson(sourceOutputInputPath, {
+      schema: 'living-doc-harness-output-input/v1',
+      runId: sourceResult.runId,
+      iteration: 1,
+      previousOutput: {
+        classification: sourceResult.classification,
+        terminalKind: sourceResult.terminalKind,
+        proofValid: sourceResult.proofValid,
+        evidencePath: path.relative(sourceFixture.runDir, sourceResult.evidencePath),
+        reviewerVerdictPath: path.relative(sourceFixture.runDir, sourceResult.reviewerVerdictPath),
+        handoverPath: path.relative(sourceFixture.runDir, sourceResult.handoverPath),
+      },
+      postReviewSelection: sourceResult.postReviewSelection,
+      nextUnit: sourceResult.postReviewSelection.nextUnit,
+      nextInput: null,
+    });
+    const commitRun = await createHarnessRun({
+      docPath: sourceFixture.docPath,
+      runsDir: path.join(sourceFixture.fixtureRoot, 'selected-unit-runs'),
+      execute: false,
+      cwd: process.cwd(),
+      now: '2026-05-14T00:01:30.000Z',
+      lifecycleInput: {
+        mode: 'fresh-unit',
+        previousRunId: sourceResult.runId,
+        previousRunDir: path.relative(process.cwd(), sourceResult.runDir),
+        previousIteration: sourceResult.iteration,
+        instruction: sourceResult.postReviewSelection.nextUnit.handoffInstruction,
+        outputInputPath: path.relative(process.cwd(), sourceOutputInputPath),
+        selectedUnitType: sourceResult.postReviewSelection.nextUnit.unitId,
+        selectedUnitRole: sourceResult.postReviewSelection.nextUnit.role,
+        nextUnit: sourceResult.postReviewSelection.nextUnit,
+      },
+      iteration: 2,
+    });
+    assert.equal(commitRun.contract.runConfig.initialUnitType, 'commit-intent');
+    assert.equal(commitRun.contract.artifacts.initialInferenceUnit.unitId, 'commit-intent');
+
+    const evidencePath = path.join(sourceFixture.fixtureRoot, 'selected-unit-evidence.json');
+    const template = await writeIterationEvidenceTemplate({
+      runDir: commitRun.runDir,
+      outPath: evidencePath,
+      tracePaths: [sourceFixture.tracePath],
+      stageAfter: 'commit-intent-blocked',
+      acceptanceCriteriaSatisfied: 'fail',
+      closureAllowed: false,
+      filesChanged: [],
+      finalMessageSummary: 'Selected commit-intent inspected the scope and recommended worker repair.',
+      now: '2026-05-14T00:01:40.000Z',
+    });
+    const initialUnit = commitRun.contract.artifacts.initialInferenceUnit;
+    await writeJson(evidencePath, {
+      ...template.evidence,
+      livingDocPath: sourceFixture.docPath,
+      initialInferenceUnit: {
+        schema: 'living-doc-harness-initial-inference-unit-evidence/v1',
+        unitId: 'commit-intent',
+        role: 'commit-intent',
+        resultPath: initialUnit.result,
+        validationPath: initialUnit.validation,
+        resultRef: initialUnit.resultRef,
+        validationRef: initialUnit.validationRef,
+        validationOk: true,
+        status: 'blocked',
+        outputContract: {
+          schema: 'living-doc-harness-commit-intent-result/v1',
+          approved: false,
+          status: 'blocked',
+          changedFiles: ['docs/selected-unit-fixture.md'],
+          message: 'Commit-intent blocked because the scope needs worker repair.',
+          reasonCode: 'commit-scope-needs-worker-repair',
+          nextRecommendedUnitType: 'worker',
+          sideEffect: {
+            type: 'git-commit',
+            executed: false,
+            reasonCode: 'commit-scope-needs-worker-repair',
+            requiredChangedFiles: ['docs/selected-unit-fixture.md'],
+            allowedCommitFiles: ['docs/selected-unit-fixture.md'],
+          },
+          basis: ['The selected commit-intent unit recommended worker repair from its output contract.'],
+        },
+      },
+    });
+    const selectedResult = await finalizeHarnessIteration({
+      runDir: commitRun.runDir,
+      evidencePath,
+      livingDocPath: sourceFixture.docPath,
+      afterDocPath: sourceFixture.docPath,
+      iteration: 2,
+      now: '2026-05-14T00:01:50.000Z',
+      evidenceDir: path.join(sourceFixture.fixtureRoot, 'selected-unit-evidence-bundles'),
+      dashboardPath: path.join(sourceFixture.fixtureRoot, 'selected-unit-dashboard.html'),
+    });
+    const selectedSelection = await readJson(selectedResult.postReviewSelectionPath);
+    assert.equal(sourceResult.postReviewSelection.nextUnit.unitId, 'commit-intent');
+    assert.equal(selectedResult.classification, 'true-block');
+    assert.equal(selectedSelection.nextUnit.unitId, 'worker');
+    assert.equal(selectedSelection.nextUnit.policyRuleId, 'latest-unit-output-recommendation');
+    assert.equal(selectedSelection.nextUnit.routeAuthority.sourceUnitType, 'commit-intent');
+    assert.equal(selectedSelection.nextUnit.routeAuthority.recommendedUnitType, 'worker');
+    assert.equal(selectedSelection.nextUnit.routeAuthority.validationOk, true);
+    assert.equal(selectedSelection.contractValidation.ok, true);
+  }
+
+  {
     const fixture = await createFixture(tmp, 'pr-policy-selects-pr-review', {
       mutateEvidence: (evidence) => ({
         ...evidence,
