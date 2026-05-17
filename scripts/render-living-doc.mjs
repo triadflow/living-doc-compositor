@@ -2538,7 +2538,7 @@ function renderArtifactPage(page) {
             </div>
             <div class="artifact-page-actions">
               ${updated}
-              <button class="artifact-open-btn" type="button" data-view-target="document">${escapeHtml(localizedValue(artifactLibraryText.back))}</button>
+              <button class="artifact-open-btn" type="button" data-back-to-artifact-library>${escapeHtml(localizedValue(artifactLibraryText.back))}</button>
             </div>
           </section>
           ${pageSections.map(renderSection).join('')}
@@ -3497,13 +3497,23 @@ const html = `<!doctype html>
             button.setAttribute('aria-selected', active ? 'true' : 'false');
           }
         };
+        const showArtifactLibrary = () => {
+          showView('document');
+          requestAnimationFrame(() => {
+            document.getElementById('artifact-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        };
         window.__livingDocShowView = showView;
+        window.__livingDocShowArtifactLibrary = showArtifactLibrary;
 
         for (const button of viewButtons) {
           button.addEventListener('click', () => showView(button.dataset.viewTarget));
         }
         document.querySelectorAll('[data-open-artifact]').forEach((button) => {
           button.addEventListener('click', () => showView(button.dataset.openArtifact));
+        });
+        document.querySelectorAll('[data-back-to-artifact-library]').forEach((button) => {
+          button.addEventListener('click', showArtifactLibrary);
         });
 
         document.querySelectorAll('[data-board-select]').forEach((select) => {
