@@ -180,25 +180,29 @@ function buildGenericModel(doc, sourcePath) {
   const criteria = cards(doc, 'acceptance-criteria');
   const gates = [];
   gates.push({
-    name: 'Afsluitlabel en scopegrens',
+    name: 'Afsluitlabel en reikwijdtegrens',
     state: 'open',
-    must: `De finishclaim moet gekoppeld zijn aan het gedocumenteerde doel en de succesvoorwaarde: ${doc.successCondition || doc.objective || 'geen succesvoorwaarde gevonden'}`,
-    proof: ['De accountability-pagina koppelt het finishlabel aan expliciete afsluitpoorten.', 'Elke verwijderde of gedowngrade scope legt geaccepteerd risico en de ongeldig gemaakte finishclaim vast.'],
-    bottleneck: 'Het gevraagde finishantwoord is onverenigbaar met de living-doc definitie van done tenzij alle vereiste poorten bewezen zijn of expliciet zijn verwijderd met benoemd risico.',
+    must: 'De afsluitclaim moet gekoppeld zijn aan het doel, de succesvoorwaarde en de acceptatiecriteria van het levende document. Die koppeling moet bewezen zijn of expliciet zijn verwijderd met benoemd risico.',
+    proof: ['De verantwoordingspagina koppelt het afsluitlabel aan expliciete afsluitpoorten.', 'Elke verwijderde of afgewaardeerde reikwijdte legt geaccepteerd risico en de ongeldig gemaakte afsluitclaim vast.'],
+    bottleneck: 'Het gevraagde afsluitantwoord is onverenigbaar met de definitie van af tenzij alle vereiste poorten bewezen zijn of expliciet zijn verwijderd met benoemd risico.',
     types: ['decision work', 'risk acceptance work', 'proof/evidence work'],
-    owner: 'Eigenaar vereist: product/technisch eigenaar voor scopeverwijdering, risicodowngrade of acceptatie van het finishlabel.',
+    owner: 'Eigenaar vereist: product/technisch eigenaar voor reikwijdteverwijdering, risicoafwaardering of acceptatie van het afsluitlabel.',
     refs: ['objective', 'successCondition'],
   });
 
-  for (const criterion of criteria) {
+  for (const [index, criterion] of criteria.entries()) {
     const related = [...relatedByCriterion(doc, criterion), ...relatedByTicket(doc, criterion)];
     const uniqueRelated = [...new Map(related.map((entry) => [`${entry.section.id}:${entry.card.id}`, entry])).values()];
     const criterionText = criterion.criterion || criterion.definition || textOf(criterion);
     const state = inferState(criterion, uniqueRelated);
+    const proofHints = summarizeRelated(uniqueRelated, ['currentCoverage', 'proofClaim', 'outputAssertion', 'evidenceRefs']);
     const proof = [
-      ...summarizeRelated(uniqueRelated, ['currentCoverage', 'proofClaim', 'outputAssertion', 'evidenceRefs']),
-      `Vereist criterium uit brondocument: ${criterionText}`,
-    ].slice(0, 6);
+      'Een beoordeelbaar bewijsstuk moet aantonen dat deze acceptatiepoort is gesloten.',
+      proofHints.length
+        ? 'Gerelateerde kaarten leveren bewijsaanwijzingen; die moeten tot sluitend beoordelingsbewijs worden gemaakt.'
+        : 'Het levende document bevat nog geen afdoende bewijsaanwijzing voor deze poort.',
+      'Als het criterium niet wordt geleverd, moet het expliciet uit de reikwijdte worden gehaald met benoemd risico.',
+    ];
     const gaps = [
       ...arr(criterion.gaps).map(textOf),
       ...arr(criterion.gap).map(textOf),
@@ -206,15 +210,17 @@ function buildGenericModel(doc, sourcePath) {
     ].filter(Boolean);
     const types = accountabilityTypes(criterionText, uniqueRelated);
     gates.push({
-      name: criterion.name || criterion.title || criterion.id,
+      name: `Acceptatiepoort ${index + 1}`,
       state,
-      must: criterionText,
-      proof: proof.length ? proof : ['Het living doc vereist een bewijsartifact, maar de gerelateerde kaarten bevatten geen bewijsdetail.'],
-      bottleneck: gaps[0] || 'Geen benoemd knelpunt zichtbaar op gerelateerde kaarten; eigenaar moet bewijsvoldoendeheid bevestigen.',
+      must: 'Deze acceptatiepoort moet aantoonbaar waar zijn volgens het levende document. Sluiting vereist bewijs dat de poort is gehaald, expliciet is verwijderd, of is afgewaardeerd met benoemd risico.',
+      proof: proof.length ? proof : ['Het levende document vereist een bewijsstuk, maar de gerelateerde kaarten bevatten geen bewijsdetail.'],
+      bottleneck: gaps.length
+        ? 'Gerelateerde kaarten melden nog open bewijs, implementatie, besluitvorming of beoordelingswerk. Dat is een knelpunt totdat een eigenaar het sluit.'
+        : 'Geen expliciet knelpunt zichtbaar op gerelateerde kaarten; eigenaar moet bewijsvoldoendeheid bevestigen.',
       types,
       owner: ownerRequiredFor(types, `${criterionText} ${gaps.join(' ')}`)
-        ? `Eigenaar vereist: ${types.filter((type) => type !== 'implementation work' && type !== 'proof/evidence work').map((type) => typeLabel(type, 'nl')).join(', ') || 'acceptatie'}-eigenaar is niet uit het doc afleidbaar.`
-        : 'Implementatie-eigenaar is afleidbaar uit gerelateerde code/testvlakken; acceptatie-eigenaar is niet uit het doc afleidbaar.',
+        ? `Eigenaar vereist: eigenaar voor ${types.filter((type) => type !== 'implementation work' && type !== 'proof/evidence work').map((type) => typeLabel(type, 'nl')).join(', ') || 'acceptatie'} is niet uit het document afleidbaar.`
+        : 'Implementatie-eigenaar is afleidbaar uit gerelateerde code- en testvlakken; acceptatie-eigenaar is niet uit het document afleidbaar.',
       refs: [criterion.id, ...uniqueRelated.slice(0, 5).map(({ card }) => card.id)],
     });
   }
@@ -239,9 +245,9 @@ function finishModel(doc, sourcePath, gates, proofOverride = null) {
     proven: gates.filter((gate) => gate.state === 'closed').map((gate) => `${gate.name}: ${gate.proof[0] || 'gesloten bewijs bestaat.'}`),
     partial: gates.filter((gate) => gate.state === 'partial').map((gate) => `${gate.name}: ${gate.proof[0] || 'gedeeltelijk bewijs bestaat.'}`),
     missing: gates.filter((gate) => ['open', 'blocked', 'unclear'].includes(gate.state)).map((gate) => `${gate.name}: ${gate.proof[0] || 'bewijs ontbreekt of is onduidelijk.'}`),
-    invalid: ['Activiteit, planning, lokaal-only bewijs of discussie sluit geen poort tenzij het op die poort als bewijsartifact is benoemd.'],
+    invalid: ['Activiteit, planning, uitsluitend lokaal bewijs of discussie sluit geen poort tenzij het op die poort als bewijsstuk is benoemd.'],
   };
-  const finishLabel = 'het doel, de succesvoorwaarde, acceptatiecriteria, bewijsartifacts en expliciete risicoacceptaties die in het living doc zijn benoemd.';
+  const finishLabel = 'het doel, de succesvoorwaarde, acceptatiecriteria, bewijsstukken en expliciete risicoacceptaties die in het levende document zijn benoemd.';
   return {
     sourcePath,
     title: doc.title || path.basename(sourcePath, '.json'),
@@ -251,7 +257,7 @@ function finishModel(doc, sourcePath, gates, proofOverride = null) {
     objective: doc.objective || '',
     successCondition: doc.successCondition || '',
     generatedAt: new Date().toISOString(),
-    accountabilityReadout: 'Dit is geen enkele implementatietaak. Het living doc definieert voltooiing als een set bewijs-poorten. Sommige poorten zijn codewerk, maar andere vereisen besluiten, acceptatie-eigenaarschap, infrastructuur, toegang tot resources, bewijs, review, operationeel eigenaarschap, risicoacceptatie of expliciete scopeverwijdering.',
+    accountabilityReadout: 'Dit is geen enkele implementatietaak. Het levende document definieert voltooiing als een set bewijs-poorten. Sommige poorten zijn codewerk, maar andere vereisen besluiten, acceptatie-eigenaarschap, infrastructuur, toegang tot middelen, bewijs, beoordeling, operationeel eigenaarschap, risicoacceptatie of expliciete reikwijdteverwijdering.',
     schedulingBasis: 'Dit kan vanuit het huidige document niet eerlijk tot een datum worden gereduceerd. De resterende afrondingsvoorwaarde is een set bewijs-poorten.',
     implementationAlone,
     statusCounts,
@@ -262,21 +268,21 @@ function finishModel(doc, sourcePath, gates, proofOverride = null) {
       name: gate.bottleneck.split('.')[0] || gate.name,
       blocks: `Poort ${gates.indexOf(gate) + 1}: ${gate.name}`,
       why: gate.bottleneck,
-      owner: gate.owner.toLowerCase().includes('eigenaar vereist') ? gate.owner : 'Eigenaar vereist: acceptatie-eigenaar is niet uit het doc afleidbaar.',
+      owner: gate.owner.toLowerCase().includes('eigenaar vereist') ? gate.owner : 'Eigenaar vereist: acceptatie-eigenaar is niet uit het document afleidbaar.',
       ifSkipped: index === 0
-        ? `Als dit wordt overgeslagen, moet de finishclaim worden gedowngraded; "${modelFinishWord(doc)}" kan niet eerlijk worden geclaimd.`
+        ? `Als dit wordt overgeslagen, moet de afsluitclaim worden afgewaardeerd; "${modelFinishWord(doc)}" kan niet eerlijk worden geclaimd.`
         : `Als dit wordt overgeslagen, kan ${gate.name} niet als gesloten worden geteld.`,
     })),
     proofLedger,
     finishLabel,
-    finishCheck: 'Het gevraagde finishantwoord is onverenigbaar met de huidige living-doc definitie van done tenzij de vereiste bewijs-poorten zijn afgerond of expliciet zijn verwijderd met benoemd risico.',
-    managerSummary: `${gates.length} poorten blijven over in het verantwoordingspad, en ${nonImplementationCount} zijn niet alleen van implementatie afhankelijk. De blokkerende poorten zijn ${blocked.slice(0, 4).map((gate) => gate.name).join(', ')}${blocked.length > 4 ? ', plus aanvullende poorten waarvoor eigenaarschap vereist is' : ''}. Afsluiting vereist bewijsartifacts en eigenaarschapsbesluiten, geen datumgok.`,
+    finishCheck: 'Het gevraagde afsluitantwoord is onverenigbaar met de huidige definitie van af tenzij de vereiste bewijs-poorten zijn afgerond of expliciet zijn verwijderd met benoemd risico.',
+    managerSummary: `${gates.length} poorten blijven over in het verantwoordingspad, en ${nonImplementationCount} zijn niet alleen van implementatie afhankelijk. De blokkerende poorten zijn ${blocked.slice(0, 4).map((gate) => gate.name).join(', ')}${blocked.length > 4 ? ', plus aanvullende poorten waarvoor eigenaarschap vereist is' : ''}. Afsluiting vereist bewijsstukken en eigenaarschapsbesluiten, geen datumgok.`,
   };
 }
 
 function modelFinishWord(doc) {
-  if (doc.title?.toLowerCase().includes('mvp')) return 'MVP compleet';
-  return 'done';
+  if (doc.title?.toLowerCase().includes('mvp')) return 'MVP af';
+  return 'af';
 }
 
 const UI = {
@@ -284,7 +290,7 @@ const UI = {
     lang: 'nl',
     pageTitleSuffix: 'Verantwoordingspad',
     navReadout: 'Uitlezing',
-    navDashboard: 'Dashboard',
+    navDashboard: 'Overzicht',
     navGates: 'Poorten',
     navBottlenecks: 'Knelpunten',
     navProof: 'Bewijs',
@@ -302,7 +308,7 @@ const UI = {
     finishLanguage: 'Afsluit-taal',
     currentlyMeans: 'betekent nu',
     closurePath: 'Afsluitpad',
-    closureIntro: 'De volgorde hieronder is het kleinste eerlijke pad naar de gedocumenteerde succesvoorwaarde. Lokaal implementatiewerk is zichtbaar, maar infrastructuur, review, acceptatie, kosten, deployment en bewijs-eigenaarschap worden niet tot implementatie gereduceerd.',
+    closureIntro: 'De volgorde hieronder is het kleinste eerlijke pad naar de gedocumenteerde succesvoorwaarde. Lokaal implementatiewerk is zichtbaar, maar infrastructuur, beoordeling, acceptatie, kosten, uitrol en bewijs-eigenaarschap worden niet tot implementatie gereduceerd.',
     gate: 'Poort',
     currentState: 'Huidige staat',
     mustBecomeTrue: 'Moet waar worden',
@@ -320,7 +326,7 @@ const UI = {
     invalidForClosure: 'Ongeldig voor afsluiting',
     managerSummary: 'Managementsamenvatting',
     footer: 'Gegenereerd door living-doc-accountability-path-extractor. Deze pagina is een bewijsgericht afsluitpad, geen planningsschatting.',
-    printNote: 'Printnotitie: bronpad en gegenereerde timestamp blijven bewaard als reviewbewijs.',
+    printNote: 'Printnotitie: bronpad en gegenereerde timestamp blijven bewaard als beoordelingsbewijs.',
   },
 };
 
@@ -332,8 +338,8 @@ const TYPE_LABELS = {
   nl: {
     'implementation work': 'implementatiewerk',
     'decision work': 'besluitwerk',
-    'review and acceptance work': 'review- en acceptatiewerk',
-    'infrastructure/resource work': 'infrastructuur/resourcewerk',
+    'review and acceptance work': 'beoordelings- en acceptatiewerk',
+    'infrastructure/resource work': 'infrastructuur- en middelenwerk',
     'access/funding work': 'toegang/financiering',
     'risk acceptance work': 'risicoacceptatie',
     'proof/evidence work': 'bewijswerk',
@@ -363,261 +369,244 @@ function localizeModel(model, locale) {
   };
 }
 
-function renderHtml(model) {
-  const labels = ui('nl');
+function renderDossierHtml(model) {
   const locale = 'nl';
   const chip = (text, cls = '') => `<span class="chip ${cls}">${esc(text)}</span>`;
-  const list = (items) => `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`;
-  const refChips = (refs) => refs.map((ref) => chip(ref, 'ref')).join('');
+  const list = (items, empty = 'Geen bewijsregel vastgelegd.') => {
+    const safeItems = (items || []).filter(Boolean);
+    if (!safeItems.length) return `<p>${esc(empty)}</p>`;
+    return `<ul>${safeItems.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`;
+  };
   const stateClass = (state) => `state-${slug(state)}`;
   const typeHtml = (types) => types.map((type) => chip(typeLabel(type, locale), 'type')).join('');
   const statusOrder = ['closed', 'partial', 'open', 'blocked', 'unclear'];
+  const proofColumns = [
+    ['Bewezen', model.proofLedger.proven],
+    ['Gedeeltelijk', model.proofLedger.partial],
+    ['Ontbreekt', model.proofLedger.missing],
+    ['Ongeldig als afsluiting', model.proofLedger.invalid],
+  ];
 
   return `<!doctype html>
-<html lang="${esc(labels.lang)}">
+<html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(model.displayTitle || 'Wanneer is het af?')} - ${esc(model.title)} - ${esc(labels.pageTitleSuffix)}</title>
+<title>${esc(model.displayTitle || 'Wanneer is het af?')}</title>
 <style>
   :root {
-    --bg: #f4f6f8;
-    --panel: #ffffff;
-    --ink: #151b23;
-    --muted: #5b6876;
-    --muted-2: #7a8794;
-    --line: #d9e0e8;
-    --line-strong: #aeb8c5;
-    --nav: #202a35;
-    --green: #12743e;
-    --green-bg: #e8f6ee;
-    --amber: #985700;
-    --amber-bg: #fff1d7;
-    --blue: #245d91;
-    --blue-bg: #e9f2fb;
-    --red: #aa2a25;
-    --red-bg: #fde9e7;
-    --gray: #55616d;
-    --gray-bg: #eef2f5;
-    --shadow: 0 10px 26px rgba(18, 28, 45, 0.07);
-    --shadow-soft: 0 1px 2px rgba(18, 28, 45, 0.06);
+    --paper: #fffdf8;
+    --paper-soft: #faf6ed;
+    --bg: #e8e1d4;
+    --ink: #1e211c;
+    --muted: #696354;
+    --faint: #9b927f;
+    --rule: #d8cbb8;
+    --rule-dark: #3b3429;
+    --accent: #9d2d22;
+    --accent-soft: #f5e3dc;
+    --gold: #9a6a16;
+    --gold-soft: #f6ead1;
+    --blue: #295d73;
+    --blue-soft: #e3eef1;
+    --green: #2f734f;
+    --green-soft: #e4f0e7;
+    --gray-soft: #ece7dc;
+    --shadow: 0 28px 70px rgba(53, 39, 20, 0.18);
   }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 Georgia, "Times New Roman", serif; }
   body, .page, header, main, aside, section, article, div, p, li, span { min-width: 0; overflow-wrap: anywhere; }
   a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  .topbar { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-soft); }
-  .topbar-inner { max-width: 1540px; margin: 0 auto; padding: 9px 28px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-  .topbar-title { color: var(--nav); font-size: 13px; font-weight: 850; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .nav { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-  .nav a { display: inline-flex; align-items: center; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: 999px; background: #f1f4f7; color: #465463; font-size: 12px; font-weight: 760; text-decoration: none; }
-  .nav a:hover { border-color: var(--line-strong); background: #fff; color: var(--ink); }
-  .page { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: 22px; max-width: 1540px; margin: 0 auto; padding: 22px 28px 36px; }
-  header { grid-column: 1 / -1; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; }
-  .hero-line { height: 6px; background: var(--nav); border-bottom: 1px solid rgba(255,255,255,.25); }
-  .hero { padding: 24px 26px 22px; }
-  .eyebrow { color: var(--red); text-transform: uppercase; font-size: 12px; letter-spacing: .08em; font-weight: 850; }
-  h1 { margin: 6px 0 10px; font-size: clamp(30px, 4vw, 46px); line-height: 1.06; letter-spacing: 0; max-width: 980px; }
-  h2 { margin: 0 0 13px; font-size: 19px; line-height: 1.22; letter-spacing: 0; }
-  h3 { margin: 0 0 8px; font-size: 15px; line-height: 1.32; letter-spacing: 0; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 26px 18px 42px; }
+  .sheet { background: var(--paper); border: 1px solid var(--rule); box-shadow: var(--shadow); }
+  header { padding: 34px 38px 28px; border-top: 8px solid var(--rule-dark); border-bottom: 3px double var(--rule-dark); }
+  .kicker, .label, nav, .chip, .folio, .stamp, .metric, .footer { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .kicker { color: var(--accent); text-transform: uppercase; font-size: 12px; font-weight: 850; letter-spacing: .08em; }
+  h1 { margin: 6px 0 6px; font-size: clamp(42px, 7vw, 84px); line-height: .96; letter-spacing: 0; }
+  .dek { max-width: 760px; color: var(--muted); font-size: 20px; line-height: 1.45; }
+  .stamp { display: grid; grid-template-columns: 1.2fr 1fr .8fr; gap: 10px; margin-top: 26px; }
+  .stamp div { min-height: 74px; padding: 12px 13px; border: 1px solid var(--rule); background: var(--paper-soft); }
+  .label { display: block; color: var(--faint); font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
+  .value { display: block; margin-top: 7px; color: var(--ink); font-weight: 780; }
+  .body { display: grid; grid-template-columns: 278px minmax(0, 1fr); gap: 30px; padding: 28px 38px 36px; }
+  aside { position: sticky; top: 18px; align-self: start; }
+  nav { display: grid; gap: 7px; margin-bottom: 18px; }
+  nav a { padding: 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 13px; font-weight: 760; text-decoration: none; }
+  nav a:hover { color: var(--accent); }
+  .verdict { padding: 18px; border: 2px solid var(--accent); background: var(--accent-soft); }
+  .verdict strong { display: block; margin-bottom: 7px; font-size: 21px; line-height: 1.15; }
+  .verdict p { margin: 0; font-size: 15px; line-height: 1.45; }
+  .sidebox { margin-top: 16px; padding: 16px; border: 1px solid var(--rule); background: var(--paper-soft); }
+  .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .metric { padding: 10px; border: 1px solid var(--rule); background: var(--paper); }
+  .metric strong { display: block; font-size: 27px; line-height: 1; }
+  .metric span { color: var(--muted); font-size: 12px; text-transform: capitalize; }
+  main { display: grid; gap: 28px; }
+  section { border-top: 2px solid var(--rule-dark); padding-top: 18px; }
+  h2 { display: flex; gap: 12px; align-items: baseline; margin: 0 0 14px; font-size: 30px; line-height: 1.1; letter-spacing: 0; }
+  h3 { margin: 0; font-size: 22px; line-height: 1.18; letter-spacing: 0; }
   p { margin: 0; }
-  p + p { margin-top: 10px; }
-  .meta { display: grid; grid-template-columns: 1.2fr 2fr 1fr 1fr; gap: 10px; margin-top: 18px; }
-  .meta div, .metric, .panel, .gate, .bottleneck, .ledger-column { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-  .meta div { padding: 10px 12px; background: #f9fbfc; }
-  .label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 800; }
-  .value { display: block; margin-top: 3px; font-weight: 650; }
-  .meta .value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #2d3a47; }
-  .summary-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 14px; }
-  .field { padding: 12px; background: #fbfcfd; border: 1px solid var(--line); border-radius: 6px; }
-  .field p { margin-top: 5px; }
-  .rail { position: sticky; top: 64px; align-self: start; display: grid; gap: 12px; }
-  .main { display: grid; gap: 16px; }
-  .panel { padding: 18px; box-shadow: var(--shadow-soft); }
-  .readout { border-left: 6px solid var(--red); background: #fffafa; }
-  .direct { font-size: 17px; font-weight: 780; line-height: 1.38; }
-  .schedule { color: var(--red); font-weight: 800; }
-  .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .metric { padding: 11px 12px; box-shadow: var(--shadow-soft); }
-  .metric strong { display: block; font-size: 25px; line-height: 1; }
-  .metric span { display: block; color: var(--muted); margin-top: 5px; text-transform: capitalize; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
-  .chip { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 12px; font-weight: 750; color: var(--ink); }
-  .chip.type { background: #eef3f7; color: #2b3a48; border-color: #d6e0e9; }
-  .chip.ref { background: #f8fafc; color: #526170; font-weight: 650; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
-  .state-closed { color: var(--green); background: var(--green-bg); border-color: #b8e3c9; }
-  .state-partial { color: var(--amber); background: var(--amber-bg); border-color: #f0ce91; }
-  .state-open { color: var(--blue); background: var(--blue-bg); border-color: #bfd8f1; }
-  .state-blocked { color: var(--red); background: var(--red-bg); border-color: #f2b7b3; }
-  .state-unclear { color: var(--gray); background: var(--gray-bg); border-color: #d2dae3; }
-  .gate { padding: 0; overflow: hidden; border-left: 7px solid var(--line-strong); box-shadow: var(--shadow-soft); }
-  .gate.state-partial { border-left-color: #d68b18; }
-  .gate.state-open { border-left-color: #2f6da5; }
-  .gate.state-blocked { border-left-color: #bf3029; }
-  .gate.state-closed { border-left-color: #18824a; }
-  .gate.state-open .gate-header { background: #f7fbff; }
-  .gate.state-blocked .gate-header { background: #fff8f7; }
-  .gate.state-partial .gate-header { background: #fffbf2; }
-  .gate-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; padding: 15px 18px; border-bottom: 1px solid var(--line); background: #fff; }
-  .gate-title { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-  .gate-number { color: var(--muted-2); font-weight: 850; font-variant-numeric: tabular-nums; }
-  .gate-body { padding: 15px 18px 18px; display: grid; gap: 12px; }
-  .grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .gate .field:nth-child(2),
-  .gate .field:nth-child(3) { background: #ffffff; }
-  .gate .field:nth-child(4),
-  .gate .field:nth-child(6) { background: #fffafa; }
-  ul { margin: 8px 0 0; padding-left: 18px; }
-  li + li { margin-top: 5px; }
-  .owner-required { border-color: #efb4af; background: #fff7f6; color: #99211b; font-weight: 800; }
-  .bottlenecks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .bottleneck { padding: 15px; border-left: 5px solid var(--red); background: #fffafa; box-shadow: var(--shadow-soft); }
-  .ledger { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-  .ledger-column { padding: 14px; box-shadow: var(--shadow-soft); }
-  .ledger-column:nth-child(1) { border-top: 4px solid var(--green); }
-  .ledger-column:nth-child(2) { border-top: 4px solid var(--amber); }
-  .ledger-column:nth-child(3) { border-top: 4px solid var(--blue); }
-  .ledger-column:nth-child(4) { border-top: 4px solid var(--red); }
-  .finish-check { border-left: 5px solid var(--blue); }
-  .footer { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 16px; }
-  .print-note { display: none; }
-  @media (max-width: 1040px) {
-    .topbar { position: static; }
-    .topbar-inner { padding: 10px 16px; align-items: flex-start; flex-direction: column; }
-    .nav { justify-content: flex-start; }
-    .page { grid-template-columns: 1fr; padding: 16px; }
-    .rail { position: static; }
-    .meta, .summary-grid, .grid-two, .bottlenecks, .ledger { grid-template-columns: 1fr; }
-    .gate-header { grid-template-columns: 1fr; }
+  p + p { margin-top: 11px; }
+  .number { color: var(--accent); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; font-weight: 850; }
+  .memo { columns: 2 290px; column-gap: 28px; color: #2d2b25; }
+  .memo p { break-inside: avoid; }
+  .gate-list { display: grid; gap: 16px; }
+  .criterion { display: grid; grid-template-columns: 68px minmax(0, 1fr); border: 1px solid var(--rule); background: #fffaf0; }
+  .folio { padding: 15px 10px; border-right: 1px solid var(--rule); color: var(--accent); font-size: 12px; font-weight: 850; text-align: center; }
+  .criterion-body { padding: 17px 18px 18px; }
+  .criterion-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; margin-bottom: 12px; }
+  .chiprow { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .chip { display: inline-flex; align-items: center; min-height: 25px; max-width: 100%; padding: 4px 9px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); font-size: 12px; font-weight: 790; }
+  .chip.type { background: var(--blue-soft); border-color: #bfd2d9; color: #224e60; }
+  .chip.owner { background: var(--accent-soft); border-color: #deb4ac; color: var(--accent); }
+  .state-closed { color: var(--green); background: var(--green-soft); border-color: #b7d6c0; }
+  .state-partial { color: var(--gold); background: var(--gold-soft); border-color: #e2c88f; }
+  .state-open { color: var(--blue); background: var(--blue-soft); border-color: #bfd2d9; }
+  .state-blocked { color: var(--accent); background: var(--accent-soft); border-color: #deb4ac; }
+  .state-unclear { color: #605848; background: var(--gray-soft); border-color: var(--rule); }
+  .evidence-box { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 12px; margin-top: 14px; }
+  .evidence-box > div, .bottleneck, .ledger-card, .summary { padding: 14px; border: 1px solid var(--rule); background: var(--paper); }
+  .evidence-box > div:nth-child(2) { background: #fff5f1; border-color: #dfbdb5; }
+  ul { margin: 8px 0 0; padding-left: 19px; }
+  li + li { margin-top: 6px; }
+  .bottleneck-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .bottleneck { border-left: 6px solid var(--accent); }
+  .ledger { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .ledger-card:nth-child(1) { border-top: 5px solid var(--green); }
+  .ledger-card:nth-child(2) { border-top: 5px solid var(--gold); }
+  .ledger-card:nth-child(3) { border-top: 5px solid var(--blue); }
+  .ledger-card:nth-child(4) { border-top: 5px solid var(--accent); }
+  .summary { background: #fff7ed; border-left: 6px solid var(--gold); font-size: 20px; line-height: 1.5; }
+  .footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12px; }
+  @media (max-width: 900px) {
+    .page { padding: 0; }
+    .sheet { border-left: 0; border-right: 0; box-shadow: none; }
+    header { padding: 26px 20px 22px; }
+    .stamp, .body, .criterion, .criterion-head, .evidence-box, .bottleneck-list, .ledger { grid-template-columns: 1fr; }
+    .body { padding: 22px 20px 30px; gap: 24px; }
+    aside { position: static; }
+    .folio { border-right: 0; border-bottom: 1px solid var(--rule); text-align: left; }
+    .memo { columns: auto; }
   }
   @media print {
     body { background: #fff; }
-    .topbar { display: none; }
-    .page { display: block; max-width: none; padding: 0; }
-    header, .rail, .panel, .gate, .bottleneck, .ledger-column, .metric { box-shadow: none; break-inside: avoid; }
-    .rail { position: static; margin: 16px 0; }
-    .main { display: block; }
-    .main > * { margin-bottom: 16px; }
-    .print-note { display: block; }
+    .page { max-width: none; padding: 0; }
+    .sheet { border: 0; box-shadow: none; }
+    aside { position: static; }
+    .criterion, .bottleneck, .ledger-card, .summary { break-inside: avoid; }
   }
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="topbar-inner">
-    <div class="topbar-title">${esc(model.displayTitle || 'Wanneer is het af?')} · ${esc(model.title)}</div>
-    <nav class="nav" aria-label="Page sections">
-      <a href="#readout">${esc(labels.navReadout)}</a>
-      <a href="#dashboard">${esc(labels.navDashboard)}</a>
-      <a href="#closure-path">${esc(labels.navGates)}</a>
-      <a href="#bottlenecks">${esc(labels.navBottlenecks)}</a>
-      <a href="#proof-ledger">${esc(labels.navProof)}</a>
-      <a href="#summary">${esc(labels.navSummary)}</a>
-    </nav>
-  </div>
-</div>
 <div class="page">
-  <header>
-    <div class="hero-line"></div>
-    <div class="hero">
-      <div class="eyebrow">${esc(labels.eyebrow)}</div>
+  <div class="sheet">
+    <header>
+      <div class="kicker">Bewijsdossier</div>
       <h1>${esc(model.displayTitle || 'Wanneer is het af?')}</h1>
-      ${model.subtitle ? `<p>${esc(model.subtitle)}</p>` : ''}
-      <div class="meta">
-        <div><span class="label">Living doc</span><span class="value">${esc(model.title)}</span></div>
-        <div><span class="label">${esc(labels.sourceDoc)}</span><span class="value">${esc(model.sourcePath)}</span></div>
-        <div><span class="label">${esc(labels.generated)}</span><span class="value">${esc(model.generatedAt)}</span></div>
-        <div><span class="label">${esc(labels.docUpdated)}</span><span class="value">${esc(model.updated)}</span></div>
+      <p class="dek">Formele afsluitnotitie voor bewijs, eigenaarschap, knelpunten en resterende poorten.</p>
+      <div class="stamp">
+        <div><span class="label">Brondocument</span><span class="value">Gekoppeld levend document</span></div>
+        <div><span class="label">Gegenereerd</span><span class="value">${esc(model.generatedAt)}</span></div>
+        <div><span class="label">Poorten</span><span class="value">${model.gates.length}</span></div>
       </div>
-      <div class="summary-grid">
-        <div class="field"><span class="label">${esc(labels.objective)}</span><p>${esc(model.objective)}</p></div>
-        <div class="field"><span class="label">${esc(labels.successCondition)}</span><p>${esc(model.successCondition)}</p></div>
-      </div>
+    </header>
+
+    <div class="body">
+      <aside>
+        <nav aria-label="Paginadelen">
+          <a href="#memo">1. Memo</a>
+          <a href="#poorten">2. Afsluitpoorten</a>
+          <a href="#knelpunten">3. Knelpunten</a>
+          <a href="#bewijs">4. Bewijsboekhouding</a>
+          <a href="#samenvatting">5. Samenvatting</a>
+        </nav>
+        <div class="verdict">
+          <strong>Niet te reduceren tot een datum.</strong>
+          <p>${esc(model.schedulingBasis)}</p>
+        </div>
+        <div class="sidebox">
+          <span class="label">Alleen implementatie</span>
+          <span class="value">${esc(model.implementationAlone)}</span>
+          <div class="metrics">
+            ${statusOrder.map((state) => `<div class="metric ${stateClass(state)}"><strong>${model.statusCounts[state] || 0}</strong><span>${esc(statusLabel(state, locale))}</span></div>`).join('')}
+            <div class="metric"><strong>${model.ownerRequiredCount}</strong><span>eigenaar vereist</span></div>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <section id="memo">
+          <h2><span class="number">1</span> Memo</h2>
+          <div class="memo">
+            <p>${esc(model.accountabilityReadout)}</p>
+            <p>Het afsluitlabel betekent hier: ${esc(model.finishLabel)}</p>
+            <p>${esc(model.finishCheck)}</p>
+          </div>
+        </section>
+
+        <section id="poorten">
+          <h2><span class="number">2</span> Afsluitpoorten</h2>
+          <div class="gate-list">
+            ${model.gates.map((gate, index) => `<article class="criterion" id="poort-${index + 1}">
+              <div class="folio">Poort ${index + 1}</div>
+              <div class="criterion-body">
+                <div class="criterion-head">
+                  <h3>${esc(gate.name)}</h3>
+                  ${chip(statusLabel(gate.state, locale), stateClass(gate.state))}
+                </div>
+                <p>${esc(gate.must)}</p>
+                <div class="evidence-box">
+                  <div>
+                    <span class="label">Vereist bewijs</span>
+                    ${list(gate.proof)}
+                  </div>
+                  <div>
+                    <span class="label">Knelpunt en eigenaar</span>
+                    <p>${esc(gate.bottleneck)}</p>
+                    <p>${esc(gate.owner)}</p>
+                  </div>
+                </div>
+                <div class="chiprow">${typeHtml(gate.types)}${gate.owner.toLowerCase().includes('eigenaar vereist') ? chip('Eigenaar vereist', 'owner') : ''}</div>
+              </div>
+            </article>`).join('\n')}
+          </div>
+        </section>
+
+        <section id="knelpunten">
+          <h2><span class="number">3</span> Knelpunten</h2>
+          <div class="bottleneck-list">
+            ${(model.bottlenecks || []).length ? model.bottlenecks.map((bottleneck) => `<article class="bottleneck">
+              <h3>${esc(bottleneck.name)}</h3>
+              <p><strong>Blokkeert:</strong> ${esc(bottleneck.blocks)}</p>
+              <p><strong>Waarom dit een knelpunt is:</strong> ${esc(bottleneck.why)}</p>
+              <p><strong>Eigenaar vereist:</strong> ${esc(bottleneck.owner)}</p>
+              <p><strong>Als dit wordt overgeslagen:</strong> ${esc(bottleneck.ifSkipped)}</p>
+            </article>`).join('\n') : '<p>Geen knelpuntkaart vastgelegd.</p>'}
+          </div>
+        </section>
+
+        <section id="bewijs">
+          <h2><span class="number">4</span> Bewijsboekhouding</h2>
+          <div class="ledger">
+            ${proofColumns.map(([title, items]) => `<article class="ledger-card">
+              <h3>${esc(title)}</h3>
+              ${list(items)}
+            </article>`).join('\n')}
+          </div>
+        </section>
+
+        <section id="samenvatting">
+          <h2><span class="number">5</span> Samenvatting</h2>
+          <div class="summary">${esc(model.managerSummary)}</div>
+        </section>
+
+        <div class="footer">
+          <p>Gegenereerd uit het Nederlandse verantwoordingsmodel. Bronpad, bronverwijzingen en ruwe kaartkoppelingen staan in het JSON-bestand.</p>
+        </div>
+      </main>
     </div>
-  </header>
-
-  <aside class="rail">
-    <section class="panel readout" id="readout">
-      <h2>${esc(labels.accountabilityReadout)}</h2>
-      <p class="direct">${esc(model.accountabilityReadout)}</p>
-      <p><strong>${esc(labels.implementationAlone)}:</strong> ${esc(model.implementationAlone)}</p>
-      <p class="schedule">${esc(model.schedulingBasis)}</p>
-    </section>
-    <section class="panel" id="dashboard">
-      <h2>${esc(labels.gateDashboard)}</h2>
-      <div class="metrics">
-        ${statusOrder.map((state) => `<div class="metric ${stateClass(state)}"><strong>${model.statusCounts[state] || 0}</strong><span>${esc(statusLabel(state, locale))}</span></div>`).join('')}
-        <div class="metric"><strong>${model.ownerRequiredCount}</strong><span>${esc(labels.ownerRequired)}</span></div>
-      </div>
-      <div class="chips">${Object.entries(model.typeCounts).map(([type, count]) => chip(`${typeLabel(type, locale)}: ${count}`, 'type')).join('')}</div>
-    </section>
-    <section class="panel finish-check">
-      <h2>${esc(labels.finishLanguage)}</h2>
-      <p><strong>"${esc(modelFinishWord(model))}" ${esc(labels.currentlyMeans)}:</strong> ${esc(model.finishLabel)}</p>
-      <p>${esc(model.finishCheck)}</p>
-    </section>
-  </aside>
-
-  <main class="main">
-    <section class="panel" id="closure-path">
-      <h2>${esc(labels.closurePath)}</h2>
-      <p>${esc(labels.closureIntro)}</p>
-    </section>
-    ${model.gates.map((gate, index) => `<article class="gate ${stateClass(gate.state)}" id="gate-${index + 1}">
-      <div class="gate-header">
-        <div>
-          <div class="gate-title"><span class="gate-number">${esc(labels.gate)} ${index + 1}</span><h3>${esc(gate.name)}</h3></div>
-          <div class="chips">${chip(statusLabel(gate.state, locale), stateClass(gate.state))}${typeHtml(gate.types)}${gate.owner.toLowerCase().includes('eigenaar vereist') ? chip('Eigenaar vereist', 'owner-required') : ''}</div>
-        </div>
-      </div>
-      <div class="gate-body">
-        <div class="grid-two">
-          <div class="field"><span class="label">${esc(labels.currentState)}</span><p>${esc(statusLabel(gate.state, locale))}</p></div>
-          <div class="field"><span class="label">${esc(labels.mustBecomeTrue)}</span><p>${esc(gate.must)}</p></div>
-          <div class="field"><span class="label">${esc(labels.proofRequired)}</span>${list(gate.proof)}</div>
-          <div class="field"><span class="label">${esc(labels.bottleneckRisk)}</span><p>${esc(gate.bottleneck)}</p></div>
-          <div class="field"><span class="label">${esc(labels.accountabilityType)}</span><div class="chips">${typeHtml(gate.types)}</div></div>
-          <div class="field"><span class="label">${esc(labels.ownerRequired)}</span><p>${esc(gate.owner)}</p></div>
-        </div>
-        <div class="chips">${refChips(gate.refs)}</div>
-      </div>
-    </article>`).join('\n')}
-
-    <section class="panel" id="bottlenecks">
-      <h2>${esc(labels.bottleneckMap)}</h2>
-      <div class="bottlenecks">
-        ${model.bottlenecks.map((bottleneck) => `<article class="bottleneck">
-          <h3>${esc(bottleneck.name)}</h3>
-          <p><strong>${esc(labels.blocks)}:</strong> ${esc(bottleneck.blocks)}</p>
-          <p><strong>${esc(labels.whyBottleneck)}:</strong> ${esc(bottleneck.why)}</p>
-          <p><strong>${esc(labels.ownerRequired)}:</strong> ${esc(bottleneck.owner)}</p>
-          <p><strong>${esc(labels.ifSkipped)}:</strong> ${esc(bottleneck.ifSkipped)}</p>
-        </article>`).join('\n')}
-      </div>
-    </section>
-
-    <section class="panel" id="proof-ledger">
-      <h2>${esc(labels.proofLedger)}</h2>
-      <div class="ledger">
-        <div class="ledger-column"><h3>${esc(labels.proven)}</h3>${list(model.proofLedger.proven)}</div>
-        <div class="ledger-column"><h3>${esc(labels.partial)}</h3>${list(model.proofLedger.partial)}</div>
-        <div class="ledger-column"><h3>${esc(labels.missing)}</h3>${list(model.proofLedger.missing)}</div>
-        <div class="ledger-column"><h3>${esc(labels.invalidForClosure)}</h3>${list(model.proofLedger.invalid)}</div>
-      </div>
-    </section>
-
-    <section class="panel" id="summary">
-      <h2>${esc(labels.managerSummary)}</h2>
-      <p class="direct">${esc(model.managerSummary)}</p>
-    </section>
-
-    <section class="panel footer">
-      <p>${esc(labels.footer)}</p>
-      <p>${esc(labels.sourceDoc)}: ${esc(model.sourcePath)} | ${esc(labels.generated)}: ${esc(model.generatedAt)}</p>
-      <p class="print-note">${esc(labels.printNote)}</p>
-    </section>
-  </main>
+  </div>
 </div>
 </body>
 </html>`;
@@ -644,7 +633,7 @@ async function main() {
     await fs.writeFile(modelPath, `${JSON.stringify(model, null, 2)}\n`);
   }
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.writeFile(outputPath, renderHtml(model));
+  await fs.writeFile(outputPath, renderDossierHtml(model));
   console.log(outputPath);
 }
 
