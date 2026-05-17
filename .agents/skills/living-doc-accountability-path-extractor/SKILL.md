@@ -365,6 +365,7 @@ The renderer is JSON-model based:
 - Extract the living doc into a `living-doc-accountability-path/v1` model.
 - Render HTML from that model.
 - Use the generic extractor for every living doc type. Do not add one-off document-specific render branches.
+- Do not publish generic fallback gate prose. Each gate must be rendered through a specific Dutch gate lens derived from the acceptance criterion. If no lens matches, fail the render and require either a new lens or an explicit JSON model.
 - The rendered page title is always `Wanneer is het af?`.
 - The visible HTML is Dutch-only. Do not show raw English objectives, success conditions, acceptance text, or source-card prose on the page. Keep source paths, ids, and raw card references in the JSON model.
 - Use `--model-out` when the accountability model should be inspectable, versioned, or rendered again later.

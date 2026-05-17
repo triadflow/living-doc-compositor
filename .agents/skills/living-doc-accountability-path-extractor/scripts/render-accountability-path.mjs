@@ -176,6 +176,322 @@ function summarizeRelated(related, keys) {
   return [...new Set(lines)].slice(0, 5);
 }
 
+function inferGateLens(criterion, related) {
+  void related;
+  const keySource = [
+    criterion.id,
+    criterion.name,
+    criterion.title,
+  ].filter(Boolean).join(' ').toLowerCase();
+  const detailSource = [
+    criterion.criterion,
+    criterion.definition,
+  ].filter(Boolean).join(' ').toLowerCase();
+  const source = keySource || detailSource;
+  const has = (...patterns) => patterns.some((pattern) => pattern.test(source));
+
+  if (has(/shared source|separate path|separate queue|own resources|same raw|queue/)) {
+    return {
+      name: 'Gedeelde bron, gescheiden verwerkingspad',
+      must: 'De nieuwe route moet dezelfde bron kunnen lezen zonder de bestaande verwerking te wijzigen, en moet daarna via eigen wachtrij, werker, opslag, index en bewijsoppervlak lopen.',
+      proof: [
+        'Architectuur- of Terraformbewijs toont gedeelde bronlezing en gescheiden vervolgmiddelen.',
+        'Tests of statische checks bewijzen dat wachtrij, werker en opslag niet samenvallen met productieparser-middelen.',
+        'Runbewijs toont dat een bronobject door de nieuwe route kan lopen zonder productieroute-mutatie.',
+      ],
+      bottleneck: 'Zonder bewijs van padenscheiding blijft onduidelijk wie risico, uitrol en operationele gevolgen bezit.',
+    };
+  }
+
+  if (has(/preflight|short-circuit|deterministic|candidate_hint|required field|complete/)) {
+    return {
+      name: 'Deterministische preflight sluit alleen volledige gevallen kort',
+      must: 'De deterministische stap mag alleen zonder model doorgaan wanneer verplichte velden compleet zijn, bewijsankers oplossen en er geen conflicten of blokkerende onzekerheden zijn.',
+      proof: [
+        'Testsets tonen volledige kortsluitgevallen en gevallen die verplicht naar modelverwerking gaan.',
+        'Tests bewijzen dat optionele hints niet als beslissend bewijs worden gepromoveerd.',
+        'Validatiebewijs toont dat kortgesloten uitvoer dezelfde recordvorm gebruikt als modeluitvoer.',
+      ],
+      bottleneck: 'Als preflight te ruim accepteert, ontstaat stille datadrift en wordt modelvalidatie omzeild.',
+    };
+  }
+
+  if (has(/storage|s3|dynamodb|artifact|encrypted|index|reproducible/)) {
+    return {
+      name: 'Opslagcontract is gescheiden en reproduceerbaar',
+      must: 'Bewijsstukken en indexrecords moeten een eigen opslagpad, eigen sleutelvorm, reproduceerbare verwijzingen en controleerbare scheiding van bestaande systemen hebben.',
+      proof: [
+        'Opslagbewijs toont bewijslocatie, sleutelversie, indexprojectie en versleutelingsgrens.',
+        'Tests bewijzen dat records terug te vinden zijn via de afgesproken referenties.',
+        'Scheiding van bestaande opslag of tabellen is aantoonbaar in configuratie en runbewijs.',
+      ],
+      bottleneck: 'Zonder opslagbewijs bestaat er geen duurzame plek waar afsluitbewijs later kan worden gecontroleerd.',
+    };
+  }
+
+  if (has(/agentic audit|audit|drift|finding|alignment/)) {
+    return {
+      name: 'Auditloop controleert resultaten',
+      must: 'De auditloop moet resultaten, bewijsverwijzingen, validatie-uitkomsten en drift controleren zonder zelf runtime-waarheid te worden.',
+      proof: [
+        'Auditbewijzen tonen gecontroleerde records, bevindingen, ernst en verwijzing naar bronbewijs.',
+        'Tests bewijzen dat audit geen ongeldige uitvoer promoveert tot waarheid.',
+        'Opslagbewijs toont dat auditbevindingen later beoordeelbaar blijven.',
+      ],
+      bottleneck: 'Als audit geen bewijsstuk oplevert, blijft kwaliteitscontrole onzichtbaar en kan zij geen afsluitpoort sluiten.',
+    };
+  }
+
+  if (has(/batch|metrics|cost|gpu cost|throughput|estimate/)) {
+    return {
+      name: 'Batchverwerking, metrieken en kosten zijn bewijsbaar',
+      must: 'De run moet meetbaar maken hoeveel werk is verwerkt, welke uitvoeringsomgeving is gebruikt, wat fouten kostten en welke kostenaanname onder de afsluitclaim ligt.',
+      proof: [
+        'Een metriekbewijsstuk bevat aantallen, uitvoeringsduur, foutstatussen en kostenberekening.',
+        'Kostenbewijs noemt expliciet de gebruikte compute-aanname.',
+        'Afwijkingen of ontbrekende metrieken zijn zichtbaar als review- of risicopunt.',
+      ],
+      bottleneck: 'Zonder meet- en kostenbewijs kan management geen eerlijke afsluitclaim maken over uitvoerbaarheid of schaalrisico.',
+    };
+  }
+
+  if (has(/local runtime|lm studio|adapter|runtime adapter|runtime selection/)) {
+    return {
+      name: 'Lokale uitvoeringsadapter is bruikbaar',
+      must: 'De lokale ontwikkelomgeving moet dezelfde contractvorm leveren als de doelomgeving, zonder validatie, opslag of routegedrag te veranderen.',
+      proof: [
+        'Adaptertests tonen dezelfde omhulsel- en foutvorm voor lokale en doelomgeving.',
+        'Een lokale rooktest toont modelaanroep, antwoordverwerking en foutpad.',
+        'Bewijs markeert lokale omgeving expliciet als ontwikkelbewijs, niet als productie- of AWS-afsluiting.',
+      ],
+      bottleneck: 'Als lokaal bewijs als eindbewijs wordt gelezen, ontstaat een valse afsluitclaim voor infrastructuur die nog niet bewezen is.',
+    };
+  }
+
+  if (has(/normaliz|normalis|html|evidence anchor|source-faithful|email text|raw html/)) {
+    return {
+      name: 'E-mailnormalisatie bewaart bewijsankers',
+      must: 'De normalisatiestap moet ruis verwijderen zonder bronbetekenis, metadata of bewijsankers te verliezen die later nodig zijn voor validatie en beoordeling.',
+      proof: [
+        'Gouden normalisatiebewijzen tonen input, opgeschoonde tekst, metadata en bewijsankers.',
+        'Tests bewijzen dat ruwe HTML niet onnodig naar het model gaat.',
+        'Moeilijke bronvoorbeelden hebben beoordeelde fragmenten die aantonen dat relevante gegevens behouden blijven.',
+      ],
+      bottleneck: 'Zonder brongetrouwe normalisatie kan validatie niet betrouwbaar naar bewijs terugwijzen.',
+    };
+  }
+
+  if (has(/aws proof|required aws|aws-backed|aws backed|real aws|deployment proof/)) {
+    return {
+      name: 'AWS-bewijs is verplicht',
+      must: 'Er moet een echte AWS-run bestaan die de afsluitclaim draagt. Lokaal bewijs mag ontwikkeling ondersteunen, maar mag deze poort niet vervangen.',
+      proof: [
+        'Een AWS-runbewijsstuk koppelt bronreferentie, eindpunt, validatieroute, opslagbewijs, metrieken en kosteninschatting.',
+        'Het bewijs maakt zichtbaar welke AWS-middelen de run hebben gedragen.',
+        'Een beoordelaar kan uit het bewijsstuk afleiden dat dit geen lokale simulatie is.',
+      ],
+      bottleneck: 'Als AWS-bewijs ontbreekt, kan alleen lokale prototype-afsluiting worden geclaimd; AWS-gedragen afsluiting blijft geblokkeerd.',
+    };
+  }
+
+  if (has(/production parser unchanged|parser isolation|current production parser|untouched/)) {
+    return {
+      name: 'Productieparser blijft onaangeraakt',
+      must: 'De bestaande productieroute moet aantoonbaar buiten de wijziging blijven: geen gedeelde queue-mutatie, geen wijziging in processorpad, geen gewijzigde productietabel en geen deploymentkoppeling met deze nieuwe route.',
+      proof: [
+        'Een wijzigings- of beoordelingsbewijs toont dat de bestaande parserroute niet is aangepast.',
+        'Tests of statische checks bewijzen dat de nieuwe route eigen middelen en eigen uitvoer gebruikt.',
+        'Uitrolbewijs toont dat productieparser en nieuwe verwerking onafhankelijk blijven.',
+      ],
+      bottleneck: 'Zonder isolatiebewijs kan de nieuwe route niet als af worden beschouwd, omdat sluiting dan impliciet leunt op een productierisico dat niet is geaccepteerd.',
+    };
+  }
+
+  if (has(/validated output|validated extraction|schema|contract|extraction-result|validation|accepted|review|rejected/)) {
+    return {
+      name: 'Uitvoer is gevalideerd en routeerbaar',
+      must: 'Elke uitvoer moet een stabiele recordvorm hebben met validatiestatus, bewijsverwijzingen, route, versievelden en bewijsstukverwijzingen voordat zij als afsluitbewijs telt.',
+      proof: [
+        'Contracttests accepteren geldige records en weigeren drift in omhulsel, route, bewijsverwijzing of verplichte velden.',
+        'Testsets tonen geaccepteerde, te beoordelen en afgewezen uitvoer.',
+        'Opslag- en indexbewijs tonen waar de gevalideerde uitvoer terug te vinden is.',
+      ],
+      bottleneck: 'Zonder validatiecontract kan modeluitvoer activiteit lijken, maar geen afsluitbewijs worden.',
+    };
+  }
+
+  if (has(/production parser unchanged|parser isolation|current production parser|untouched/)) {
+    return {
+      name: 'Productieparser blijft onaangeraakt',
+      must: 'De bestaande productieroute moet aantoonbaar buiten de wijziging blijven: geen gedeelde queue-mutatie, geen wijziging in processorpad, geen gewijzigde productietabel en geen deploymentkoppeling met deze nieuwe route.',
+      proof: [
+        'Een wijzigings- of beoordelingsbewijs toont dat de bestaande parserroute niet is aangepast.',
+        'Tests of statische checks bewijzen dat de nieuwe route eigen middelen en eigen uitvoer gebruikt.',
+        'Uitrolbewijs toont dat productieparser en nieuwe verwerking onafhankelijk blijven.',
+      ],
+      bottleneck: 'Zonder isolatiebewijs kan de nieuwe route niet als af worden beschouwd, omdat sluiting dan impliciet leunt op een productierisico dat niet is geaccepteerd.',
+    };
+  }
+
+  if (has(/aws proof|required aws|aws-backed|aws backed|real aws|deployment proof/)) {
+    return {
+      name: 'AWS-bewijs is verplicht',
+      must: 'Er moet een echte AWS-run bestaan die de afsluitclaim draagt. Lokaal bewijs mag ontwikkeling ondersteunen, maar mag deze poort niet vervangen.',
+      proof: [
+        'Een AWS-runbewijsstuk koppelt bronreferentie, eindpunt, validatieroute, opslagbewijs, metrieken en kosteninschatting.',
+        'Het bewijs maakt zichtbaar welke AWS-middelen de run hebben gedragen.',
+        'Een beoordelaar kan uit het bewijsstuk afleiden dat dit geen lokale simulatie is.',
+      ],
+      bottleneck: 'Als AWS-bewijs ontbreekt, kan alleen lokale prototype-afsluiting worden geclaimd; AWS-gedragen afsluiting blijft geblokkeerd.',
+    };
+  }
+
+  if (has(/vllm|gpu|inference server|openai-compatible|openai compatible|model server/)) {
+    return {
+      name: 'Inferentieserver draait op doelinfrastructuur',
+      must: 'De modelserver moet bereikbaar zijn via de afgesproken API-vorm en dezelfde validatie- en routegrenzen gebruiken als de rest van het afsluitpad.',
+      proof: [
+        'Een rooktest toont eindpunt, modelidentiteit, verzoek, antwoord, foutgedrag en timeoutgedrag.',
+        'Configuratiebewijs toont dat runtimekeuze niet in applicatielogica is verstopt.',
+        'Resourcebewijs toont welke compute-keuze de server draagt.',
+      ],
+      bottleneck: 'Zonder gekozen en bewezen compute-primitief kan infrastructuurafsluiting niet worden bewezen.',
+    };
+  }
+
+  if (has(/local runtime|lm studio|adapter|runtime adapter|runtime selection/)) {
+    return {
+      name: 'Lokale uitvoeringsadapter is bruikbaar',
+      must: 'De lokale ontwikkelomgeving moet dezelfde contractvorm leveren als de doelomgeving, zonder validatie, opslag of routegedrag te veranderen.',
+      proof: [
+        'Adaptertests tonen dezelfde omhulsel- en foutvorm voor lokale en doelomgeving.',
+        'Een lokale rooktest toont modelaanroep, antwoordverwerking en foutpad.',
+        'Bewijs markeert lokale omgeving expliciet als ontwikkelbewijs, niet als productie- of AWS-afsluiting.',
+      ],
+      bottleneck: 'Als lokaal bewijs als eindbewijs wordt gelezen, ontstaat een valse afsluitclaim voor infrastructuur die nog niet bewezen is.',
+    };
+  }
+
+  if (has(/normaliz|normalis|html|evidence anchor|source-faithful|email text|raw html/)) {
+    return {
+      name: 'E-mailnormalisatie bewaart bewijsankers',
+      must: 'De normalisatiestap moet ruis verwijderen zonder bronbetekenis, metadata of bewijsankers te verliezen die later nodig zijn voor validatie en beoordeling.',
+      proof: [
+        'Gouden normalisatiebewijzen tonen input, opgeschoonde tekst, metadata en bewijsankers.',
+        'Tests bewijzen dat ruwe HTML niet onnodig naar het model gaat.',
+        'Moeilijke bronvoorbeelden hebben beoordeelde fragmenten die aantonen dat relevante gegevens behouden blijven.',
+      ],
+      bottleneck: 'Zonder brongetrouwe normalisatie kan validatie niet betrouwbaar naar bewijs terugwijzen.',
+    };
+  }
+
+  if (has(/validated output|schema|contract|extraction-result|validation|accepted|review|rejected/)) {
+    return {
+      name: 'Uitvoer is gevalideerd en routeerbaar',
+      must: 'Elke uitvoer moet een stabiele recordvorm hebben met validatiestatus, bewijsverwijzingen, route, versievelden en bewijsstukverwijzingen voordat zij als afsluitbewijs telt.',
+      proof: [
+        'Contracttests accepteren geldige records en weigeren drift in omhulsel, route, bewijsverwijzing of verplichte velden.',
+        'Testsets tonen geaccepteerde, te beoordelen en afgewezen uitvoer.',
+        'Opslag- en indexbewijs tonen waar de gevalideerde uitvoer terug te vinden is.',
+      ],
+      bottleneck: 'Zonder validatiecontract kan modeluitvoer activiteit lijken, maar geen afsluitbewijs worden.',
+    };
+  }
+
+  if (has(/batch|metrics|cost|gpu cost|runtime|throughput|estimate/)) {
+    return {
+      name: 'Batchverwerking, metrieken en kosten zijn bewijsbaar',
+      must: 'De run moet meetbaar maken hoeveel werk is verwerkt, welke uitvoeringsomgeving is gebruikt, wat fouten kostten en welke kostenaanname onder de afsluitclaim ligt.',
+      proof: [
+        'Een metriekbewijsstuk bevat aantallen, uitvoeringsduur, foutstatussen en kostenberekening.',
+        'Kostenbewijs noemt expliciet de gebruikte compute-aanname.',
+        'Afwijkingen of ontbrekende metrieken zijn zichtbaar als review- of risicopunt.',
+      ],
+      bottleneck: 'Zonder meet- en kostenbewijs kan management geen eerlijke afsluitclaim maken over uitvoerbaarheid of schaalrisico.',
+    };
+  }
+
+  if (has(/agentic audit|audit|drift|finding|alignment/)) {
+    return {
+      name: 'Auditloop controleert resultaten',
+      must: 'De auditloop moet resultaten, bewijsverwijzingen, validatie-uitkomsten en drift controleren zonder zelf runtime-waarheid te worden.',
+      proof: [
+        'Auditbewijzen tonen gecontroleerde records, bevindingen, ernst en verwijzing naar bronbewijs.',
+        'Tests bewijzen dat audit geen ongeldige uitvoer promoveert tot waarheid.',
+        'Opslagbewijs toont dat auditbevindingen later beoordeelbaar blijven.',
+      ],
+      bottleneck: 'Als audit geen bewijsstuk oplevert, blijft kwaliteitscontrole onzichtbaar en kan zij geen afsluitpoort sluiten.',
+    };
+  }
+
+  if (has(/storage|s3|dynamodb|artifact|encrypted|index|reproducible/)) {
+    return {
+      name: 'Opslagcontract is gescheiden en reproduceerbaar',
+      must: 'Bewijsstukken en indexrecords moeten een eigen opslagpad, eigen sleutelvorm, reproduceerbare verwijzingen en controleerbare scheiding van bestaande systemen hebben.',
+      proof: [
+        'Opslagbewijs toont bewijslocatie, sleutelversie, indexprojectie en versleutelingsgrens.',
+        'Tests bewijzen dat records terug te vinden zijn via de afgesproken referenties.',
+        'Scheiding van bestaande opslag of tabellen is aantoonbaar in configuratie en runbewijs.',
+      ],
+      bottleneck: 'Zonder opslagbewijs bestaat er geen duurzame plek waar afsluitbewijs later kan worden gecontroleerd.',
+    };
+  }
+
+  if (has(/preflight|short-circuit|deterministic|candidate_hint|required field|complete/)) {
+    return {
+      name: 'Deterministische preflight sluit alleen volledige gevallen kort',
+      must: 'De deterministische stap mag alleen zonder model doorgaan wanneer verplichte velden compleet zijn, bewijsankers oplossen en er geen conflicten of blokkerende onzekerheden zijn.',
+      proof: [
+        'Testsets tonen volledige kortsluitgevallen en gevallen die verplicht naar modelverwerking gaan.',
+        'Tests bewijzen dat optionele hints niet als beslissend bewijs worden gepromoveerd.',
+        'Validatiebewijs toont dat kortgesloten uitvoer dezelfde recordvorm gebruikt als modeluitvoer.',
+      ],
+      bottleneck: 'Als preflight te ruim accepteert, ontstaat stille datadrift en wordt modelvalidatie omzeild.',
+    };
+  }
+
+  if (has(/shared source|separate path|separate queue|own resources|same raw|queue/)) {
+    return {
+      name: 'Gedeelde bron, gescheiden verwerkingspad',
+      must: 'De nieuwe route moet dezelfde bron kunnen lezen zonder de bestaande verwerking te wijzigen, en moet daarna via eigen wachtrij, werker, opslag, index en bewijsoppervlak lopen.',
+      proof: [
+        'Architectuur- of Terraformbewijs toont gedeelde bronlezing en gescheiden vervolgmiddelen.',
+        'Tests of statische checks bewijzen dat wachtrij, werker en opslag niet samenvallen met productieparser-middelen.',
+        'Runbewijs toont dat een bronobject door de nieuwe route kan lopen zonder productieroute-mutatie.',
+      ],
+      bottleneck: 'Zonder bewijs van padenscheiding blijft onduidelijk wie risico, uitrol en operationele gevolgen bezit.',
+    };
+  }
+
+  if (has(/terraform|iam|resource|deploy|environment|infrastructure/)) {
+    return {
+      name: 'Infrastructuur is reviewbaar vastgelegd',
+      must: 'De benodigde infrastructuur moet als beoordeelbare configuratie bestaan, met eigenaarschap, toegangsgrenzen, uitrolpad en rollback- of risicopad.',
+      proof: [
+        'Configuratiebewijs toont resources, permissies, omgeving en uitrolstap.',
+        'Reviewbewijs bevestigt dat resourcegrenzen en eigenaarschap zijn geaccepteerd.',
+        'Een run- of planartifact toont dat de configuratie uitvoerbaar is.',
+      ],
+      bottleneck: 'Zonder infrastructuurreview blijft afsluiting afhankelijk van een niet-bewezen omgeving.',
+    };
+  }
+
+  if (has(/test|fixture|coverage|golden/)) {
+    return {
+      name: 'Test- en fixturebewijs sluit de poort',
+      must: 'De poort moet door gerichte tests en representatieve fixtures aantonen dat het gevraagde gedrag herhaalbaar is.',
+      proof: [
+        'Testuitvoer toont welke contracten en randgevallen zijn geraakt.',
+        'Fixtures zijn traceerbaar naar het gedrag dat zij moeten bewijzen.',
+        'Ontbrekende coverage is zichtbaar als open bewijs- of acceptatiepunt.',
+      ],
+      bottleneck: 'Zonder gericht testbewijs blijft de poort afhankelijk van interpretatie in plaats van herhaalbare controle.',
+    };
+  }
+
+  throw new Error(`Geen specifieke Nederlandse poortlens voor acceptatiecriterium: ${criterion.id || criterion.name || criterion.title || 'zonder id'}. Voeg een lens toe of lever een expliciet accountability-model aan; de renderer publiceert geen generieke fallbacktekst.`);
+}
+
 function buildGenericModel(doc, sourcePath) {
   const criteria = cards(doc, 'acceptance-criteria');
   const gates = [];
@@ -195,14 +511,7 @@ function buildGenericModel(doc, sourcePath) {
     const uniqueRelated = [...new Map(related.map((entry) => [`${entry.section.id}:${entry.card.id}`, entry])).values()];
     const criterionText = criterion.criterion || criterion.definition || textOf(criterion);
     const state = inferState(criterion, uniqueRelated);
-    const proofHints = summarizeRelated(uniqueRelated, ['currentCoverage', 'proofClaim', 'outputAssertion', 'evidenceRefs']);
-    const proof = [
-      'Een beoordeelbaar bewijsstuk moet aantonen dat deze acceptatiepoort is gesloten.',
-      proofHints.length
-        ? 'Gerelateerde kaarten leveren bewijsaanwijzingen; die moeten tot sluitend beoordelingsbewijs worden gemaakt.'
-        : 'Het levende document bevat nog geen afdoende bewijsaanwijzing voor deze poort.',
-      'Als het criterium niet wordt geleverd, moet het expliciet uit de reikwijdte worden gehaald met benoemd risico.',
-    ];
+    const lens = inferGateLens(criterion, uniqueRelated);
     const gaps = [
       ...arr(criterion.gaps).map(textOf),
       ...arr(criterion.gap).map(textOf),
@@ -210,13 +519,13 @@ function buildGenericModel(doc, sourcePath) {
     ].filter(Boolean);
     const types = accountabilityTypes(criterionText, uniqueRelated);
     gates.push({
-      name: `Acceptatiepoort ${index + 1}`,
+      name: lens.name,
       state,
-      must: 'Deze acceptatiepoort moet aantoonbaar waar zijn volgens het levende document. Sluiting vereist bewijs dat de poort is gehaald, expliciet is verwijderd, of is afgewaardeerd met benoemd risico.',
-      proof: proof.length ? proof : ['Het levende document vereist een bewijsstuk, maar de gerelateerde kaarten bevatten geen bewijsdetail.'],
+      must: lens.must,
+      proof: lens.proof,
       bottleneck: gaps.length
-        ? 'Gerelateerde kaarten melden nog open bewijs, implementatie, besluitvorming of beoordelingswerk. Dat is een knelpunt totdat een eigenaar het sluit.'
-        : 'Geen expliciet knelpunt zichtbaar op gerelateerde kaarten; eigenaar moet bewijsvoldoendeheid bevestigen.',
+        ? lens.bottleneck
+        : lens.bottleneck,
       types,
       owner: ownerRequiredFor(types, `${criterionText} ${gaps.join(' ')}`)
         ? `Eigenaar vereist: eigenaar voor ${types.filter((type) => type !== 'implementation work' && type !== 'proof/evidence work').map((type) => typeLabel(type, 'nl')).join(', ') || 'acceptatie'} is niet uit het document afleidbaar.`
