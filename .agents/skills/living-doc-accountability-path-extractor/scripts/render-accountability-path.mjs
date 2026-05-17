@@ -245,6 +245,7 @@ function finishModel(doc, sourcePath, gates, proofOverride = null) {
   return {
     sourcePath,
     title: doc.title || path.basename(sourcePath, '.json'),
+    displayTitle: 'Wanneer is het af?',
     subtitle: doc.subtitle || '',
     updated: doc.updated || '',
     objective: doc.objective || '',
@@ -377,7 +378,7 @@ function renderHtml(model) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(model.title)} - ${esc(labels.pageTitleSuffix)}</title>
+<title>${esc(model.displayTitle || 'Wanneer is het af?')} - ${esc(model.title)} - ${esc(labels.pageTitleSuffix)}</title>
 <style>
   :root {
     --bg: #f4f6f8;
@@ -422,7 +423,7 @@ function renderHtml(model) {
   h3 { margin: 0 0 8px; font-size: 15px; line-height: 1.32; letter-spacing: 0; }
   p { margin: 0; }
   p + p { margin-top: 10px; }
-  .meta { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .meta { display: grid; grid-template-columns: 1.2fr 2fr 1fr 1fr; gap: 10px; margin-top: 18px; }
   .meta div, .metric, .panel, .gate, .bottleneck, .ledger-column { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
   .meta div { padding: 10px 12px; background: #f9fbfc; }
   .label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 800; }
@@ -505,7 +506,7 @@ function renderHtml(model) {
 <body>
 <div class="topbar">
   <div class="topbar-inner">
-    <div class="topbar-title">${esc(model.title)}</div>
+    <div class="topbar-title">${esc(model.displayTitle || 'Wanneer is het af?')} · ${esc(model.title)}</div>
     <nav class="nav" aria-label="Page sections">
       <a href="#readout">${esc(labels.navReadout)}</a>
       <a href="#dashboard">${esc(labels.navDashboard)}</a>
@@ -521,9 +522,10 @@ function renderHtml(model) {
     <div class="hero-line"></div>
     <div class="hero">
       <div class="eyebrow">${esc(labels.eyebrow)}</div>
-      <h1>${esc(model.title)}</h1>
+      <h1>${esc(model.displayTitle || 'Wanneer is het af?')}</h1>
       ${model.subtitle ? `<p>${esc(model.subtitle)}</p>` : ''}
       <div class="meta">
+        <div><span class="label">Living doc</span><span class="value">${esc(model.title)}</span></div>
         <div><span class="label">${esc(labels.sourceDoc)}</span><span class="value">${esc(model.sourcePath)}</span></div>
         <div><span class="label">${esc(labels.generated)}</span><span class="value">${esc(model.generatedAt)}</span></div>
         <div><span class="label">${esc(labels.docUpdated)}</span><span class="value">${esc(model.updated)}</span></div>

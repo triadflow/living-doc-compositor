@@ -365,6 +365,7 @@ The renderer is JSON-model based:
 - Extract the living doc into a `living-doc-accountability-path/v1` model.
 - Render HTML from that model.
 - Use the generic extractor for every living doc type. Do not add one-off document-specific render branches.
+- The rendered page title is always `Wanneer is het af?`; preserve the source living doc title as metadata.
 - Use `--model-out` when the accountability model should be inspectable, versioned, or rendered again later.
 - Use `--from-model` to render an existing model without rereading the living doc.
 - Output is Dutch only. Do not create English accountability pages or English accountability JSON models.
