@@ -2473,10 +2473,52 @@ function renderSection(section) {
 
 /* ── Sidebar ── */
 
-const artifactPageIcon = '<path d="M6 3h8l4 4v14H6z" opacity=".24"/><path d="M13 3v5h5"/><path d="M8 12h8v1.8H8zm0 4h6v1.8H8z"/>';
-
 function normalizeArtifactPages(doc) {
   return Array.isArray(doc.artifactPages) ? doc.artifactPages.filter((page) => page && page.id && Array.isArray(page.sections)) : [];
+}
+
+const artifactLibraryText = {
+  title: { en: 'Generated artifacts', nl: 'Gegenereerde bewijsstukken', id: 'Artefak tergenerasi' },
+  eyebrow: { en: 'Artifact library', nl: 'Artefactbibliotheek', id: 'Pustaka artefak' },
+  note: {
+    en: 'Skill-generated pages live here so they do not become document sections.',
+    nl: 'Door skills gegenereerde pagina’s staan hier, zodat ze geen documentsecties worden.',
+    id: 'Halaman yang dibuat skill berada di sini agar tidak menjadi seksi dokumen.',
+  },
+  open: { en: 'Open artifact', nl: 'Bewijsstuk openen', id: 'Buka artefak' },
+  back: { en: 'Back to artifact library', nl: 'Terug naar artefactbibliotheek', id: 'Kembali ke pustaka artefak' },
+  updated: { en: 'Updated', nl: 'Bijgewerkt', id: 'Diperbarui' },
+};
+
+function renderArtifactLibrary(artifactPages) {
+  if (!artifactPages.length) return '';
+  return `
+          <section class="artifact-library" id="artifact-library">
+            <div class="artifact-library-head">
+              <div>
+                <p class="artifact-library-eyebrow">${escapeHtml(localizedValue(artifactLibraryText.eyebrow))}</p>
+                <h2>${escapeHtml(localizedValue(artifactLibraryText.title))}</h2>
+                <p>${escapeHtml(localizedValue(artifactLibraryText.note))}</p>
+              </div>
+              <span class="snapshot-pill">${escapeHtml(String(artifactPages.length))}</span>
+            </div>
+            <div class="artifact-library-grid">
+              ${artifactPages.map((page) => {
+                const title = localizedValue(page.title);
+                const subtitle = localizedValue(page.subtitle || page.description || '');
+                return `
+                <article class="artifact-library-card">
+                  <div>
+                    <p class="artifact-library-card-kicker">${escapeHtml(localizedValue(page.kindLabel || page.kind || artifactLibraryText.eyebrow))}</p>
+                    <h3>${escapeHtml(title)}</h3>
+                    ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
+                    ${page.updated ? `<p class="artifact-library-meta">${escapeHtml(localizedValue(artifactLibraryText.updated))}: ${timestampHtml(page.updated)}</p>` : ''}
+                  </div>
+                  <button class="artifact-open-btn" type="button" data-open-artifact="${escapeHtml(page.id)}">${escapeHtml(localizedValue(artifactLibraryText.open))}</button>
+                </article>`;
+              }).join('')}
+            </div>
+          </section>`;
 }
 
 function renderArtifactPage(page) {
@@ -2494,19 +2536,22 @@ function renderArtifactPage(page) {
               <h2>${escapeHtml(title)}</h2>
               ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
             </div>
-            ${updated}
+            <div class="artifact-page-actions">
+              ${updated}
+              <button class="artifact-open-btn" type="button" data-view-target="document">${escapeHtml(localizedValue(artifactLibraryText.back))}</button>
+            </div>
           </section>
           ${pageSections.map(renderSection).join('')}
         </div>`;
 }
 
-function buildSidebar(sections, artifactPages = []) {
+function buildSidebar(sections) {
   const counts = new Map();
   const seen = new Map();
   for (const section of sections) {
     counts.set(section.convergenceType, (counts.get(section.convergenceType) ?? 0) + 1);
   }
-  const sectionLinks = sections.map((section) => {
+  return sections.map((section) => {
     const ct = registry.convergenceTypes[section.convergenceType];
     const icon = ct?.icon ?? '';
     const iconStyle = ct?.iconColor ? ` style="--icon-color:${escapeHtml(ct.iconColor)}"` : '';
@@ -2521,17 +2566,6 @@ function buildSidebar(sections, artifactPages = []) {
         <span class="nav-tooltip">${escapeHtml(sectionTitle)}</span>
       </a>`;
   }).join('');
-  const artifactLinks = artifactPages.map((page) => {
-    const title = localizedValue(page.title);
-    const icon = page.icon || artifactPageIcon;
-    const iconStyle = page.iconColor ? ` style="--icon-color:${escapeHtml(page.iconColor)}"` : '';
-    return `
-      <a href="#${escapeHtml(page.id)}" class="nav-icon artifact-nav-icon" data-view-target="${escapeHtml(page.id)}" data-target="${escapeHtml(page.id)}" aria-label="${escapeHtml(title)}"${iconStyle}>
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">${icon}</svg>
-        <span class="nav-tooltip">${escapeHtml(title)}</span>
-      </a>`;
-  }).join('');
-  return `${sectionLinks}${artifactLinks ? `<div class="nav-separator" aria-hidden="true"></div>${artifactLinks}` : ''}`;
 }
 
 /* ── Assemble HTML ── */
@@ -2638,11 +2672,6 @@ const html = `<!doctype html>
       }
       .nav-icon:hover { background: color-mix(in srgb, var(--icon-color, var(--neutral-bg)) 10%, transparent); color: var(--icon-color, var(--ink)); text-decoration: none; }
       .nav-icon.active { background: color-mix(in srgb, var(--icon-color, var(--accent)) 15%, transparent); color: var(--icon-color, var(--accent)); }
-      .artifact-nav-icon { color: var(--icon-color, #9d2d22); }
-      .nav-separator {
-        width: 26px; height: 1px; margin: 8px 0;
-        background: var(--line); flex-shrink: 0;
-      }
       .nav-tooltip {
         position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
         background: var(--ink); color: #fff; font-size: 12px; font-weight: 600;
@@ -2751,7 +2780,36 @@ const html = `<!doctype html>
       .artifact-page-head h2 { margin: 0; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; }
       .artifact-page-head p { margin: 8px 0 0; color: var(--muted); max-width: 68ch; }
       .artifact-page-updated { color: var(--muted); font-size: 12px; white-space: nowrap; }
+      .artifact-page-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
       .artifact-page .section:first-of-type { border-top: 1px solid var(--line); padding-top: 36px; }
+      .artifact-library {
+        margin: 24px 0 8px; padding: 20px; border: 1px solid var(--line);
+        border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow-sm);
+      }
+      .artifact-library-head {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+      }
+      .artifact-library-eyebrow,
+      .artifact-library-card-kicker {
+        margin: 0 0 4px; color: var(--muted); font-size: 11px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.08em;
+      }
+      .artifact-library h2 { margin: 0; font-size: 18px; line-height: 1.25; letter-spacing: -0.01em; }
+      .artifact-library-head p,
+      .artifact-library-card p { margin: 8px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+      .artifact-library-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      .artifact-library-card {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+        border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--bg);
+      }
+      .artifact-library-card h3 { margin: 0; font-size: 15px; line-height: 1.35; }
+      .artifact-library-meta { font-size: 12px !important; }
+      .artifact-open-btn {
+        appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+        color: var(--ink); font: inherit; font-size: 12px; font-weight: 750; padding: 7px 10px;
+        cursor: pointer; white-space: nowrap;
+      }
+      .artifact-open-btn:hover { border-color: var(--accent); color: var(--accent); }
       .board-view { margin-top: 28px; }
       .board-toolbar {
         display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
@@ -3202,7 +3260,7 @@ const html = `<!doctype html>
       .table-card h2 { margin: 0 0 4px; }
       .footnote { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
       @media (max-width: 980px) {
-        .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        .summary-grid, .artifact-library-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
         .card-grid { grid-template-columns: 1fr; }
         .snapshot-grid { grid-template-columns: 1fr; }
         .section-ai-grid { grid-template-columns: 1fr; }
@@ -3309,7 +3367,9 @@ const html = `<!doctype html>
         .content { margin-left: 0; }
         .wrap { padding: 20px 16px 48px; }
         .json-graph-view { left: auto; width: 100%; transform: none; }
-        .summary-grid { grid-template-columns: 1fr; }
+        .summary-grid, .artifact-library-grid { grid-template-columns: 1fr; }
+        .artifact-library-head, .artifact-library-card, .artifact-page-head { flex-direction: column; }
+        .artifact-page-actions { align-items: flex-start; }
         .board-toolbar { flex-direction: column; }
         .graph-toolbar { flex-direction: column; }
         .json-graph-shell { grid-template-columns: 1fr; }
@@ -3328,7 +3388,7 @@ const html = `<!doctype html>
 
     <nav class="sidebar" aria-label="Section navigation">
       <div class="brand">${escapeHtml(data.brand ?? 'LD')}</div>
-      ${buildSidebar(sections, artifactPages)}
+      ${buildSidebar(sections)}
       <div class="comp-toggle" id="comp-toggle" title="Open compositor">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </div>
@@ -3371,6 +3431,8 @@ const html = `<!doctype html>
           </section>` : ''}
 
           ${(data.callouts ?? []).map(renderCallout).join('')}
+
+          ${renderArtifactLibrary(artifactPages)}
 
           ${sections.map(renderSection).join('')}
 
@@ -3440,6 +3502,9 @@ const html = `<!doctype html>
         for (const button of viewButtons) {
           button.addEventListener('click', () => showView(button.dataset.viewTarget));
         }
+        document.querySelectorAll('[data-open-artifact]').forEach((button) => {
+          button.addEventListener('click', () => showView(button.dataset.openArtifact));
+        });
 
         document.querySelectorAll('[data-board-select]').forEach((select) => {
           const root = select.closest('.board-view');
