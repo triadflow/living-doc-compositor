@@ -96,9 +96,13 @@ function makeCardIndex(doc) {
 }
 
 function relatedByTicket(doc, criterion) {
-  const ids = new Set(arr(criterion.ticketIds));
+  const ids = new Set([...arr(criterion.ticketIds), ...arr(criterion.issueRefs)]);
   if (!ids.size) return [];
-  return allCards(doc).filter(({ card }) => card.id !== criterion.id && arr(card.ticketIds).some((id) => ids.has(id)));
+  return allCards(doc).filter(({ card }) => {
+    if (card.id === criterion.id) return false;
+    const cardRefs = [...arr(card.ticketIds), ...arr(card.issueRefs)];
+    return cardRefs.some((id) => ids.has(id));
+  });
 }
 
 function relatedByCriterion(doc, criterion) {
@@ -107,10 +111,43 @@ function relatedByCriterion(doc, criterion) {
 
 function inferState(criterion, related) {
   const states = [criterion.status, ...related.map(({ card }) => card.status)].filter(Boolean).map((s) => String(s).toLowerCase());
+  const combined = [
+    textOf(criterion),
+    ...related.map(({ card }) => textOf(card)),
+  ].join(' ').toLowerCase();
+  const criterionSource = [
+    criterion.id,
+    criterion.name,
+    criterion.title,
+    textOf(criterion),
+  ].filter(Boolean).join(' ').toLowerCase();
+  const criterionKeySource = [
+    criterion.id,
+    criterion.name,
+    criterion.title,
+    criterion.objectiveTerm,
+  ].filter(Boolean).join(' ').toLowerCase();
+  const hasClosureProof = states.some((s) => ['satisfied', 'closed', 'complete'].includes(s));
+  const hasSupportingProof = (
+    arr(criterion.evidenceRefs).length > 0
+    || arr(criterion.proofRefs).length > 0
+    || arr(criterion.artifactRefs).length > 0
+    || states.some((s) => ['partial', 'partially-resolved', 'built', 'current', 'ground-truth'].includes(s))
+    || /\b(green|passed|summary\.passed=true|proof exists|proof .* exists|implemented|now emits|tests cover|focused .*tests|full suite|live .*processed|smoke .*processed)\b/.test(combined)
+  );
+  const isEvidencePackGate = /evidence[- ]pack|whole email|whole body|prompt input/.test(criterionSource);
+  const hasEvidencePackProof = /evidence-pack live local e2e proof passed|summary\.passed=true without whole-body|gemma-input-evidence-pack\/v1 as prompt input/.test(combined);
+  const needsProductionShapedProof = /aws|vllm|target infrastructure|required aws|shared source|separate path|production parser unchanged|parser isolation/.test(criterionKeySource);
+  const hasProductionShapedProof = /(aws[- ]backed|recorded aws run|aws run artifact|deployment artifact|endpoint health check|terraform review evidence|diff review|isolation tests).{0,80}(exists|passed|shows|proves|captures|linked|recorded)/.test(combined)
+    && !/(no aws|no .*deployment|no .*smoke artifact|missing aws|aws .*missing|remaining work:.*aws|closure review fails unless an aws-backed run artifact exists)/.test(combined);
+  const targetStillUnbuilt = isEvidencePackGate
+    && !hasEvidencePackProof
+    && /specified but not implemented|not implemented yet|target hardening remains|baseline, not the final|temporary proof shortcut|replaces capped|still needs evidence-pack/.test(combined);
   if (states.some((s) => ['blocked'].includes(s))) return 'blocked';
-  if (states.some((s) => ['missing', 'planned', 'not-built', 'specified', 'reference'].includes(s))) return 'open';
-  if (states.some((s) => ['partial', 'partially-resolved'].includes(s))) return 'partial';
-  if (states.length && states.every((s) => ['built', 'closed', 'complete', 'current', 'ground-truth', 'required'].includes(s))) return 'partial';
+  if (hasClosureProof && !targetStillUnbuilt) return 'closed';
+  if (needsProductionShapedProof && !hasProductionShapedProof) return 'open';
+  if (hasSupportingProof && !targetStillUnbuilt) return 'partial';
+  if (states.some((s) => ['missing', 'planned', 'not-built', 'specified', 'reference', 'required'].includes(s))) return 'open';
   return 'unclear';
 }
 
