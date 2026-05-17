@@ -2,16 +2,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 function usage() {
   return `Usage:
-  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc.json|doc.html|file://...> [--out <path>] [--model-out <path>]
-  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs --from-model <model.json> [--out <path>]
+  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc.json|doc.html|file://...> [--locale en|nl|id]
 
 Examples:
-  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs docs/workstream.json
-  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs file:///path/to/workstream.html#status-snapshot --model-out docs/workstream-accountability-path.nl.json
-  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs --from-model docs/workstream-accountability-path.nl.json`;
+  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs docs/workstream.json --locale en
+  node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs file:///path/to/workstream.html#status-snapshot --locale nl
+
+This updates the living doc JSON in place with an accountability closure-path section and renders the normal living doc HTML. It does not create a standalone accountability dossier.`;
 }
 
 function parseArgs(argv) {
@@ -21,20 +22,10 @@ function parseArgs(argv) {
     process.exit(args.length ? 0 : 1);
   }
   let input = null;
-  let out = null;
-  let modelOut = null;
-  let fromModel = null;
   let locale = 'nl';
   for (let i = 0; i < args.length; i += 1) {
-    if (args[i] === '--out') {
-      out = args[i + 1];
-      i += 1;
-    } else if (args[i] === '--model-out') {
-      modelOut = args[i + 1];
-      i += 1;
-    } else if (args[i] === '--from-model') {
-      fromModel = args[i + 1];
-      i += 1;
+    if (args[i] === '--out' || args[i] === '--model-out' || args[i] === '--from-model') {
+      throw new Error(`${args[i]} is no longer supported. This skill only integrates into the living doc and rerenders the living doc HTML.`);
     } else if (args[i] === '--locale') {
       locale = args[i + 1];
       i += 1;
@@ -43,9 +34,9 @@ function parseArgs(argv) {
       input = args[i];
     }
   }
-  if (locale !== 'nl') throw new Error('Dutch is the only supported accountability output locale for this skill.');
-  if (!input && !fromModel) throw new Error('Expected an input doc or --from-model <model.json>');
-  return { input, out, modelOut, fromModel, locale };
+  if (!['en', 'nl', 'id'].includes(locale)) throw new Error('Expected --locale en, --locale nl, or --locale id.');
+  if (!input) throw new Error('Expected a living doc input.');
+  return { input, locale };
 }
 
 function resolveInput(input) {
@@ -62,25 +53,6 @@ function resolveInput(input) {
   }
   return raw;
 }
-
-function defaultOutputPath(sourcePath, explicitOut, locale = 'nl', extension = 'html') {
-  if (explicitOut) return path.resolve(explicitOut);
-  const ext = path.extname(sourcePath);
-  const base = sourcePath.slice(0, -ext.length);
-  return `${base}-accountability-path.${locale}.${extension}`;
-}
-
-const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (ch) => ({
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-}[ch]));
-
-const slug = (value) => String(value ?? '')
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-|-$/g, '') || 'item';
 
 function arr(value) {
   if (!value) return [];
@@ -489,7 +461,7 @@ function inferGateLens(criterion, related) {
     };
   }
 
-  throw new Error(`Geen specifieke Nederlandse poortlens voor acceptatiecriterium: ${criterion.id || criterion.name || criterion.title || 'zonder id'}. Voeg een lens toe of lever een expliciet accountability-model aan; de renderer publiceert geen generieke fallbacktekst.`);
+  throw new Error(`Geen specifieke poortlens voor acceptatiecriterium: ${criterion.id || criterion.name || criterion.title || 'zonder id'}. Voeg een specifieke lens met Engelse, Nederlandse en Bahasa Indonesia-tekst toe; de renderer publiceert geen generieke tekst.`);
 }
 
 function buildGenericModel(doc, sourcePath) {
@@ -594,356 +566,250 @@ function modelFinishWord(doc) {
   return 'af';
 }
 
-const UI = {
-  nl: {
-    lang: 'nl',
-    pageTitleSuffix: 'Verantwoordingspad',
-    navReadout: 'Uitlezing',
-    navDashboard: 'Overzicht',
-    navGates: 'Poorten',
-    navBottlenecks: 'Knelpunten',
-    navProof: 'Bewijs',
-    navSummary: 'Samenvatting',
-    eyebrow: 'Bewijsgericht afsluitpad',
-    sourceDoc: 'Brondocument',
-    generated: 'Gegenereerd',
-    docUpdated: 'Doc bijgewerkt',
-    objective: 'Doel',
-    successCondition: 'Succesvoorwaarde',
-    accountabilityReadout: 'Verantwoordingsuitlezing',
-    implementationAlone: 'Alleen implementatie',
-    gateDashboard: 'Poortdashboard',
-    ownerRequired: 'eigenaar vereist',
-    finishLanguage: 'Afsluit-taal',
-    currentlyMeans: 'betekent nu',
-    closurePath: 'Afsluitpad',
-    closureIntro: 'De volgorde hieronder is het kleinste eerlijke pad naar de gedocumenteerde succesvoorwaarde. Lokaal implementatiewerk is zichtbaar, maar infrastructuur, beoordeling, acceptatie, kosten, uitrol en bewijs-eigenaarschap worden niet tot implementatie gereduceerd.',
-    gate: 'Poort',
-    currentState: 'Huidige staat',
-    mustBecomeTrue: 'Moet waar worden',
-    proofRequired: 'Vereist bewijs',
-    bottleneckRisk: 'Knelpuntrisico',
-    accountabilityType: 'Verantwoordelijkheidstype',
-    bottleneckMap: 'Knelpuntenkaart',
-    blocks: 'Blokkeert',
-    whyBottleneck: 'Waarom dit een knelpunt is',
-    ifSkipped: 'Als dit wordt overgeslagen',
-    proofLedger: 'Bewijsboekhouding',
-    proven: 'Bewezen',
-    partial: 'Gedeeltelijk',
-    missing: 'Ontbreekt',
-    invalidForClosure: 'Ongeldig voor afsluiting',
-    managerSummary: 'Managementsamenvatting',
-    footer: 'Gegenereerd door living-doc-accountability-path-extractor. Deze pagina is een bewijsgericht afsluitpad, geen planningsschatting.',
-    printNote: 'Printnotitie: bronpad en gegenereerde timestamp blijven bewaard als beoordelingsbewijs.',
-  },
-};
-
-const STATUS_LABELS = {
-  nl: { closed: 'gesloten', partial: 'gedeeltelijk', open: 'open', blocked: 'geblokkeerd', unclear: 'onduidelijk' },
-};
-
-const TYPE_LABELS = {
-  nl: {
-    'implementation work': 'implementatiewerk',
-    'decision work': 'besluitwerk',
-    'review and acceptance work': 'beoordelings- en acceptatiewerk',
-    'infrastructure/resource work': 'infrastructuur- en middelenwerk',
-    'access/funding work': 'toegang/financiering',
-    'risk acceptance work': 'risicoacceptatie',
-    'proof/evidence work': 'bewijswerk',
-    'operational ownership work': 'operationeel eigenaarschap',
-  },
-};
-
-function ui(locale) {
-  return UI[locale] || UI.nl;
-}
-
-function statusLabel(state, locale) {
-  return STATUS_LABELS[locale]?.[state] || state;
-}
-
-function typeLabel(type, locale) {
-  return TYPE_LABELS[locale]?.[type] || type;
-}
-
 function localizeModel(model, locale) {
-  if (locale !== 'nl') throw new Error('Dutch is the only supported accountability output locale for this skill.');
+  if (!['en', 'nl', 'id'].includes(locale)) throw new Error('Expected locale en, nl, or id.');
   return {
     ...model,
-    locale: 'nl',
+    locale,
     schema: 'living-doc-accountability-path/v1',
-    implementationAlone: model.implementationAlone === 'Yes' ? 'Ja' : model.implementationAlone,
   };
 }
 
-function renderDossierHtml(model) {
-  const locale = 'nl';
-  const chip = (text, cls = '') => `<span class="chip ${cls}">${esc(text)}</span>`;
-  const list = (items, empty = 'Geen bewijsregel vastgelegd.') => {
-    const safeItems = (items || []).filter(Boolean);
-    if (!safeItems.length) return `<p>${esc(empty)}</p>`;
-    return `<ul>${safeItems.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`;
+const ml = (en, nl, id) => ({ en, nl, id });
+
+const SECTION_TEXT = {
+  title: ml('When is it done?', 'Wanneer is het af?', 'Kapan selesai?'),
+  calloutTitle: ml('Not reducible to a date', 'Niet te reduceren tot een datum', 'Tidak bisa direduksi menjadi tanggal'),
+  schedulingBasis: ml(
+    'This cannot be honestly reduced to a date from the current document. The remaining finish condition is a set of proof gates.',
+    'Dit kan vanuit het huidige document niet eerlijk tot een datum worden gereduceerd. De resterende afrondingsvoorwaarde is een set bewijs-poorten.',
+    'Dari dokumen saat ini, ini tidak bisa secara jujur direduksi menjadi tanggal. Syarat penyelesaiannya adalah sekumpulan gerbang bukti.'
+  ),
+  readout: ml(
+    'This is not a single implementation task. The living doc defines completion as proof gates, with coding work separated from decisions, acceptance, infrastructure, access, evidence, operational ownership, risk acceptance, or explicit scope removal.',
+    'Dit is geen enkele implementatietaak. Het levende document definieert voltooiing als bewijs-poorten, waarbij codewerk gescheiden blijft van besluiten, acceptatie, infrastructuur, toegang, bewijs, operationeel eigenaarschap, risicoacceptatie of expliciete reikwijdteverwijdering.',
+    'Ini bukan satu tugas implementasi. Living doc mendefinisikan selesai sebagai gerbang bukti, dengan pekerjaan kode dipisahkan dari keputusan, penerimaan, infrastruktur, akses, bukti, kepemilikan operasional, penerimaan risiko, atau penghapusan cakupan secara eksplisit.'
+  ),
+  implementationAlone: ml('Implementation alone', 'Alleen implementatie', 'Implementasi saja'),
+  ownerRequired: ml('Owner required', 'Eigenaar vereist', 'Pemilik diperlukan'),
+  gates: ml('Gates', 'Poorten', 'Gerbang'),
+  nonImplementation: ml('Non-implementation gates', 'Niet-implementatiepoorten', 'Gerbang non-implementasi'),
+};
+
+const TYPE_LABELS_I18N = {
+  'implementation work': ml('implementation work', 'implementatiewerk', 'pekerjaan implementasi'),
+  'decision work': ml('decision work', 'besluitwerk', 'pekerjaan keputusan'),
+  'review and acceptance work': ml('review and acceptance work', 'beoordelings- en acceptatiewerk', 'pekerjaan tinjauan dan penerimaan'),
+  'infrastructure/resource work': ml('infrastructure/resource work', 'infrastructuur- en middelenwerk', 'pekerjaan infrastruktur/sumber daya'),
+  'access/funding work': ml('access/funding work', 'toegang/financiering', 'akses/pendanaan'),
+  'risk acceptance work': ml('risk acceptance work', 'risicoacceptatie', 'penerimaan risiko'),
+  'proof/evidence work': ml('proof/evidence work', 'bewijswerk', 'pekerjaan bukti'),
+  'operational ownership work': ml('operational ownership work', 'operationeel eigenaarschap', 'kepemilikan operasional'),
+};
+
+function typeLabel(type, locale) {
+  const label = TYPE_LABELS_I18N[type]?.[locale];
+  if (!label) throw new Error(`No ${locale} accountability type label for "${type}". Add an explicit translation; no fallback is allowed.`);
+  return label;
+}
+
+const GATE_I18N = {
+  'Afsluitlabel en reikwijdtegrens': {
+    name: ml('Finish label and scope boundary', 'Afsluitlabel en reikwijdtegrens', 'Label selesai dan batas cakupan'),
+    must: ml(
+      'The finish claim must be tied to the objective, success condition, and acceptance criteria. That connection must be proven or explicitly removed with named risk.',
+      'De afsluitclaim moet gekoppeld zijn aan het doel, de succesvoorwaarde en de acceptatiecriteria. Die koppeling moet bewezen zijn of expliciet zijn verwijderd met benoemd risico.',
+      'Klaim selesai harus terikat pada tujuan, kondisi sukses, dan kriteria penerimaan. Kaitan itu harus dibuktikan atau dihapus secara eksplisit dengan risiko bernama.'
+    ),
+    proof: [
+      ml('The accountability section links the finish label to explicit closure gates.', 'De verantwoordingssectie koppelt het afsluitlabel aan expliciete afsluitpoorten.', 'Seksi akuntabilitas mengaitkan label selesai dengan gerbang penutupan eksplisit.'),
+      ml('Removed or downgraded scope records accepted risk and the finish claim it invalidates.', 'Verwijderde of afgewaardeerde reikwijdte legt geaccepteerd risico en de ongeldig gemaakte afsluitclaim vast.', 'Cakupan yang dihapus atau diturunkan mencatat risiko yang diterima dan klaim selesai yang menjadi tidak sah.')
+    ],
+    bottleneck: ml('The finish answer is incompatible with the current closure definition until every required gate is proven or explicitly removed with named risk.', 'Het afsluitantwoord is onverenigbaar met de huidige definitie van af totdat elke vereiste poort bewezen is of expliciet is verwijderd met benoemd risico.', 'Jawaban selesai tidak cocok dengan definisi penutupan saat ini sampai setiap gerbang wajib terbukti atau dihapus secara eksplisit dengan risiko bernama.')
+  },
+  'Gedeelde bron, gescheiden verwerkingspad': {
+    name: ml('Shared source, separate processing path', 'Gedeelde bron, gescheiden verwerkingspad', 'Sumber bersama, jalur pemrosesan terpisah'),
+    must: ml('The new route must read the same source without changing existing processing, then continue through its own queue, worker, storage, index, and proof surface.', 'De nieuwe route moet dezelfde bron kunnen lezen zonder de bestaande verwerking te wijzigen, en moet daarna via eigen wachtrij, werker, opslag, index en bewijsoppervlak lopen.', 'Rute baru harus membaca sumber yang sama tanpa mengubah pemrosesan yang ada, lalu berjalan melalui antrean, pekerja, penyimpanan, indeks, dan permukaan bukti miliknya sendiri.'),
+    proof: [ml('Architecture or Terraform proof shows shared source reading and separated downstream resources.', 'Architectuur- of Terraformbewijs toont gedeelde bronlezing en gescheiden vervolgmiddelen.', 'Bukti arsitektur atau Terraform menunjukkan pembacaan sumber bersama dan sumber daya lanjutan yang terpisah.'), ml('Static checks or tests prove queue, worker, and storage do not overlap production parser resources.', 'Tests of statische checks bewijzen dat wachtrij, werker en opslag niet samenvallen met productieparser-middelen.', 'Tes atau pemeriksaan statis membuktikan antrean, pekerja, dan penyimpanan tidak bertumpang tindih dengan sumber daya parser produksi.')],
+    bottleneck: ml('Without path-separation proof, ownership of risk, deployment, and operational impact remains blocked.', 'Zonder bewijs van padenscheiding blijft onduidelijk wie risico, uitrol en operationele gevolgen bezit.', 'Tanpa bukti pemisahan jalur, kepemilikan risiko, deployment, dan dampak operasional tetap terblokir.')
+  },
+  'Inferentieserver draait op doelinfrastructuur': {
+    name: ml('Inference server runs on target infrastructure', 'Inferentieserver draait op doelinfrastructuur', 'Server inferensi berjalan di infrastruktur target'),
+    must: ml('The model server must be reachable through the agreed API shape and use the same validation and routing boundaries as the closure path.', 'De modelserver moet bereikbaar zijn via de afgesproken API-vorm en dezelfde validatie- en routegrenzen gebruiken als de rest van het afsluitpad.', 'Server model harus dapat dijangkau lewat bentuk API yang disepakati dan memakai batas validasi serta routing yang sama dengan jalur penutupan.'),
+    proof: [ml('A smoke run shows endpoint, model identity, request, response, error behavior, and timeout behavior.', 'Een rooktest toont eindpunt, modelidentiteit, verzoek, antwoord, foutgedrag en timeoutgedrag.', 'Uji asap menunjukkan endpoint, identitas model, permintaan, respons, perilaku galat, dan perilaku timeout.'), ml('Configuration proof shows runtime choice is not hidden inside application logic.', 'Configuratiebewijs toont dat runtimekeuze niet in applicatielogica is verstopt.', 'Bukti konfigurasi menunjukkan pilihan runtime tidak disembunyikan dalam logika aplikasi.')],
+    bottleneck: ml('Without a selected and proven compute primitive, infrastructure closure cannot be proven.', 'Zonder gekozen en bewezen compute-primitief kan infrastructuurafsluiting niet worden bewezen.', 'Tanpa primitif komputasi yang dipilih dan dibuktikan, penutupan infrastruktur tidak dapat dibuktikan.')
+  },
+  'Lokale uitvoeringsadapter is bruikbaar': {
+    name: ml('Local runtime adapter is usable', 'Lokale uitvoeringsadapter is bruikbaar', 'Adapter runtime lokal dapat dipakai'),
+    must: ml('The local development environment must produce the same contract shape as the target environment without changing validation, storage, or routing behavior.', 'De lokale ontwikkelomgeving moet dezelfde contractvorm leveren als de doelomgeving, zonder validatie, opslag of routegedrag te veranderen.', 'Lingkungan pengembangan lokal harus menghasilkan bentuk kontrak yang sama dengan lingkungan target tanpa mengubah validasi, penyimpanan, atau perilaku routing.'),
+    proof: [ml('Adapter tests show the same envelope and error shape for local and target environments.', 'Adaptertests tonen dezelfde omhulsel- en foutvorm voor lokale en doelomgeving.', 'Tes adapter menunjukkan bentuk envelope dan galat yang sama untuk lingkungan lokal dan target.'), ml('Local proof is explicitly marked as development proof, not production or AWS closure.', 'Bewijs markeert de lokale omgeving expliciet als ontwikkelbewijs, niet als productie- of AWS-afsluiting.', 'Bukti lokal ditandai eksplisit sebagai bukti pengembangan, bukan penutupan produksi atau AWS.')],
+    bottleneck: ml('If local proof is read as final proof, it creates a false infrastructure closure claim.', 'Als lokaal bewijs als eindbewijs wordt gelezen, ontstaat een valse afsluitclaim voor infrastructuur die nog niet bewezen is.', 'Jika bukti lokal dibaca sebagai bukti akhir, klaim penutupan infrastruktur menjadi palsu.')
+  },
+  'E-mailnormalisatie bewaart bewijsankers': {
+    name: ml('Email normalization preserves evidence anchors', 'E-mailnormalisatie bewaart bewijsankers', 'Normalisasi email menjaga jangkar bukti'),
+    must: ml('Normalization must remove noise without losing source meaning, metadata, or evidence anchors needed for validation and review.', 'De normalisatiestap moet ruis verwijderen zonder bronbetekenis, metadata of bewijsankers te verliezen die later nodig zijn voor validatie en beoordeling.', 'Normalisasi harus menghapus noise tanpa kehilangan makna sumber, metadata, atau jangkar bukti yang dibutuhkan untuk validasi dan tinjauan.'),
+    proof: [ml('Golden normalization artifacts show input, cleaned text, metadata, and evidence anchors.', 'Gouden normalisatiebewijzen tonen input, opgeschoonde tekst, metadata en bewijsankers.', 'Artefak normalisasi emas menunjukkan input, teks bersih, metadata, dan jangkar bukti.'), ml('Hard source examples have reviewed snippets proving relevant data is retained.', 'Moeilijke bronvoorbeelden hebben beoordeelde fragmenten die aantonen dat relevante gegevens behouden blijven.', 'Contoh sumber sulit memiliki cuplikan yang ditinjau dan membuktikan data relevan tetap terjaga.')],
+    bottleneck: ml('Without source-faithful normalization, validation cannot reliably point back to evidence.', 'Zonder brongetrouwe normalisatie kan validatie niet betrouwbaar naar bewijs terugwijzen.', 'Tanpa normalisasi yang setia pada sumber, validasi tidak dapat menunjuk balik ke bukti secara andal.')
+  },
+  'Uitvoer is gevalideerd en routeerbaar': {
+    name: ml('Output is validated and routable', 'Uitvoer is gevalideerd en routeerbaar', 'Keluaran tervalidasi dan dapat dirutekan'),
+    must: ml('Every output must have a stable record shape with validation status, evidence references, route, version fields, and artifact references before it counts as closure proof.', 'Elke uitvoer moet een stabiele recordvorm hebben met validatiestatus, bewijsverwijzingen, route, versievelden en bewijsstukverwijzingen voordat zij als afsluitbewijs telt.', 'Setiap keluaran harus punya bentuk record stabil dengan status validasi, referensi bukti, rute, field versi, dan referensi artefak sebelum dihitung sebagai bukti penutupan.'),
+    proof: [ml('Contract tests accept valid records and reject drift in envelope, route, evidence reference, or required fields.', 'Contracttests accepteren geldige records en weigeren drift in omhulsel, route, bewijsverwijzing of verplichte velden.', 'Tes kontrak menerima record valid dan menolak drift pada envelope, rute, referensi bukti, atau field wajib.'), ml('Accepted, review, and rejected outputs are represented by fixtures.', 'Testsets tonen geaccepteerde, te beoordelen en afgewezen uitvoer.', 'Fixture menunjukkan keluaran diterima, perlu ditinjau, dan ditolak.')],
+    bottleneck: ml('Without a validation contract, model output is activity, not closure proof.', 'Zonder validatiecontract kan modeluitvoer activiteit lijken, maar geen afsluitbewijs worden.', 'Tanpa kontrak validasi, keluaran model hanyalah aktivitas, bukan bukti penutupan.')
+  },
+  'Batchverwerking, metrieken en kosten zijn bewijsbaar': {
+    name: ml('Batch processing, metrics, and cost are provable', 'Batchverwerking, metrieken en kosten zijn bewijsbaar', 'Batch, metrik, dan biaya dapat dibuktikan'),
+    must: ml('The run must measure processed work, runtime environment, error cost, and the cost assumption behind the finish claim.', 'De run moet meetbaar maken hoeveel werk is verwerkt, welke uitvoeringsomgeving is gebruikt, wat fouten kostten en welke kostenaanname onder de afsluitclaim ligt.', 'Run harus mengukur pekerjaan yang diproses, lingkungan runtime, biaya galat, dan asumsi biaya di balik klaim selesai.'),
+    proof: [ml('A metric artifact contains counts, runtime, error states, and cost calculation.', 'Een metriekbewijsstuk bevat aantallen, uitvoeringsduur, foutstatussen en kostenberekening.', 'Artefak metrik berisi jumlah, runtime, status galat, dan perhitungan biaya.'), ml('Cost proof names the compute assumption explicitly.', 'Kostenbewijs noemt expliciet de gebruikte compute-aanname.', 'Bukti biaya menyebut asumsi komputasi secara eksplisit.')],
+    bottleneck: ml('Without metrics and cost proof, management cannot make an honest closure claim about viability or scaling risk.', 'Zonder meet- en kostenbewijs kan management geen eerlijke afsluitclaim maken over uitvoerbaarheid of schaalrisico.', 'Tanpa bukti metrik dan biaya, manajemen tidak dapat membuat klaim penutupan yang jujur tentang kelayakan atau risiko skala.')
+  },
+  'Auditloop controleert resultaten': {
+    name: ml('Audit loop checks results', 'Auditloop controleert resultaten', 'Loop audit memeriksa hasil'),
+    must: ml('The audit loop must check results, evidence references, validation outcomes, and drift without becoming runtime truth itself.', 'De auditloop moet resultaten, bewijsverwijzingen, validatie-uitkomsten en drift controleren zonder zelf runtime-waarheid te worden.', 'Loop audit harus memeriksa hasil, referensi bukti, keluaran validasi, dan drift tanpa menjadi kebenaran runtime itu sendiri.'),
+    proof: [ml('Audit evidence shows checked records, findings, severity, and source-evidence references.', 'Auditbewijzen tonen gecontroleerde records, bevindingen, ernst en verwijzing naar bronbewijs.', 'Bukti audit menunjukkan record yang diperiksa, temuan, tingkat keparahan, dan referensi bukti sumber.'), ml('Tests prove audit does not promote invalid output into truth.', 'Tests bewijzen dat audit geen ongeldige uitvoer promoveert tot waarheid.', 'Tes membuktikan audit tidak mempromosikan keluaran tidak valid menjadi kebenaran.')],
+    bottleneck: ml('If audit produces no proof artifact, quality control remains invisible and cannot close a gate.', 'Als audit geen bewijsstuk oplevert, blijft kwaliteitscontrole onzichtbaar en kan zij geen afsluitpoort sluiten.', 'Jika audit tidak menghasilkan artefak bukti, kontrol kualitas tetap tidak terlihat dan tidak dapat menutup gerbang.')
+  },
+  'Productieparser blijft onaangeraakt': {
+    name: ml('Production parser remains untouched', 'Productieparser blijft onaangeraakt', 'Parser produksi tetap tidak tersentuh'),
+    must: ml('The existing production route must remain outside the change: no shared queue mutation, processor-path change, table change, or deployment coupling.', 'De bestaande productieroute moet aantoonbaar buiten de wijziging blijven: geen gedeelde queue-mutatie, geen wijziging in processorpad, geen gewijzigde productietabel en geen deploymentkoppeling met deze nieuwe route.', 'Rute produksi yang ada harus tetap di luar perubahan: tidak ada mutasi antrean bersama, perubahan jalur prosesor, perubahan tabel, atau coupling deployment.'),
+    proof: [ml('Diff or review proof shows the existing parser route was not changed.', 'Een wijzigings- of beoordelingsbewijs toont dat de bestaande parserroute niet is aangepast.', 'Bukti diff atau tinjauan menunjukkan rute parser yang ada tidak berubah.'), ml('Deployment proof shows production parser and new processing remain independent.', 'Uitrolbewijs toont dat productieparser en nieuwe verwerking onafhankelijk blijven.', 'Bukti deployment menunjukkan parser produksi dan pemrosesan baru tetap independen.')],
+    bottleneck: ml('Without isolation proof, closure would silently accept production risk.', 'Zonder isolatiebewijs kan de nieuwe route niet als af worden beschouwd, omdat sluiting dan impliciet leunt op een productierisico dat niet is geaccepteerd.', 'Tanpa bukti isolasi, penutupan diam-diam menerima risiko produksi.')
+  },
+  'AWS-bewijs is verplicht': {
+    name: ml('AWS proof is required', 'AWS-bewijs is verplicht', 'Bukti AWS wajib'),
+    must: ml('A real AWS run must carry the finish claim. Local proof may support development but cannot replace this gate.', 'Er moet een echte AWS-run bestaan die de afsluitclaim draagt. Lokaal bewijs mag ontwikkeling ondersteunen, maar mag deze poort niet vervangen.', 'Run AWS nyata harus menopang klaim selesai. Bukti lokal boleh mendukung pengembangan, tetapi tidak boleh menggantikan gerbang ini.'),
+    proof: [ml('An AWS run artifact links source reference, endpoint, validation route, storage proof, metrics, and cost estimate.', 'Een AWS-runbewijsstuk koppelt bronreferentie, eindpunt, validatieroute, opslagbewijs, metrieken en kosteninschatting.', 'Artefak run AWS mengaitkan referensi sumber, endpoint, rute validasi, bukti penyimpanan, metrik, dan estimasi biaya.'), ml('The artifact makes visible which AWS resources carried the run.', 'Het bewijs maakt zichtbaar welke AWS-middelen de run hebben gedragen.', 'Artefak menunjukkan sumber daya AWS mana yang menopang run.')],
+    bottleneck: ml('If AWS proof is missing, only local prototype closure can be claimed.', 'Als AWS-bewijs ontbreekt, kan alleen lokale prototype-afsluiting worden geclaimd; AWS-gedragen afsluiting blijft geblokkeerd.', 'Jika bukti AWS hilang, yang bisa diklaim hanya penutupan prototipe lokal.')
+  },
+  'Opslagcontract is gescheiden en reproduceerbaar': {
+    name: ml('Storage contract is separate and reproducible', 'Opslagcontract is gescheiden en reproduceerbaar', 'Kontrak penyimpanan terpisah dan dapat direproduksi'),
+    must: ml('Artifacts and index records need their own storage path, key shape, reproducible references, and auditable separation from existing systems.', 'Bewijsstukken en indexrecords moeten een eigen opslagpad, eigen sleutelvorm, reproduceerbare verwijzingen en controleerbare scheiding van bestaande systemen hebben.', 'Artefak dan record indeks perlu jalur penyimpanan, bentuk kunci, referensi yang dapat direproduksi, dan pemisahan yang dapat diaudit dari sistem yang ada.'),
+    proof: [ml('Storage proof shows artifact location, key version, index projection, and encryption boundary.', 'Opslagbewijs toont bewijslocatie, sleutelversie, indexprojectie en versleutelingsgrens.', 'Bukti penyimpanan menunjukkan lokasi artefak, versi kunci, proyeksi indeks, dan batas enkripsi.'), ml('Tests prove records can be found through the agreed references.', 'Tests bewijzen dat records terug te vinden zijn via de afgesproken referenties.', 'Tes membuktikan record dapat ditemukan melalui referensi yang disepakati.')],
+    bottleneck: ml('Without storage proof, there is no durable place to inspect closure evidence later.', 'Zonder opslagbewijs bestaat er geen duurzame plek waar afsluitbewijs later kan worden gecontroleerd.', 'Tanpa bukti penyimpanan, tidak ada tempat tahan lama untuk memeriksa bukti penutupan nanti.')
+  },
+  'Deterministische preflight sluit alleen volledige gevallen kort': {
+    name: ml('Deterministic preflight only short-circuits complete cases', 'Deterministische preflight sluit alleen volledige gevallen kort', 'Preflight deterministik hanya memintas kasus lengkap'),
+    must: ml('The deterministic step may proceed without the model only when required fields are complete, evidence anchors resolve, and no conflicts or blockers remain.', 'De deterministische stap mag alleen zonder model doorgaan wanneer verplichte velden compleet zijn, bewijsankers oplossen en er geen conflicten of blokkerende onzekerheden zijn.', 'Langkah deterministik hanya boleh lanjut tanpa model ketika field wajib lengkap, jangkar bukti terselesaikan, dan tidak ada konflik atau blocker.'),
+    proof: [ml('Fixtures show complete short-circuit cases and cases that must go to model processing.', 'Fixtures tonen volledige kortsluitgevallen en gevallen die verplicht naar modelverwerking gaan.', 'Fixture menunjukkan kasus lengkap yang boleh dipintas dan kasus yang wajib masuk pemrosesan model.'), ml('Validation proof shows short-circuited output uses the same record shape as model output.', 'Validatiebewijs toont dat kortgesloten uitvoer dezelfde recordvorm gebruikt als modeluitvoer.', 'Bukti validasi menunjukkan keluaran yang dipintas memakai bentuk record yang sama dengan keluaran model.')],
+    bottleneck: ml('If preflight accepts too broadly, silent data drift bypasses model validation.', 'Als preflight te ruim accepteert, ontstaat stille datadrift en wordt modelvalidatie omzeild.', 'Jika preflight menerima terlalu luas, drift data senyap melewati validasi model.')
+  }
+};
+
+function requiredI18nForGate(gate) {
+  const entry = GATE_I18N[gate.name];
+  if (!entry) throw new Error(`No multilingual living-doc gate text for "${gate.name}". Add a specific gate translation; no fallback is allowed.`);
+  return entry;
+}
+
+function localizedTypeList(types) {
+  return ml(
+    types.map((type) => typeLabel(type, 'en')).join(', '),
+    types.map((type) => typeLabel(type, 'nl')).join(', '),
+    types.map((type) => typeLabel(type, 'id')).join(', ')
+  );
+}
+
+function localizedImplementationAlone(value) {
+  const yes = value === 'Ja' || value === 'Yes' || value === true;
+  return yes ? ml('Yes', 'Ja', 'Ya') : ml('No', 'Nee', 'Tidak');
+}
+
+function ownerText(gate) {
+  const needsOwner = gate.owner.toLowerCase().includes('eigenaar vereist');
+  if (!needsOwner) {
+    return ml(
+      'Implementation ownership is inferable; acceptance ownership still needs review.',
+      'Implementatie-eigenaarschap is afleidbaar; acceptatie-eigenaarschap moet nog worden beoordeeld.',
+      'Kepemilikan implementasi dapat diturunkan; kepemilikan penerimaan tetap perlu ditinjau.'
+    );
+  }
+  return ml(
+    `Owner required for: ${localizedTypeList(gate.types).en}.`,
+    `Eigenaar vereist voor: ${localizedTypeList(gate.types).nl}.`,
+    `Pemilik diperlukan untuk: ${localizedTypeList(gate.types).id}.`
+  );
+}
+
+function skippedText(gate) {
+  return ml(
+    `If skipped, "${requiredI18nForGate(gate).name.en}" cannot count as closed and the finish claim must be downgraded.`,
+    `Als dit wordt overgeslagen, kan "${requiredI18nForGate(gate).name.nl}" niet als gesloten tellen en moet de afsluitclaim worden afgewaardeerd.`,
+    `Jika dilewati, "${requiredI18nForGate(gate).name.id}" tidak dapat dihitung tertutup dan klaim selesai harus diturunkan.`
+  );
+}
+
+function buildAccountabilitySection(model) {
+  const nonImplementationCount = model.gates.filter((gate) => gate.types.some((type) => type !== 'implementation work' && type !== 'proof/evidence work')).length;
+  return {
+    id: 'accountability-closure-path',
+    title: SECTION_TEXT.title,
+    convergenceType: 'accountability-closure-path',
+    updated: model.generatedAt,
+    callout: {
+      tone: 'negative',
+      title: SECTION_TEXT.calloutTitle,
+      items: [SECTION_TEXT.schedulingBasis, SECTION_TEXT.readout],
+    },
+    stats: [
+      { label: SECTION_TEXT.gates, value: model.gates.length },
+      { label: SECTION_TEXT.ownerRequired, value: model.ownerRequiredCount },
+      { label: SECTION_TEXT.implementationAlone, value: localizedImplementationAlone(model.implementationAlone) },
+      { label: SECTION_TEXT.nonImplementation, value: nonImplementationCount },
+    ],
+    data: model.gates.map((gate, index) => {
+      const copy = requiredI18nForGate(gate);
+      return {
+        id: `accountability-gate-${index + 1}`,
+        name: copy.name,
+        state: gate.state,
+        must: copy.must,
+        proofRequired: copy.proof[0],
+        bottleneckRisk: copy.bottleneck,
+        ownerRequired: ownerText(gate),
+        ifSkipped: skippedText(gate),
+        accountabilityType: localizedTypeList(gate.types),
+        proofItems: copy.proof.map((text) => ({ text })),
+        refs: gate.refs || [],
+        notes: [
+          {
+            role: 'reference',
+            title: ml('Source references', 'Bronverwijzingen', 'Referensi sumber'),
+            text: ml((gate.refs || []).join('\n'), (gate.refs || []).join('\n'), (gate.refs || []).join('\n')),
+          },
+        ],
+      };
+    }),
   };
-  const stateClass = (state) => `state-${slug(state)}`;
-  const typeHtml = (types) => types.map((type) => chip(typeLabel(type, locale), 'type')).join('');
-  const statusOrder = ['closed', 'partial', 'open', 'blocked', 'unclear'];
-  const proofColumns = [
-    ['Bewezen', model.proofLedger.proven],
-    ['Gedeeltelijk', model.proofLedger.partial],
-    ['Ontbreekt', model.proofLedger.missing],
-    ['Ongeldig als afsluiting', model.proofLedger.invalid],
-  ];
+}
 
-  return `<!doctype html>
-<html lang="nl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(model.displayTitle || 'Wanneer is het af?')}</title>
-<style>
-  :root {
-    --paper: #fffdf8;
-    --paper-soft: #faf6ed;
-    --bg: #e8e1d4;
-    --ink: #1e211c;
-    --muted: #696354;
-    --faint: #9b927f;
-    --rule: #d8cbb8;
-    --rule-dark: #3b3429;
-    --accent: #9d2d22;
-    --accent-soft: #f5e3dc;
-    --gold: #9a6a16;
-    --gold-soft: #f6ead1;
-    --blue: #295d73;
-    --blue-soft: #e3eef1;
-    --green: #2f734f;
-    --green-soft: #e4f0e7;
-    --gray-soft: #ece7dc;
-    --shadow: 0 28px 70px rgba(53, 39, 20, 0.18);
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 Georgia, "Times New Roman", serif; }
-  body, .page, header, main, aside, section, article, div, p, li, span { min-width: 0; overflow-wrap: anywhere; }
-  a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  .page { max-width: 1180px; margin: 0 auto; padding: 18px 16px 32px; }
-  .sheet { background: var(--paper); border: 1px solid var(--rule); box-shadow: var(--shadow); }
-  header { padding: 24px 30px 22px; border-top: 6px solid var(--rule-dark); border-bottom: 3px double var(--rule-dark); }
-  .kicker, .label, nav, .chip, .folio, .stamp, .metric, .footer { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  .kicker { color: var(--accent); text-transform: uppercase; font-size: 12px; font-weight: 850; letter-spacing: .08em; }
-  h1 { margin: 5px 0 5px; font-size: clamp(30px, 4.8vw, 52px); line-height: 1; letter-spacing: 0; }
-  .dek { max-width: 760px; color: var(--muted); font-size: 15px; line-height: 1.4; }
-  .stamp { display: grid; grid-template-columns: 1.2fr 1fr .8fr; gap: 10px; margin-top: 26px; }
-  .stamp div { min-height: 58px; padding: 9px 11px; border: 1px solid var(--rule); background: var(--paper-soft); }
-  .label { display: block; color: var(--faint); font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
-  .value { display: block; margin-top: 7px; color: var(--ink); font-weight: 780; }
-  .body { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 24px; padding: 22px 30px 30px; }
-  aside { position: sticky; top: 18px; align-self: start; }
-  nav { display: grid; gap: 7px; margin-bottom: 18px; }
-  nav a { padding: 8px 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 13px; font-weight: 760; text-decoration: none; }
-  nav a:hover { color: var(--accent); }
-  .verdict { padding: 14px; border: 2px solid var(--accent); background: var(--accent-soft); }
-  .verdict strong { display: block; margin-bottom: 6px; font-size: 16px; line-height: 1.2; }
-  .verdict p { margin: 0; font-size: 13px; line-height: 1.4; }
-  .sidebox { margin-top: 14px; padding: 13px; border: 1px solid var(--rule); background: var(--paper-soft); }
-  .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-  .metric { padding: 8px; border: 1px solid var(--rule); background: var(--paper); }
-  .metric strong { display: block; font-size: 20px; line-height: 1; }
-  .metric span { color: var(--muted); font-size: 12px; text-transform: capitalize; }
-  main { display: grid; gap: 28px; }
-  section { border-top: 2px solid var(--rule-dark); padding-top: 18px; }
-  h2 { display: flex; gap: 10px; align-items: baseline; margin: 0 0 12px; font-size: 21px; line-height: 1.15; letter-spacing: 0; }
-  h3 { margin: 0; font-size: 16px; line-height: 1.22; letter-spacing: 0; }
-  p { margin: 0; }
-  p + p { margin-top: 11px; }
-  .number { color: var(--accent); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; font-weight: 850; }
-  .memo { columns: 2 290px; column-gap: 28px; color: #2d2b25; }
-  .memo p { break-inside: avoid; }
-  .gate-list { display: grid; gap: 16px; }
-  .criterion { display: grid; grid-template-columns: 68px minmax(0, 1fr); border: 1px solid var(--rule); background: #fffaf0; }
-  .folio { padding: 12px 8px; border-right: 1px solid var(--rule); color: var(--accent); font-size: 11px; font-weight: 850; text-align: center; }
-  .criterion-body { padding: 14px 15px 15px; }
-  .criterion-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; margin-bottom: 12px; }
-  .chiprow { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
-  .chip { display: inline-flex; align-items: center; min-height: 25px; max-width: 100%; padding: 4px 9px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); font-size: 12px; font-weight: 790; }
-  .chip.type { background: var(--blue-soft); border-color: #bfd2d9; color: #224e60; }
-  .chip.owner { background: var(--accent-soft); border-color: #deb4ac; color: var(--accent); }
-  .state-closed { color: var(--green); background: var(--green-soft); border-color: #b7d6c0; }
-  .state-partial { color: var(--gold); background: var(--gold-soft); border-color: #e2c88f; }
-  .state-open { color: var(--blue); background: var(--blue-soft); border-color: #bfd2d9; }
-  .state-blocked { color: var(--accent); background: var(--accent-soft); border-color: #deb4ac; }
-  .state-unclear { color: #605848; background: var(--gray-soft); border-color: var(--rule); }
-  .evidence-box { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 12px; margin-top: 14px; }
-  .evidence-box > div, .bottleneck, .ledger-card, .summary { padding: 11px; border: 1px solid var(--rule); background: var(--paper); }
-  .evidence-box > div:nth-child(2) { background: #fff5f1; border-color: #dfbdb5; }
-  ul { margin: 8px 0 0; padding-left: 19px; }
-  li + li { margin-top: 6px; }
-  .bottleneck-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .bottleneck { border-left: 6px solid var(--accent); }
-  .ledger { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .ledger-card:nth-child(1) { border-top: 5px solid var(--green); }
-  .ledger-card:nth-child(2) { border-top: 5px solid var(--gold); }
-  .ledger-card:nth-child(3) { border-top: 5px solid var(--blue); }
-  .ledger-card:nth-child(4) { border-top: 5px solid var(--accent); }
-  .summary { background: #fff7ed; border-left: 5px solid var(--gold); font-size: 15px; line-height: 1.45; }
-  .footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12px; }
-  @media (max-width: 900px) {
-    .page { padding: 0; }
-    .sheet { border-left: 0; border-right: 0; box-shadow: none; }
-    header { padding: 22px 18px 18px; }
-    .stamp, .body, .criterion, .criterion-head, .evidence-box, .bottleneck-list, .ledger { grid-template-columns: 1fr; }
-    .body { padding: 18px 18px 26px; gap: 22px; }
-    aside { position: static; }
-    .folio { border-right: 0; border-bottom: 1px solid var(--rule); text-align: left; }
-    .memo { columns: auto; }
-  }
-  @media print {
-    body { background: #fff; }
-    .page { max-width: none; padding: 0; }
-    .sheet { border: 0; box-shadow: none; }
-    aside { position: static; }
-    .criterion, .bottleneck, .ledger-card, .summary { break-inside: avoid; }
-  }
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="sheet">
-    <header>
-      <div class="kicker">Bewijsdossier</div>
-      <h1>${esc(model.displayTitle || 'Wanneer is het af?')}</h1>
-      <p class="dek">Formele afsluitnotitie voor bewijs, eigenaarschap, knelpunten en resterende poorten.</p>
-      <div class="stamp">
-        <div><span class="label">Brondocument</span><span class="value">Gekoppeld levend document</span></div>
-        <div><span class="label">Gegenereerd</span><span class="value">${esc(model.generatedAt)}</span></div>
-        <div><span class="label">Poorten</span><span class="value">${model.gates.length}</span></div>
-      </div>
-    </header>
+function upsertAccountabilitySection(doc, section) {
+  const sections = Array.isArray(doc.sections) ? doc.sections : [];
+  const existingIndex = sections.findIndex((entry) => entry.id === section.id || entry.convergenceType === 'accountability-closure-path');
+  if (existingIndex >= 0) sections[existingIndex] = section;
+  else sections.push(section);
+  doc.sections = sections;
+}
 
-    <div class="body">
-      <aside>
-        <nav aria-label="Paginadelen">
-          <a href="#memo">1. Memo</a>
-          <a href="#poorten">2. Afsluitpoorten</a>
-          <a href="#knelpunten">3. Knelpunten</a>
-          <a href="#bewijs">4. Bewijsboekhouding</a>
-          <a href="#samenvatting">5. Samenvatting</a>
-        </nav>
-        <div class="verdict">
-          <strong>Niet te reduceren tot een datum.</strong>
-          <p>${esc(model.schedulingBasis)}</p>
-        </div>
-        <div class="sidebox">
-          <span class="label">Alleen implementatie</span>
-          <span class="value">${esc(model.implementationAlone)}</span>
-          <div class="metrics">
-            ${statusOrder.map((state) => `<div class="metric ${stateClass(state)}"><strong>${model.statusCounts[state] || 0}</strong><span>${esc(statusLabel(state, locale))}</span></div>`).join('')}
-            <div class="metric"><strong>${model.ownerRequiredCount}</strong><span>eigenaar vereist</span></div>
-          </div>
-        </div>
-      </aside>
-
-      <main>
-        <section id="memo">
-          <h2><span class="number">1</span> Memo</h2>
-          <div class="memo">
-            <p>${esc(model.accountabilityReadout)}</p>
-            <p>Het afsluitlabel betekent hier: ${esc(model.finishLabel)}</p>
-            <p>${esc(model.finishCheck)}</p>
-          </div>
-        </section>
-
-        <section id="poorten">
-          <h2><span class="number">2</span> Afsluitpoorten</h2>
-          <div class="gate-list">
-            ${model.gates.map((gate, index) => `<article class="criterion" id="poort-${index + 1}">
-              <div class="folio">Poort ${index + 1}</div>
-              <div class="criterion-body">
-                <div class="criterion-head">
-                  <h3>${esc(gate.name)}</h3>
-                  ${chip(statusLabel(gate.state, locale), stateClass(gate.state))}
-                </div>
-                <p>${esc(gate.must)}</p>
-                <div class="evidence-box">
-                  <div>
-                    <span class="label">Vereist bewijs</span>
-                    ${list(gate.proof)}
-                  </div>
-                  <div>
-                    <span class="label">Knelpunt en eigenaar</span>
-                    <p>${esc(gate.bottleneck)}</p>
-                    <p>${esc(gate.owner)}</p>
-                  </div>
-                </div>
-                <div class="chiprow">${typeHtml(gate.types)}${gate.owner.toLowerCase().includes('eigenaar vereist') ? chip('Eigenaar vereist', 'owner') : ''}</div>
-              </div>
-            </article>`).join('\n')}
-          </div>
-        </section>
-
-        <section id="knelpunten">
-          <h2><span class="number">3</span> Knelpunten</h2>
-          <div class="bottleneck-list">
-            ${(model.bottlenecks || []).length ? model.bottlenecks.map((bottleneck) => `<article class="bottleneck">
-              <h3>${esc(bottleneck.name)}</h3>
-              <p><strong>Blokkeert:</strong> ${esc(bottleneck.blocks)}</p>
-              <p><strong>Waarom dit een knelpunt is:</strong> ${esc(bottleneck.why)}</p>
-              <p><strong>Eigenaar vereist:</strong> ${esc(bottleneck.owner)}</p>
-              <p><strong>Als dit wordt overgeslagen:</strong> ${esc(bottleneck.ifSkipped)}</p>
-            </article>`).join('\n') : '<p>Geen knelpuntkaart vastgelegd.</p>'}
-          </div>
-        </section>
-
-        <section id="bewijs">
-          <h2><span class="number">4</span> Bewijsboekhouding</h2>
-          <div class="ledger">
-            ${proofColumns.map(([title, items]) => `<article class="ledger-card">
-              <h3>${esc(title)}</h3>
-              ${list(items)}
-            </article>`).join('\n')}
-          </div>
-        </section>
-
-        <section id="samenvatting">
-          <h2><span class="number">5</span> Samenvatting</h2>
-          <div class="summary">${esc(model.managerSummary)}</div>
-        </section>
-
-        <div class="footer">
-          <p>Gegenereerd uit het Nederlandse verantwoordingsmodel. Bronpad, bronverwijzingen en ruwe kaartkoppelingen staan in het JSON-bestand.</p>
-        </div>
-      </main>
-    </div>
-  </div>
-</div>
-</body>
-</html>`;
+function renderLivingDoc(sourcePath) {
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(scriptDir, '../../../..');
+  const renderer = path.join(repoRoot, 'scripts', 'render-living-doc.mjs');
+  execFileSync('node', [renderer, sourcePath], { cwd: repoRoot, stdio: 'inherit' });
+  return sourcePath.replace(/\.json$/i, '.html');
 }
 
 async function main() {
-  const { input, out, modelOut, fromModel, locale } = parseArgs(process.argv);
-  let sourcePath = null;
-  let model = null;
-  if (fromModel) {
-    const modelPath = path.resolve(fromModel);
-    model = JSON.parse(await fs.readFile(modelPath, 'utf8'));
-    sourcePath = model.sourcePath || modelPath;
-  } else {
-    sourcePath = resolveInput(input);
-    const doc = JSON.parse(await fs.readFile(sourcePath, 'utf8'));
-    model = buildGenericModel(doc, sourcePath);
-  }
+  const { input, locale } = parseArgs(process.argv);
+  const sourcePath = resolveInput(input);
+  const doc = JSON.parse(await fs.readFile(sourcePath, 'utf8'));
+  let model = buildGenericModel(doc, sourcePath);
   model = localizeModel(model, locale);
-  const outputPath = defaultOutputPath(sourcePath, out, locale, 'html');
-  if (modelOut) {
-    const modelPath = defaultOutputPath(sourcePath, modelOut, locale, 'json');
-    await fs.mkdir(path.dirname(modelPath), { recursive: true });
-    await fs.writeFile(modelPath, `${JSON.stringify(model, null, 2)}\n`);
-  }
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await fs.writeFile(outputPath, renderDossierHtml(model));
-  console.log(outputPath);
+  doc.locale = locale;
+  doc.updated = new Date().toISOString();
+  upsertAccountabilitySection(doc, buildAccountabilitySection(model));
+  await fs.writeFile(sourcePath, `${JSON.stringify(doc, null, 2)}\n`);
+  const htmlPath = renderLivingDoc(sourcePath);
+  console.log(htmlPath);
 }
 
 main().catch((error) => {

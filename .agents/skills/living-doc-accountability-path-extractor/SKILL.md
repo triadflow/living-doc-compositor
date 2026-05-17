@@ -342,138 +342,67 @@ Owner required: acceptance owner for route policy.
 
 ---
 
-### 3. Statische HTML-pagina
+### 3. Integrated living-doc output
 
-The primary deliverable is a standalone Dutch proof dossier page, not a chat-only report.
+The primary deliverable is an accountability section inside the source living doc, rendered by the normal living-doc compositor. Do not create a separate accountability HTML page or a separate accountability JSON model.
 
-Render with the bundled script when possible:
-
-```bash
-node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc.json-or-rendered-html-or-file-url>
-```
-
-Useful options:
+Run with the bundled script when possible:
 
 ```bash
-node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc> --out <path>
-node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc> --model-out <path>
-node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs --from-model <model.json> --out <path>
+node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc.json-or-rendered-html-or-file-url> --locale <en|nl|id>
 ```
 
-The renderer is JSON-model based:
+Locale options:
 
-- Extract the living doc into a `living-doc-accountability-path/v1` model.
-- Render HTML from that model.
+```bash
+--locale en
+--locale nl
+--locale id
+```
+
+The renderer behavior:
+
+- Resolve a `.json`, `.html`, or `file://...html#anchor` input to the source living-doc JSON.
+- Extract the living doc into an internal `living-doc-accountability-path/v1` model.
+- Upsert one section with `id: accountability-closure-path`, `convergenceType: accountability-closure-path`, and title `Wanneer is het af?` / `When is it done?` / `Kapan selesai?`.
+- Store all user-facing accountability text as localized values for English, Dutch, and Bahasa Indonesia.
+- Set the source document locale from `--locale`.
+- Render the source living doc with `node scripts/render-living-doc.mjs <source-doc.json>`.
+- Report the rendered living-doc HTML path.
+
+Unsupported output paths:
+
+- Do not use or recreate `--out`.
+- Do not use or recreate `--model-out`.
+- Do not use or recreate `--from-model`.
+- Do not create `<source>-accountability-path.*.html`.
+- Do not create `<source>-accountability-path.*.json`.
+
+No fallback rule:
+
 - Use the generic extractor for every living doc type. Do not add one-off document-specific render branches.
-- Do not publish generic fallback gate prose. Each gate must be rendered through a specific Dutch gate lens derived from the acceptance criterion. If no lens matches, fail the render and require either a new lens or an explicit JSON model.
-- The rendered page title is always `Wanneer is het af?`.
-- The visible HTML is Dutch-only. Do not show raw English objectives, success conditions, acceptance text, or source-card prose on the page. Keep source paths, ids, and raw card references in the JSON model.
-- Use `--model-out` when the accountability model should be inspectable, versioned, or rendered again later.
-- Use `--from-model` to render an existing model without rereading the living doc.
-- Output is Dutch only. Do not create English accountability pages or English accountability JSON models.
-- Default artifact names must use `.nl`: `<source-doc-slug>-accountability-path.nl.html` and `<source-doc-slug>-accountability-path.nl.json`.
+- Do not publish generic fallback gate prose.
+- Each gate must be rendered through a specific gate lens derived from the acceptance criterion.
+- Every gate lens must include explicit English, Dutch, and Bahasa Indonesia text.
+- If no lens matches, fail the render and require a new lens. Do not produce a placeholder, approximation, generic gate, or partial standalone artifact.
+- If a localized label or gate translation is missing, fail the render. Do not fall back to another language.
 
 Commit rule:
 
-- The generated accountability JSON model and generated accountability HTML page are durable development artifacts.
-- Whenever this skill creates or edits either artifact, commit both the JSON and HTML immediately in the repo that owns them.
-- Commit only Dutch accountability artifacts: `.nl.html` and `.nl.json`.
+- The source living-doc JSON and rendered living-doc HTML are durable development artifacts.
+- Whenever this skill creates or edits the integrated accountability section, commit both the source JSON and rendered HTML immediately in the repo that owns them.
+- If old standalone accountability artifacts exist for the same source doc, remove them in the same owner-repo commit.
 - If the skill script, skill instructions, or renderer behavior changed in the same run, commit those skill changes separately in the compositor repo, unless the user explicitly asks for a single cross-repo worktree state without commits.
-- Do not leave regenerated accountability artifacts as uncommitted scratch files after a successful render.
+- Do not leave regenerated living-doc JSON/HTML as uncommitted scratch files after a successful render.
 
-Create the page at:
+Rendered section requirements:
 
-```text
-docs/<source-doc-slug>-accountability-path.nl.html
-```
-
-If the source living doc is outside this repo, create the HTML next to the source JSON unless the user asks for another location.
-
-The page must be fully standalone:
-
-- inline CSS
-- inline JavaScript only if it materially improves scanning or filtering
-- no external fonts
-- no external scripts
-- no CDN assets
-- no network calls
-- no dependency on the compositor iframe
-
-The page must preserve the accountability stance of this skill. Visual polish must not soften, hide, rename, or dilute blockers.
-
-Required page structure:
-
-```text
-1. Bewijsdossier-header
-   - fixed title: Wanneer is het af?
-   - generated timestamp
-   - gate count
-   - source reference label without dumping raw source prose
-
-2. Left review rail
-   - direct no-date verdict
-   - explicit implementation-alone yes/no line
-   - compact counts by state
-   - owner-required count
-
-3. Memo
-   - accountability readout
-   - finish-label meaning
-   - incompatibility between vague finish language and open proof gates
-
-4. Afsluitpoorten
-   - one dossier block per gate
-   - state badge
-   - accountability type badges
-   - owner-required badge when ownership is missing
-   - proof required
-   - bottleneck risk
-
-5. Knelpunten
-   - only real bottlenecks
-   - each bottleneck names what it blocks, why it blocks closure, owner required, and risk if skipped
-
-6. Bewijsboekhouding
-   - proven
-   - partial
-   - missing
-   - invalid for closure
-
-7. Samenvatting
-   - short summary that compresses accountability without comfort language
-```
-
-Visual requirements:
-
-- Use a serious proof-dossier style: paper-like, restrained, readable, and print-friendly.
-- Use a warm light background with high-contrast text.
-- Use color as status semantics, not decoration.
-- Suggested status colors:
-  - closed: green
-  - partial: amber
-  - open: blue
-  - blocked: red
-  - unclear: gray
-- Use a wide desktop layout with a sticky left review rail when there is enough space.
-- Collapse to a single-column mobile layout.
-- Keep cards at 8px radius or less.
-- Do not use decorative gradients, blobs, oversized hero treatment, marketing copy, or dashboard theater.
-- Do not hide required proof or owner-required labels behind hover-only UI.
-- Make the page printable: avoid dark backgrounds, preserve section breaks, and include timestamp. Source path and raw source references belong in the JSON model.
-
-Content requirements:
-
-- Every gate shown on the page must include current state, must-become-true condition, proof required, bottleneck risk, accountability type, and owner required.
-- Every "done" or "closed" visual state must map to proof on the same gate block.
-- Every unowned blocker must visibly say `Owner required`.
+- The section title is always the localized form of `When is it done?`.
+- Every gate shown in the section must include current state, must-become-true condition, proof required, bottleneck risk, accountability type, owner required, and if-skipped consequence.
+- Every `closed` visual state must map to proof on the same gate card.
+- Every unowned blocker must visibly say the localized form of `Owner required`.
 - Every skipped, deferred, or downgraded gate must name the accepted risk and invalidated finish claim.
 - Local proof must be labeled as local proof when it does not satisfy production, deployment, AWS, or operational closure.
-- Do not embed the full raw living doc JSON. Show extracted accountability evidence and source references only.
+- The section must preserve the normal living-doc style. Do not introduce a separate visual system, standalone page shell, or dossier fallback.
 
-Suggested file footer:
-
-```text
-Generated by living-doc-accountability-path-extractor. This page is a proof-based closure path, not a schedule estimate.
-```
-
-After creating the page, report the generated HTML path, generated JSON path when created, and the source living doc path.
+After rendering, report the source living-doc JSON path and rendered living-doc HTML path.

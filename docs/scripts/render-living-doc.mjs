@@ -108,6 +108,7 @@ const registry = JSON.parse(await readFile(registryPath, 'utf8'));
 const i18n = JSON.parse(await readFile(i18nPath, 'utf8'));
 const compositorHtml = await readFile(compositorPath, 'utf8');
 const data = JSON.parse(await readFile(resolvedDocPath, 'utf8'));
+const renderLocale = ['en', 'nl', 'id'].includes(data.locale) ? data.locale : 'en';
 const snapshotGeneratedAt = new Date().toISOString();
 const defaultCanonicalOrigin = path.relative(process.cwd(), resolvedDocPath) || resolvedDocPath;
 const docAiEnhancement = data.aiEnhancement && typeof data.aiEnhancement === 'object' ? data.aiEnhancement : {};
@@ -235,12 +236,22 @@ async function commitRenderedDoc({
 /* ── Helpers ── */
 
 function escapeHtml(value) {
-  return String(value ?? '')
+  return String(localizedValue(value) ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function localizedValue(value, locale = renderLocale) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const keys = ['en', 'nl', 'id'];
+    if (keys.some((key) => Object.prototype.hasOwnProperty.call(value, key))) {
+      return value[locale] ?? value.en ?? value.nl ?? value.id ?? '';
+    }
+  }
+  return value;
 }
 
 function formatExactTimestamp(value) {
@@ -279,7 +290,7 @@ function tone(statusSet, value) {
 
 function statusLabel(statusSet, value) {
   const set = registry.statusSets[statusSet];
-  return set?.labels?.[value] ?? toTitleCase(value);
+  return localizedValue(set?.labels?.[value]) ?? toTitleCase(value);
 }
 
 function badge(label, toneName) {
@@ -287,11 +298,11 @@ function badge(label, toneName) {
 }
 
 function renderInlineText(value) {
-  return escapeHtml(value).replace(/`([^`]+)`/g, '<code>$1</code>');
+  return escapeHtml(localizedValue(value)).replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
 function splitTextLines(value) {
-  return String(value ?? '').split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  return String(localizedValue(value) ?? '').split(/\n+/).map((line) => line.trim()).filter(Boolean);
 }
 
 function renderLineStack(value, className) {
@@ -546,17 +557,21 @@ function renderDiagramDetails(items, label) {
 }
 
 function normalizeNote(note) {
+  const localizedNote = localizedValue(note);
+  if (localizedNote !== note) {
+    return { text: String(localizedNote).trim(), role: 'description', tone: null, title: '' };
+  }
   if (typeof note === 'string') {
     return { text: note, role: 'description', tone: null, title: '' };
   }
   if (!note || typeof note !== 'object') return null;
-  const text = String(note.text ?? note.value ?? '').trim();
+  const text = String(localizedValue(note.text ?? note.value ?? note.mermaid ?? note.source ?? '')).trim();
   if (!text) return null;
   return {
     text,
     role: note.role ?? (note.tone ? 'callout' : 'description'),
     tone: note.tone ?? null,
-    title: String(note.title ?? '').trim(),
+    title: String(localizedValue(note.title ?? '')).trim(),
   };
 }
 
@@ -567,7 +582,7 @@ function normalizeCallout(callout) {
   if (!callout || typeof callout !== 'object') return null;
   return {
     tone: callout.tone ?? 'neutral',
-    title: String(callout.title ?? '').trim(),
+    title: String(localizedValue(callout.title ?? '')).trim(),
     items: Array.isArray(callout.items) ? callout.items : [],
     columnHeaders: Array.isArray(callout.columnHeaders) ? callout.columnHeaders : [],
     rows: Array.isArray(callout.rows) ? callout.rows : [],
@@ -1580,7 +1595,7 @@ function renderNotes(items) {
 
 function renderDetails(items, label, fieldKey = '') {
   if (!items || items.length === 0) return '';
-  if (fieldKey === 'diagrams' || items.some((item) => isRenderableMermaid(typeof item === 'string' ? item : item?.text ?? item?.value))) {
+  if (fieldKey === 'diagrams' || items.some((item) => isRenderableMermaid(typeof item === 'string' ? item : item?.text ?? item?.value ?? item?.mermaid ?? item?.source))) {
     return renderDiagramDetails(items, label);
   }
   return `
@@ -1628,13 +1643,13 @@ function renderCardItem(item, convergenceType, sectionId) {
   // Text fields
   const textHtml = (ct.textFields ?? [])
     .filter((tf) => item[tf.key])
-    .map((tf) => `<p class="code-refs"><strong>${escapeHtml(tf.label)}</strong> ${renderInlineText(item[tf.key])}</p>`)
+    .map((tf) => `<p class="code-refs"><strong>${escapeHtml(localizedValue(tf.label))}</strong> ${renderInlineText(item[tf.key])}</p>`)
     .join('');
 
   // Details fields
   const detailsHtml = (ct.detailsFields ?? [])
     .filter((df) => item[df.key] && item[df.key].length > 0)
-    .map((df) => renderDetails(item[df.key], df.label, df.key))
+    .map((df) => renderDetails(item[df.key], localizedValue(df.label), df.key))
     .join('');
 
   // Item-level ID for anchoring
@@ -1650,7 +1665,7 @@ function renderCardItem(item, convergenceType, sectionId) {
     <article class="flow-card"${anchorId}${dataAttrs}>
       <header class="flow-card-header">
         <div>
-          <h3>${escapeHtml(item.name)}${periodBadge}</h3>
+          <h3>${escapeHtml(localizedValue(item.name))}${periodBadge}</h3>
           ${metaRow}
         </div>
         <div class="badge-row">${badges}</div>
@@ -1717,7 +1732,7 @@ function statusSetTitle(statusSet) {
 }
 
 function boardFieldLabel(field) {
-  return field?.label ?? toTitleCase(field?.key ?? 'status');
+  return localizedValue(field?.label) ?? toTitleCase(field?.key ?? 'status');
 }
 
 function buildSectionBoardEntries(section) {
@@ -1769,7 +1784,7 @@ function buildBoardDimensions(sectionsToRender) {
     id: `section-${slugifyValue(entry.section.id) || 'section'}-${slugifyValue(entry.fieldKey) || 'status'}`,
     scope: 'section',
     statusSet: entry.statusSet,
-    label: `${entry.section.title} · ${entry.fieldLabel}`,
+    label: `${localizedValue(entry.section.title)} · ${localizedValue(entry.fieldLabel)}`,
     entries: [entry],
   }));
 
@@ -1790,7 +1805,7 @@ function boardItemTitle(item, entry) {
     const edgeTitle = [left, right].filter(Boolean).join(' -> ');
     if (edgeTitle) return edgeTitle;
   }
-  return String(item.name ?? item.figmaName ?? item.title ?? item.id ?? 'Untitled item');
+  return String(localizedValue(item.name ?? item.figmaName ?? item.title ?? item.id ?? 'Untitled item'));
 }
 
 function boardCardNote(item, entry) {
@@ -1838,8 +1853,8 @@ function buildBoardModel(dimension) {
       const knownValue = lane !== fallbackLane;
       lane.cards.push({
         sectionId: entry.section.id,
-        sectionTitle: entry.section.title,
-        typeName: entry.ct.name ?? entry.section.convergenceType,
+        sectionTitle: localizedValue(entry.section.title),
+        typeName: localizedValue(entry.ct.name) ?? entry.section.convergenceType,
         title: boardItemTitle(item, entry),
         fieldLabel: entry.fieldLabel,
         rawValue: value,
@@ -2095,8 +2110,8 @@ function buildLivingDocGraphModel(doc, sectionsToRender) {
     addNode({
       id: sectionId,
       type: 'section',
-      label: graphNodeLabel(section.title, section.id || 'Section'),
-      meta: `${ct?.name ?? section.convergenceType ?? 'Unknown type'} · ${items.length} cards`,
+      label: graphNodeLabel(localizedValue(section.title), section.id || 'Section'),
+      meta: `${localizedValue(ct?.name) ?? section.convergenceType ?? 'Unknown type'} · ${items.length} cards`,
       path: `$.sections[${sectionIndex}]`,
       cx: sectionPoint.x,
       cy: sectionPoint.y,
@@ -2105,7 +2120,7 @@ function buildLivingDocGraphModel(doc, sectionsToRender) {
         type: 'section',
         path: `$.sections[${sectionIndex}]`,
         id: section.id,
-        title: section.title,
+        title: localizedValue(section.title),
         convergenceType: section.convergenceType,
         cards: items.length,
       },
@@ -2135,8 +2150,8 @@ function buildLivingDocGraphModel(doc, sectionsToRender) {
           type: 'card',
           path: `$.sections[${sectionIndex}].data[${itemIndex}]`,
           id: item?.id,
-          title: graphNodeLabel(item?.name ?? item?.title ?? item?.id, 'Card'),
-          section: section.title,
+          title: graphNodeLabel(localizedValue(item?.name ?? item?.title ?? item?.id), 'Card'),
+          section: localizedValue(section.title),
           statuses: statusParts,
         },
       });
@@ -2415,14 +2430,14 @@ function renderSection(section) {
   const statsHtml = section.stats
     ? `<div class="summary-grid">${section.stats.map((s) => `
         <article class="stat-card">
-          <h3>${escapeHtml(s.label)}</h3>
-          <div class="value">${escapeHtml(String(s.value))}</div>
+          <h3>${escapeHtml(localizedValue(s.label))}</h3>
+          <div class="value">${escapeHtml(String(localizedValue(s.value)))}</div>
         </article>`).join('')}</div>`
     : '';
 
   // Pills
   const pillsHtml = section.pills
-    ? `<div class="pill-row">${section.pills.map((p) => `<span class="pill">${escapeHtml(p)}</span>`).join('')}</div>`
+    ? `<div class="pill-row">${section.pills.map((p) => `<span class="pill">${escapeHtml(localizedValue(p))}</span>`).join('')}</div>`
     : '';
 
   // Main content
@@ -2444,7 +2459,7 @@ function renderSection(section) {
 
   return `
     <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}" data-section-id="${escapeHtml(section.id)}">
-      <h2>${icon} ${escapeHtml(section.title)} ${kindBadge}${sectionUpdated}</h2>
+      <h2>${icon} ${escapeHtml(localizedValue(section.title))} ${kindBadge}${sectionUpdated}</h2>
       ${freshnessBannerHtml}
       ${calloutHtml}
       ${sectionAiHtml}
@@ -2471,11 +2486,12 @@ function buildSidebar(sections) {
     const nextIndex = (seen.get(section.convergenceType) ?? 0) + 1;
     seen.set(section.convergenceType, nextIndex);
     const showIndex = (counts.get(section.convergenceType) ?? 0) > 1;
+    const sectionTitle = localizedValue(section.title);
     return `
-      <a href="#${escapeHtml(section.id)}" class="nav-icon" data-target="${escapeHtml(section.id)}" aria-label="${escapeHtml(section.title)}"${iconStyle}>
+      <a href="#${escapeHtml(section.id)}" class="nav-icon" data-target="${escapeHtml(section.id)}" aria-label="${escapeHtml(sectionTitle)}"${iconStyle}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">${icon}</svg>
         ${showIndex ? `<span class="nav-index">${escapeHtml(String(nextIndex))}</span>` : ''}
-        <span class="nav-tooltip">${escapeHtml(section.title)}</span>
+        <span class="nav-tooltip">${escapeHtml(sectionTitle)}</span>
       </a>`;
   }).join('');
 }
