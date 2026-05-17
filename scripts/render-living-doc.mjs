@@ -4486,7 +4486,15 @@ const html = `<!doctype html>
       window.addEventListener('message', (event) => {
         if (event.source !== compIframe.contentWindow) return;
         const payload = event.data;
-        if (!payload || payload.type !== 'living-doc-open-href') return;
+        if (!payload) return;
+        if (payload.type === 'living-doc-open-artifact') {
+          const id = String(payload.id || '').trim();
+          if (!id) return;
+          compOverlay.classList.remove('open');
+          if (window.__livingDocShowView) window.__livingDocShowView(id);
+          return;
+        }
+        if (payload.type !== 'living-doc-open-href') return;
         const href = String(payload.href || '').trim();
         if (!href) return;
         const target = payload.target === '_self' ? '_self' : '_blank';
