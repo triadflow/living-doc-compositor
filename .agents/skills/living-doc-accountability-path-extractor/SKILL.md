@@ -358,32 +358,27 @@ Useful options:
 node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc> --out <path>
 node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc> --model-out <path>
 node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs --from-model <model.json> --out <path>
-node .agents/skills/living-doc-accountability-path-extractor/scripts/render-accountability-path.mjs <doc> --locale nl
 ```
 
 The renderer is JSON-model based:
 
 - Extract the living doc into a `living-doc-accountability-path/v1` model.
 - Render HTML from that model.
-- Use `--model-out` when the accountability model should be inspectable, versioned, translated, or rendered again later.
+- Use the generic extractor for every living doc type. Do not add one-off document-specific render branches.
+- Use `--model-out` when the accountability model should be inspectable, versioned, or rendered again later.
 - Use `--from-model` to render an existing model without rereading the living doc.
-- Use `--locale en` or `--locale nl`; English is the default. Dutch rendering translates the page chrome and, for supported generated accountability pages, the generated closure-path content.
+- Output is Dutch only. Do not create English accountability pages or English accountability JSON models.
+- Default artifact names must use `.nl`: `<source-doc-slug>-accountability-path.nl.html` and `<source-doc-slug>-accountability-path.nl.json`.
 
 Commit rule:
 
 - The generated accountability JSON model and generated accountability HTML page are durable development artifacts.
 - Whenever this skill creates or edits either artifact, commit both the JSON and HTML immediately in the repo that owns them.
-- If both English and Dutch outputs are generated, commit all four artifacts together: `.html`, `.json`, `.nl.html`, and `.nl.json`.
+- Commit only Dutch accountability artifacts: `.nl.html` and `.nl.json`.
 - If the skill script, skill instructions, or renderer behavior changed in the same run, commit those skill changes separately in the compositor repo, unless the user explicitly asks for a single cross-repo worktree state without commits.
 - Do not leave regenerated accountability artifacts as uncommitted scratch files after a successful render.
 
 Create the page at:
-
-```text
-docs/<source-doc-slug>-accountability-path.html
-```
-
-For Dutch output, create:
 
 ```text
 docs/<source-doc-slug>-accountability-path.nl.html
