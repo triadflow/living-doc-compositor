@@ -342,9 +342,9 @@ Owner required: acceptance owner for route policy.
 
 ---
 
-### 3. Integrated living-doc output
+### 3. Integrated artifact-page output
 
-The primary deliverable is an accountability section inside the source living doc, rendered by the normal living-doc compositor. Do not create a separate accountability HTML page or a separate accountability JSON model.
+The primary deliverable is an accountability artifact page inside the source living doc, rendered by the normal living-doc compositor and reachable from the rendered HTML ribbon. Do not append the accountability path as a normal document section. Do not create a separate accountability HTML page or a separate accountability JSON model.
 
 Run with the bundled script when possible:
 
@@ -364,7 +364,10 @@ The renderer behavior:
 
 - Resolve a `.json`, `.html`, or `file://...html#anchor` input to the source living-doc JSON.
 - Extract the living doc into an internal `living-doc-accountability-path/v1` model.
-- Upsert one section with `id: accountability-closure-path`, `convergenceType: accountability-closure-path`, and title `Wanneer is het af?` / `When is it done?` / `Kapan selesai?`.
+- Upsert one `artifactPages` entry with `id: accountability-closure-path-page`, title `Wanneer is het af?` / `When is it done?` / `Kapan selesai?`, and `generatedBy: living-doc-accountability-path-extractor`.
+- Put the accountability closure-path section inside that artifact page, not in the top-level `sections` array.
+- Remove any older top-level `accountability-closure-path` section from the source doc during the same run.
+- Render artifact pages as separate page panels in the HTML, with their own left-ribbon entries.
 - Store all user-facing accountability text as localized values for English, Dutch, and Bahasa Indonesia.
 - Set the source document locale from `--locale`.
 - Render the source living doc with `node scripts/render-living-doc.mjs <source-doc.json>`.
@@ -390,19 +393,20 @@ No fallback rule:
 Commit rule:
 
 - The source living-doc JSON and rendered living-doc HTML are durable development artifacts.
-- Whenever this skill creates or edits the integrated accountability section, commit both the source JSON and rendered HTML immediately in the repo that owns them.
+- Whenever this skill creates or edits the integrated accountability artifact page, commit both the source JSON and rendered HTML immediately in the repo that owns them.
 - If old standalone accountability artifacts exist for the same source doc, remove them in the same owner-repo commit.
 - If the skill script, skill instructions, or renderer behavior changed in the same run, commit those skill changes separately in the compositor repo, unless the user explicitly asks for a single cross-repo worktree state without commits.
 - Do not leave regenerated living-doc JSON/HTML as uncommitted scratch files after a successful render.
 
-Rendered section requirements:
+Rendered artifact-page requirements:
 
-- The section title is always the localized form of `When is it done?`.
+- The artifact page title is always the localized form of `When is it done?`.
+- The artifact page must be reachable from the rendered HTML ribbon.
 - Every gate shown in the section must include current state, must-become-true condition, proof required, bottleneck risk, accountability type, owner required, and if-skipped consequence.
 - Every `closed` visual state must map to proof on the same gate card.
 - Every unowned blocker must visibly say the localized form of `Owner required`.
 - Every skipped, deferred, or downgraded gate must name the accepted risk and invalidated finish claim.
 - Local proof must be labeled as local proof when it does not satisfy production, deployment, AWS, or operational closure.
-- The section must preserve the normal living-doc style. Do not introduce a separate visual system, standalone page shell, or dossier fallback.
+- The artifact page must preserve the normal living-doc style. Do not introduce a separate visual system, standalone page shell, or dossier fallback.
 
 After rendering, report the source living-doc JSON path and rendered living-doc HTML path.

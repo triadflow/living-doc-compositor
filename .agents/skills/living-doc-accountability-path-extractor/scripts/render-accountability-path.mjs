@@ -782,12 +782,33 @@ function buildAccountabilitySection(model) {
   };
 }
 
-function upsertAccountabilitySection(doc, section) {
-  const sections = Array.isArray(doc.sections) ? doc.sections : [];
-  const existingIndex = sections.findIndex((entry) => entry.id === section.id || entry.convergenceType === 'accountability-closure-path');
-  if (existingIndex >= 0) sections[existingIndex] = section;
-  else sections.push(section);
-  doc.sections = sections;
+function buildAccountabilityPage(model) {
+  return {
+    id: 'accountability-closure-path-page',
+    kind: 'generated-artifact',
+    kindLabel: ml('Generated artifact', 'Gegenereerd bewijsstuk', 'Artefak tergenerasi'),
+    title: SECTION_TEXT.title,
+    subtitle: ml(
+      'Proof-based closure path generated from the current living doc.',
+      'Bewijsgericht afsluitpad gegenereerd uit het huidige levende document.',
+      'Jalur penutupan berbasis bukti yang dibuat dari living doc saat ini.'
+    ),
+    iconColor: '#9d2d22',
+    icon: "<path opacity='.24' d='M4 4h16v16H4z'/><path d='M7 8h10v2H7zm0 4h7v2H7zm0 4h5v2H7z'/><path d='M17.6 13.2l1.4 1.4-4.2 4.2-2.4-2.4 1.4-1.4 1 1z'/>",
+    generatedBy: 'living-doc-accountability-path-extractor',
+    updated: model.generatedAt,
+    sections: [buildAccountabilitySection(model)],
+  };
+}
+
+function upsertAccountabilityPage(doc, page) {
+  doc.sections = (Array.isArray(doc.sections) ? doc.sections : [])
+    .filter((entry) => entry.id !== 'accountability-closure-path' && entry.convergenceType !== 'accountability-closure-path');
+  const pages = Array.isArray(doc.artifactPages) ? doc.artifactPages : [];
+  const existingIndex = pages.findIndex((entry) => entry.id === page.id || entry.generatedBy === page.generatedBy);
+  if (existingIndex >= 0) pages[existingIndex] = page;
+  else pages.push(page);
+  doc.artifactPages = pages;
 }
 
 function renderLivingDoc(sourcePath) {
@@ -806,7 +827,7 @@ async function main() {
   model = localizeModel(model, locale);
   doc.locale = locale;
   doc.updated = new Date().toISOString();
-  upsertAccountabilitySection(doc, buildAccountabilitySection(model));
+  upsertAccountabilityPage(doc, buildAccountabilityPage(model));
   await fs.writeFile(sourcePath, `${JSON.stringify(doc, null, 2)}\n`);
   const htmlPath = renderLivingDoc(sourcePath);
   console.log(htmlPath);
