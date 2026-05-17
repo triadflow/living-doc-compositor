@@ -162,6 +162,19 @@ function inferGateLens(criterion, related) {
   const source = keySource || detailSource;
   const has = (...patterns) => patterns.some((pattern) => pattern.test(source));
 
+  if (has(/evidence[- ]pack|whole email|whole body|prompt input/)) {
+    return {
+      name: 'Gemma-invoer is bewijsbundel, geen volledige e-mail',
+      must: 'De productieprompt moet worden opgebouwd uit een deterministische bewijsbundel met geselecteerde, brongetrouwe fragmenten. Volledige ruwe e-mail, ruwe HTML of de volledige genormaliseerde zichtbare body mag niet standaard naar Gemma gaan.',
+      proof: [
+        'Tests bewijzen dat ruwe HTML is uitgesloten, volledige bodytekst ontbreekt wanneer bewijsbundelsecties bestaan, kandidaatnabije fragmenten aanwezig zijn en fallbackfragmenten expliciet zijn gemarkeerd.',
+        'Een live lokale productierun toont summary.passed=true met gemma-input-evidence-pack/v1 als promptinvoer.',
+        'Grootte- en bronverwijzingsbewijs toont welke fragmenten zijn geselecteerd en waarom volledige-body prompting niet de afsluitroute draagt.',
+      ],
+      bottleneck: 'Zolang de groene run nog leunt op een compacte volledige-body prompt, is dat lokaal baselinebewijs maar geen bewijs dat de productie-invoerpoort is gesloten.',
+    };
+  }
+
   if (has(/shared source|separate path|separate queue|own resources|same raw|queue/)) {
     return {
       name: 'Gedeelde bron, gescheiden verwerkingspad',
@@ -692,6 +705,36 @@ const GATE_I18N = {
     must: ml('The deterministic step may proceed without the model only when required fields are complete, evidence anchors resolve, and no conflicts or blockers remain.', 'De deterministische stap mag alleen zonder model doorgaan wanneer verplichte velden compleet zijn, bewijsankers oplossen en er geen conflicten of blokkerende onzekerheden zijn.', 'Langkah deterministik hanya boleh lanjut tanpa model ketika field wajib lengkap, jangkar bukti terselesaikan, dan tidak ada konflik atau blocker.'),
     proof: [ml('Fixtures show complete short-circuit cases and cases that must go to model processing.', 'Fixtures tonen volledige kortsluitgevallen en gevallen die verplicht naar modelverwerking gaan.', 'Fixture menunjukkan kasus lengkap yang boleh dipintas dan kasus yang wajib masuk pemrosesan model.'), ml('Validation proof shows short-circuited output uses the same record shape as model output.', 'Validatiebewijs toont dat kortgesloten uitvoer dezelfde recordvorm gebruikt als modeluitvoer.', 'Bukti validasi menunjukkan keluaran yang dipintas memakai bentuk record yang sama dengan keluaran model.')],
     bottleneck: ml('If preflight accepts too broadly, silent data drift bypasses model validation.', 'Als preflight te ruim accepteert, ontstaat stille datadrift en wordt modelvalidatie omzeild.', 'Jika preflight menerima terlalu luas, drift data senyap melewati validasi model.')
+  },
+  'Gemma-invoer is bewijsbundel, geen volledige e-mail': {
+    name: ml('Gemma input is an evidence pack, not the whole email', 'Gemma-invoer is bewijsbundel, geen volledige e-mail', 'Input Gemma adalah paket bukti, bukan seluruh email'),
+    must: ml(
+      'The production prompt must be built from a deterministic evidence-pack envelope with selected, source-faithful snippets. The whole raw email, raw HTML, or full normalized visible body must not be sent to Gemma by default.',
+      'De productieprompt moet worden opgebouwd uit een deterministische bewijsbundel met geselecteerde, brongetrouwe fragmenten. Volledige ruwe e-mail, ruwe HTML of de volledige genormaliseerde zichtbare body mag niet standaard naar Gemma gaan.',
+      'Prompt produksi harus dibangun dari envelope paket bukti deterministik dengan cuplikan terpilih yang setia pada sumber. Seluruh email mentah, HTML mentah, atau seluruh body terlihat yang sudah dinormalisasi tidak boleh dikirim ke Gemma secara default.'
+    ),
+    proof: [
+      ml(
+        'Tests prove raw HTML is excluded, full body text is absent when evidence-pack sections exist, candidate-adjacent snippets are present, and fallback excerpts are explicitly marked.',
+        'Tests bewijzen dat ruwe HTML is uitgesloten, volledige bodytekst ontbreekt wanneer bewijsbundelsecties bestaan, kandidaatnabije fragmenten aanwezig zijn en fallbackfragmenten expliciet zijn gemarkeerd.',
+        'Tes membuktikan HTML mentah dikecualikan, teks body penuh tidak ada ketika seksi paket bukti tersedia, cuplikan dekat kandidat disertakan, dan excerpt fallback ditandai secara eksplisit.'
+      ),
+      ml(
+        'A live local production run shows summary.passed=true with gemma-input-evidence-pack/v1 as prompt input.',
+        'Een live lokale productierun toont summary.passed=true met gemma-input-evidence-pack/v1 als promptinvoer.',
+        'Run produksi lokal langsung menunjukkan summary.passed=true dengan gemma-input-evidence-pack/v1 sebagai input prompt.'
+      ),
+      ml(
+        'Size and source-reference proof shows which snippets were selected and why whole-body prompting is not carrying the closure route.',
+        'Grootte- en bronverwijzingsbewijs toont welke fragmenten zijn geselecteerd en waarom volledige-body prompting niet de afsluitroute draagt.',
+        'Bukti ukuran dan referensi sumber menunjukkan cuplikan mana yang dipilih dan mengapa prompting seluruh body tidak menopang rute penutupan.'
+      )
+    ],
+    bottleneck: ml(
+      'As long as the green run still relies on a compact whole-body prompt, it is local baseline proof but not proof that the production input gate is closed.',
+      'Zolang de groene run nog leunt op een compacte volledige-body prompt, is dat lokaal baselinebewijs maar geen bewijs dat de productie-invoerpoort is gesloten.',
+      'Selama run hijau masih bergantung pada prompt seluruh body yang dipadatkan, itu adalah bukti baseline lokal tetapi bukan bukti bahwa gerbang input produksi sudah tertutup.'
+    )
   }
 };
 
