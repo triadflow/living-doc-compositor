@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { syncCompositorEmbeds } from './sync-compositor-embeds.mjs';
 import { checkFingerprint } from './meta-fingerprint.mjs';
 import { semanticContextForDoc } from './living-doc-semantic-context.mjs';
+import { checkCardStatuses, formatCardStatusSummary } from './check-card-statuses.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
@@ -108,6 +109,13 @@ const registry = JSON.parse(await readFile(registryPath, 'utf8'));
 const i18n = JSON.parse(await readFile(i18nPath, 'utf8'));
 const compositorHtml = await readFile(compositorPath, 'utf8');
 const data = JSON.parse(await readFile(resolvedDocPath, 'utf8'));
+const cardStatusCheck = checkCardStatuses(data, registry);
+if (cardStatusCheck.status !== 'current') {
+  console.error(formatCardStatusSummary(cardStatusCheck, { filePath: resolvedDocPath }));
+  console.error('\nRender blocked: fix card statuses against their convergence type status sets before rendering.');
+  console.error(`Run: node ${path.join(__dirname, 'check-card-statuses.mjs')} ${resolvedDocPath}`);
+  process.exit(2);
+}
 const renderLocale = ['en', 'nl', 'id'].includes(data.locale) ? data.locale : 'en';
 const snapshotGeneratedAt = new Date().toISOString();
 const defaultCanonicalOrigin = path.relative(process.cwd(), resolvedDocPath) || resolvedDocPath;
@@ -333,19 +341,29 @@ function decodeMermaidLabel(value) {
     .trim();
 }
 
-function parseMermaidEndpoint(token, nodes) {
+function parseMermaidEndpoint(token, nodes, options = {}) {
   const normalized = String(token ?? '').trim().replace(/;$/, '');
   const match = normalized.match(/^([A-Za-z0-9_:-]+)(?:\s*(\[\s*"([\s\S]*?)"\s*\]|\{\s*"([\s\S]*?)"\s*\}|\(\s*"([\s\S]*?)"\s*\)))?$/);
   if (!match) return normalized;
   const id = match[1];
   const label = decodeMermaidLabel(match[3] ?? match[4] ?? match[5] ?? '');
-  const existing = nodes.get(id) || { id, label: id, shape: 'rect' };
+  const existing = nodes.get(id) || { id, label: id, shape: 'rect', subgraphId: null };
   nodes.set(id, {
     ...existing,
     label: label || existing.label || id,
     shape: mermaidNodeShape(normalized),
+    subgraphId: options.subgraphId ?? existing.subgraphId ?? null,
   });
   return id;
+}
+
+function parseMermaidSubgraph(line) {
+  const match = String(line ?? '').trim().match(/^subgraph\s+([A-Za-z0-9_:-]+)(?:\s*(?:\[\s*"([\s\S]*?)"\s*\]|\[\s*([^\]]+?)\s*\]))?\s*;?$/i);
+  if (!match) return null;
+  return {
+    id: match[1],
+    label: decodeMermaidLabel(match[2] ?? match[3] ?? match[1]),
+  };
 }
 
 function parseMermaidFlowchart(source) {
@@ -354,14 +372,47 @@ function parseMermaidFlowchart(source) {
   const direction = firstLine.match(/^flowchart\s+([A-Z]+)/i)?.[1]?.toUpperCase() || 'TD';
   const nodes = new Map();
   const edges = [];
+  const classDefs = new Map();
+  const nodeClasses = new Map();
+  const subgraphs = new Map();
+  let currentSubgraphId = null;
 
   for (const line of lines.slice(1)) {
     if (line.startsWith('%%')) continue;
+    const subgraph = parseMermaidSubgraph(line);
+    if (subgraph) {
+      subgraphs.set(subgraph.id, subgraph);
+      currentSubgraphId = subgraph.id;
+      continue;
+    }
+    if (/^end\s*;?$/i.test(line)) {
+      currentSubgraphId = null;
+      continue;
+    }
+    let classDefMatch = line.match(/^classDef\s+([A-Za-z0-9_-]+)\s+(.+?);?$/);
+    if (classDefMatch) {
+      const styleEntries = Object.fromEntries(
+        classDefMatch[2]
+          .replace(/;$/, '')
+          .split(',')
+          .map((entry) => entry.split(':').map((part) => part.trim()))
+          .filter(([key, value]) => key && value)
+      );
+      classDefs.set(classDefMatch[1], styleEntries);
+      continue;
+    }
+    let classMatch = line.match(/^class\s+([A-Za-z0-9_,:-]+)\s+([A-Za-z0-9_-]+)\s*;?$/);
+    if (classMatch) {
+      for (const nodeId of classMatch[1].split(',').map((item) => item.trim()).filter(Boolean)) {
+        nodeClasses.set(nodeId, classMatch[2]);
+      }
+      continue;
+    }
     let match = line.match(/^(.+?)\s*--\s*"([^"]+)"\s*-->\s*(.+)$/);
     if (match) {
       edges.push({
-        from: parseMermaidEndpoint(match[1], nodes),
-        to: parseMermaidEndpoint(match[3], nodes),
+        from: parseMermaidEndpoint(match[1], nodes, { subgraphId: currentSubgraphId }),
+        to: parseMermaidEndpoint(match[3], nodes, { subgraphId: currentSubgraphId }),
         label: decodeMermaidLabel(match[2]),
       });
       continue;
@@ -369,8 +420,8 @@ function parseMermaidFlowchart(source) {
     match = line.match(/^(.+?)\s*-->\|([^|]+)\|\s*(.+)$/);
     if (match) {
       edges.push({
-        from: parseMermaidEndpoint(match[1], nodes),
-        to: parseMermaidEndpoint(match[3], nodes),
+        from: parseMermaidEndpoint(match[1], nodes, { subgraphId: currentSubgraphId }),
+        to: parseMermaidEndpoint(match[3], nodes, { subgraphId: currentSubgraphId }),
         label: decodeMermaidLabel(match[2]),
       });
       continue;
@@ -378,61 +429,113 @@ function parseMermaidFlowchart(source) {
     match = line.match(/^(.+?)\s*-->\s*(.+)$/);
     if (match) {
       edges.push({
-        from: parseMermaidEndpoint(match[1], nodes),
-        to: parseMermaidEndpoint(match[2], nodes),
+        from: parseMermaidEndpoint(match[1], nodes, { subgraphId: currentSubgraphId }),
+        to: parseMermaidEndpoint(match[2], nodes, { subgraphId: currentSubgraphId }),
         label: '',
       });
       continue;
     }
-    parseMermaidEndpoint(line, nodes);
+    parseMermaidEndpoint(line, nodes, { subgraphId: currentSubgraphId });
   }
 
-  return { direction, nodes: [...nodes.values()], edges };
+  return { direction, nodes: [...nodes.values()], edges, classDefs, nodeClasses, subgraphs: [...subgraphs.values()] };
+}
+
+function sanitizeCssValue(value) {
+  const text = String(value ?? '').trim();
+  return /^[#(),.%\w\s-]+$/.test(text) ? text : '';
+}
+
+function renderMermaidNodeStyle(node, graph) {
+  const className = graph.nodeClasses.get(node.id);
+  const classDef = className ? graph.classDefs.get(className) : null;
+  if (!classDef) return { shape: '', text: '' };
+
+  const shapeParts = [];
+  const textParts = [];
+  const fill = sanitizeCssValue(classDef.fill);
+  const stroke = sanitizeCssValue(classDef.stroke);
+  const color = sanitizeCssValue(classDef.color);
+  if (fill) shapeParts.push(`fill:${fill}`);
+  if (stroke) shapeParts.push(`stroke:${stroke}`);
+  if (color) textParts.push(`fill:${color}`);
+  return {
+    shape: shapeParts.length ? ` style="${escapeHtml(shapeParts.join(';'))}"` : '',
+    text: textParts.length ? ` style="${escapeHtml(textParts.join(';'))}"` : '',
+  };
+}
+
+function normalizeMermaidTraceLine(line) {
+  return String(line ?? '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function wrapSvgLines(label, maxChars = 24) {
   const sourceLines = String(label ?? '').split(/\n+/).map((line) => line.trim()).filter(Boolean);
   const lines = [];
-  for (const sourceLine of sourceLines.length ? sourceLines : ['']) {
-    const words = sourceLine.split(/\s+/).filter(Boolean);
+  for (const [sourceIndex, sourceLine] of (sourceLines.length ? sourceLines : ['']).entries()) {
+    const role = sourceIndex === 0 ? 'primary' : 'trace';
+    const displayLine = role === 'trace' ? normalizeMermaidTraceLine(sourceLine) : sourceLine;
+    const words = displayLine.split(/\s+/).filter(Boolean);
     let current = '';
     for (const word of words) {
       const next = current ? `${current} ${word}` : word;
       if (next.length > maxChars && current) {
-        lines.push(current);
+        lines.push({ text: current, role });
         current = word;
       } else {
         current = next;
       }
     }
-    if (current) lines.push(current);
+    if (current) lines.push({ text: current, role });
   }
-  return lines.slice(0, 4);
+  return lines.slice(0, 5);
 }
 
 function renderSvgText(lines, x, y, options = {}) {
   const anchor = options.anchor || 'middle';
   const className = options.className || 'mermaid-node-label';
-  const escapedLines = lines.length ? lines : [''];
+  const style = options.style || '';
+  const escapedLines = (lines.length ? lines : [{ text: '', role: 'primary' }])
+    .map((line) => (typeof line === 'string' ? { text: line, role: 'primary' } : line));
   const startY = y - ((escapedLines.length - 1) * 8);
-  return `<text class="${className}" x="${x}" y="${startY}" text-anchor="${anchor}">${escapedLines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : 16}">${escapeHtml(line)}</tspan>`).join('')}</text>`;
+  return `<text class="${className}" x="${x}" y="${startY}" text-anchor="${anchor}"${style}>${escapedLines.map((line, index) => {
+    const traceClass = line.role === 'trace' ? ' class="mermaid-node-trace-label"' : '';
+    return `<tspan${traceClass} x="${x}" dy="${index === 0 ? 0 : 16}">${escapeHtml(line.text)}</tspan>`;
+  }).join('')}</text>`;
 }
 
 function renderMermaidFlowchartSvg(source) {
   const graph = parseMermaidFlowchart(source);
   if (graph.nodes.length === 0) return '';
 
+  const horizontal = ['LR', 'RL'].includes(graph.direction);
+  const nodeWidth = 188;
+  const gapX = 68;
+  const gapY = 30;
+  const margin = 24;
+  const subgraphNodeIds = new Set(graph.nodes.filter((node) => node.subgraphId).map((node) => node.id));
+  const mainNodes = graph.nodes.filter((node) => !subgraphNodeIds.has(node.id));
+  const mainNodeIds = new Set(mainNodes.map((node) => node.id));
+  const mainEdges = graph.edges.filter((edge) => mainNodeIds.has(edge.from) && mainNodeIds.has(edge.to));
+  const coords = new Map();
+  let svgWidth = margin * 2;
+  let svgHeight = margin * 2;
+
   const outgoing = new Map();
-  const incoming = new Map(graph.nodes.map((node) => [node.id, 0]));
-  for (const edge of graph.edges) {
+  const incoming = new Map(mainNodes.map((node) => [node.id, 0]));
+  for (const edge of mainEdges) {
     if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
     outgoing.get(edge.from).push(edge.to);
     incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
   }
 
   const layersById = new Map();
-  const roots = graph.nodes.filter((node) => (incoming.get(node.id) ?? 0) === 0);
-  const queue = (roots.length ? roots : graph.nodes).map((node) => {
+  const roots = mainNodes.filter((node) => (incoming.get(node.id) ?? 0) === 0);
+  const queue = (roots.length ? roots : mainNodes).map((node) => {
     layersById.set(node.id, 0);
     return node.id;
   });
@@ -446,25 +549,19 @@ function renderMermaidFlowchartSvg(source) {
       }
     }
   }
-  for (const node of graph.nodes) {
+  for (const node of mainNodes) {
     if (!layersById.has(node.id)) layersById.set(node.id, 0);
   }
 
   const layers = new Map();
-  for (const node of graph.nodes) {
+  for (const node of mainNodes) {
     const layer = layersById.get(node.id) ?? 0;
     if (!layers.has(layer)) layers.set(layer, []);
     layers.get(layer).push(node);
   }
 
-  const horizontal = ['LR', 'RL'].includes(graph.direction);
-  const nodeWidth = 188;
-  const gapX = 68;
-  const gapY = 30;
-  const margin = 24;
-  const coords = new Map();
   const sortedLayers = [...layers.keys()].sort((a, b) => a - b);
-  const maxLayerSize = Math.max(...[...layers.values()].map((items) => items.length), 1);
+  const maxLayerSize = Math.max(...[...layers.values()].map((items) => items.length), 0);
 
   for (const layer of sortedLayers) {
     const items = layers.get(layer);
@@ -483,13 +580,72 @@ function renderMermaidFlowchartSvg(source) {
     });
   }
 
-  const maxLayer = Math.max(...sortedLayers, 0);
-  const svgWidth = horizontal
-    ? margin * 2 + (maxLayer + 1) * nodeWidth + maxLayer * gapX
-    : margin * 2 + maxLayerSize * nodeWidth + Math.max(0, maxLayerSize - 1) * gapX;
-  const svgHeight = horizontal
-    ? margin * 2 + maxLayerSize * 80 + Math.max(0, maxLayerSize - 1) * gapY
-    : margin * 2 + (maxLayer + 1) * 80 + maxLayer * gapY;
+  if (mainNodes.length > 0) {
+    const maxLayer = Math.max(...sortedLayers, 0);
+    svgWidth = horizontal
+      ? margin * 2 + (maxLayer + 1) * nodeWidth + maxLayer * gapX
+      : margin * 2 + maxLayerSize * nodeWidth + Math.max(0, maxLayerSize - 1) * gapX;
+    svgHeight = horizontal
+      ? margin * 2 + maxLayerSize * 80 + Math.max(0, maxLayerSize - 1) * gapY
+      : margin * 2 + (maxLayer + 1) * 80 + maxLayer * gapY;
+  }
+
+  const subgraphBoxes = [];
+  let subgraphY = svgHeight + (subgraphNodeIds.size > 0 ? 34 : 0);
+  for (const subgraph of graph.subgraphs) {
+    const members = graph.nodes
+      .filter((node) => node.subgraphId === subgraph.id)
+      .sort((a, b) => a.id.localeCompare(b.id));
+    if (members.length === 0) continue;
+
+    const memberLayouts = members.map((node) => {
+      const labelLines = wrapSvgLines(node.label);
+      return {
+        node,
+        labelLines,
+        width: node.shape === 'diamond' ? 156 : nodeWidth,
+        height: Math.max(52, 28 + labelLines.length * 16),
+      };
+    });
+    const columns = Math.min(4, memberLayouts.length);
+    const rows = Math.ceil(memberLayouts.length / columns);
+    const cellWidth = nodeWidth;
+    const cellHeight = Math.max(...memberLayouts.map((member) => member.height), 64);
+    const boxPadding = 18;
+    const titleHeight = 26;
+    const itemGapX = 18;
+    const itemGapY = 18;
+    const boxX = margin;
+    const boxWidth = boxPadding * 2 + columns * cellWidth + Math.max(0, columns - 1) * itemGapX;
+    const boxHeight = boxPadding * 2 + titleHeight + rows * cellHeight + Math.max(0, rows - 1) * itemGapY;
+
+    memberLayouts.forEach((member, index) => {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = boxX + boxPadding + column * (cellWidth + itemGapX) + (cellWidth - member.width) / 2;
+      const y = subgraphY + boxPadding + titleHeight + row * (cellHeight + itemGapY);
+      coords.set(member.node.id, {
+        x,
+        y,
+        width: member.width,
+        height: member.height,
+        labelLines: member.labelLines,
+        shape: member.node.shape,
+      });
+    });
+
+    subgraphBoxes.push({
+      id: subgraph.id,
+      label: subgraph.label,
+      x: boxX,
+      y: subgraphY,
+      width: boxWidth,
+      height: boxHeight,
+    });
+    svgWidth = Math.max(svgWidth, boxX + boxWidth + margin);
+    svgHeight = Math.max(svgHeight, subgraphY + boxHeight + margin);
+    subgraphY += boxHeight + 24;
+  }
 
   const edgeHtml = graph.edges.map((edge, index) => {
     const from = coords.get(edge.from);
@@ -510,17 +666,25 @@ function renderMermaidFlowchartSvg(source) {
     return `<g class="mermaid-edge" data-edge-index="${index}"><path d="M ${fromX} ${fromY} ${bend}" marker-end="url(#arrowhead)"/>${label}</g>`;
   }).join('');
 
+  const subgraphHtml = subgraphBoxes.map((box) => `
+    <g class="mermaid-subgraph" data-subgraph-id="${escapeHtml(box.id)}">
+      <rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="12"/>
+      <text class="mermaid-subgraph-title" x="${box.x + 16}" y="${box.y + 21}">${escapeHtml(box.label)}</text>
+    </g>
+  `).join('');
+
   const nodeHtml = graph.nodes.map((node) => {
     const c = coords.get(node.id);
     if (!c) return '';
     const cx = c.x + c.width / 2;
     const cy = c.y + c.height / 2;
+    const style = renderMermaidNodeStyle(node, graph);
     if (c.shape === 'diamond') {
       const points = `${cx},${c.y} ${c.x + c.width},${cy} ${cx},${c.y + c.height} ${c.x},${cy}`;
-      return `<g class="mermaid-node mermaid-node-diamond"><polygon points="${points}"/>${renderSvgText(c.labelLines, cx, cy + 4)}</g>`;
+      return `<g class="mermaid-node mermaid-node-diamond"><polygon points="${points}"${style.shape}/>${renderSvgText(c.labelLines, cx, cy + 4, { style: style.text })}</g>`;
     }
     const radius = c.shape === 'round' ? 18 : 10;
-    return `<g class="mermaid-node"><rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="${radius}"/>${renderSvgText(c.labelLines, cx, cy + 4)}</g>`;
+    return `<g class="mermaid-node"><rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="${radius}"${style.shape}/>${renderSvgText(c.labelLines, cx, cy + 4, { style: style.text })}</g>`;
   }).join('');
 
   return `<svg class="mermaid-svg" viewBox="0 0 ${svgWidth} ${svgHeight}" role="img" aria-label="Rendered Mermaid flowchart">
@@ -529,6 +693,7 @@ function renderMermaidFlowchartSvg(source) {
         <path d="M 0 0 L 10 4 L 0 8 z" class="mermaid-arrowhead"/>
       </marker>
     </defs>
+    ${subgraphHtml}
     ${edgeHtml}
     ${nodeHtml}
   </svg>`;
@@ -542,9 +707,17 @@ function renderMermaidDiagram(note) {
   const normalized = normalizeNote(note);
   if (!normalized) return '';
   if (!isRenderableMermaid(normalized.text)) return renderNotes([normalized]);
-  const titleHtml = normalized.title ? `<h4 class="mermaid-title">${escapeHtml(normalized.title)}</h4>` : '';
+  const titleHtml = normalized.title ? `<h4 class="mermaid-title">${escapeHtml(normalized.title)}</h4>` : '<span class="mermaid-title-spacer"></span>';
+  const fullscreenButton = `<button class="mermaid-fullscreen-btn" type="button" data-mermaid-fullscreen title="Fullscreen diagram" aria-label="Fullscreen diagram">
+    <svg class="mermaid-fullscreen-icon mermaid-fullscreen-enter" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M5 9V5h4M19 9V5h-4M5 15v4h4M19 15v4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg class="mermaid-fullscreen-icon mermaid-fullscreen-exit" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>`;
   const svg = renderMermaidFlowchartSvg(normalized.text);
-  return `<article class="mermaid-card">${titleHtml}<div class="mermaid-rendered">${svg || `<pre><code>${escapeHtml(normalized.text)}</code></pre>`}</div>${renderMermaidSource(normalized.text)}</article>`;
+  return `<article class="mermaid-card"><div class="mermaid-card-header">${titleHtml}${fullscreenButton}</div><div class="mermaid-rendered">${svg || `<pre><code>${escapeHtml(normalized.text)}</code></pre>`}</div>${renderMermaidSource(normalized.text)}</article>`;
 }
 
 function renderDiagramDetails(items, label) {
@@ -1483,6 +1656,16 @@ for (const [entityType, def] of Object.entries(registry.entityTypes ?? {})) {
   }
 }
 
+const sectionRefMap = new Map((data.sections ?? []).map((section) => [String(section.id), section]));
+const cardRefMap = new Map();
+for (const section of data.sections ?? []) {
+  for (const card of section.data ?? []) {
+    const id = renderCardDomKey(card);
+    if (!id || cardRefMap.has(id)) continue;
+    cardRefMap.set(id, { section, card });
+  }
+}
+
 function buildEntityContext(entityType, value) {
   const def = entityTypeDef(entityType);
   const context = typeof value === 'object' && value ? { ...value } : {};
@@ -1568,6 +1751,70 @@ function renderPathLinks(paths) {
   return paths.map((p) => renderEntityRef('code-file', p)).join(' ');
 }
 
+function renderInternalRefChip(value, preferredType = '') {
+  const id = String(value ?? '').trim();
+  if (!id) return '';
+  if ((preferredType === 'section' || !preferredType) && sectionRefMap.has(id)) {
+    const section = sectionRefMap.get(id);
+    const title = localizedValue(section.title) || id;
+    return `<a href="#${escapeHtml(id)}" class="internal-ref-chip internal-ref-section" title="Section: ${escapeHtml(title)}"><code>${escapeHtml(id)}</code></a>`;
+  }
+  if ((preferredType === 'card' || !preferredType) && cardRefMap.has(id)) {
+    const { section, card } = cardRefMap.get(id);
+    const title = localizedValue(card.name ?? card.title ?? card.id) || id;
+    return `<a href="#${escapeHtml(id)}" class="internal-ref-chip internal-ref-card" title="Card: ${escapeHtml(title)} in ${escapeHtml(localizedValue(section.title) || section.id)}"><code>${escapeHtml(id)}</code></a>`;
+  }
+  return `<code>${escapeHtml(id)}</code>`;
+}
+
+function renderInternalRefList(values, label, preferredType = '') {
+  if (!Array.isArray(values) || values.length === 0) return '';
+  return `
+    <details class="details-block internal-ref-details" open>
+      <summary>${escapeHtml(label)} (${values.length})</summary>
+      <div class="internal-ref-row">${values.map((value) => renderInternalRefChip(value, preferredType)).join(' ')}</div>
+    </details>`;
+}
+
+function renderObjectInternalRefs(item) {
+  const rows = [];
+  if (Array.isArray(item.sourceCardIds) && item.sourceCardIds.length > 0) {
+    rows.push(`<div class="internal-ref-object-row"><strong>Source cards</strong><span>${item.sourceCardIds.map((id) => renderInternalRefChip(id, 'card')).join(' ')}</span></div>`);
+  }
+  if (Array.isArray(item.blockingIssueIds) && item.blockingIssueIds.length > 0) {
+    rows.push(`<div class="internal-ref-object-row"><strong>Blocking issues</strong><span>${item.blockingIssueIds.map((id) => `<code>${escapeHtml(String(id))}</code>`).join(' ')}</span></div>`);
+  }
+  if (item.ticketId) {
+    rows.push(`<div class="internal-ref-object-row"><strong>Ticket</strong><span><code>${escapeHtml(String(item.ticketId))}</code></span></div>`);
+  }
+  return rows.join('');
+}
+
+function renderStructuredDetails(items, label) {
+  const rows = items.map((item) => {
+    if (typeof item === 'string' || typeof item === 'number') {
+      return `<div class="structured-detail-card">${renderInternalRefChip(item)}</div>`;
+    }
+    if (!item || typeof item !== 'object') return '';
+    const title = localizedValue(item.title ?? item.label ?? item.name ?? item.id ?? '');
+    const id = item.id ? `<code>${escapeHtml(String(item.id))}</code>` : '';
+    const text = localizedValue(item.text ?? item.exitCriterion ?? item.whyNext ?? '');
+    const internalRefs = renderObjectInternalRefs(item);
+    return `
+      <article class="structured-detail-card">
+        <div class="structured-detail-head">${title ? `<strong>${escapeHtml(title)}</strong>` : ''}${id}</div>
+        ${text ? `<p>${renderInlineText(text)}</p>` : ''}
+        ${internalRefs}
+      </article>`;
+  }).join('');
+
+  return `
+    <details class="details-block structured-details" open>
+      <summary>${escapeHtml(label)} (${items.length})</summary>
+      <div class="structured-detail-stack">${rows}</div>
+    </details>`;
+}
+
 function renderNotes(items) {
   if (!items || items.length === 0) return '';
   const normalized = items.map(normalizeNote).filter(Boolean);
@@ -1597,6 +1844,15 @@ function renderDetails(items, label, fieldKey = '') {
   if (!items || items.length === 0) return '';
   if (fieldKey === 'diagrams' || items.some((item) => isRenderableMermaid(typeof item === 'string' ? item : item?.text ?? item?.value ?? item?.mermaid ?? item?.source))) {
     return renderDiagramDetails(items, label);
+  }
+  if (fieldKey === 'watchedSections' || fieldKey === 'sectionIds') {
+    return renderInternalRefList(items, label, 'section');
+  }
+  if (fieldKey === 'watchedCards' || fieldKey === 'sourceCardIds') {
+    return renderInternalRefList(items, label, 'card');
+  }
+  if (fieldKey === 'closureGates' || fieldKey === 'nextGoalCandidates') {
+    return renderStructuredDetails(items, label);
   }
   return `
     <details class="details-block">
@@ -2456,10 +2712,19 @@ function renderSection(section) {
   const kindBadge = ct.kind
     ? `<span class="kind-badge kind-${escapeHtml(ct.kind)}" title="${ct.kind === 'act' ? 'Act type — a kind of thinking-action recorded here' : 'Surface type — a projection of state from elsewhere'}">${escapeHtml(ct.kind)}</span>`
     : '';
+  const typeBadge = section.convergenceType
+    ? `<span class="type-badge" title="Convergence type: ${escapeHtml(localizedValue(ct.name) || section.convergenceType)}">${escapeHtml(section.convergenceType)}</span>`
+    : '';
+  const authoringSkill = ct.metadata?.authoringSkill;
+  const authoringSkillName = typeof authoringSkill === 'string' ? authoringSkill : authoringSkill?.name;
+  const authoringSkillPath = typeof authoringSkill === 'object' ? authoringSkill.path : '';
+  const skillBadge = authoringSkillName
+    ? `<span class="skill-badge" title="${escapeHtml(authoringSkillPath ? `Use ${authoringSkillName} to create or refresh this surface: ${authoringSkillPath}` : `Use ${authoringSkillName} to create or refresh this surface`)}">skill: ${escapeHtml(authoringSkillName)}</span>`
+    : '';
 
   return `
     <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}" data-section-id="${escapeHtml(section.id)}">
-      <h2>${icon} ${escapeHtml(localizedValue(section.title))} ${kindBadge}${sectionUpdated}</h2>
+      <h2>${icon} ${escapeHtml(localizedValue(section.title))} ${kindBadge}${typeBadge}${skillBadge}${sectionUpdated}</h2>
       ${freshnessBannerHtml}
       ${calloutHtml}
       ${sectionAiHtml}
@@ -2754,6 +3019,24 @@ const html = `<!doctype html>
       }
       .kind-badge.kind-surface {
         color: #1e40af; background: #dbeafe; border: 1px solid #bfdbfe;
+      }
+      .type-badge {
+        display: inline-flex; align-items: center;
+        margin-left: 8px; padding: 2px 9px; border-radius: 999px;
+        color: #334155; background: #f8fafc; border: 1px solid #cbd5e1;
+        font-size: 10.5px; font-weight: 750;
+        letter-spacing: 0.02em;
+        font-family: var(--font-mono, ui-monospace, monospace);
+        vertical-align: middle;
+      }
+      .skill-badge {
+        display: inline-flex; align-items: center;
+        margin-left: 8px; padding: 2px 9px; border-radius: 999px;
+        color: #3b0764; background: #f3e8ff; border: 1px solid #ddd6fe;
+        font-size: 10.5px; font-weight: 750;
+        letter-spacing: 0.02em;
+        font-family: var(--font-mono, ui-monospace, monospace);
+        vertical-align: middle;
       }
       .view-switch {
         display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px;
@@ -3191,16 +3474,65 @@ const html = `<!doctype html>
       .mermaid-details[open] { padding-bottom: 10px; }
       .mermaid-stack { margin-top: 12px; display: grid; gap: 14px; }
       .mermaid-card {
+        position: relative;
         border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line));
         background: color-mix(in srgb, var(--accent) 3%, var(--card));
         border-radius: 10px; padding: 12px;
       }
-      .mermaid-title { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--ink); }
+      .mermaid-card-header {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        margin: 0 0 10px;
+      }
+      .mermaid-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--ink); }
+      .mermaid-title-spacer { flex: 1; min-height: 28px; }
+      .mermaid-fullscreen-btn {
+        width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--muted);
+        cursor: pointer; flex: 0 0 auto;
+      }
+      .mermaid-fullscreen-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+      .mermaid-fullscreen-exit { display: none; }
       .mermaid-rendered {
         overflow-x: auto; border-radius: 8px; border: 1px solid var(--line);
         background: var(--card); padding: 10px;
       }
+      .mermaid-card.mermaid-fullscreen {
+        position: fixed; inset: 16px; z-index: 1000; display: flex; flex-direction: column;
+        max-width: none; width: auto; height: auto; padding: 16px; border-radius: 12px;
+        background: var(--card); box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+      }
+      .mermaid-card:fullscreen {
+        display: flex; flex-direction: column; width: 100%; height: 100%; padding: 16px;
+        background: var(--card);
+      }
+      .mermaid-card.mermaid-fullscreen .mermaid-rendered,
+      .mermaid-card:fullscreen .mermaid-rendered {
+        flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+      }
+      .mermaid-card.mermaid-fullscreen .mermaid-svg,
+      .mermaid-card:fullscreen .mermaid-svg {
+        width: 100%; height: 100%; max-width: none; min-width: 0;
+      }
+      .mermaid-card.mermaid-fullscreen .mermaid-fullscreen-btn,
+      .mermaid-card:fullscreen .mermaid-fullscreen-btn {
+        background: var(--accent); color: #fff; border-color: var(--accent);
+      }
+      .mermaid-card.mermaid-fullscreen .mermaid-fullscreen-enter,
+      .mermaid-card:fullscreen .mermaid-fullscreen-enter { display: none; }
+      .mermaid-card.mermaid-fullscreen .mermaid-fullscreen-exit,
+      .mermaid-card:fullscreen .mermaid-fullscreen-exit { display: block; }
+      body.mermaid-fullscreen-active { overflow: hidden; }
       .mermaid-svg { display: block; min-width: 640px; max-width: 100%; height: auto; }
+      .mermaid-subgraph rect {
+        fill: color-mix(in srgb, var(--muted) 5%, var(--card));
+        stroke: color-mix(in srgb, var(--muted) 35%, var(--line));
+        stroke-width: 1.2;
+        stroke-dasharray: 6 5;
+      }
+      .mermaid-subgraph-title {
+        fill: var(--muted); font-size: 12px; font-weight: 800;
+        letter-spacing: 0.04em; text-transform: uppercase;
+      }
       .mermaid-edge path { fill: none; stroke: color-mix(in srgb, var(--muted) 70%, var(--line)); stroke-width: 1.8; }
       .mermaid-arrowhead { fill: color-mix(in srgb, var(--muted) 70%, var(--line)); }
       .mermaid-node rect, .mermaid-node polygon {
@@ -3211,6 +3543,9 @@ const html = `<!doctype html>
       .mermaid-node-label {
         fill: var(--ink); font-size: 12px; font-weight: 650;
         dominant-baseline: middle; pointer-events: none;
+      }
+      .mermaid-node-trace-label {
+        fill: var(--muted); font-size: 10px; font-style: italic; font-weight: 600;
       }
       .mermaid-edge-label {
         fill: var(--muted); font-size: 11px; font-weight: 700;
@@ -3256,6 +3591,43 @@ const html = `<!doctype html>
         border-radius: 10px; background: var(--bg);
       }
       .details-block summary { cursor: pointer; font-weight: 600; font-size: 13.5px; color: var(--muted); }
+      .internal-ref-row {
+        display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+      }
+      .internal-ref-chip {
+        display: inline-flex; text-decoration: none;
+      }
+      .internal-ref-chip:hover { text-decoration: none; }
+      .internal-ref-chip code {
+        background: var(--card); border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+        color: var(--accent);
+      }
+      .internal-ref-card code {
+        border-color: color-mix(in srgb, #7c3aed 22%, var(--line));
+        color: #6d28d9;
+      }
+      .structured-detail-stack {
+        display: grid; gap: 8px; margin-top: 10px;
+      }
+      .structured-detail-card {
+        padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+        background: var(--card); color: var(--muted); font-size: 13px; line-height: 1.55;
+      }
+      .structured-detail-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        margin-bottom: 6px; color: var(--ink);
+      }
+      .structured-detail-card p { margin: 6px 0; }
+      .internal-ref-object-row {
+        display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px;
+        align-items: baseline; margin-top: 7px;
+      }
+      .internal-ref-object-row strong {
+        color: var(--muted); font-size: 12px; font-weight: 750;
+      }
+      .internal-ref-object-row span {
+        display: flex; flex-wrap: wrap; gap: 6px;
+      }
       .table-card { padding: 24px; }
       .table-card h2 { margin: 0 0 4px; }
       .footnote { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
@@ -3478,6 +3850,67 @@ const html = `<!doctype html>
           });
         }
         if (sections.length > 0) activate(sections[0].icon);
+      })();
+    </script>
+
+    <script>
+      (() => {
+        const cards = Array.from(document.querySelectorAll('.mermaid-card'));
+        if (cards.length === 0) return;
+
+        const setActive = (card, active) => {
+          card.classList.toggle('mermaid-fullscreen', active);
+          const button = card.querySelector('[data-mermaid-fullscreen]');
+          if (button) {
+            button.setAttribute('title', active ? 'Exit fullscreen diagram' : 'Fullscreen diagram');
+            button.setAttribute('aria-label', active ? 'Exit fullscreen diagram' : 'Fullscreen diagram');
+          }
+          document.body.classList.toggle('mermaid-fullscreen-active', Boolean(document.querySelector('.mermaid-card.mermaid-fullscreen') || document.fullscreenElement?.classList?.contains('mermaid-card')));
+        };
+
+        const exitFullscreen = async (card) => {
+          if (document.fullscreenElement === card && document.exitFullscreen) {
+            await document.exitFullscreen();
+          }
+          setActive(card, false);
+        };
+
+        const enterFullscreen = async (card) => {
+          if (card.requestFullscreen) {
+            try {
+              await card.requestFullscreen();
+              setActive(card, true);
+              return;
+            } catch {
+              // Fall back to CSS fullscreen below.
+            }
+          }
+          setActive(card, true);
+        };
+
+        for (const card of cards) {
+          const button = card.querySelector('[data-mermaid-fullscreen]');
+          if (!button) continue;
+          button.addEventListener('click', async () => {
+            const active = document.fullscreenElement === card || card.classList.contains('mermaid-fullscreen');
+            if (active) await exitFullscreen(card);
+            else await enterFullscreen(card);
+          });
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+          for (const card of cards) {
+            setActive(card, document.fullscreenElement === card);
+          }
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.key !== 'Escape') return;
+          const fallbackCard = document.querySelector('.mermaid-card.mermaid-fullscreen');
+          if (fallbackCard && document.fullscreenElement !== fallbackCard) {
+            setActive(fallbackCard, false);
+          }
+        });
       })();
     </script>
 

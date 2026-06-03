@@ -11,12 +11,17 @@ import starterRunSupportOps from './templates/starter-run-support-ops.mjs';
 import starterShipFeature from './templates/starter-ship-feature.mjs';
 import starterTinyExperiment from './templates/starter-tiny-experiment.mjs';
 import starterWriteBook from './templates/starter-write-book.mjs';
+import studioAutonomousPageDraft from './templates/studio-autonomous-page-draft.mjs';
 import surfaceDelivery from './templates/surface-delivery.mjs';
+import accountabilityClosurePath from './convergence-types/accountability-closure-path.mjs';
 import coherenceMap from './convergence-types/coherence-map.mjs';
 import explainabilityLayer from './convergence-types/explainability-layer.mjs';
 import acceptanceCriteria from './convergence-types/acceptance-criteria.mjs';
+import testCoverage from './convergence-types/test-coverage.mjs';
 import regressionBoundary from './convergence-types/regression-boundary.mjs';
 import relationshipMap from './convergence-types/relationship-map.mjs';
+import objectiveClosurePlan from './convergence-types/objective-closure-plan.mjs';
+import visualPageDraftAssessment from './convergence-types/visual-page-draft-assessment.mjs';
 import designCodeSpecFlow from './convergence-types/design-code-spec-flow.mjs';
 import statusSnapshot from './convergence-types/status-snapshot.mjs';
 import capabilitySurface from './convergence-types/capability-surface.mjs';
@@ -62,6 +67,8 @@ import designSystemSurface from './convergence-types/design-system-surface.mjs';
 import tasteSignature from './convergence-types/taste-signature.mjs';
 import briefToSystemAlignment from './convergence-types/brief-to-system-alignment.mjs';
 import designSystemDerivation from './convergence-types/design-system-derivation.mjs';
+import sourceGraphCompleteness from './convergence-types/source-graph-completeness.mjs';
+import draftCoherencePass from './convergence-types/draft-coherence-pass.mjs';
 
 export { defineTemplate, defineConvergenceType } from './define.mjs';
 
@@ -79,15 +86,20 @@ export const templateDefinitions = [
   starterShipFeature,
   starterTinyExperiment,
   starterWriteBook,
+  studioAutonomousPageDraft,
   surfaceDelivery,
 ];
 
 export const convergenceTypeDefinitions = [
+  accountabilityClosurePath,
   coherenceMap,
   explainabilityLayer,
   acceptanceCriteria,
+  testCoverage,
   regressionBoundary,
   relationshipMap,
+  objectiveClosurePlan,
+  visualPageDraftAssessment,
   designCodeSpecFlow,
   statusSnapshot,
   capabilitySurface,
@@ -133,4 +145,6 @@ export const convergenceTypeDefinitions = [
   tasteSignature,
   briefToSystemAlignment,
   designSystemDerivation,
+  sourceGraphCompleteness,
+  draftCoherencePass,
 ];

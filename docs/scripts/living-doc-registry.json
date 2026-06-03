@@ -383,6 +383,29 @@
         }
       }
     },
+    "closure-plan-state": {
+      "values": [
+        "current",
+        "stale",
+        "blocked",
+        "complete",
+        "unknown"
+      ],
+      "tones": {
+        "current": "positive",
+        "stale": "negative",
+        "blocked": "negative",
+        "complete": "positive",
+        "unknown": "warning"
+      },
+      "labels": {
+        "current": "Current",
+        "stale": "Stale",
+        "blocked": "Blocked",
+        "complete": "Complete",
+        "unknown": "Unknown"
+      }
+    },
     "coverage-state": {
       "values": [
         "missing",
@@ -780,6 +803,81 @@
         "deferred": "neutral",
         "conflicting": "negative"
       }
+    },
+    "visual-draft-verdict": {
+      "values": [
+        "draft-ready",
+        "usable-with-risks",
+        "needs-iteration",
+        "blocked-by-tooling",
+        "rejected"
+      ],
+      "tones": {
+        "draft-ready": "positive",
+        "usable-with-risks": "warning",
+        "needs-iteration": "warning",
+        "blocked-by-tooling": "negative",
+        "rejected": "negative"
+      },
+      "labels": {
+        "draft-ready": "Draft Ready",
+        "usable-with-risks": "Usable with Risks",
+        "needs-iteration": "Needs Iteration",
+        "blocked-by-tooling": "Blocked by Tooling",
+        "rejected": "Rejected"
+      }
+    },
+    "source-graph-quality": {
+      "values": [
+        "complete",
+        "missing-grounding",
+        "missing-direction",
+        "missing-reference",
+        "drift-detected",
+        "blocked"
+      ],
+      "tones": {
+        "complete": "positive",
+        "missing-grounding": "negative",
+        "missing-direction": "negative",
+        "missing-reference": "negative",
+        "drift-detected": "negative",
+        "blocked": "negative"
+      },
+      "labels": {
+        "complete": "Complete",
+        "missing-grounding": "Missing Grounding",
+        "missing-direction": "Missing Direction",
+        "missing-reference": "Missing Reference",
+        "drift-detected": "Drift Detected",
+        "blocked": "Blocked"
+      }
+    },
+    "draft-coherence-verdict": {
+      "values": [
+        "coherent",
+        "repair-needed",
+        "regenerate-needed",
+        "source-repair-needed",
+        "blocked",
+        "superseded"
+      ],
+      "tones": {
+        "coherent": "positive",
+        "repair-needed": "negative",
+        "regenerate-needed": "negative",
+        "source-repair-needed": "negative",
+        "blocked": "negative",
+        "superseded": "neutral"
+      },
+      "labels": {
+        "coherent": "Coherent",
+        "repair-needed": "Repair Needed",
+        "regenerate-needed": "Regenerate Needed",
+        "source-repair-needed": "Source Repair Needed",
+        "blocked": "Blocked",
+        "superseded": "Superseded"
+      }
     }
   },
   "convergenceCategories": {
@@ -896,11 +994,6 @@
       "statusFields": [
         {
           "key": "state",
-          "label": {
-            "en": "Closure state",
-            "nl": "Afsluitstaat",
-            "id": "Status penutupan"
-          },
           "statusSet": "closure-gate-state"
         }
       ],
@@ -1863,6 +1956,32 @@
             "stageSignals": []
           },
           {
+            "templateId": "studio-autonomous-page-draft",
+            "templateName": "Studio Autonomous Page Draft",
+            "templatePath": "docs/living-doc-template-studio-autonomous-page-draft.json",
+            "sectionIds": [
+              "status-snapshot"
+            ],
+            "roles": [
+              "Summarize page draft state without replacing the source graph, coherence, visual, verification, or tooling evidence."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "status-summarizes-source-graph",
+                  "from": "status-snapshot",
+                  "to": "source-graph-completeness",
+                  "relation": "summarizes",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": []
+          },
+          {
             "templateId": "surface-delivery",
             "templateName": "Surface Delivery",
             "templatePath": "docs/living-doc-template-surface-delivery.json",
@@ -2646,6 +2765,63 @@
             ]
           },
           {
+            "templateId": "studio-autonomous-page-draft",
+            "templateName": "Studio Autonomous Page Draft",
+            "templatePath": "docs/living-doc-template-studio-autonomous-page-draft.json",
+            "sectionIds": [
+              "tooling"
+            ],
+            "roles": [
+              "Expose the Studio tools, Codex skill, MCP instruments, CLI fallbacks, and monitor surfaces used to operate the draft loop."
+            ],
+            "relationships": {
+              "incoming": [],
+              "outgoing": [
+                {
+                  "id": "tooling-supports-draft-loop",
+                  "from": "tooling-surface",
+                  "to": "source-graph-completeness",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                },
+                {
+                  "id": "tooling-supports-verification",
+                  "from": "tooling-surface",
+                  "to": "verification-checkpoints",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "judgment-studio-page-draft-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "source-graph-completeness",
+                    "draft-coherence-pass",
+                    "visual-page-draft-assessment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence",
+                  "coherence-requires-visual-assessment",
+                  "visual-assessment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          },
+          {
             "templateId": "surface-delivery",
             "templateName": "Surface Delivery",
             "templatePath": "docs/living-doc-template-surface-delivery.json",
@@ -3036,6 +3212,78 @@
         "generatedFrom": "scripts/living-doc-definitions",
         "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
         "templates": [
+          {
+            "templateId": "studio-autonomous-page-draft",
+            "templateName": "Studio Autonomous Page Draft",
+            "templatePath": "docs/living-doc-template-studio-autonomous-page-draft.json",
+            "sectionIds": [
+              "verification"
+            ],
+            "roles": [
+              "Track the concrete checks that prove the final draft-mode state was inspected after repair and generation."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "visual-assessment-requires-verification",
+                  "from": "visual-page-draft-assessment",
+                  "to": "verification-checkpoints",
+                  "relation": "requires-verification",
+                  "evidenceKind": null,
+                  "repairOperationIds": [
+                    "add-draft-verification"
+                  ],
+                  "required": true
+                },
+                {
+                  "id": "tooling-supports-verification",
+                  "from": "tooling-surface",
+                  "to": "verification-checkpoints",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": []
+            },
+            "stageSignals": [
+              {
+                "id": "draft-ready-not-verified",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "visual-page-draft-assessment",
+                  "targetType": "verification-checkpoints"
+                },
+                "relatedRelationships": [
+                  "visual-assessment-requires-verification"
+                ]
+              },
+              {
+                "id": "judgment-studio-page-draft-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "source-graph-completeness",
+                    "draft-coherence-pass",
+                    "visual-page-draft-assessment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence",
+                  "coherence-requires-visual-assessment",
+                  "visual-assessment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          },
           {
             "templateId": "surface-delivery",
             "templateName": "Surface Delivery",
@@ -9483,6 +9731,897 @@
           "label": "Mermaid diagrams"
         }
       ]
+    },
+    "visual-page-draft-assessment": {
+      "name": {
+        "en": "Visual Page Draft Assessment",
+        "nl": "Visuele paginadraftbeoordeling",
+        "id": "Penilaian Draf Visual Halaman"
+      },
+      "category": "content",
+      "kind": "act",
+      "description": "A visual judgment and repair surface for a drafted story page. Each card compares page intent, panel specifications, actual images, text state, sequence rhythm, violations, and the next repair action so image existence does not masquerade as visual draft completeness.",
+      "structuralContract": "Two-column card grid. Each card is one page-level assessment with panel-by-panel verdicts, sequence assessment, text/source state, violations, repair priority, and next action. Use this after autonomous or manual page drafting when the question is whether the page is visually usable as a draft, not merely whether files exist.",
+      "notFor": [
+        "generic production readiness without visual inspection (use readiness or acceptance criteria sections)",
+        "asset inventories that only list image paths",
+        "text-only prose review",
+        "final art approval without page/sequence context",
+        "implementation behavior bugs (use behavior-fidelity)"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Treat the card as a page-quality assessment, not a file-presence check. The page is draft-ready only when the text/source state, each panel image, and the page sequence cohere with the stated page intent and panel specs.",
+        "keepDistinct": [
+          "page intent and target output",
+          "source/text readiness",
+          "panel-level spec summary",
+          "actual visual observation",
+          "panel verdict (keep / iterate / reject / missing)",
+          "sequence-level rhythm, mirror, through-line, and continuity assessment",
+          "violations and draft risks",
+          "repair priority and next action"
+        ],
+        "inspect": [
+          "Open every existing image path before marking a panel keep or draft-ready.",
+          "Compare actual pixels against imageBrief, directionNote, panelRole, cinematicDirections, page compositionArc, throughLine, mirroringPairs, and cinematicNotes.",
+          "Assess the page as a sequence, not only as three isolated panels.",
+          "Look for forbidden image features: captions, speech bubbles, UI text, page borders, faux paper, stock/photo-realism when an illustration is required, and generic imagery that misses the beat.",
+          "If generation or inspection tooling fails, mark blocked-by-tooling or usable-with-risks rather than draft-ready."
+        ],
+        "update": [
+          "Use one card per page assessment pass or update the current card when the assessment is still the active draft state.",
+          "Set verdict from the worst meaningful page blocker, not from the best panel.",
+          "Write panelAssessments as concrete observations with beatId, imagePath, specSummary, actualObservation, verdict, violations, and repairPromptDelta.",
+          "Write sequenceAssessment after panel assessments so it reflects actual page rhythm.",
+          "Make nextAction the first repair that improves the page sequence, not necessarily the first missing asset."
+        ],
+        "avoid": [
+          "Do not count imagePath existence as visual completion.",
+          "Do not mark a panel keep without visual inspection or an explicit draft-risk caveat.",
+          "Do not hide quality failures under generic audit warnings.",
+          "Do not regenerate dependent panels before repairing an upstream panel that anchors the sequence.",
+          "Do not confuse draft-ready with final human approval."
+        ]
+      },
+      "icon": "<rect x='3' y='5' width='18' height='14' rx='2' opacity='.22'/><path d='M6 9h4v6H6zm5 0h3v6h-3zm4 0h3v6h-3z'/><path d='M5.5 18.5l3-3 2 2 3.5-4 4.5 5'/><circle cx='17.5' cy='7.5' r='1.4'/>",
+      "iconColor": "#0f766e",
+      "projection": "card-grid",
+      "domain": "content",
+      "entityShape": [
+        "visual-assessment",
+        "has-evidence",
+        "page-sequence",
+        "draft-quality"
+      ],
+      "columns": 2,
+      "sources": [
+        {
+          "key": "pageIds",
+          "entityType": null,
+          "label": "Studio pages"
+        },
+        {
+          "key": "beatIds",
+          "entityType": null,
+          "label": "Beats"
+        },
+        {
+          "key": "imagePaths",
+          "entityType": "artifact-file",
+          "label": "Images"
+        },
+        {
+          "key": "specRefs",
+          "entityType": "ux-spec",
+          "label": "Specs",
+          "resolve": true
+        },
+        {
+          "key": "ticketIds",
+          "entityType": "ticket",
+          "label": "Tickets"
+        },
+        {
+          "key": "notes",
+          "entityType": null,
+          "label": null
+        }
+      ],
+      "statusFields": [
+        {
+          "key": "verdict",
+          "statusSet": "visual-draft-verdict"
+        }
+      ],
+      "textFields": [
+        {
+          "key": "targetOutput",
+          "label": "Target output"
+        },
+        {
+          "key": "pageIntent",
+          "label": "Page intent"
+        },
+        {
+          "key": "sequenceAssessment",
+          "label": "Sequence assessment"
+        },
+        {
+          "key": "nextAction",
+          "label": "Next action"
+        }
+      ],
+      "detailsFields": [
+        {
+          "key": "panelAssessments",
+          "label": "Panel assessments"
+        },
+        {
+          "key": "violations",
+          "label": "Violations"
+        },
+        {
+          "key": "repairPriority",
+          "label": "Repair priority"
+        },
+        {
+          "key": "draftRisks",
+          "label": "Draft risks"
+        },
+        {
+          "key": "imageReviewEvidence",
+          "label": "Image review evidence"
+        }
+      ],
+      "aiActions": [
+        {
+          "id": "review-page-images-against-spec",
+          "name": "Review page images against spec",
+          "description": "Open the referenced images, compare them to page and panel specifications, update panel verdicts, and propose the next repair action."
+        },
+        {
+          "id": "propose-repair-order",
+          "name": "Propose repair order",
+          "description": "Given panel verdicts and sequence dependencies, choose the first image or source repair that best improves the page as a sequence."
+        }
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "studio-autonomous-page-draft",
+            "templateName": "Studio Autonomous Page Draft",
+            "templatePath": "docs/living-doc-template-studio-autonomous-page-draft.json",
+            "sectionIds": [
+              "visual-assessment"
+            ],
+            "roles": [
+              "Inspect actual image files panel by panel and judge whether the page works as a visual sequence."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "coherence-requires-visual-assessment",
+                  "from": "draft-coherence-pass",
+                  "to": "visual-page-draft-assessment",
+                  "relation": "requires-visual-assessment",
+                  "evidenceKind": null,
+                  "repairOperationIds": [
+                    "add-visual-assessment"
+                  ],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "visual-assessment-requires-verification",
+                  "from": "visual-page-draft-assessment",
+                  "to": "verification-checkpoints",
+                  "relation": "requires-verification",
+                  "evidenceKind": null,
+                  "repairOperationIds": [
+                    "add-draft-verification"
+                  ],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "visual-inspection-missing",
+                "stage": "Operation",
+                "severity": "high",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "draft-coherence-pass",
+                  "targetType": "visual-page-draft-assessment"
+                },
+                "relatedRelationships": [
+                  "coherence-requires-visual-assessment"
+                ]
+              },
+              {
+                "id": "draft-ready-not-verified",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "visual-page-draft-assessment",
+                  "targetType": "verification-checkpoints"
+                },
+                "relatedRelationships": [
+                  "visual-assessment-requires-verification"
+                ]
+              },
+              {
+                "id": "judgment-studio-page-draft-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "source-graph-completeness",
+                    "draft-coherence-pass",
+                    "visual-page-draft-assessment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence",
+                  "coherence-requires-visual-assessment",
+                  "visual-assessment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "source-graph-completeness": {
+      "name": {
+        "en": "Source Graph Completeness",
+        "nl": "Bron-graafvolledigheid",
+        "id": "Kelengkapan Graf Sumber"
+      },
+      "category": "content",
+      "kind": "surface",
+      "description": "A production-quality surface for checking whether a page or beat has the source graph needed to support a high-quality draft: page intent, beat intent, cinematic directions, fact grounding, reference assets, prompt lineage, output paths, and audit state. This prevents generated output from being treated as complete while the source data needed to explain and reproduce it is missing.",
+      "structuralContract": "Two-column card grid. Each card represents one page, beat, or page-slice source graph. The card must list required source fields, present values, missing or drifted graph edges, blocking quality gaps, and the repair action needed before a draft can be called coherent.",
+      "notFor": [
+        "visual review of actual image pixels (use visual-page-draft-assessment)",
+        "the performed reasoning pass comparing source to output (use draft-coherence-pass)",
+        "generic issue status",
+        "final proof evidence after all checks are done (use verification or proof types)"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Treat missing source data as a quality blocker when that data controls image generation, text generation, or page coherence. The source graph is complete only when page intent, beat intent, cinematic direction, facts, references, prompts, outputs, and audit state are explicit enough for another agent or human to understand why the draft looks the way it does.",
+        "keepDistinct": [
+          "page-level intent and composition structure",
+          "beat-level intent and panel role",
+          "cinematic direction fields",
+          "factRefs and the facts they ground",
+          "referenceAssetRefs and generated asset provenance",
+          "prompt IDs and prompt lineage",
+          "current output paths",
+          "audit warnings/errors and whether they are quality blockers",
+          "repair action required before generation or completion claim"
+        ],
+        "inspect": [
+          "Check the page structure before looking at image beauty.",
+          "Verify that every beat has the explicit facts and references its prompt or image depends on.",
+          "Verify that every generated or selected image has a prompt lineage and output path tied back to the beat.",
+          "Treat work-page soft labels as potentially blocking when they affect draft quality.",
+          "Mark drift when source fields, prompts, images, and audit state disagree."
+        ],
+        "update": [
+          "Use one card per page or beat source graph, depending on document scope.",
+          "Set status from the worst unresolved graph blocker.",
+          "Write missingEdges as concrete fields or relationships, not vague prose.",
+          "Write requiredRepair as the next source edit needed before the page can be judged coherent.",
+          "Update after every generation or manual source edit."
+        ],
+        "avoid": [
+          "Do not call source graph complete because images exist.",
+          "Do not downgrade missing factRefs, referenceAssetRefs, or cinematic directions to harmless notes when they affect generation quality.",
+          "Do not hide missing graph data under generic audit wording.",
+          "Do not infer invisible source state from a good-looking image; write the graph edge explicitly."
+        ]
+      },
+      "icon": "<path d='M5 6.5a2 2 0 1 0 0 .01M19 6.5a2 2 0 1 0 0 .01M12 17.5a2 2 0 1 0 0 .01'/><path d='M7 7l10-.5M6.5 8.2l4.2 7.1M17.5 8.2l-4.2 7.1'/><path d='M9 17.5h6'/>",
+      "iconColor": "#2563eb",
+      "projection": "card-grid",
+      "domain": "content",
+      "entityShape": [
+        "source-graph",
+        "has-grounding",
+        "quality-blockers",
+        "prompt-lineage"
+      ],
+      "columns": 2,
+      "sources": [
+        {
+          "key": "pageIds",
+          "entityType": null,
+          "label": "Studio pages"
+        },
+        {
+          "key": "beatIds",
+          "entityType": null,
+          "label": "Beats"
+        },
+        {
+          "key": "factIds",
+          "entityType": null,
+          "label": "Facts"
+        },
+        {
+          "key": "referenceAssetIds",
+          "entityType": null,
+          "label": "Reference assets"
+        },
+        {
+          "key": "promptIds",
+          "entityType": null,
+          "label": "Prompts"
+        },
+        {
+          "key": "imagePaths",
+          "entityType": "artifact-file",
+          "label": "Images"
+        }
+      ],
+      "statusFields": [
+        {
+          "key": "status",
+          "statusSet": "source-graph-quality"
+        }
+      ],
+      "textFields": [
+        {
+          "key": "scope",
+          "label": "Scope"
+        },
+        {
+          "key": "requiredGraph",
+          "label": "Required graph"
+        },
+        {
+          "key": "presentGraph",
+          "label": "Present graph"
+        },
+        {
+          "key": "requiredRepair",
+          "label": "Required repair"
+        }
+      ],
+      "detailsFields": [
+        {
+          "key": "missingEdges",
+          "label": "Missing edges"
+        },
+        {
+          "key": "driftSignals",
+          "label": "Drift signals"
+        },
+        {
+          "key": "qualityBlockers",
+          "label": "Quality blockers"
+        },
+        {
+          "key": "auditEvidence",
+          "label": "Audit evidence"
+        }
+      ],
+      "aiActions": [
+        {
+          "id": "complete-source-graph",
+          "name": "Complete source graph",
+          "description": "Inspect the page/beat source graph, identify missing grounding, direction, reference, prompt, and output edges, then propose the required source edits before draft completion."
+        },
+        {
+          "id": "classify-quality-blockers",
+          "name": "Classify quality blockers",
+          "description": "Reclassify audit gaps according to the current objective, marking fields as blocking when they control draft quality even if another system labels them soft."
+        }
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "studio-autonomous-page-draft",
+            "templateName": "Studio Autonomous Page Draft",
+            "templatePath": "docs/living-doc-template-studio-autonomous-page-draft.json",
+            "sectionIds": [
+              "source-graph"
+            ],
+            "roles": [
+              "Track whether page and beat source data is explicit enough to support high-quality text and image drafting."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "status-summarizes-source-graph",
+                  "from": "status-snapshot",
+                  "to": "source-graph-completeness",
+                  "relation": "summarizes",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                },
+                {
+                  "id": "tooling-supports-draft-loop",
+                  "from": "tooling-surface",
+                  "to": "source-graph-completeness",
+                  "relation": "supports",
+                  "evidenceKind": null,
+                  "repairOperationIds": [],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "source-graph-feeds-coherence",
+                  "from": "source-graph-completeness",
+                  "to": "draft-coherence-pass",
+                  "relation": "feeds",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-coherence-pass"
+                  ],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "seeding-missing-source-graph",
+                "stage": "Seeding",
+                "severity": "high",
+                "condition": {
+                  "kind": "section-empty",
+                  "type": "source-graph-completeness"
+                },
+                "relatedRelationships": []
+              },
+              {
+                "id": "coherence-source-not-judged",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "source-graph-completeness",
+                  "targetType": "draft-coherence-pass"
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence"
+                ]
+              },
+              {
+                "id": "judgment-studio-page-draft-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "source-graph-completeness",
+                    "draft-coherence-pass",
+                    "visual-page-draft-assessment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence",
+                  "coherence-requires-visual-assessment",
+                  "visual-assessment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "draft-coherence-pass": {
+      "name": {
+        "en": "Draft Coherence Pass",
+        "nl": "Drafcoherentiepass",
+        "id": "Pemeriksaan Koherensi Draf"
+      },
+      "category": "content",
+      "kind": "act",
+      "description": "A recorded reasoning pass that compares source graph, prompts, generated images, text, and page sequence before a draft completion claim. Each card is a performed coherence judgment with findings, rejections, repairs, and the evidence used.",
+      "structuralContract": "Two-column card grid. Each card is one coherence pass over a page or page slice. It must name the source graph snapshot, output artifacts, checks performed, mismatches found, repairs made or required, and the resulting coherence verdict.",
+      "notFor": [
+        "static listing of source fields without performed judgment (use source-graph-completeness)",
+        "pixel-only visual judgment without source graph comparison (use visual-page-draft-assessment)",
+        "general QA test evidence",
+        "project governance commentary"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Treat coherence as an action that must be performed and recorded. A draft is coherent only when source graph, prompts, text, images, and sequence support the same page intent. If any source edge, prompt, image, or sequence element contradicts the objective, the pass must require repair or regeneration.",
+        "keepDistinct": [
+          "source graph snapshot checked",
+          "prompts and output artifacts checked",
+          "text-to-image coherence",
+          "fact-to-image coherence",
+          "reference-to-image coherence",
+          "beat-to-page sequence coherence",
+          "rejections and why they were rejected",
+          "repairs performed",
+          "remaining blockers and next repair"
+        ],
+        "inspect": [
+          "Read source graph completeness before judging outputs.",
+          "Open actual image files and compare them to beat/page source data.",
+          "Compare prompts to explicit factRefs, referenceAssetRefs, and cinematic directions.",
+          "Compare each panel to neighboring panels and page-level sequence role.",
+          "Do not accept a good-looking asset if it is unsupported by the source graph or contradicts the sequence."
+        ],
+        "update": [
+          "Create a new card for each substantial coherence pass or iteration.",
+          "Set verdict from the worst unresolved coherence failure.",
+          "List rejected artifacts with concrete rejection reasons.",
+          "List repairs performed and repairs still required separately.",
+          "Only set coherent after the pass can point to source graph, output, and visual evidence."
+        ],
+        "avoid": [
+          "Do not invent a distinction between high-quality draft and full coherence.",
+          "Do not treat final image generation success as coherence proof.",
+          "Do not skip source data because the rendered result looks plausible.",
+          "Do not bury contradictions as soft gaps when they block the objective.",
+          "Do not claim completion without a recorded pass."
+        ]
+      },
+      "icon": "<path d='M4 6h7M4 12h7M4 18h7'/><path d='M15 6l2 2 4-4M15 12l2 2 4-4M15 18l2 2 4-4'/>",
+      "iconColor": "#7c3aed",
+      "projection": "card-grid",
+      "domain": "content",
+      "entityShape": [
+        "coherence-pass",
+        "performed-judgment",
+        "source-output-comparison",
+        "repair-loop"
+      ],
+      "columns": 2,
+      "sources": [
+        {
+          "key": "pageIds",
+          "entityType": null,
+          "label": "Studio pages"
+        },
+        {
+          "key": "beatIds",
+          "entityType": null,
+          "label": "Beats"
+        },
+        {
+          "key": "sourceGraphCards",
+          "entityType": null,
+          "label": "Source graph cards"
+        },
+        {
+          "key": "imageJobIds",
+          "entityType": null,
+          "label": "Image jobs"
+        },
+        {
+          "key": "imagePaths",
+          "entityType": "artifact-file",
+          "label": "Images"
+        },
+        {
+          "key": "promptIds",
+          "entityType": null,
+          "label": "Prompts"
+        }
+      ],
+      "statusFields": [
+        {
+          "key": "verdict",
+          "statusSet": "draft-coherence-verdict"
+        }
+      ],
+      "textFields": [
+        {
+          "key": "scope",
+          "label": "Scope"
+        },
+        {
+          "key": "sourceSnapshot",
+          "label": "Source snapshot"
+        },
+        {
+          "key": "coherenceFinding",
+          "label": "Coherence finding"
+        },
+        {
+          "key": "nextRepair",
+          "label": "Next repair"
+        }
+      ],
+      "detailsFields": [
+        {
+          "key": "checksPerformed",
+          "label": "Checks performed"
+        },
+        {
+          "key": "artifactAssessments",
+          "label": "Artifact assessments"
+        },
+        {
+          "key": "rejections",
+          "label": "Rejections"
+        },
+        {
+          "key": "repairsPerformed",
+          "label": "Repairs performed"
+        },
+        {
+          "key": "remainingBlockers",
+          "label": "Remaining blockers"
+        }
+      ],
+      "aiActions": [
+        {
+          "id": "run-draft-coherence-pass",
+          "name": "Run draft coherence pass",
+          "description": "Compare source graph, prompts, text, images, and sequence; record mismatches, rejected artifacts, repairs, remaining blockers, and the coherence verdict."
+        },
+        {
+          "id": "derive-next-repair",
+          "name": "Derive next repair",
+          "description": "From the coherence failures, choose the next source edit, prompt repair, or image regeneration that moves the whole page toward coherent draft quality."
+        }
+      ],
+      "semanticUses": {
+        "schema": "living-doc-convergence-type-semantic-uses/v1",
+        "generatedFrom": "scripts/living-doc-definitions",
+        "graphArtifactPath": "scripts/generated/living-doc-template-graphs.json",
+        "templates": [
+          {
+            "templateId": "studio-autonomous-page-draft",
+            "templateName": "Studio Autonomous Page Draft",
+            "templatePath": "docs/living-doc-template-studio-autonomous-page-draft.json",
+            "sectionIds": [
+              "draft-coherence"
+            ],
+            "roles": [
+              "Record the performed reasoning pass that compares source graph, prompts, text, images, and page sequence."
+            ],
+            "relationships": {
+              "incoming": [
+                {
+                  "id": "source-graph-feeds-coherence",
+                  "from": "source-graph-completeness",
+                  "to": "draft-coherence-pass",
+                  "relation": "feeds",
+                  "evidenceKind": "shared-field-value",
+                  "repairOperationIds": [
+                    "add-coherence-pass"
+                  ],
+                  "required": true
+                }
+              ],
+              "outgoing": [
+                {
+                  "id": "coherence-requires-visual-assessment",
+                  "from": "draft-coherence-pass",
+                  "to": "visual-page-draft-assessment",
+                  "relation": "requires-visual-assessment",
+                  "evidenceKind": null,
+                  "repairOperationIds": [
+                    "add-visual-assessment"
+                  ],
+                  "required": true
+                }
+              ]
+            },
+            "stageSignals": [
+              {
+                "id": "coherence-source-not-judged",
+                "stage": "Coherence",
+                "severity": "high",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "source-graph-completeness",
+                  "targetType": "draft-coherence-pass"
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence"
+                ]
+              },
+              {
+                "id": "visual-inspection-missing",
+                "stage": "Operation",
+                "severity": "high",
+                "condition": {
+                  "kind": "source-populated-target-empty",
+                  "sourceType": "draft-coherence-pass",
+                  "targetType": "visual-page-draft-assessment"
+                },
+                "relatedRelationships": [
+                  "coherence-requires-visual-assessment"
+                ]
+              },
+              {
+                "id": "judgment-studio-page-draft-ready",
+                "stage": "Judgment",
+                "severity": "high",
+                "condition": {
+                  "kind": "all-populated-no-high-gaps",
+                  "types": [
+                    "source-graph-completeness",
+                    "draft-coherence-pass",
+                    "visual-page-draft-assessment",
+                    "verification-checkpoints",
+                    "tooling-surface"
+                  ]
+                },
+                "relatedRelationships": [
+                  "source-graph-feeds-coherence",
+                  "coherence-requires-visual-assessment",
+                  "visual-assessment-requires-verification",
+                  "tooling-supports-verification"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "objective-closure-plan": {
+      "name": "Objective Closure Plan",
+      "category": "governance",
+      "kind": "surface",
+      "description": "A living-doc-native planning surface that connects an objective and success condition to closure gates, next goal candidates, blockers, source anchors, Mermaid planning diagrams, and a deterministic freshness check.",
+      "structuralContract": "One-column card grid of objective closure plans. Each card must name the planning question, objective and success-condition references, watched living-doc sections or cards, closure gates, next goal candidates, freshness basis, stale conditions, checker state, and one or more Mermaid diagrams. This is a planning graph tied to living-doc state, not a generic diagram appendix or a duplicate issue tracker.",
+      "notFor": [
+        "generic Mermaid relationship maps",
+        "free-form progress summaries",
+        "date or effort forecasts",
+        "duplicating acceptance criteria or issue lanes as a second source of truth",
+        "checking live GitHub, AWS, or other source systems directly"
+      ],
+      "promptGuidance": {
+        "operatingThesis": "Treat objective closure planning as a typed, checkable projection of the current living doc: the plan is useful only if it preserves objective language, references source cards, states remaining gates, and can prove whether it is fresh against the watched document content.",
+        "keepDistinct": [
+          "objective and success-condition references",
+          "watched living-doc sections and cards",
+          "closure gates",
+          "next goal candidates",
+          "blocking issue or proof references",
+          "Mermaid diagram source",
+          "freshness fingerprint and check result",
+          "live source-system sync, which happens before this checker runs"
+        ],
+        "inspect": [
+          "Read objective, successCondition, issue lanes, acceptance criteria, proof ladder, and closure path before updating the plan.",
+          "Verify that every closure gate references existing living-doc cards or explicit source anchors.",
+          "Check whether the plan card freshness fingerprint still matches the current watched living-doc content.",
+          "Treat stale freshness as a planning update requirement, not as proof that production state changed."
+        ],
+        "update": [
+          "Use one card for one objective closure plan unless the document has genuinely separate objective scopes.",
+          "Keep Mermaid diagrams execution-guiding and anchored to named gates, issues, criteria, proof rungs, or source sections.",
+          "Record watchedSections and watchedCards so the checker has a deterministic basis.",
+          "Update the checker fingerprint after changing watched objective, criteria, issue, proof, or closure-gate content."
+        ],
+        "avoid": [
+          "Do not make the Mermaid diagram the source of truth.",
+          "Do not query GitHub, AWS, or logs from the freshness checker; update the living doc from source evidence first.",
+          "Do not hide unresolved gates behind a broad current or ready state.",
+          "Do not convert this type into a backlog; next goal candidates must explain how they move objective closure."
+        ]
+      },
+      "icon": "<path opacity='.22' d='M4 4h16v16H4z'/><path d='M7 7h5v2H7zm0 4h5v2H7zm0 4h4v2H7z'/><path d='M14 7h3a3 3 0 013 3v1h-2v-1a1 1 0 00-1-1h-3V7zm0 8h3a1 1 0 001-1v-1h2v1a3 3 0 01-3 3h-3v-2z'/><path d='M13 11h5v2h-5z'/>",
+      "iconColor": "#7c3aed",
+      "projection": "card-grid",
+      "domain": "governance",
+      "entityShape": [
+        "objective-bound",
+        "closure-plan",
+        "diagram-backed-map",
+        "freshness-check"
+      ],
+      "columns": 1,
+      "sources": [
+        {
+          "key": "ticketIds",
+          "entityType": "ticket",
+          "label": "Tickets"
+        },
+        {
+          "key": "sectionIds",
+          "entityType": "section-ref",
+          "label": "Watched sections"
+        },
+        {
+          "key": "criterionIds",
+          "entityType": "section-ref",
+          "label": "Acceptance criteria"
+        },
+        {
+          "key": "codeRefs",
+          "entityType": "code-file",
+          "label": "Code references"
+        },
+        {
+          "key": "notes",
+          "entityType": null,
+          "label": null
+        }
+      ],
+      "statusFields": [
+        {
+          "key": "state",
+          "statusSet": "closure-plan-state"
+        }
+      ],
+      "textFields": [
+        {
+          "key": "managementSummary",
+          "label": "Management summary"
+        },
+        {
+          "key": "planningQuestion",
+          "label": "Planning question"
+        },
+        {
+          "key": "objectiveRef",
+          "label": "Objective reference"
+        },
+        {
+          "key": "successConditionRef",
+          "label": "Success condition reference"
+        },
+        {
+          "key": "freshnessBasis",
+          "label": "Freshness basis"
+        },
+        {
+          "key": "staleWhen",
+          "label": "Stale when"
+        }
+      ],
+      "detailsFields": [
+        {
+          "key": "watchedSections",
+          "label": "Watched sections"
+        },
+        {
+          "key": "watchedCards",
+          "label": "Watched cards"
+        },
+        {
+          "key": "closureGates",
+          "label": "Closure gates"
+        },
+        {
+          "key": "nextGoalCandidates",
+          "label": "Next goal candidates"
+        },
+        {
+          "key": "check",
+          "label": "Freshness check"
+        },
+        {
+          "key": "diagrams",
+          "label": "Mermaid diagrams"
+        }
+      ],
+      "metadata": {
+        "authoringSkill": {
+          "name": "objective-closure-plan",
+          "path": ".agents/skills/objective-closure-plan/SKILL.md"
+        }
+      }
     }
   },
   "generalAiActions": [

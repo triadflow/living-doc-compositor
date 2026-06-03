@@ -33,13 +33,23 @@ function formatKey(value) {
     .join(' ');
 }
 
+function displayLabel(value, fallback) {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (typeof value.en === 'string' && value.en.trim()) return value.en;
+    const localized = Object.values(value).find((entry) => typeof entry === 'string' && entry.trim());
+    if (localized) return localized;
+  }
+  return fallback;
+}
+
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function entityLabel(registry, entityType) {
   if (!entityType) return 'Inline note';
-  return registry.entityTypes?.[entityType]?.label ?? formatKey(entityType);
+  return displayLabel(registry.entityTypes?.[entityType]?.label, formatKey(entityType));
 }
 
 function toWebPath(value) {
@@ -243,7 +253,7 @@ function renderSources(registry, ct) {
   const rows = [];
   if (ct.sources?.length) {
     for (const source of ct.sources) {
-      const label = source.label ?? entityLabel(registry, source.entityType);
+      const label = displayLabel(source.label, entityLabel(registry, source.entityType));
       const entity = entityLabel(registry, source.entityType);
       const field = [source.key, source.resolve ? 'resolved' : ''].filter(Boolean).join(' ');
       rows.push({ k: label, ent: entity, v: field });
@@ -293,7 +303,7 @@ function renderStatusFields(registry, ct) {
 function renderFieldList(fields) {
   if (!fields?.length) return '';
   return fields.map((f) =>
-    `<div class="status-field"><code>${escapeHtml(f.key)}</code><span class="set">${escapeHtml(f.label ?? formatKey(f.key))}</span></div>`
+    `<div class="status-field"><code>${escapeHtml(f.key)}</code><span class="set">${escapeHtml(displayLabel(f.label, formatKey(f.key)))}</span></div>`
   ).join('');
 }
 
@@ -332,6 +342,7 @@ function renderTypeCard(registry, key, ct, usage) {
   const statusCount = (ct.statusFields?.length ?? 0) + (ct.edgeStatus ? 1 : 0);
   const nestChip = ct.nestable ? `<span class="chip nest">Nestable</span>` : '';
   const countsChips = `<span class="chip">${sourceCount} source${sourceCount === 1 ? '' : 's'}</span><span class="chip">${statusCount} status field${statusCount === 1 ? '' : 's'}</span>`;
+  const metaChips = [renderProjectionChip(ct), nestChip, countsChips].filter(Boolean).join('\n        ');
 
   const textBlock = ct.textFields?.length
     ? `<div style="height:20px"></div><span class="sub-eyebrow">Text fields</span>${renderFieldList(ct.textFields)}`
@@ -339,10 +350,11 @@ function renderTypeCard(registry, key, ct, usage) {
   const detailsBlock = ct.detailsFields?.length
     ? `<div style="height:20px"></div><span class="sub-eyebrow">Details fields</span>${renderFieldList(ct.detailsFields)}`
     : '';
+  const extraFieldBlocks = [renderEdgeNotes(ct), textBlock, detailsBlock].filter(Boolean).join('\n        ');
 
   const notForItems = (ct.notFor ?? []).map((x) => `<span class="nf-item">${escapeHtml(x)}</span>`).join('');
   const notForBlock = notForItems
-    ? `<div class="not-for"><span class="nf-label">Not for</span>${notForItems}</div>`
+    ? `\n    <div class="not-for"><span class="nf-label">Not for</span>${notForItems}</div>`
     : '';
 
   return `
@@ -350,13 +362,11 @@ function renderTypeCard(registry, key, ct, usage) {
     <div class="type-head">
       <div class="left">
         <span class="slug"><code>${escapeHtml(key)}</code></span>
-        <h3>${escapeHtml(ct.name ?? formatKey(key))}</h3>
+        <h3>${escapeHtml(displayLabel(ct.name, formatKey(key)))}</h3>
         <p>${escapeHtml(ct.description ?? '')}</p>
       </div>
       <div class="meta">
-        ${renderProjectionChip(ct)}
-        ${nestChip}
-        ${countsChips}
+        ${metaChips}
       </div>
     </div>
     <div class="type-body">
@@ -376,13 +386,9 @@ function renderTypeCard(registry, key, ct, usage) {
         <div style="height:20px"></div>
 
         <span class="sub-eyebrow">Status fields</span>
-        ${renderStatusFields(registry, ct)}
-        ${renderEdgeNotes(ct)}
-        ${textBlock}
-        ${detailsBlock}
+        ${renderStatusFields(registry, ct)}${extraFieldBlocks ? `\n        ${extraFieldBlocks}` : ''}
       </div>
-    </div>
-    ${notForBlock}
+    </div>${notForBlock}
   </article>`;
 }
 
@@ -580,7 +586,7 @@ function buildHtml(registry, usageSummary) {
   const indexPills = convergenceEntries.map(([key, ct], i) => {
     const n = String(i + 1).padStart(2, '0');
     const glyph = ct.projection === 'edge-table' ? ICON_EDGE : ICON_GRID;
-    return `<a class="index-pill" href="#${escapeHtml(key)}"><span class="n">${n}</span>${glyph}<span>${escapeHtml(ct.name ?? formatKey(key))}</span></a>`;
+    return `<a class="index-pill" href="#${escapeHtml(key)}"><span class="n">${n}</span>${glyph}<span>${escapeHtml(displayLabel(ct.name, formatKey(key)))}</span></a>`;
   }).join('');
 
   const typeCards = convergenceEntries
