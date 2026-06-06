@@ -24,6 +24,7 @@ const authoredRegistryKeys = new Set([
   'icon',
   'iconColor',
   'kind',
+  'metadata',
   'name',
   'nestable',
   'notFor',
