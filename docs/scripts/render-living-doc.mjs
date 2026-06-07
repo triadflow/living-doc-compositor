@@ -8,6 +8,7 @@ import { syncCompositorEmbeds } from './sync-compositor-embeds.mjs';
 import { checkFingerprint } from './meta-fingerprint.mjs';
 import { semanticContextForDoc } from './living-doc-semantic-context.mjs';
 import { checkCardStatuses, formatCardStatusSummary } from './check-card-statuses.mjs';
+import { buildEmbeddedFileLibrary, buildEmbeddedFileLibraryFromManifest } from './embedded-file-library.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registryPath = path.join(__dirname, 'living-doc-registry.json');
@@ -17,10 +18,20 @@ const aiRenderGraphRuntimePath = process.env.AI_RENDER_GRAPH_RUNTIME_PATH
   ? path.resolve(process.env.AI_RENDER_GRAPH_RUNTIME_PATH)
   : path.join(__dirname, 'vendor', 'ai-render-graph.file.js');
 
+const highSignalHiddenContentKeys = new Set([
+  'summary',
+  'claim',
+  'decision',
+  'finding',
+  'position',
+  'evidence',
+  'nextStrongerProof',
+]);
+
 /* ── Load registry + doc ── */
 
 function printUsageAndExit(code = 1) {
-  console.error('Usage: render-living-doc.mjs <doc.json> [--ai-enhanced] [--ai-endpoint URL] [--ai-model NAME] [--ai-timeout-ms N] [--commit] [--message "Commit message"]');
+  console.error('Usage: render-living-doc.mjs <doc.json> [--embed-file-library DIR | --embed-file-library-manifest manifest.json] [--embed-file-library-label LABEL] [--ai-enhanced] [--ai-endpoint URL] [--ai-model NAME] [--ai-timeout-ms N] [--commit] [--message "Commit message"]');
   process.exit(code);
 }
 
@@ -32,6 +43,9 @@ let aiEnhancedFlag = false;
 let aiEndpointOverride = '';
 let aiModelOverride = '';
 let aiTimeoutMsOverride = '';
+let embedFileLibraryRoot = '';
+let embedFileLibraryManifest = '';
+let embedFileLibraryLabel = '';
 
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
@@ -87,6 +101,36 @@ for (let i = 0; i < argv.length; i += 1) {
     i += 1;
     continue;
   }
+  if (arg === '--embed-file-library' || arg === '--embedded-file-library' || arg === '--embed-file-library-root') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    embedFileLibraryRoot = next;
+    i += 1;
+    continue;
+  }
+  if (arg === '--embed-file-library-manifest' || arg === '--embedded-file-library-manifest') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    embedFileLibraryManifest = next;
+    i += 1;
+    continue;
+  }
+  if (arg === '--embed-file-library-label') {
+    const next = argv[i + 1];
+    if (!next) {
+      console.error(`Missing value for ${arg}`);
+      printUsageAndExit(1);
+    }
+    embedFileLibraryLabel = next;
+    i += 1;
+    continue;
+  }
   if (arg.startsWith('--')) {
     console.error(`Unknown option: ${arg}`);
     printUsageAndExit(1);
@@ -102,13 +146,18 @@ for (let i = 0; i < argv.length; i += 1) {
 if (!docPath) {
   printUsageAndExit(1);
 }
+if (embedFileLibraryRoot && embedFileLibraryManifest) {
+  console.error('Use either --embed-file-library or --embed-file-library-manifest, not both.');
+  printUsageAndExit(1);
+}
 
 const resolvedDocPath = path.resolve(docPath);
 await syncCompositorEmbeds();
 const registry = JSON.parse(await readFile(registryPath, 'utf8'));
 const i18n = JSON.parse(await readFile(i18nPath, 'utf8'));
 const compositorHtml = await readFile(compositorPath, 'utf8');
-const data = JSON.parse(await readFile(resolvedDocPath, 'utf8'));
+const sourceData = JSON.parse(await readFile(resolvedDocPath, 'utf8'));
+const data = sourceData;
 const cardStatusCheck = checkCardStatuses(data, registry);
 if (cardStatusCheck.status !== 'current') {
   console.error(formatCardStatusSummary(cardStatusCheck, { filePath: resolvedDocPath }));
@@ -116,7 +165,13 @@ if (cardStatusCheck.status !== 'current') {
   console.error(`Run: node ${path.join(__dirname, 'check-card-statuses.mjs')} ${resolvedDocPath}`);
   process.exit(2);
 }
-const renderLocale = ['en', 'nl', 'id'].includes(data.locale) ? data.locale : 'en';
+const renderPreflight = checkRenderableCardContent(data, registry);
+if (renderPreflight.findings.length > 0) {
+  console.error(formatRenderableCardContentSummary(renderPreflight, { filePath: resolvedDocPath }));
+  console.error('\nRender blocked: fix invisible card headings or move ignored prose into registered text/detail fields or notes.');
+  process.exit(2);
+}
+let renderLocale = ['en', 'nl', 'id'].includes(data.locale) ? data.locale : 'en';
 const snapshotGeneratedAt = new Date().toISOString();
 const defaultCanonicalOrigin = path.relative(process.cwd(), resolvedDocPath) || resolvedDocPath;
 const docAiEnhancement = data.aiEnhancement && typeof data.aiEnhancement === 'object' ? data.aiEnhancement : {};
@@ -132,6 +187,11 @@ const aiEnhancement = {
   autoRun: docAiEnhancement.autoRun !== false,
   useJsonResponseFormat: docAiEnhancement.useJsonResponseFormat === true,
 };
+const embeddedFileLibrary = embedFileLibraryRoot
+  ? await buildEmbeddedFileLibrary(embedFileLibraryRoot, { rootLabel: embedFileLibraryLabel })
+  : embedFileLibraryManifest
+    ? await buildEmbeddedFileLibraryFromManifest(embedFileLibraryManifest, { rootLabel: embedFileLibraryLabel })
+  : normalizeEmbeddedFileLibrary(data.embeddedFileLibrary);
 
 // Version from git
 let buildVersion = 'dev';
@@ -254,12 +314,228 @@ function escapeHtml(value) {
 
 function localizedValue(value, locale = renderLocale) {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const keys = ['en', 'nl', 'id'];
-    if (keys.some((key) => Object.prototype.hasOwnProperty.call(value, key))) {
-      return value[locale] ?? value.en ?? value.nl ?? value.id ?? '';
+    if (isLocalizedObject(value)) {
+      const normalizedLocale = normalizeContentLocaleId(locale);
+      return value[normalizedLocale]
+        ?? value[normalizedLocale.split('-')[0]]
+        ?? value.en
+        ?? value.nl
+        ?? value.id
+        ?? Object.values(value).find((entry) => entry !== undefined && entry !== null && String(entry) !== '')
+        ?? '';
     }
   }
   return value;
+}
+
+function normalizeContentLocaleId(value) {
+  return String(value ?? '').trim().toLowerCase().replace(/_/g, '-');
+}
+
+function contentLocaleLabel(locale) {
+  const id = normalizeContentLocaleId(locale);
+  if (id === 'en') return 'English';
+  if (id === 'nl') return 'Nederlands';
+  if (id === 'id') return 'Bahasa Indonesia';
+  return id ? id.toUpperCase() : 'Default';
+}
+
+function normalizeContentLocales(doc) {
+  const source = normalizeContentLocaleId(doc?.contentLocales?.source || doc?.sourceLocale || doc?.locale || renderLocale || 'en') || 'en';
+  const declared = Array.isArray(doc?.contentLocales)
+    ? doc.contentLocales
+    : Array.isArray(doc?.contentLocales?.locales)
+      ? doc.contentLocales.locales
+      : Array.isArray(doc?.contentLocales?.available)
+        ? doc.contentLocales.available
+        : [];
+  const translations = doc?.contentTranslations && typeof doc.contentTranslations === 'object'
+    ? Object.keys(doc.contentTranslations)
+    : [];
+  const seen = new Set();
+  const locales = [];
+  const add = (entry) => {
+    const id = normalizeContentLocaleId(typeof entry === 'string' ? entry : entry?.id || entry?.locale || entry?.lang);
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    locales.push({
+      id,
+      label: String((typeof entry === 'object' && (entry.label || entry.name)) || contentLocaleLabel(id)),
+      source: id === source,
+    });
+  };
+  add({ id: source, label: doc?.contentLocales?.sourceLabel || contentLocaleLabel(source) });
+  declared.forEach(add);
+  translations.forEach((locale) => add(locale));
+  return { source, locales };
+}
+
+function isLocalizedObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every((key) => /^[a-z]{2}(?:-[a-z0-9]+)?$/i.test(key));
+}
+
+function stringContentValue(value, locale = renderLocale) {
+  const localized = localizedValue(value, locale);
+  if (localized === null || localized === undefined) return '';
+  return String(localized);
+}
+
+function pushTranslation(map, locale, key, value) {
+  const normalizedLocale = normalizeContentLocaleId(locale);
+  if (!normalizedLocale || !key || value === undefined || value === null) return;
+  if (!map.has(normalizedLocale)) map.set(normalizedLocale, new Map());
+  map.get(normalizedLocale).set(key, value);
+}
+
+function flattenCardTranslation(map, locale, sectionId, cardId, cardPatch) {
+  if (!cardPatch || typeof cardPatch !== 'object') return;
+  for (const [fieldKey, fieldValue] of Object.entries(cardPatch)) {
+    if (fieldKey === 'id') continue;
+    pushTranslation(map, locale, `card.${sectionId}.${cardId}.${fieldKey}`, fieldValue);
+    if (fieldKey === 'title') pushTranslation(map, locale, `card.${sectionId}.${cardId}.name`, fieldValue);
+    if (fieldKey === 'name') pushTranslation(map, locale, `card.${sectionId}.${cardId}.title`, fieldValue);
+    flattenNestedContentTranslation(map, locale, `card.${sectionId}.${cardId}.${fieldKey}`, fieldValue);
+  }
+}
+
+function flattenNestedContentTranslation(map, locale, baseKey, value) {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      if (entry === null || entry === undefined) return;
+      if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean' || isLocalizedObject(entry)) {
+        pushTranslation(map, locale, `${baseKey}.${index}.text`, entry);
+        return;
+      }
+      if (typeof entry !== 'object') return;
+      for (const key of ['title', 'text', 'value', 'mermaid', 'source', 'exitCriterion', 'whyNext']) {
+        if (entry[key] !== undefined) pushTranslation(map, locale, `${baseKey}.${index}.${key === 'value' ? 'text' : key}`, entry[key]);
+      }
+      flattenNestedContentTranslation(map, locale, `${baseKey}.${index}`, entry);
+    });
+    return;
+  }
+  if (!value || typeof value !== 'object' || isLocalizedObject(value)) return;
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (key === 'id') continue;
+    flattenNestedContentTranslation(map, locale, `${baseKey}.${key}`, nestedValue);
+  }
+}
+
+function flattenSectionTranslation(map, locale, sectionId, sectionPatch) {
+  if (!sectionPatch || typeof sectionPatch !== 'object') return;
+  for (const fieldKey of ['title', 'rationale']) {
+    if (sectionPatch[fieldKey] !== undefined) {
+      pushTranslation(map, locale, `section.${sectionId}.${fieldKey}`, sectionPatch[fieldKey]);
+    }
+  }
+  const cards = sectionPatch.cards || sectionPatch.data || sectionPatch.items;
+  if (cards && typeof cards === 'object') {
+    if (Array.isArray(cards)) {
+      for (const cardPatch of cards) {
+        const cardId = String(cardPatch?.id || '').trim();
+        if (cardId) flattenCardTranslation(map, locale, sectionId, cardId, cardPatch);
+      }
+    } else {
+      for (const [cardId, cardPatch] of Object.entries(cards)) {
+        flattenCardTranslation(map, locale, sectionId, cardId, cardPatch);
+      }
+    }
+  }
+}
+
+function flattenContentTranslations(doc) {
+  const map = new Map();
+  const translations = doc?.contentTranslations && typeof doc.contentTranslations === 'object'
+    ? doc.contentTranslations
+    : {};
+  for (const [locale, patch] of Object.entries(translations)) {
+    const documentPatch = patch?.document && typeof patch.document === 'object' ? patch.document : patch;
+    const flatEntries = patch?.entries && typeof patch.entries === 'object'
+      ? patch.entries
+      : patch?.overrides && typeof patch.overrides === 'object'
+        ? patch.overrides
+        : {};
+    for (const [key, value] of Object.entries(flatEntries)) {
+      pushTranslation(map, locale, key, value);
+    }
+    for (const fieldKey of ['title', 'subtitle', 'objective', 'successCondition']) {
+      if (documentPatch?.[fieldKey] !== undefined) pushTranslation(map, locale, `document.${fieldKey}`, documentPatch[fieldKey]);
+    }
+    const sections = patch?.sections || documentPatch?.sections;
+    if (sections && typeof sections === 'object') {
+      if (Array.isArray(sections)) {
+        for (const sectionPatch of sections) {
+          const sectionId = String(sectionPatch?.id || '').trim();
+          if (sectionId) flattenSectionTranslation(map, locale, sectionId, sectionPatch);
+        }
+      } else {
+        for (const [sectionId, sectionPatch] of Object.entries(sections)) {
+          flattenSectionTranslation(map, locale, sectionId, sectionPatch);
+        }
+      }
+    }
+  }
+  return map;
+}
+
+const contentLocaleConfig = normalizeContentLocales(data);
+const contentTranslationLookup = flattenContentTranslations(data);
+const contentEntries = new Map();
+
+function contentTranslation(locale, key) {
+  return contentTranslationLookup.get(normalizeContentLocaleId(locale))?.get(key);
+}
+
+function contentValue(key, sourceValue, locale = renderLocale) {
+  const translated = contentTranslation(locale, key);
+  if (translated !== undefined) return translated;
+  return localizedValue(sourceValue, locale);
+}
+
+function registerContentEntry(key, sourceValue, render = 'text', options = {}) {
+  if (!key) return;
+  const values = {};
+  for (const localeEntry of contentLocaleConfig.locales) {
+    const value = contentValue(key, sourceValue, localeEntry.id);
+    if (value !== undefined && value !== null && String(value) !== '') values[localeEntry.id] = String(value);
+  }
+  if (!values[contentLocaleConfig.source]) {
+    const source = localizedValue(sourceValue, contentLocaleConfig.source);
+    if (source !== undefined && source !== null && String(source) !== '') values[contentLocaleConfig.source] = String(source);
+  }
+  contentEntries.set(key, {
+    render,
+    className: options.className || '',
+    values,
+  });
+}
+
+function contentAttrs(key, render = 'text', options = {}) {
+  if (!key) return '';
+  registerContentEntry(key, options.value, render, options);
+  const attrs = [
+    `data-content-key="${escapeHtml(key)}"`,
+    `data-content-render="${escapeHtml(render)}"`,
+  ];
+  if (options.className) attrs.push(`data-content-class="${escapeHtml(options.className)}"`);
+  return attrs.join(' ');
+}
+
+function contentText(key, sourceValue) {
+  registerContentEntry(key, sourceValue, 'text');
+  return stringContentValue(contentValue(key, sourceValue));
+}
+
+function contentInlineHtml(key, sourceValue) {
+  registerContentEntry(key, sourceValue, 'inline');
+  return renderInlineText(contentValue(key, sourceValue));
+}
+
+function contentLineStackHtml(key, sourceValue, className) {
+  registerContentEntry(key, sourceValue, 'line-stack', { className });
+  return renderLineStack(contentValue(key, sourceValue), className);
 }
 
 function formatExactTimestamp(value) {
@@ -1840,7 +2116,42 @@ function renderNotes(items) {
     </div>`;
 }
 
-function renderDetails(items, label, fieldKey = '') {
+function renderContentNoteStack(items, baseKey) {
+  if (!items || items.length === 0) return '';
+  const normalized = items.map((item, index) => ({ note: normalizeNote(item), index })).filter((entry) => entry.note);
+  if (normalized.length === 0) return '';
+  return `
+    <div class="note-stack">
+      ${normalized.map(({ note, index }) => {
+        const titleKey = baseKey ? `${baseKey}.${index}.title` : '';
+        const textKey = baseKey ? `${baseKey}.${index}.text` : '';
+        const titleHtml = note.title
+          ? `<strong class="note-title"${titleKey ? ` ${contentAttrs(titleKey, 'text', { value: note.title })}` : ''}>${escapeHtml(contentText(titleKey, note.title))}</strong>`
+          : '';
+        if (note.role === 'reference') {
+          const lines = splitTextLines(note.text);
+          if (shouldRenderReferenceChips(lines)) {
+            const chipHtml = lines.map((line, lineIndex) => {
+              const lineKey = textKey ? `${textKey}.${lineIndex}` : '';
+              return `<span class="note-chip"${lineKey ? ` ${contentAttrs(lineKey, 'inline', { value: line })}` : ''}>${lineKey ? contentInlineHtml(lineKey, line) : renderInlineText(line)}</span>`;
+            }).join('');
+            return `<div class="note-reference">${titleHtml}<div class="note-chip-row">${chipHtml}</div></div>`;
+          }
+          const lineHtml = lines.map((line, lineIndex) => {
+            const lineKey = textKey ? `${textKey}.${lineIndex}` : '';
+            return `<span class="note-reference-line"${lineKey ? ` ${contentAttrs(lineKey, 'inline', { value: line })}` : ''}>${lineKey ? contentInlineHtml(lineKey, line) : renderInlineText(line)}</span>`;
+          }).join('');
+          return `<div class="note-reference">${titleHtml}<div class="note-reference-lines">${lineHtml}</div></div>`;
+        }
+        if (note.role === 'callout' || note.tone) {
+          return `<div class="note-callout note-callout-${escapeHtml(note.tone ?? 'neutral')}">${titleHtml}<span${textKey ? ` ${contentAttrs(textKey, 'line-stack', { value: note.text, className: 'note-line' })}` : ''}>${textKey ? contentLineStackHtml(textKey, note.text, 'note-line') : renderLineStack(note.text, 'note-line')}</span></div>`;
+        }
+        return `<p class="note-description">${titleHtml}<span${textKey ? ` ${contentAttrs(textKey, 'line-stack', { value: note.text, className: 'note-line' })}` : ''}>${textKey ? contentLineStackHtml(textKey, note.text, 'note-line') : renderLineStack(note.text, 'note-line')}</span></p>`;
+      }).join('')}
+    </div>`;
+}
+
+function renderDetails(items, label, fieldKey = '', baseKey = '') {
   if (!items || items.length === 0) return '';
   if (fieldKey === 'diagrams' || items.some((item) => isRenderableMermaid(typeof item === 'string' ? item : item?.text ?? item?.value ?? item?.mermaid ?? item?.source))) {
     return renderDiagramDetails(items, label);
@@ -1857,7 +2168,7 @@ function renderDetails(items, label, fieldKey = '') {
   return `
     <details class="details-block">
       <summary>${escapeHtml(label)} (${items.length})</summary>
-      ${renderNotes(items)}
+      ${baseKey ? renderContentNoteStack(items, baseKey) : renderNotes(items)}
     </details>`;
 }
 
@@ -1867,9 +2178,111 @@ function renderCardDomKey(item) {
   return String(item?.id || item?.figmaName || item?.name || '').trim();
 }
 
+function visibleCardHeading(item) {
+  const value = item?.name ?? item?.title ?? item?.id ?? '';
+  if (value && typeof value === 'object') {
+    return String(value.en ?? value.nl ?? value.id ?? Object.values(value).find(Boolean) ?? '').trim();
+  }
+  return String(value ?? '').trim();
+}
+
+function hasRenderableTextPayload(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number' || typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.some(hasRenderableTextPayload);
+  if (typeof value === 'object') return Object.values(value).some(hasRenderableTextPayload);
+  return false;
+}
+
+function renderedFieldKeysForType(typeDef) {
+  const keys = new Set([
+    'id',
+    'name',
+    'title',
+    'feature',
+    'kind',
+    'updated',
+    'lastUpdatedInPeriod',
+  ]);
+  for (const source of typeDef.sources ?? []) keys.add(source.key);
+  for (const field of typeDef.statusFields ?? []) keys.add(field.key);
+  for (const field of typeDef.textFields ?? []) keys.add(field.key);
+  for (const field of typeDef.detailsFields ?? []) keys.add(field.key);
+  return keys;
+}
+
+function checkRenderableCardContent(doc, registryDefinition) {
+  const findings = [];
+  for (const section of doc?.sections ?? []) {
+    const typeDef = registryDefinition.convergenceTypes?.[section.convergenceType];
+    if (!typeDef || typeDef.projection !== 'card-grid') continue;
+    const renderedKeys = renderedFieldKeysForType(typeDef);
+    for (const [index, item] of (section.data ?? []).entries()) {
+      const cardLabel = `${section.id}/${item?.id ?? `data[${index}]`}`;
+      if (!visibleCardHeading(item)) {
+        findings.push({
+          kind: 'missing-heading',
+          path: cardLabel,
+          message: 'card has no visible heading; set `name` or `title`',
+        });
+      }
+      for (const key of Object.keys(item ?? {})) {
+        if (renderedKeys.has(key)) continue;
+        if (!highSignalHiddenContentKeys.has(key)) continue;
+        if (!hasRenderableTextPayload(item[key])) continue;
+        findings.push({
+          kind: 'hidden-content-field',
+          path: `${cardLabel}.${key}`,
+          message: `field "${key}" contains prose but is not rendered by convergence type "${section.convergenceType}"`,
+        });
+      }
+    }
+  }
+  return { status: findings.length === 0 ? 'current' : 'blocked', findings };
+}
+
+function formatRenderableCardContentSummary(result, { filePath = '' } = {}) {
+  const lines = [
+    `render preflight${filePath ? ` for ${filePath}` : ''}: ${result.status}`,
+    `findings: ${result.findings.length}`,
+  ];
+  for (const finding of result.findings) {
+    lines.push(`- ${finding.kind}: ${finding.path}: ${finding.message}`);
+  }
+  return lines.join('\n');
+}
+
+function renderTextField(item, tf, convergenceType) {
+  const value = item[tf.key];
+  if (!value) return '';
+  const cardKey = renderCardDomKey(item);
+  const fieldContentKey = cardKey ? `card.${currentRenderSectionId}.${cardKey}.${tf.key}` : '';
+  const label = localizedValue(tf.label);
+  if (convergenceType === 'objective-closure-plan' && tf.key === 'managementSummary') {
+    const dutchSummaryNote = 'Deze uitleg is bewust simpel gehouden. Voor volledig begrip, managementclaims en besluiten moet de living doc zelf in detail worden gelezen en afgestemd met de maintainer van de living doc.';
+    const summaryBlocks = value && typeof value === 'object' && !Array.isArray(value)
+      ? [
+          value.en ? `<p lang="en">${renderLineStack(value.en, 'management-summary-line')}</p>` : '',
+          value.nl ? `<div class="management-summary-translation-label">Nederlandse uitleg</div><p lang="nl">${renderLineStack(value.nl, 'management-summary-line')}</p><p class="management-summary-translation-note" lang="nl">${escapeHtml(dutchSummaryNote)}</p>` : '',
+        ].filter(Boolean).join('')
+      : `<p>${renderLineStack(value, 'management-summary-line')}</p>`;
+    return `
+      <section class="management-summary" aria-label="${escapeHtml(label)}">
+        <div class="management-summary-eyebrow">${escapeHtml(label)}</div>
+        ${summaryBlocks}
+      </section>`;
+  }
+  return `<p class="code-refs"><strong>${escapeHtml(label)}</strong> <span${fieldContentKey ? ` ${contentAttrs(fieldContentKey, 'inline', { value })}` : ''}>${fieldContentKey ? contentInlineHtml(fieldContentKey, value) : renderInlineText(value)}</span></p>`;
+}
+
+let currentRenderSectionId = '';
+
 function renderCardItem(item, convergenceType, sectionId) {
   const ct = registry.convergenceTypes[convergenceType];
   if (!ct) return '';
+  currentRenderSectionId = sectionId || '';
+  const cardKey = renderCardDomKey(item);
 
   // Status badges
   const badges = (ct.statusFields ?? [])
@@ -1894,18 +2307,20 @@ function renderCardItem(item, convergenceType, sectionId) {
 
   // Notes (sources with null entityType)
   const notesSrc = (ct.sources ?? []).find((src) => src.key === 'notes' && !src.entityType);
-  const notesHtml = notesSrc && item.notes ? renderNotes(item.notes) : '';
+  const notesHtml = notesSrc && item.notes
+    ? renderContentNoteStack(item.notes, cardKey ? `card.${sectionId}.${cardKey}.notes` : '')
+    : '';
 
   // Text fields
   const textHtml = (ct.textFields ?? [])
     .filter((tf) => item[tf.key])
-    .map((tf) => `<p class="code-refs"><strong>${escapeHtml(localizedValue(tf.label))}</strong> ${renderInlineText(item[tf.key])}</p>`)
+    .map((tf) => renderTextField(item, tf, convergenceType))
     .join('');
 
   // Details fields
   const detailsHtml = (ct.detailsFields ?? [])
     .filter((df) => item[df.key] && item[df.key].length > 0)
-    .map((df) => renderDetails(item[df.key], localizedValue(df.label), df.key))
+    .map((df) => renderDetails(item[df.key], localizedValue(df.label), df.key, cardKey ? `card.${sectionId}.${cardKey}.${df.key}` : ''))
     .join('');
 
   // Item-level ID for anchoring
@@ -1921,7 +2336,7 @@ function renderCardItem(item, convergenceType, sectionId) {
     <article class="flow-card"${anchorId}${dataAttrs}>
       <header class="flow-card-header">
         <div>
-          <h3>${escapeHtml(localizedValue(item.name))}${periodBadge}</h3>
+          <h3><span ${contentAttrs(cardKey ? `card.${sectionId}.${cardKey}.name` : '', 'text', { value: item.name ?? item.title ?? item.id })}>${escapeHtml(contentText(cardKey ? `card.${sectionId}.${cardKey}.name` : '', item.name ?? item.title ?? item.id))}</span>${periodBadge}</h3>
           ${metaRow}
         </div>
         <div class="badge-row">${badges}</div>
@@ -2722,9 +3137,15 @@ function renderSection(section) {
     ? `<span class="skill-badge" title="${escapeHtml(authoringSkillPath ? `Use ${authoringSkillName} to create or refresh this surface: ${authoringSkillPath}` : `Use ${authoringSkillName} to create or refresh this surface`)}">skill: ${escapeHtml(authoringSkillName)}</span>`
     : '';
 
+  const sectionTitleKey = `section.${section.id}.title`;
+  const sectionRationaleKey = `section.${section.id}.rationale`;
+  const sectionRationaleHtml = section.rationale
+    ? `<p class="section-rationale" ${contentAttrs(sectionRationaleKey, 'inline', { value: section.rationale })}>${contentInlineHtml(sectionRationaleKey, section.rationale)}</p>`
+    : '';
   return `
     <section class="section${projection === 'edge-table' ? ' table-card' : ''}" id="${escapeHtml(section.id)}" data-section-id="${escapeHtml(section.id)}">
-      <h2>${icon} ${escapeHtml(localizedValue(section.title))} ${kindBadge}${typeBadge}${skillBadge}${sectionUpdated}</h2>
+      <h2>${icon} <span ${contentAttrs(sectionTitleKey, 'text', { value: section.title })}>${escapeHtml(contentText(sectionTitleKey, section.title))}</span> ${kindBadge}${typeBadge}${skillBadge}${sectionUpdated}</h2>
+      ${sectionRationaleHtml}
       ${freshnessBannerHtml}
       ${calloutHtml}
       ${sectionAiHtml}
@@ -2740,6 +3161,29 @@ function renderSection(section) {
 
 function normalizeArtifactPages(doc) {
   return Array.isArray(doc.artifactPages) ? doc.artifactPages.filter((page) => page && page.id && Array.isArray(page.sections)) : [];
+}
+
+function normalizeEmbeddedFileLibrary(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.schema !== 'living-doc-embedded-file-library/v1') return null;
+  const entries = Array.isArray(value.entries)
+    ? value.entries.filter((entry) => entry && entry.path && entry.content && entry.encoding === 'base64')
+    : [];
+  if (!entries.length) return null;
+  return {
+    ...value,
+    entryCount: entries.length,
+    totalBytes: Number.isFinite(Number(value.totalBytes)) ? Number(value.totalBytes) : entries.reduce((sum, entry) => sum + Number(entry.byteLength || 0), 0),
+    entries,
+  };
+}
+
+function formatBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
 const artifactLibraryText = {
@@ -2823,12 +3267,13 @@ function buildSidebar(sections) {
     const nextIndex = (seen.get(section.convergenceType) ?? 0) + 1;
     seen.set(section.convergenceType, nextIndex);
     const showIndex = (counts.get(section.convergenceType) ?? 0) > 1;
-    const sectionTitle = localizedValue(section.title);
+    const sectionTitleKey = `section.${section.id}.title`;
+    const sectionTitle = contentText(sectionTitleKey, section.title);
     return `
       <a href="#${escapeHtml(section.id)}" class="nav-icon" data-view-target="document" data-target="${escapeHtml(section.id)}" aria-label="${escapeHtml(sectionTitle)}"${iconStyle}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">${icon}</svg>
         ${showIndex ? `<span class="nav-index">${escapeHtml(String(nextIndex))}</span>` : ''}
-        <span class="nav-tooltip">${escapeHtml(sectionTitle)}</span>
+        <span class="nav-tooltip" ${contentAttrs(sectionTitleKey, 'text', { value: section.title })}>${escapeHtml(sectionTitle)}</span>
       </a>`;
   }).join('');
 }
@@ -2852,6 +3297,32 @@ const viewSwitchHtml = boardDimensions.length > 0 || graphViewHtml
   : '';
 const snapshotMeta = buildSnapshotMeta(data);
 const updateSource = normalizeUpdateSource(data);
+const pageTitleKey = 'document.title';
+const pageSubtitleKey = 'document.subtitle';
+const pageObjectiveKey = 'document.objective';
+const pageSuccessConditionKey = 'document.successCondition';
+const pageTitleHtml = `<span ${contentAttrs(pageTitleKey, 'text', { value: data.title })}>${escapeHtml(contentText(pageTitleKey, data.title))}</span>`;
+const pageSubtitleHtml = data.subtitle
+  ? `<p class="subtitle" ${contentAttrs(pageSubtitleKey, 'text', { value: data.subtitle })}>${escapeHtml(contentText(pageSubtitleKey, data.subtitle))}</p>`
+  : '';
+const pageObjectiveHtml = data.objective
+  ? `
+          <section class="callout" style="border-left:3px solid var(--accent)">
+            <p><strong>Objective</strong> <span ${contentAttrs(pageObjectiveKey, 'text', { value: data.objective })}>${escapeHtml(contentText(pageObjectiveKey, data.objective))}</span></p>
+            ${data.successCondition ? `<p style="color:var(--muted)"><strong>Success condition</strong> <span ${contentAttrs(pageSuccessConditionKey, 'text', { value: data.successCondition })}>${escapeHtml(contentText(pageSuccessConditionKey, data.successCondition))}</span></p>` : ''}
+            ${data.syncHints ? `<p style="color:var(--muted);font-size:13px"><strong>Scope</strong> ${Object.entries(data.syncHints).map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(v)}</code>`).join(' ')}</p>` : ''}
+          </section>`
+  : '';
+const sidebarHtml = buildSidebar(sections);
+const docCalloutsHtml = (data.callouts ?? []).map(renderCallout).join('');
+const sectionsHtml = sections.map(renderSection).join('');
+const contentLocalizationJson = safeJsonForScript({
+  schema: 'living-doc-content-localization/v1',
+  sourceLocale: contentLocaleConfig.source,
+  activeLocale: renderLocale,
+  locales: contentLocaleConfig.locales,
+  entries: Object.fromEntries(contentEntries),
+});
 const metaJson = JSON.stringify(data, null, 2).replace(/<\/script/gi, '<\\/script');
 const registryJson = JSON.stringify(registry, null, 2).replace(/<\/script/gi, '<\\/script');
 const i18nJson = JSON.stringify(i18n, null, 2).replace(/<\/script/gi, '<\\/script');
@@ -2859,6 +3330,7 @@ const semanticContext = await semanticContextForDoc(data);
 const semanticContextJson = semanticContext ? safeJsonForScript(semanticContext) : '';
 const aiSpecJson = documentAiArtifacts.serializableSpec ? safeJsonForScript(documentAiArtifacts.serializableSpec) : '';
 const aiMetaJson = documentAiArtifacts.serializableMeta ? safeJsonForScript(documentAiArtifacts.serializableMeta) : '';
+const embeddedFileLibraryJson = embeddedFileLibrary ? safeJsonForScript(embeddedFileLibrary) : '';
 const aiRenderGraphRuntimeSource = documentAiArtifacts.serializableSpec
   ? safeInlineScriptSource(await readAiRenderGraphRuntime())
   : '';
@@ -3093,6 +3565,92 @@ const html = `<!doctype html>
         cursor: pointer; white-space: nowrap;
       }
       .artifact-open-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .embedded-file-modal[hidden] { display: none; }
+      .embedded-file-modal {
+        position: fixed; inset: 0; z-index: 500; display: flex; align-items: stretch; justify-content: center;
+        padding: 22px; background: rgba(15, 23, 42, 0.55);
+      }
+      .embedded-file-dialog {
+        width: min(1180px, 100%); min-height: min(760px, calc(100vh - 44px)); max-height: calc(100vh - 44px);
+        display: flex; flex-direction: column; overflow: hidden;
+        border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+      }
+      .embedded-file-dialog-head {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+        padding: 16px 18px; border-bottom: 1px solid var(--line); background: var(--bg);
+      }
+      .embedded-file-kicker {
+        margin: 0 0 4px; color: var(--muted); font-size: 11px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.08em;
+      }
+      .embedded-file-dialog-head h2 { margin: 0; font-size: 18px; line-height: 1.25; }
+      .embedded-file-dialog-head p:last-child {
+        margin: 6px 0 0; color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        overflow-wrap: anywhere;
+      }
+      .embedded-file-close {
+        appearance: none; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--muted);
+        width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+        font-size: 22px; line-height: 1; cursor: pointer;
+      }
+      .embedded-file-close:hover { border-color: var(--negative-ink); color: var(--negative-ink); background: var(--negative-bg); }
+      .embedded-file-body { flex: 1; min-height: 0; background: #fff; overflow: auto; }
+      .embedded-file-frame { width: 100%; height: 100%; min-height: 640px; border: 0; background: #fff; display: block; }
+      .embedded-pdf-viewer { min-height: 0; height: 100%; display: flex; flex-direction: column; background: #fff; }
+      .embedded-pdf-actions {
+        display: flex; align-items: center; justify-content: space-between; gap: 14px;
+        padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg);
+      }
+      .embedded-pdf-actions p { margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+      .embedded-pdf-actions a {
+        flex: 0 0 auto; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+        color: var(--accent); background: var(--card); font-size: 12px; font-weight: 750; text-decoration: none;
+      }
+      .embedded-pdf-actions a:hover { border-color: var(--accent); background: var(--accent-light); }
+      .embedded-pdf-frame { flex: 1; width: 100%; min-height: 640px; border: 0; background: #fff; display: block; }
+      .embedded-file-source {
+        margin: 0; padding: 18px 20px; color: var(--ink); background: #fff;
+        font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        white-space: pre-wrap; overflow-wrap: anywhere;
+      }
+      .embedded-markdown {
+        max-width: 980px; margin: 0 auto; padding: 34px 30px 54px;
+        color: var(--ink); font-size: 15px; line-height: 1.68;
+      }
+      .embedded-markdown h1,
+      .embedded-markdown h2,
+      .embedded-markdown h3,
+      .embedded-markdown h4 { margin: 28px 0 10px; color: var(--ink); line-height: 1.24; letter-spacing: 0; }
+      .embedded-markdown h1 { margin-top: 0; font-size: 30px; }
+      .embedded-markdown h2 { font-size: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+      .embedded-markdown h3 { font-size: 17px; }
+      .embedded-markdown h4 { font-size: 14px; color: var(--muted); text-transform: uppercase; }
+      .embedded-markdown p { margin: 10px 0; }
+      .embedded-markdown ul,
+      .embedded-markdown ol { margin: 10px 0 14px 24px; padding: 0; }
+      .embedded-markdown li { margin: 5px 0; }
+      .embedded-markdown blockquote {
+        margin: 14px 0; padding: 10px 16px; border-left: 4px solid var(--accent);
+        background: var(--bg); color: var(--muted);
+      }
+      .embedded-markdown pre {
+        margin: 14px 0; padding: 14px 16px; overflow: auto; border-radius: 10px;
+        border: 1px solid var(--line); background: #0f172a; color: #e2e8f0;
+        font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      .embedded-markdown code {
+        padding: 1px 5px; border-radius: 5px; background: var(--bg);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.92em;
+      }
+      .embedded-markdown pre code { padding: 0; background: transparent; color: inherit; }
+      .embedded-markdown table {
+        width: 100%; margin: 16px 0; border-collapse: collapse; font-size: 14px;
+        border: 1px solid var(--line);
+      }
+      .embedded-markdown th,
+      .embedded-markdown td { padding: 9px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+      .embedded-markdown th { background: var(--bg); font-weight: 800; }
       .board-view { margin-top: 28px; }
       .board-toolbar {
         display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
@@ -3324,6 +3882,10 @@ const html = `<!doctype html>
         display: flex; align-items: center; gap: 10px;
       }
       .section-icon { color: var(--muted); flex-shrink: 0; }
+      .section-rationale {
+        max-width: 78ch; margin: -8px 0 18px; color: var(--muted);
+        font-size: 13.5px; line-height: 1.6;
+      }
       .callout {
         margin-top: 20px; padding: 16px 20px; border-radius: var(--radius);
         border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow-sm);
@@ -3584,6 +4146,53 @@ const html = `<!doctype html>
       .ticket-link { text-decoration: none; }
       .ticket-link:hover { text-decoration: none; }
       .ticket-badge { cursor: pointer; }
+      .management-summary {
+        margin-top: 16px;
+        padding: 16px 18px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, var(--card)), var(--card));
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+      }
+      .management-summary-eyebrow {
+        margin: 0 0 8px;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .management-summary p {
+        margin: 0;
+        color: var(--ink);
+        font-size: 15.5px;
+        line-height: 1.7;
+      }
+      .management-summary p + .management-summary-translation-label {
+        margin-top: 14px;
+      }
+      .management-summary-translation-label {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .management-summary .management-summary-translation-note {
+        margin: 10px 0 0;
+        padding-top: 8px;
+        border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+        color: #b91c1c;
+        font-size: 10px;
+        font-style: italic;
+        line-height: 1.55;
+      }
+      .management-summary-line {
+        display: block;
+      }
+      .management-summary-line + .management-summary-line {
+        margin-top: 6px;
+      }
       .code-refs { margin-top: 10px; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
       .details-block {
         margin-top: 14px; padding: 12px 14px;
@@ -3730,6 +4339,14 @@ const html = `<!doctype html>
         margin-left: 6px;
       }
       .period-badge::before { content: "·"; margin-right: 2px; color: color-mix(in srgb, var(--accent) 40%, var(--muted)); }
+      .content-locale-control {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
+        background: var(--card); color: var(--muted); font-size: 12px; font-weight: 700;
+      }
+      .content-locale-control select {
+        border: 0; background: transparent; color: var(--ink); font: inherit; outline: none;
+      }
       @media (max-width: 720px) {
         .period-strip { flex-direction: column; }
         .period-chip { border-right: none; border-bottom: 1px solid var(--line); }
@@ -3754,13 +4371,15 @@ const html = `<!doctype html>
   </head>
   <body>
     <script type="application/json" id="doc-meta">${metaJson}</script>
+    <script type="application/json" id="doc-content-localization">${contentLocalizationJson}</script>
     ${semanticContextJson ? `<script type="application/json" id="doc-semantic-context">${semanticContextJson}</script>` : ''}
     ${documentAiArtifacts.serializableSpec ? `<script type="application/ai-render-graph+json" id="doc-ai-spec">${aiSpecJson}</script>` : ''}
     ${documentAiArtifacts.serializableMeta ? `<script type="application/json" id="doc-ai-meta">${aiMetaJson}</script>` : ''}
+    ${embeddedFileLibraryJson ? `<script type="application/json" id="embedded-file-library-data">${embeddedFileLibraryJson}</script>` : ''}
 
     <nav class="sidebar" aria-label="Section navigation">
       <div class="brand">${escapeHtml(data.brand ?? 'LD')}</div>
-      ${buildSidebar(sections)}
+      ${sidebarHtml}
       <div class="comp-toggle" id="comp-toggle" title="Open compositor">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </div>
@@ -3781,32 +4400,48 @@ const html = `<!doctype html>
         <button class="comp-cta-btn comp-cta-dismiss" id="cta-dismiss"></button>
       </div>
     </div>
+    ${embeddedFileLibrary ? `
+    <div class="embedded-file-modal" id="embedded-file-modal" tabindex="-1" hidden>
+      <div class="embedded-file-dialog" role="dialog" aria-modal="true" aria-labelledby="embedded-file-title">
+        <header class="embedded-file-dialog-head">
+          <div>
+            <p class="embedded-file-kicker" id="embedded-file-kind">Embedded file</p>
+            <h2 id="embedded-file-title">Embedded file</h2>
+            <p id="embedded-file-path"></p>
+          </div>
+          <button class="embedded-file-close" type="button" id="embedded-file-close" aria-label="Close embedded file">×</button>
+        </header>
+        <div class="embedded-file-body" id="embedded-file-body"></div>
+      </div>
+    </div>` : ''}
 
     <div class="content">
       <div class="wrap">
         <header class="page-header">
-          <h1>${escapeHtml(data.title)}</h1>
-          ${data.subtitle ? `<p class="subtitle">${escapeHtml(data.subtitle)}</p>` : ''}
+          <h1>${pageTitleHtml}</h1>
+          ${pageSubtitleHtml}
           ${data.pills ? `<div class="pill-row">${data.pills.map((p) => `<span class="pill">${escapeHtml(p)}</span>`).join('')}</div>` : ''}
           ${renderPeriodStrip(data.periods)}
+          ${contentLocaleConfig.locales.length > 1 ? `
+          <label class="content-locale-control" for="content-locale-select">
+            <span>Content</span>
+            <select id="content-locale-select">
+              ${contentLocaleConfig.locales.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === renderLocale ? ' selected' : ''}>${escapeHtml(entry.label)}</option>`).join('')}
+            </select>
+          </label>` : ''}
           ${viewSwitchHtml}
         </header>
 
         <div id="document-view" class="view-panel" data-view-panel="document">
           ${renderSnapshotPanel(snapshotMeta)}
 
-          ${data.objective ? `
-          <section class="callout" style="border-left:3px solid var(--accent)">
-            <p><strong>Objective</strong> ${escapeHtml(data.objective)}</p>
-            ${data.successCondition ? `<p style="color:var(--muted)"><strong>Success condition</strong> ${escapeHtml(data.successCondition)}</p>` : ''}
-            ${data.syncHints ? `<p style="color:var(--muted);font-size:13px"><strong>Scope</strong> ${Object.entries(data.syncHints).map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(v)}</code>`).join(' ')}</p>` : ''}
-          </section>` : ''}
+          ${pageObjectiveHtml}
 
-          ${(data.callouts ?? []).map(renderCallout).join('')}
+          ${docCalloutsHtml}
 
           ${renderArtifactLibrary(artifactPages)}
 
-          ${sections.map(renderSection).join('')}
+          ${sectionsHtml}
 
           ${data.source ? `<p class="footnote">Source: ${escapeHtml(data.source)}</p>` : ''}
           <p class="footnote" style="margin-top:${data.source ? '8px' : '40px'}">Living Doc Compositor ${escapeHtml(buildVersion)}</p>
@@ -3816,6 +4451,71 @@ const html = `<!doctype html>
         ${artifactPages.map(renderArtifactPage).join('')}
       </div>
     </div>
+
+    <script>
+      (() => {
+        const dataScript = document.getElementById('doc-content-localization');
+        if (!dataScript) return;
+        let payload = null;
+        try {
+          payload = JSON.parse(dataScript.textContent || '{}');
+        } catch {
+          return;
+        }
+        if (!payload || payload.schema !== 'living-doc-content-localization/v1') return;
+        const sourceLocale = payload.sourceLocale || 'en';
+        const entries = payload.entries || {};
+        const escapeHtml = (value) => String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+        const codeTick = String.fromCharCode(96);
+        const inlineCodePattern = new RegExp(codeTick + '([^' + codeTick + ']+)' + codeTick, 'g');
+        const inlineHtml = (value) => escapeHtml(value).replace(inlineCodePattern, '<code>$1</code>');
+        const lineStackHtml = (value, className) => String(value ?? '')
+          .split(/\\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => '<span class="' + escapeHtml(className || 'note-line') + '">' + inlineHtml(line) + '</span>')
+          .join('');
+        const valueFor = (entry, locale) => {
+          const values = entry?.values || {};
+          return values[locale] ?? values[sourceLocale] ?? values.en ?? Object.values(values).find((value) => value != null) ?? '';
+        };
+        const applyContentLocale = (locale) => {
+          const normalizedLocale = String(locale || sourceLocale).trim() || sourceLocale;
+          document.documentElement.setAttribute('lang', normalizedLocale);
+          for (const element of document.querySelectorAll('[data-content-key]')) {
+            const key = element.getAttribute('data-content-key');
+            const entry = entries[key];
+            if (!entry) continue;
+            const value = valueFor(entry, normalizedLocale);
+            const render = element.getAttribute('data-content-render') || entry.render || 'text';
+            if (render === 'inline') element.innerHTML = inlineHtml(value);
+            else if (render === 'line-stack') element.innerHTML = lineStackHtml(value, element.getAttribute('data-content-class') || entry.className || 'note-line');
+            else element.textContent = value;
+          }
+          const titleEntry = entries['document.title'];
+          if (titleEntry) document.title = valueFor(titleEntry, normalizedLocale) || document.title;
+          const selector = document.getElementById('content-locale-select');
+          if (selector && selector.value !== normalizedLocale) selector.value = normalizedLocale;
+          try {
+            localStorage.setItem('living-doc-content-locale', normalizedLocale);
+          } catch {}
+        };
+        window.__livingDocApplyContentLocale = applyContentLocale;
+        const selector = document.getElementById('content-locale-select');
+        const stored = (() => {
+          try { return localStorage.getItem('living-doc-content-locale') || ''; } catch { return ''; }
+        })();
+        const available = new Set((payload.locales || []).map((entry) => entry.id));
+        const initial = available.has(stored) ? stored : (payload.activeLocale || sourceLocale);
+        if (selector) selector.addEventListener('change', () => applyContentLocale(selector.value));
+        applyContentLocale(initial);
+      })();
+    </script>
 
     <script>
       (() => {
@@ -3841,7 +4541,13 @@ const html = `<!doctype html>
           },
           { rootMargin: '-20% 0px -60% 0px' }
         );
-        for (const { el } of sections) observer.observe(el);
+        for (const { el } of sections) {
+          if (el && el.nodeType === 1) {
+            try {
+              observer.observe(el);
+            } catch {}
+          }
+        }
         for (const icon of icons) {
           icon.addEventListener('click', () => {
             const view = icon.dataset.viewTarget;
@@ -3910,6 +4616,272 @@ const html = `<!doctype html>
           if (fallbackCard && document.fullscreenElement !== fallbackCard) {
             setActive(fallbackCard, false);
           }
+        });
+      })();
+    </script>
+
+    <script>
+      (() => {
+        const dataScript = document.getElementById('embedded-file-library-data');
+        const modal = document.getElementById('embedded-file-modal');
+        const body = document.getElementById('embedded-file-body');
+        const title = document.getElementById('embedded-file-title');
+        const pathLabel = document.getElementById('embedded-file-path');
+        const kind = document.getElementById('embedded-file-kind');
+        const closeButton = document.getElementById('embedded-file-close');
+        if (!dataScript || !modal || !body || !title || !pathLabel || !kind || !closeButton) return;
+
+        let libraryData = null;
+        try {
+          libraryData = JSON.parse(dataScript.textContent || '{}');
+        } catch {
+          return;
+        }
+        const entries = new Map((Array.isArray(libraryData.entries) ? libraryData.entries : []).map((entry) => [entry.path, entry]));
+        const decodeUtf8 = (raw) => {
+          const bytes = new Uint8Array(raw.length);
+          for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+          if (typeof TextDecoder === 'function') return new TextDecoder('utf-8').decode(bytes);
+          try {
+            return decodeURIComponent(Array.from(bytes, (byte) => '%' + byte.toString(16).padStart(2, '0')).join(''));
+          } catch {
+            return raw;
+          }
+        };
+
+        const decodeBase64Bytes = (entry) => {
+          const raw = atob(String(entry.content || ''));
+          const bytes = new Uint8Array(raw.length);
+          for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+          return bytes;
+        };
+
+        const decodeEntry = (entry) => decodeUtf8(atob(String(entry.content || '')));
+
+        const labelFor = (entry) => {
+          if (entry.mediaType === 'text/html') return 'Embedded HTML';
+          if (entry.mediaType === 'text/markdown') return 'Embedded Markdown';
+          if (entry.mediaType === 'text/plain') return 'Embedded text';
+          if (entry.mediaType === 'application/pdf') return 'Embedded PDF';
+          return 'Embedded file';
+        };
+
+        const escapeEmbeddedHtml = (value) => String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const markdownCodeTick = String.fromCharCode(96);
+        const markdownCodeFence = markdownCodeTick.repeat(3);
+
+        const renderMarkdownInline = (value) => escapeEmbeddedHtml(value)
+          .replace(new RegExp(markdownCodeTick + '([^' + markdownCodeTick + ']+)' + markdownCodeTick, 'g'), '<code>$1</code>')
+          .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
+
+        const isTableSeparator = (line) => /^\\s*\\|?\\s*:?-{3,}:?\\s*(\\|\\s*:?-{3,}:?\\s*)+\\|?\\s*$/.test(line);
+        const splitMarkdownTableRow = (line) => line
+          .trim()
+          .replace(/^\\|/, '')
+          .replace(/\\|$/, '')
+          .split('|')
+          .map((cell) => cell.trim());
+
+        const renderMarkdownTable = (lines) => {
+          const header = splitMarkdownTableRow(lines[0] || '');
+          const rows = lines.slice(2).map(splitMarkdownTableRow).filter((row) => row.length > 0);
+          return [
+            '<table><thead><tr>',
+            header.map((cell) => '<th>' + renderMarkdownInline(cell) + '</th>').join(''),
+            '</tr></thead><tbody>',
+            rows.map((row) => '<tr>' + row.map((cell) => '<td>' + renderMarkdownInline(cell) + '</td>').join('') + '</tr>').join(''),
+            '</tbody></table>',
+          ].join('');
+        };
+
+        const renderMarkdownToHtml = (markdown) => {
+          const lines = String(markdown || '').replace(/\\r\\n?/g, '\\n').split('\\n');
+          const html = [];
+          let paragraph = [];
+          let listType = '';
+          let listItems = [];
+          let codeLines = [];
+          let inCode = false;
+
+          const flushParagraph = () => {
+            if (!paragraph.length) return;
+            html.push('<p>' + renderMarkdownInline(paragraph.join(' ')) + '</p>');
+            paragraph = [];
+          };
+          const flushList = () => {
+            if (!listType) return;
+            html.push('<' + listType + '>' + listItems.map((item) => '<li>' + renderMarkdownInline(item) + '</li>').join('') + '</' + listType + '>');
+            listType = '';
+            listItems = [];
+          };
+          const flushCode = () => {
+            html.push('<pre><code>' + escapeEmbeddedHtml(codeLines.join('\\n')) + '</code></pre>');
+            codeLines = [];
+          };
+
+          for (let index = 0; index < lines.length; index += 1) {
+            const line = lines[index];
+            if (line.trimStart().startsWith(markdownCodeFence)) {
+              if (inCode) {
+                flushCode();
+                inCode = false;
+              } else {
+                flushParagraph();
+                flushList();
+                inCode = true;
+                codeLines = [];
+              }
+              continue;
+            }
+            if (inCode) {
+              codeLines.push(line);
+              continue;
+            }
+            if (!line.trim()) {
+              flushParagraph();
+              flushList();
+              continue;
+            }
+            if (line.includes('|') && lines[index + 1] && isTableSeparator(lines[index + 1])) {
+              flushParagraph();
+              flushList();
+              const tableLines = [line, lines[index + 1]];
+              index += 2;
+              while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
+                tableLines.push(lines[index]);
+                index += 1;
+              }
+              index -= 1;
+              html.push(renderMarkdownTable(tableLines));
+              continue;
+            }
+            const heading = line.match(/^(#{1,4})\\s+(.+)$/);
+            if (heading) {
+              flushParagraph();
+              flushList();
+              const level = heading[1].length;
+              html.push('<h' + level + '>' + renderMarkdownInline(heading[2]) + '</h' + level + '>');
+              continue;
+            }
+            const bullet = line.match(/^\\s*[-*]\\s+(.+)$/);
+            const ordered = line.match(/^\\s*\\d+\\.\\s+(.+)$/);
+            if (bullet || ordered) {
+              flushParagraph();
+              const nextType = bullet ? 'ul' : 'ol';
+              if (listType && listType !== nextType) flushList();
+              listType = nextType;
+              listItems.push((bullet || ordered)[1]);
+              continue;
+            }
+            const quote = line.match(/^\\s*>\\s?(.+)$/);
+            if (quote) {
+              flushParagraph();
+              flushList();
+              html.push('<blockquote>' + renderMarkdownInline(quote[1]) + '</blockquote>');
+              continue;
+            }
+            paragraph.push(line.trim());
+          }
+
+          if (inCode) flushCode();
+          flushParagraph();
+          flushList();
+          return '<article class="embedded-markdown">' + html.join('\\n') + '</article>';
+        };
+
+        let activeObjectUrl = '';
+
+        const releaseActiveObjectUrl = () => {
+          if (!activeObjectUrl) return;
+          URL.revokeObjectURL(activeObjectUrl);
+          activeObjectUrl = '';
+        };
+
+        const closeModal = () => {
+          releaseActiveObjectUrl();
+          modal.hidden = true;
+          body.innerHTML = '';
+        };
+
+        const renderPdf = (entry) => {
+          releaseActiveObjectUrl();
+          const bytes = decodeBase64Bytes(entry);
+          const blob = new Blob([bytes], { type: entry.mediaType || 'application/pdf' });
+          activeObjectUrl = URL.createObjectURL(blob);
+
+          const wrapper = document.createElement('div');
+          wrapper.className = 'embedded-pdf-viewer';
+
+          const actions = document.createElement('div');
+          actions.className = 'embedded-pdf-actions';
+
+          const hint = document.createElement('p');
+          hint.textContent = 'PDF viewer. If your browser does not render this inline, use the fallback link.';
+
+          const link = document.createElement('a');
+          link.href = activeObjectUrl;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.download = (entry.path || entry.title || 'embedded.pdf').split('/').pop() || 'embedded.pdf';
+          link.textContent = 'Open PDF';
+
+          actions.append(hint, link);
+
+          const frame = document.createElement('iframe');
+          frame.className = 'embedded-pdf-frame';
+          frame.title = entry.title || entry.path || 'Embedded PDF';
+          frame.src = activeObjectUrl;
+
+          wrapper.append(actions, frame);
+          body.appendChild(wrapper);
+        };
+
+        const openEntry = (entry) => {
+          title.textContent = entry.title || entry.path || 'Embedded file';
+          pathLabel.textContent = entry.path || '';
+          kind.textContent = labelFor(entry);
+          releaseActiveObjectUrl();
+          body.innerHTML = '';
+
+          if (entry.mediaType === 'text/html') {
+            const content = decodeEntry(entry);
+            const frame = document.createElement('iframe');
+            frame.className = 'embedded-file-frame';
+            frame.setAttribute('sandbox', 'allow-scripts');
+            frame.srcdoc = content;
+            body.appendChild(frame);
+          } else if (entry.mediaType === 'text/markdown') {
+            body.innerHTML = renderMarkdownToHtml(decodeEntry(entry));
+          } else if (entry.mediaType === 'application/pdf') {
+            renderPdf(entry);
+          } else {
+            const pre = document.createElement('pre');
+            pre.className = 'embedded-file-source';
+            pre.textContent = decodeEntry(entry);
+            body.appendChild(pre);
+          }
+
+          modal.hidden = false;
+          modal.focus({ preventScroll: true });
+        };
+
+        window.__livingDocOpenEmbeddedFile = (filePath) => {
+          const entry = entries.get(String(filePath || ''));
+          if (entry) openEntry(entry);
+        };
+        closeButton.addEventListener('click', closeModal);
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && !modal.hidden) closeModal();
         });
       })();
     </script>
@@ -4830,22 +5802,44 @@ const html = `<!doctype html>
         cta.classList.remove('show');
         ctaDismissed = true;
         compOverlay.classList.add('open');
-        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
-        compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
+        postCurrentDocToCompositor();
       });
       document.getElementById('cta-dismiss')?.addEventListener('click', () => {
         cta.classList.remove('show');
         ctaDismissed = true;
       });
 
+      function postCurrentDocToCompositor() {
+        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
+        let embeddedLibraryData = null;
+        const embeddedLibraryScript = document.getElementById('embedded-file-library-data');
+        if (embeddedLibraryScript) {
+          try {
+            embeddedLibraryData = JSON.parse(embeddedLibraryScript.textContent || '{}');
+          } catch {}
+        }
+        const loaded = () => {
+          try {
+            return compIframe?.contentDocument?.getElementById('doc-title')?.value === (docData.title || '');
+          } catch {
+            return false;
+          }
+        };
+        const send = () => {
+          if (!compIframe?.contentWindow) return;
+          if (!loaded()) compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
+          if (embeddedLibraryData) compIframe.contentWindow.postMessage({ type: 'load-embedded-file-library', library: embeddedLibraryData }, '*');
+        };
+        send();
+        [120, 300, 700, 1200].forEach((delay) => setTimeout(send, delay));
+      }
+
       // Open compositor overlay
       compToggle.addEventListener('click', () => {
         cta.classList.remove('show');
         ctaDismissed = true;
         compOverlay.classList.add('open');
-        // Pass the current document data to the compositor iframe via postMessage
-        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
-        compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
+        postCurrentDocToCompositor();
       });
 
       diffToggle?.addEventListener('click', async () => {
@@ -4906,14 +5900,10 @@ const html = `<!doctype html>
         cta.classList.remove('show');
         ctaDismissed = true;
         compOverlay.classList.add('open');
-        const docData = JSON.parse(document.getElementById('doc-meta').textContent);
-        // Give the iframe a beat to mount if it's the first open, then post both messages
-        const post = () => {
-          compIframe.contentWindow.postMessage({ type: 'load-document', doc: docData }, '*');
-          compIframe.contentWindow.postMessage({ type: 'open-build-modal' }, '*');
-        };
-        if (compIframe.contentDocument?.readyState === 'complete') post();
-        else compIframe.addEventListener('load', post, { once: true }), post();
+        postCurrentDocToCompositor();
+        [160, 420, 900, 1400].forEach((delay) => {
+          setTimeout(() => compIframe.contentWindow?.postMessage({ type: 'open-build-modal' }, '*'), delay);
+        });
       };
       buildLink?.addEventListener('click', openBuildFromOverlay);
       buildLink?.addEventListener('keydown', (e) => {
@@ -4924,6 +5914,7 @@ const html = `<!doctype html>
       const docSections = JSON.parse(document.getElementById('doc-meta').textContent).sections || [];
       if (docSections.length === 0) {
         compOverlay.classList.add('open');
+        postCurrentDocToCompositor();
       }
 
       window.addEventListener('message', (event) => {
@@ -4935,6 +5926,12 @@ const html = `<!doctype html>
           if (!id) return;
           compOverlay.classList.remove('open');
           if (window.__livingDocShowView) window.__livingDocShowView(id);
+          return;
+        }
+        if (payload.type === 'living-doc-open-embedded-file') {
+          const filePath = String(payload.path || '').trim();
+          if (!filePath) return;
+          if (window.__livingDocOpenEmbeddedFile) window.__livingDocOpenEmbeddedFile(filePath);
           return;
         }
         if (payload.type !== 'living-doc-open-href') return;
@@ -5549,6 +6546,10 @@ await writeFile(htmlPath, html.replace(/[ \t]+$/gm, ''));
 const relDoc = path.relative(process.cwd(), resolvedDocPath);
 const relHtml = path.relative(process.cwd(), htmlPath);
 console.log(`Wrote ${relHtml} from ${relDoc}`);
+if (embeddedFileLibrary) {
+  const label = embeddedFileLibrary.rootLabel || 'embedded file library';
+  console.log(`Embedded file library "${label}" with ${embeddedFileLibrary.entries.length} files (${formatBytes(embeddedFileLibrary.totalBytes)})`);
+}
 
 if (shouldCommit) {
   const repoRoot = resolveRepoRootForPath(resolvedDocPath);

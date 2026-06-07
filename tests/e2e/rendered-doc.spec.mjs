@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, mkdtemp } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,12 +7,41 @@ import { expect, test } from '@playwright/test';
 
 let renderedHtmlUrl;
 
+function pdfFixtureBytes() {
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 320 160] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n',
+    '4 0 obj\n<< /Length 52 >>\nstream\nBT /F1 18 Tf 42 86 Td (Embedded PDF fixture) Tj ET\nendstream\nendobj\n',
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+  ];
+  let body = '%PDF-1.4\n';
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(body, 'utf8'));
+    body += object;
+  }
+  const xrefOffset = Buffer.byteLength(body, 'utf8');
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += '0000000000 65535 f \n';
+  for (const offset of offsets.slice(1)) {
+    body += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  }
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(body, 'utf8');
+}
+
 test.beforeAll(async () => {
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'living-doc-e2e-rendered-'));
   const jsonPath = path.join(tmpDir, 'feature-doc.json');
   const htmlPath = path.join(tmpDir, 'feature-doc.html');
+  const embeddedRoot = path.join(tmpDir, 'embedded-pages');
   await copyFile('tests/fixtures/feature-doc.json', jsonPath);
-  execFileSync(process.execPath, ['scripts/render-living-doc.mjs', jsonPath], { stdio: 'inherit' });
+  await mkdir(path.join(embeddedRoot, 'notes'), { recursive: true });
+  await writeFile(path.join(embeddedRoot, 'overview.html'), '<!doctype html><html><head><title>Popup HTML</title></head><body><main><h1>Embedded popup page</h1><p>Rendered from integrated content.</p></main></body></html>\n');
+  await writeFile(path.join(embeddedRoot, 'notes', 'context.md'), '# Popup Markdown\n\nRendered from integrated markdown content.\n');
+  await writeFile(path.join(embeddedRoot, 'notes', 'brief.pdf'), pdfFixtureBytes());
+  execFileSync(process.execPath, ['scripts/render-living-doc.mjs', jsonPath, '--embed-file-library', embeddedRoot, '--embed-file-library-label', 'Popup fixture'], { stdio: 'inherit' });
   renderedHtmlUrl = pathToFileURL(htmlPath).href;
 });
 
@@ -23,6 +52,8 @@ test('opens rendered HTML and launches the embedded compositor with current docu
   await expect(page.locator('#snapshot-generated-at')).toBeVisible();
   await expect(page.locator('.nav-icon[data-target="status-snapshot"]')).toBeVisible();
   await expect(page.locator('#tooling')).toContainText('Universal renderer');
+
+  await expect(page.locator('#embedded-file-library')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Board' }).click();
   await expect(page.locator('#board-view')).toBeVisible();
@@ -101,8 +132,41 @@ test('opens rendered HTML and launches the embedded compositor with current docu
   const compositor = page.frameLocator('#comp-iframe');
   await expect(compositor.locator('#top-bar')).toContainText('Living Doc Compositor');
   await expect(compositor.locator('#doc-title')).toHaveValue('Fixture Feature Living Doc');
+  await compositor.locator('.rail-button[data-rail-mode="library"]').click();
+  await expect(compositor.locator('[data-embedded-file-path="overview.html"]')).toContainText('Popup HTML');
+  await expect(compositor.locator('[data-embedded-file-path="notes/context.md"]')).toContainText('Popup Markdown');
+  await expect(compositor.locator('[data-embedded-file-path="notes/brief.pdf"]')).toContainText('brief.pdf');
+  await expect(compositor.locator('[data-embedded-file-path="notes/brief.pdf"]')).toContainText('PDF');
+  await compositor.locator('[data-embedded-file-path="overview.html"]').click();
+  await expect(page.locator('#comp-overlay')).toHaveClass(/open/);
+  await expect(page.locator('#embedded-file-modal')).toBeVisible();
+  await expect(page.locator('#embedded-file-title')).toHaveText('Popup HTML');
+  await expect(page.locator('#embedded-file-path')).toHaveText('overview.html');
+  const embeddedFrame = page.frameLocator('.embedded-file-frame');
+  await expect(embeddedFrame.locator('h1')).toHaveText('Embedded popup page');
+  await page.locator('#embedded-file-close').click();
+  await expect(page.locator('#embedded-file-modal')).toBeHidden();
+  await expect(page.locator('#comp-overlay')).toHaveClass(/open/);
+  await compositor.locator('.rail-button[data-rail-mode="library"]').click();
+  await compositor.locator('[data-embedded-file-path="notes/context.md"]').click();
+  await expect(page.locator('#comp-overlay')).toHaveClass(/open/);
+  await expect(page.locator('#embedded-file-modal')).toBeVisible();
+  await expect(page.locator('.embedded-markdown')).toContainText('Popup Markdown');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#embedded-file-modal')).toBeHidden();
+  await compositor.locator('[data-embedded-file-path="notes/brief.pdf"]').click();
+  await expect(page.locator('#embedded-file-modal')).toBeVisible();
+  await expect(page.locator('#embedded-file-title')).toHaveText('brief.pdf');
+  await expect(page.locator('#embedded-file-kind')).toHaveText('Embedded PDF');
+  await expect(page.locator('.embedded-pdf-frame')).toBeVisible();
+  await expect(page.locator('.embedded-pdf-actions a')).toHaveText('Open PDF');
+  await expect(page.locator('.embedded-pdf-actions a')).toHaveAttribute('href', /^blob:/);
+  await page.locator('#embedded-file-close').click();
+  await expect(page.locator('#embedded-file-modal')).toBeHidden();
+  await expect(page.locator('#comp-overlay')).toHaveClass(/open/);
   await expect(compositor.locator('.visual-section-card').filter({ hasText: 'Tooling Surface' })).toBeVisible();
-  await compositor.getByRole('button', { name: 'Board' }).click();
+  await page.waitForTimeout(1300);
+  await compositor.locator('.preview-tab[data-tab="board"]').click();
   await expect(compositor.locator('.board-preview')).toContainText('Trusted');
   await expect(compositor.locator('.board-preview')).toContainText('Universal renderer');
   const previewTrack = compositor.locator('.board-preview-track');
