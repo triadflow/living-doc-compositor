@@ -147,6 +147,12 @@ const deterministicOne = spawnSync(process.execPath, deterministicArgs(determini
 });
 const deterministicTwo = spawnSync(process.execPath, deterministicArgs(deterministicTwoDir), {
   encoding: 'utf8',
+  env: {
+    ...process.env,
+    GIT_CONFIG_COUNT: '1',
+    GIT_CONFIG_KEY_0: 'core.abbrev',
+    GIT_CONFIG_VALUE_0: '12',
+  },
 });
 assert.equal(deterministicOne.status, 0, deterministicOne.stderr || deterministicOne.stdout);
 assert.equal(deterministicTwo.status, 0, deterministicTwo.stderr || deterministicTwo.stdout);
@@ -164,8 +170,8 @@ assert.match(
 );
 assert.match(
   deterministicOneHtml,
-  /Living Doc Compositor v0\.1\.0-[0-9a-f]+ \(2026-06-07\)/,
-  'deterministic snapshot time should bind the rendered build-date label',
+  /Living Doc Compositor v0\.1\.0-[0-9a-f]{40} \(2026-06-07\)/,
+  'deterministic snapshot time should bind the full renderer revision and build-date label',
 );
 
 for (const invalidSnapshotTime of ['2026-06-07', '2026-06-07T00:00:00Z', '2026-02-30T00:00:00.000Z']) {
@@ -198,6 +204,16 @@ const duplicateSnapshotTime = spawnSync(
 );
 assert.equal(duplicateSnapshotTime.status, 1, 'ambiguous deterministic snapshot time should fail closed');
 assert.match(duplicateSnapshotTime.stderr, /provided exactly once/);
+const missingRevisionEvidence = spawnSync(
+  process.execPath,
+  deterministicArgs(deterministicOneDir),
+  {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: '' },
+  },
+);
+assert.equal(missingRevisionEvidence.status, 1, 'missing renderer revision evidence should fail closed');
+assert.match(missingRevisionEvidence.stderr, /requires exact renderer revision evidence/);
 
 const aiRender = spawnSync(process.execPath, ['scripts/render-living-doc.mjs', aiJsonPath], {
   encoding: 'utf8',

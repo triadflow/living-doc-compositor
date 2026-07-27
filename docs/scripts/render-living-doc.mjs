@@ -169,10 +169,18 @@ const aiEnhancement = {
 // Version from git
 let buildVersion = 'dev';
 try {
-  const hash = execSync('git rev-parse --short HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
+  const fullRevision = execSync('git rev-parse HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
+  if (!/^[0-9a-f]{40}$/.test(fullRevision)) {
+    throw new Error('renderer revision is not a full lowercase Git SHA');
+  }
+  const revisionLabel = snapshotTimeSeen ? fullRevision : fullRevision.slice(0, 8);
   const date = snapshotGeneratedAt.slice(0, 10);
-  buildVersion = `v0.1.0-${hash} (${date})`;
-} catch {};
+  buildVersion = `v0.1.0-${revisionLabel} (${date})`;
+} catch (error) {
+  if (snapshotTimeSeen) {
+    throw new Error(`--snapshot-time requires exact renderer revision evidence: ${error.message}`);
+  }
+}
 const htmlPath = resolvedDocPath.replace(/\.json$/, '.html');
 
 function runGit(args, options = {}) {
