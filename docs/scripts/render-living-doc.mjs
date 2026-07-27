@@ -20,14 +20,27 @@ const aiRenderGraphRuntimePath = process.env.AI_RENDER_GRAPH_RUNTIME_PATH
 /* ── Load registry + doc ── */
 
 function printUsageAndExit(code = 1) {
-  console.error('Usage: render-living-doc.mjs <doc.json> [--ai-enhanced] [--ai-endpoint URL] [--ai-model NAME] [--ai-timeout-ms N] [--commit] [--message "Commit message"]');
+  console.error('Usage: render-living-doc.mjs <doc.json> [--snapshot-time YYYY-MM-DDTHH:mm:ss.sssZ] [--ai-enhanced] [--ai-endpoint URL] [--ai-model NAME] [--ai-timeout-ms N] [--commit] [--message "Commit message"]');
   process.exit(code);
+}
+
+function parseSnapshotTime(value) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    throw new Error('--snapshot-time must be a full UTC ISO instant with millisecond precision (YYYY-MM-DDTHH:mm:ss.sssZ)');
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) {
+    throw new Error('--snapshot-time must identify a valid canonical UTC instant');
+  }
+  return value;
 }
 
 const argv = process.argv.slice(2);
 let docPath = '';
 let shouldCommit = false;
 let commitMessageOverride = '';
+let snapshotTimeOverride = '';
+let snapshotTimeSeen = false;
 let aiEnhancedFlag = false;
 let aiEndpointOverride = '';
 let aiModelOverride = '';
@@ -45,6 +58,26 @@ for (let i = 0; i < argv.length; i += 1) {
   }
   if (arg === '--ai-enhanced') {
     aiEnhancedFlag = true;
+    continue;
+  }
+  if (arg === '--snapshot-time') {
+    if (snapshotTimeSeen) {
+      console.error('--snapshot-time may be provided exactly once');
+      printUsageAndExit(1);
+    }
+    const next = argv[i + 1];
+    if (!next) {
+      console.error('Missing value for --snapshot-time');
+      printUsageAndExit(1);
+    }
+    try {
+      snapshotTimeOverride = parseSnapshotTime(next);
+    } catch (error) {
+      console.error(error.message);
+      printUsageAndExit(1);
+    }
+    snapshotTimeSeen = true;
+    i += 1;
     continue;
   }
   if (arg === '--message' || arg === '--commit-message') {
@@ -117,7 +150,7 @@ if (cardStatusCheck.status !== 'current') {
   process.exit(2);
 }
 const renderLocale = ['en', 'nl', 'id'].includes(data.locale) ? data.locale : 'en';
-const snapshotGeneratedAt = new Date().toISOString();
+const snapshotGeneratedAt = snapshotTimeOverride || new Date().toISOString();
 const defaultCanonicalOrigin = path.relative(process.cwd(), resolvedDocPath) || resolvedDocPath;
 const docAiEnhancement = data.aiEnhancement && typeof data.aiEnhancement === 'object' ? data.aiEnhancement : {};
 const aiEnhancement = {
@@ -136,10 +169,18 @@ const aiEnhancement = {
 // Version from git
 let buildVersion = 'dev';
 try {
-  const hash = execSync('git rev-parse --short HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
-  const date = new Date().toISOString().slice(0, 10);
-  buildVersion = `v0.1.0-${hash} (${date})`;
-} catch {};
+  const fullRevision = execSync('git rev-parse HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
+  if (!/^[0-9a-f]{40}$/.test(fullRevision)) {
+    throw new Error('renderer revision is not a full lowercase Git SHA');
+  }
+  const revisionLabel = snapshotTimeSeen ? fullRevision : fullRevision.slice(0, 8);
+  const date = snapshotGeneratedAt.slice(0, 10);
+  buildVersion = `v0.1.0-${revisionLabel} (${date})`;
+} catch (error) {
+  if (snapshotTimeSeen) {
+    throw new Error(`--snapshot-time requires exact renderer revision evidence: ${error.message}`);
+  }
+}
 const htmlPath = resolvedDocPath.replace(/\.json$/, '.html');
 
 function runGit(args, options = {}) {

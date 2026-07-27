@@ -61,6 +61,17 @@ node scripts/render-living-doc.mjs docs/my-feature.json
 open docs/my-feature.html
 ```
 
+For a byte-reproducible snapshot in CI, bind the render to one canonical UTC
+instant:
+
+```bash
+node scripts/render-living-doc.mjs docs/my-feature.json \
+  --snapshot-time 2026-06-07T00:00:00.000Z
+```
+
+The deterministic option accepts exactly one full ISO timestamp with
+millisecond precision. Invalid or repeated values stop the render.
+
 Starters available:
 
 | Starter | For |
