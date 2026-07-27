@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { renderRegistryOverview } from '../../scripts/render-registry-overview.mjs';
@@ -14,10 +14,21 @@ const aiJsonPath = path.join(tmpDir, 'ai-enhanced-doc.json');
 const aiHtmlPath = path.join(tmpDir, 'ai-enhanced-doc.html');
 const semanticJsonPath = path.join(tmpDir, 'surface-delivery-template.json');
 const semanticHtmlPath = path.join(tmpDir, 'surface-delivery-template.html');
+const deterministicOneDir = path.join(tmpDir, 'deterministic-one');
+const deterministicTwoDir = path.join(tmpDir, 'deterministic-two');
+const deterministicSnapshotTime = '2026-06-07T00:00:00.000Z';
 
 await copyFile('tests/fixtures/feature-doc.json', jsonPath);
 await copyFile('tests/fixtures/ai-enhanced-doc.json', aiJsonPath);
 await copyFile('docs/living-doc-template-surface-delivery.json', semanticJsonPath);
+await Promise.all([
+  mkdir(deterministicOneDir),
+  mkdir(deterministicTwoDir),
+]);
+await Promise.all([
+  copyFile('tests/fixtures/feature-doc.json', path.join(deterministicOneDir, 'feature-doc.json')),
+  copyFile('tests/fixtures/feature-doc.json', path.join(deterministicTwoDir, 'feature-doc.json')),
+]);
 
 const featureDoc = JSON.parse(await readFile(jsonPath, 'utf8'));
 featureDoc.sections.push({
@@ -124,6 +135,69 @@ assert.doesNotMatch(fixtureMermaidSvg, /LegendTitle/, 'Mermaid legends should no
 assert.match(fixtureMermaidSvg, /class="mermaid-node-trace-label"[^>]*>root\.objective<\/tspan>/, 'Mermaid trace lines should render with trace-label styling');
 assert.match(fixtureMermaidSvg, /issue 371 residual cross/, 'Mermaid trace lines should replace id separators with readable spaces in rendered labels');
 assert.doesNotMatch(fixtureMermaidSvg, /issue-371-residual_cross-owner-history/, 'Mermaid SVG labels should not render raw long id separators');
+
+const deterministicArgs = (directory) => [
+  'scripts/render-living-doc.mjs',
+  path.join(directory, 'feature-doc.json'),
+  '--snapshot-time',
+  deterministicSnapshotTime,
+];
+const deterministicOne = spawnSync(process.execPath, deterministicArgs(deterministicOneDir), {
+  encoding: 'utf8',
+});
+const deterministicTwo = spawnSync(process.execPath, deterministicArgs(deterministicTwoDir), {
+  encoding: 'utf8',
+});
+assert.equal(deterministicOne.status, 0, deterministicOne.stderr || deterministicOne.stdout);
+assert.equal(deterministicTwo.status, 0, deterministicTwo.stderr || deterministicTwo.stdout);
+const deterministicOneHtml = await readFile(path.join(deterministicOneDir, 'feature-doc.html'), 'utf8');
+const deterministicTwoHtml = await readFile(path.join(deterministicTwoDir, 'feature-doc.html'), 'utf8');
+assert.equal(
+  deterministicOneHtml,
+  deterministicTwoHtml,
+  'same source, renderer revision, and snapshot time should produce byte-identical HTML',
+);
+assert.match(
+  deterministicOneHtml,
+  /datetime="2026-06-07T00:00:00Z"[^>]*data-snapshot-anchor="generated-at"/,
+  'deterministic snapshot time should bind rendered metadata',
+);
+assert.match(
+  deterministicOneHtml,
+  /Living Doc Compositor v0\.1\.0-[0-9a-f]+ \(2026-06-07\)/,
+  'deterministic snapshot time should bind the rendered build-date label',
+);
+
+for (const invalidSnapshotTime of ['2026-06-07', '2026-06-07T00:00:00Z', '2026-02-30T00:00:00.000Z']) {
+  const invalidSnapshotRender = spawnSync(
+    process.execPath,
+    ['scripts/render-living-doc.mjs', jsonPath, '--snapshot-time', invalidSnapshotTime],
+    { encoding: 'utf8' },
+  );
+  assert.equal(invalidSnapshotRender.status, 1, 'invalid deterministic snapshot time should fail closed');
+  assert.match(invalidSnapshotRender.stderr, /--snapshot-time/, 'failure should name the invalid option');
+}
+const missingSnapshotTime = spawnSync(
+  process.execPath,
+  ['scripts/render-living-doc.mjs', jsonPath, '--snapshot-time'],
+  { encoding: 'utf8' },
+);
+assert.equal(missingSnapshotTime.status, 1, 'missing deterministic snapshot time should fail closed');
+assert.match(missingSnapshotTime.stderr, /Missing value for --snapshot-time/);
+const duplicateSnapshotTime = spawnSync(
+  process.execPath,
+  [
+    'scripts/render-living-doc.mjs',
+    jsonPath,
+    '--snapshot-time',
+    deterministicSnapshotTime,
+    '--snapshot-time',
+    deterministicSnapshotTime,
+  ],
+  { encoding: 'utf8' },
+);
+assert.equal(duplicateSnapshotTime.status, 1, 'ambiguous deterministic snapshot time should fail closed');
+assert.match(duplicateSnapshotTime.stderr, /provided exactly once/);
 
 const aiRender = spawnSync(process.execPath, ['scripts/render-living-doc.mjs', aiJsonPath], {
   encoding: 'utf8',
